@@ -1,0 +1,72 @@
+{% extends 'layout.html' %} {% block logo %}
+<a href="{{homeUrl}}"><img src="{{logo}}" alt="Project logo" /></a>
+{%endblock%} {% block navigation %}
+
+<div class="wrapper">
+  <a href="{{homeUrl}}"
+    ><input class="radio" id="home" name="group" type="home"
+  /></a>
+  <a href="{{aboutUrl}}"
+    ><input class="radio" id="about" name="group" type="about"
+  /></a>
+  <a href="{{bgUrl}}"
+    ><input
+      class="radio"
+      id="project-background"
+      name="group"
+      type="project-background"
+  /></a>
+  <input class="radio" id="sources" name="group" type="sources" />
+  <input
+    class="radio"
+    id="acknowledgments"
+    name="group"
+    type="acknowledgements"
+  />
+  <input class="radio" id="contact" name="group" type="contact" />
+
+  <div class="tabs">
+    <label class="tab" id="home-tab" for="home">Home</label>
+    <label class="tab" id="about-tab" for="about">About</label>
+    <label class="tab" id="pb-tab" for="project-background"
+      >Project Background</label
+    >
+    <label class="tab" id="sources-tab" for="contact">Sources</label>
+    <label class="tab" id="acknowledgments-tab" for="acknowledgemnets"
+      >Acknowldgements</label
+    >
+    <label class="tab" id="contact" for="surprise-me">Contact</label>
+  </div>
+
+  <div class="search-bar">
+    <input type="search" name="search" placeholder="search item" />
+    <input type="submit" value="Search" />
+  </div>
+  {% endblock %} {% block content %}
+  <h1><center>{{pd_title | safe}}</center></h1>
+  <div class="container">
+    <div class="project-info">
+      <h1>Introduction</h1>
+      {{ intro|safe }}
+
+      <h1>Usage</h1>
+      {{ usage|safe }}
+    </div>
+
+    <div class="edition-icons">
+      <h1><emp>3D Scholarly Editions</emp></h1>
+      {{ editionLinks|safe }}
+    </div>
+  </div>
+
+  {% endblock %} {% block footer %}
+
+  <div class="home-button">
+    <a href="/"
+      ><label class="button" id="main-home-tab" for="main-home"
+        >PURE3D Home</label
+      ></a
+    >
+  </div>
+  {% endblock %}
+</div>

@@ -1,0 +1,12 @@
+{% extends 'project.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="edition-info">
+        {{aboutHtml|safe}}
+    </div>
+
+    <div class="model">
+        <iframe class="previewer" src="/voyager/{{scene}}/{{root}}"/> </iframe>
+    </div>
+    {% endblock %}

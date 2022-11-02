@@ -1,0 +1,23 @@
+version: '3.7'
+
+services:
+  pure3dapp:
+    image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
+    restart: unless-stopped
+    container_name: pure3dapp
+    hostname: pure3dapp
+    environment:
+      SECRET_FILE: ${SECRET_FILE}
+      DATA_DIR: ${DATA_DIR}
+    entrypoint: ./start.sh test
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pure3dapp.rule=Host(`pure3dapp.${hostname}`)"
+      - "traefik.http.routers.pure3dapp.entrypoints=http"
+      - "traefik.http.services.pure3dapp.loadbalancer.server.port=8000"
+
+networks:
+  traefik-public:
+    external: true

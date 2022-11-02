@@ -1,0 +1,37 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pure3D</title>
+    <!-- href="/static/assets/style.css"-->
+    <link rel="stylesheet" type="text/css" href="/static/css/vars.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/common.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/page.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/components.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css" />
+    {% block head %} {% endblock %}
+  </head>
+
+  <body>
+    <header id="header">
+      <div id="msgbar">{{ messages | safe }}</div>
+      <div id="topbar">
+        {% block logo %} {% endblock %}
+        <div id="login-buttons">{{ testUsers | safe }}</div>
+        <span class="fill">&nbsp;</span>
+        <div><a class="loginout button disabled" href="/login">login</a></div>
+      </div>
+      <nav id="nav">{% block navigation %} {% endblock %}</nav>
+    </header>
+    <main id="main">
+        <div id="contentleft">{% block contentleft %} {% endblock %}</div>
+        <div id="contentright">{% block contentright %} {% endblock %}</div>
+    </main>
+    <footer id="footer">
+      <img
+        src="/static/media/Website_Footer.png"
+      >
+      {% block footer %} {% endblock %}
+    </footer>
+  </body>
+</html>

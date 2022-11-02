@@ -1,0 +1,35 @@
+version: '3.7'
+
+volumes:
+  mongodb-volume:
+    external: false
+
+services:
+  pure3dapp:
+    image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
+    container_name: pure3dapp
+    hostname: pure3dapp
+    environment:
+      SECRET_FILE: ${SECRET_FILE}
+      DATA_DIR: ${DATA_DIR}
+      mongouser: ${mongouser}
+      mongopassword: ${mongopassword}
+    entrypoint: ["./start.sh", "test"]
+    depends_on:
+      - mongodb
+    volumes:
+      - "./:/app"
+    ports:
+      - "8000:8000"
+
+  mongodb:
+    image: mongo:5.0.6
+    hostname: mongodb
+    container_name: mongodb
+    volumes:
+      - "mongodb-volume:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${mongouser}
+      MONGO_INITDB_ROOT_PASSWORD: ${mongopassword}
+    ports:
+      - "37017:27017"

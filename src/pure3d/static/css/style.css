@@ -1,0 +1,137 @@
+.basic-info {
+  width: 50%;
+  text-align: justify;
+}
+
+.project-icons img{
+  width: 10rem;
+  height: 10rem;
+  text-align: center;
+}
+
+.project-info {
+  width: 50%;
+  text-align: justify;
+}
+
+.edition-icons img{
+  width: 10rem;
+  height: 10rem;
+  text-align: center;
+}
+
+.edition-icons{
+  width: 50%;
+  text-align: center;
+}
+
+.edition-info {
+  width: 50%;
+  text-align: justify;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+}
+
+.tab {
+  cursor: pointer;
+  padding: 10px 20px;
+  margin: 0px 2px;
+  background: #32557f;
+  display: inline-block;
+  color: #fff;
+  border-radius: 3px 3px 0px 0px;
+  box-shadow: 0 0.5rem 0.8rem #00000080;
+}
+
+.radio {
+  display: none;
+}
+
+.voyager-explorer {
+  display: block;
+  position: relative;
+  height: 500px;
+}
+
+.home-button{
+  text-align: right;
+}
+
+.scene {
+  font-size: large;
+  font-weight: bold;
+  width: 40%;
+}
+.viewerbuttons {
+  width: 55%;
+}
+
+.vw {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  border-radius: 0.5em;
+  border: 0.2em solid var(--viewer-back);
+  padding: 0.3em 0.2em;
+  margin: 0.3em 2em;
+}
+.vwv {
+  display: flex;
+  flex-flow: column wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  border-radius: 0.5em;
+  border: 0.2em solid var(--viewer-back);
+  padding: 0.3em 0.2em;
+  margin: 0.3em 2em;
+}
+.vwl {
+  font-size: small;
+}
+
+.vv {
+  display: flex;
+  flex-flow: row wrap;
+  border-radius: 0.3em;
+  border: 0.1em solid var(--version-back);
+  padding: 0.2em 0.1em;
+  margin: 0.2em 1em;
+}
+.vvl {
+  font-size: small;
+  font-family: monospace;
+}
+
+.vwb {
+  border-radius: 0.3em;
+  padding: 0.2em 0.1em;
+  margin: 0.2em 0.1em;
+  font-size: large;
+  font-weight: bold;
+}
+
+.scenerow {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+}
+
+div.caption {
+  display: flex;
+  flex-flow: column nowrap;
+  border-radius: 0.4em;
+  border-style: solid;
+  border-width: 0.2em;
+  border-color: var(--caption-border);
+  margin-bottom: 1em;
+}
+
+div.caption.active {
+  border-color: var(--caption-border-active);
+}

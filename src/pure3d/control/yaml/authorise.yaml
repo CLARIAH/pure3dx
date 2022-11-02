@@ -1,0 +1,104 @@
+actions:
+  - allocate
+  - create
+  - view
+  - edit
+  - delete
+
+# meaning of project rules
+# key1: published or unpublished projects
+#   null means: there is no project,
+#   the only action is then: allocate
+# within published or unpublished projects we have
+# key2: the kind of user, determined by the permissions
+#   assigned on the basis of authentication
+#
+# then we have a list of actions
+# which may or may not be permitted
+# the permission is either
+#  true: permitted
+#  false: not permitted
+#  a list of project specific roles
+#  that are permitted to do the action
+#
+projectRules:
+  published:
+    null:
+      create: false
+      view: true
+      edit: false
+      delete: false
+    guest:
+      create: false
+      view: true
+      edit: false
+      delete: false
+    user:
+      create: false
+      view: true
+      edit: false
+      delete: false
+    admin:
+      create: false
+      view: true
+      edit: false
+      delete: false
+  unpublished:
+    null:
+      create: false
+      view: false
+      edit: false
+      delete: false
+    guest:
+      create:
+      - editor
+      - creator
+      view:
+      - reader
+      - editor
+      - creator
+      edit:
+      - editor
+      - creator
+      delete:
+      - creator
+    user:
+      create:
+      - editor
+      - creator
+      view:
+      - reader
+      - editor
+      - creator
+      edit:
+      - editor
+      - creator
+      delete:
+      - creator
+      - editor
+    admin:
+      create:
+      - editor
+      - creator
+      view:
+      - reader
+      - editor
+      - creator
+      edit:
+      - editor
+      - creator
+      delete:
+      - creator
+      - editor
+  null:
+    null: false
+    guest: false
+    user: false
+    admin:
+      - allocate
+
+  admin:
+    - create
+    - view
+    - edit
+    - delete

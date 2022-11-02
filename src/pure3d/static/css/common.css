@@ -1,0 +1,365 @@
+#body,
+body,
+p,
+div,
+td,
+li
+{
+	font-family: sans-serif;
+}
+
+a
+{
+	color: var(--action-fore);
+	text-decoration: none;
+}
+a:active,
+a:hover
+{
+	color: var(--action-fore);
+	text-decoration: underline;
+}
+
+table
+{
+    border-collapse: collapse;
+}
+td
+{
+    vertical-align: top;
+}
+.heavy
+{
+  font-weight: bold;
+}
+.error
+{
+	color: var(--error-fore);
+	background-color: var(--error-back);
+}
+.error-o
+{
+	color: var(--error-fore-o);
+}
+.warning
+{
+	color: var(--warning-fore);
+	background-color: var(--warning-back);
+}
+.warning-o
+{
+	color: var(--warning-fore-o);
+}
+.good
+{
+	color: var(--good-fore);
+	background-color: var(--good-back);
+}
+.good-o
+{
+	color: var(--good-fore-o);
+}
+.info
+{
+	color: var(--info-fore);
+	background-color: var(--info-back);
+}
+.info-o
+{
+	color: var(--info-fore-o);
+}
+.special
+{
+	color: var(--special-fore);
+	background-color: var(--special-back);
+}
+.special-o
+{
+	color: var(--special-fore-o);
+}
+
+.i-add {color: var(--icon-good-fore)}
+.i-calc {color: var(--icon-fore)}
+.i-chain {color: var(--icon-fore)}
+.i-check {color: var(--icon-good-fore)}
+.i-clear {color: var(--icon-good-fore)}
+.i-cross {color: var(--icon-error-fore)}
+.i-delete {color: var(--icon-error-fore)}
+.i-detached {color: var(--icon-warning-fore)}
+.i-dismiss {color: var(--icon-special-fore)}
+.i-edit {color: var(--icon-special-fore)}
+.i-flag {color: var(--icon-warning-fore)}
+.i-info {color: var(--icon-special-fore)}
+.i-insert {color: var(--icon-special-fore)}
+.i-missing {color: var(--icon-error-fore)}
+.i-nogroup {color: var(--icon-warning-fore)}
+.i-noicon {color: var(--icon-error-fore)}
+.i-none {color: var(--icon-warning-fore)}
+.i-nonumber {color: var(--icon-warning-fore)}
+.i-nouser {color: var(--icon-warning-fore)}
+.i-ok {color: var(--icon-special-fore)}
+.i-refresh {color: var(--icon-special-fore)}
+
+.icon,
+.symbol
+{
+  border: 0;
+}
+.icon,
+.button
+{
+  cursor: pointer;
+}
+.symbol,
+.label
+{
+  cursor: default;
+}
+.button
+{
+	color: var(--action-fore);
+	background-color: var(--action-back);
+	border-color: var(--action-border);
+}
+.button.disabled
+{
+	cursor: default;
+	background-color: var(--action-disabled-back);
+}
+.active
+{
+	background-color: var(--action-active-back);
+	border-color: var(--action-active-border);
+  border-width: 0.2em;
+}
+.button.active,
+.label.active
+{
+	color: var(--action-active-fore);
+}
+.large,
+.medium,
+.small
+{
+	border-radius: var(--radius);
+	padding-top: calc(var(--radius) * 0.4);
+	padding-bottom: calc(var(--radius) * 0.4);
+	padding-left: calc(var(--radius) * 1.2);
+	padding-right: calc(var(--radius) * 1.2);
+  margin: calc(var(--radius) * 0.9) calc(var(--radius) * 0.5);
+}
+.large
+{
+	font-size: large;
+	--radius: 0.5rem;
+}
+.medium
+{
+	font-size: medium;
+	--radius: 0.4rem;
+}
+.small
+{
+	font-size: medium;
+	--radius: 0.3rem;
+}
+.icon.large,
+.symbol.large
+{
+	font-size: 2rem;
+}
+.icon.medium,
+.symbol.medium
+{
+	font-size: 1.5rem;
+}
+.icon.small,
+.symbol.small
+{
+	font-size: 1rem;
+}
+
+.a-none,.subhead.a-none
+{
+    color: #444444;
+    background-color: #dddddd;
+}
+.a-started,.subhead.a-started
+{
+    color: #ffffff;
+    background-color: #ff8800;
+}
+.a-self,.subhead.a-self
+{
+    color: #ffffff;
+    background-color: #eebb00;
+}
+.a-inreview,.subhead.a-inreview
+{
+    color: #444444;
+    background-color: #eeee00;
+}
+.a-rejected,.subhead.a-rejected
+{
+    color: #ffffff;
+    background-color: #ff0000;
+}
+.a-accepted,.subhead.a-accepted
+{
+    color: #000000;
+    background-color: #88ff88;
+}
+.r-none,.subhead.r-none
+{
+    color: #444444;
+    background-color: #dddddd;
+}
+.r-noreview,.subhead.r-noreview
+{
+    color: #444444;
+    background-color: #eeeeee;
+}
+.r-inreview,.subhead.r-inreview
+{
+    color: #444444;
+    background-color: #eeee00;
+}
+.r-skipreview,.subhead.r-skipreview
+{
+    color: #444444;
+    background-color: #ddff00;
+}
+.r-rejected,.subhead.r-rejected
+{
+    color: #ffffff;
+    background-color: #ff0000;
+}
+.r-revised,.subhead.r-revised
+{
+    color: #444444;
+    background-color: #ff8800;
+}
+.r-accepted,.subhead.r-accepted
+{
+    color: #000000;
+    background-color: #88ff88;
+}
+.c-undecided,.subhead.c-undecided
+{
+}
+.c-rejected,.subhead.c-rejected
+{
+    color: #000000;
+    background-color: #ff8888;
+}
+.c-selected,.subhead.c-selected
+{
+    color: #000000;
+    background-color: #00ffff;
+}
+input
+{
+	color: var(--action-fore);
+	background-color: var(--action-back);
+	border: 0;
+	padding: 0.2rem;
+}
+input[type=text],
+textarea
+{
+	color: var(--edit-text-fore);
+	background-color: var(--edit-text-back);
+	outline: 2px inset var(--edit-text-border);
+	border: 0;
+	font-size: large;
+	font-family: monospace;
+}
+input[type=text]
+{
+	width: calc(100% - 1rem);
+	margin: 0.3rem 0.3rem;
+}
+textarea
+{
+	width: calc(100% - 1rem);
+	height: 10rem;
+	margin: 0.3rem 0.3rem;
+}
+input[type=text]:focus,
+textarea:focus
+{
+	color: var(--edit-focus-text);
+	background-color: var(--edit-focus-back);
+	outline: 4px inset var(--edit-focus-border);
+	border: 0;
+}
+input.wfilter[type=text]
+{
+  width: 10rem;
+	color: var(--tag-var-fore);
+	background-color: var(--tag-var-back);
+}
+input.wfilter[type=text]:valid+span:after
+{
+  content: '';
+}
+input.wfilter[type=text]:invalid+span:after
+{
+  content: '';
+}
+input[type=text]:valid+span:after
+{
+  position: absolute;
+  content: '✓';
+  padding-left: 1rem;
+  color: var(--good-fore-o);
+}
+input[type=text]:valid
+{
+  color: var(--good-fore-o);
+  background-color: var(--good-back);
+}
+input[type=text]:invalid+span:after
+{
+  position: absolute;
+  content: attr(valmsg);
+  padding-left: 1rem;
+  color: var(--error-fore-o);
+}
+input[type=text]:invalid
+{
+  color: var(--error-fore-o);
+  background-color: var(--error-back);
+}
+span.option
+{
+  color: var(--user-fore);
+  font-size: small;
+}
+.ruleabove
+{
+  margin-top: 0.5em;
+  padding-top: 0.5em;
+  border-top: 0.2em solid var(--dim-back);
+}
+.left
+{
+  float: left;
+}
+.right
+{
+  float: right;
+}
+.small
+{
+  font-size: small;
+}
+.mono {
+	font-family: monospace;
+}
+summary
+{
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+

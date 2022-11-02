@@ -1,0 +1,13 @@
+dataUrl: data
+webdavUrl: webdav
+
+title: >-
+  PURE3D - An Infrastructure
+  for Publication and Preservation
+  of 3D Scholarship
+
+heading: Pure 3D website
+
+database: pure3d
+mongoHost: mongodb
+mongoPort: 27017

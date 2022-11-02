@@ -1,0 +1,18 @@
+version: '3.7'
+
+volumes:
+  mongodb-volume:
+    external: false
+
+services:
+  mongodb:
+    image: mongo:5.0.6
+    hostname: mongodb
+    container_name: mongodb
+    volumes:
+      - "mongodb-volume:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${mongouser}
+      MONGO_INITDB_ROOT_PASSWORD: ${mongopassword}
+    ports:
+      - "37017:27017"

@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+
+{% block logo %}
+<a id="logo" href="/"
+  ><img
+    src="/static/media/Pure3D_logo.png"
+    alt="The Pure3D logo"
+    width="200rem"
+  >
+</a>
+{%endblock%}
+
+{% block navigation %}
+<div class="wrapper">
+{{navigation|safe}}
+</div>
+{% endblock %}
+
+{% block contentleft %}
+{{materialLeft|safe}}
+{% endblock %}
+
+{% block contentright %}
+{{materialRight|safe}}
+{% endblock %}
+
+{% block footer %}
+<span id="version">{{versionInfo}}</span>
+{% endblock %}
