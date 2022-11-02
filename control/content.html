@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>control.content API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>control.content</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L1-L274" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import os
+from markdown import markdown
+
+from control.helpers.generic import AttrDict
+
+
+COMPONENT = dict(
+    me=(None, None, None, None),
+    home=(&#34;texts/intro&#34;, &#34;md&#34;, True, &#34;&#34;),
+    about=(&#34;texts/about&#34;, &#34;md&#34;, True, &#34;## About\n\n&#34;),
+    intro=(&#34;texts/intro&#34;, &#34;md&#34;, True, &#34;&#34;),
+    usage=(&#34;texts/usage&#34;, &#34;md&#34;, True, &#34;## Guide\n\n&#34;),
+    description=(&#34;texts/description&#34;, &#34;md&#34;, True, &#34;## Description\n\n&#34;),
+    sources=(&#34;texts/sources&#34;, &#34;md&#34;, True, &#34;## Sources\n\n&#34;),
+    title=(&#34;meta/dc&#34;, &#34;json&#34;, &#34;dc.title&#34;, None),
+    icon=(&#34;candy/icon&#34;, &#34;png&#34;, None, None),
+    list=(None, None, None, None),
+)
+
+
+class Content:
+    def __init__(self, config, Viewers, Messages, Mongo):
+        &#34;&#34;&#34;Retrieving content from database and file system.
+
+        This class has methods to retrieve various pieces of content
+        from the data sources, and hand it over to the `control.pages.Pages`
+        class that will compose a response out of it.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        config: AttrDict
+            App-wide configuration data obtained from
+            `control.config.Config.config`.
+        Viewers: object
+            Singleton instance of `control.viewers.Viewers`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
+        self.config = config
+        self.Viewers = Viewers
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Mongo = Mongo
+
+    def addAuth(self, Auth):
+        self.Auth = Auth
+
+    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+        Mongo = self.Mongo
+
+        fields = fieldPath.split(&#34;.&#34;)
+
+        meta = (
+            Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+            if editionId is not None
+            else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+            if projectId is not None
+            else Mongo.getRecord(&#34;meta&#34;)
+        ).meta or {}
+        text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
+
+        for field in fields[1:]:
+            text = text.get(field, {})
+        if type(text) is not str:
+            text = &#34;&#34;
+        return markdown(text) if asMd else text
+
+    def getSurprise(self):
+        return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;
+
+    def getProjects(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
+            row = AttrDict(row)
+            projectId = row._id
+            permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+            if not permitted:
+                continue
+
+            title = row.title
+            candy = row.candy
+
+            projectUrl = f&#34;/projects/{projectId}&#34;
+            projectName = row.name
+            iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
+            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getEditions(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+        projectName = projectInfo.name
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
+            row = AttrDict(row)
+            editionId = row._id
+            permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+            if not permitted:
+                continue
+
+            title = row.title
+            candy = row.candy
+
+            editionUrl = f&#34;/editions/{editionId}&#34;
+            editionName = row.name
+            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getScenes(
+        self,
+        projectId,
+        editionId,
+        sceneId=None,
+        viewer=&#34;&#34;,
+        version=&#34;&#34;,
+        action=&#34;view&#34;,
+    ):
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Viewers = self.Viewers
+
+        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+        projectName = projectInfo.name
+        editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+        editionName = editionInfo.name
+
+        wrapped = []
+
+        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+        if not permitted:
+            return []
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+        actions = [&#34;view&#34;]
+        if Auth.isModifiable(projectId, editionId):
+            actions.append(&#34;edit&#34;)
+
+        (viewer, version) = Viewers.check(viewer, version)
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
+            row = AttrDict(row)
+
+            isSceneActive = sceneId is None and row.default or row._id == sceneId
+            (frame, buttons) = Viewers.getButtons(
+                row._id, actions, isSceneActive, viewer, version, action
+            )
+
+            sceneUrl = f&#34;/scenes/{row._id}&#34;
+            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+            caption = self.getCaption(
+                row.name,
+                row.candy,
+                sceneUrl,
+                iconUrlBase,
+                active=isSceneActive,
+                frame=frame,
+                buttons=buttons,
+            )
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getCaption(
+        self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
+    ):
+        icon = self.getIcon(candy)
+
+        activeCls = &#34;active&#34; if active else &#34;&#34;
+        start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
+        visual = (
+            f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
+        )
+        heading = (
+            f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
+            if frame
+            else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
+        )
+        end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
+        caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
+        return caption
+
+    def getIcon(self, candy):
+        if candy is None:
+            return None
+        first = [image for (image, isIcon) in candy.items() if isIcon]
+        if first:
+            return first[0]
+        return None
+
+    def getViewerFile(self, path):
+        config = self.config
+        Messages = self.Messages
+
+        dataDir = config.dataDir
+
+        dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+
+        exists = os.path.isfile(dataPath)
+        if not exists:
+            logmsg = f&#34;Accessing {dataPath}: &#34;
+            logmsg += &#34;does not exist. &#34;
+            Messages.error(
+                msg=&#34;Accessing a file&#34;,
+                logmsg=logmsg,
+            )
+
+        with open(dataPath, &#34;rb&#34;) as fh:
+            textData = fh.read()
+
+        return textData
+
+    def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+        config = self.config
+        Messages = self.Messages
+        Auth = self.Auth
+
+        dataDir = config.dataDir
+
+        urlBase = (
+            &#34;texts&#34;
+            if projectName == &#34;&#34; and editionName == &#34;&#34;
+            else f&#34;projects/{projectName}&#34;
+            if editionName == &#34;&#34;
+            else f&#34;projects/{projectName}/editions/{editionName}&#34;
+        )
+
+        dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+
+        permitted = (
+            True
+            if urlBase == &#34;texts&#34;
+            else Auth.authorise(
+                &#34;view&#34;, project=projectName, edition=editionName, byName=True
+            )
+        )
+
+        exists = os.path.isfile(dataPath)
+        if not permitted or not exists:
+            logmsg = f&#34;Accessing {dataPath}: &#34;
+            if not permitted:
+                logmsg = &#34;not allowed. &#34;
+            if not exists:
+                logmsg += &#34;does not exist. &#34;
+            Messages.error(
+                msg=&#34;Accessing a file&#34;,
+                logmsg=logmsg,
+            )
+
+        with open(dataPath, &#34;rb&#34;) as fh:
+            textData = fh.read()
+
+        return textData
+
+    def getRecord(self, *args, **kwargs):
+        return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="control.content.Content"><code class="flex name class">
+<span>class <span class="ident">Content</span></span>
+<span>(</span><span>config, Viewers, Messages, Mongo)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Retrieving content from database and file system.</p>
+<p>This class has methods to retrieve various pieces of content
+from the data sources, and hand it over to the <code><a title="control.pages.Pages" href="pages.html#control.pages.Pages">Pages</a></code>
+class that will compose a response out of it.</p>
+<p>It is instantiated by a singleton object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>App-wide configuration data obtained from
+<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<dt><strong><code>Viewers</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>.</dd>
+<dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
+<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L21-L274" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Content:
+    def __init__(self, config, Viewers, Messages, Mongo):
+        &#34;&#34;&#34;Retrieving content from database and file system.
+
+        This class has methods to retrieve various pieces of content
+        from the data sources, and hand it over to the `control.pages.Pages`
+        class that will compose a response out of it.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        config: AttrDict
+            App-wide configuration data obtained from
+            `control.config.Config.config`.
+        Viewers: object
+            Singleton instance of `control.viewers.Viewers`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
+        self.config = config
+        self.Viewers = Viewers
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Mongo = Mongo
+
+    def addAuth(self, Auth):
+        self.Auth = Auth
+
+    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+        Mongo = self.Mongo
+
+        fields = fieldPath.split(&#34;.&#34;)
+
+        meta = (
+            Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+            if editionId is not None
+            else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+            if projectId is not None
+            else Mongo.getRecord(&#34;meta&#34;)
+        ).meta or {}
+        text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
+
+        for field in fields[1:]:
+            text = text.get(field, {})
+        if type(text) is not str:
+            text = &#34;&#34;
+        return markdown(text) if asMd else text
+
+    def getSurprise(self):
+        return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;
+
+    def getProjects(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
+            row = AttrDict(row)
+            projectId = row._id
+            permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+            if not permitted:
+                continue
+
+            title = row.title
+            candy = row.candy
+
+            projectUrl = f&#34;/projects/{projectId}&#34;
+            projectName = row.name
+            iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
+            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getEditions(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+        projectName = projectInfo.name
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
+            row = AttrDict(row)
+            editionId = row._id
+            permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+            if not permitted:
+                continue
+
+            title = row.title
+            candy = row.candy
+
+            editionUrl = f&#34;/editions/{editionId}&#34;
+            editionName = row.name
+            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getScenes(
+        self,
+        projectId,
+        editionId,
+        sceneId=None,
+        viewer=&#34;&#34;,
+        version=&#34;&#34;,
+        action=&#34;view&#34;,
+    ):
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Viewers = self.Viewers
+
+        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+        projectName = projectInfo.name
+        editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+        editionName = editionInfo.name
+
+        wrapped = []
+
+        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+        if not permitted:
+            return []
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+        actions = [&#34;view&#34;]
+        if Auth.isModifiable(projectId, editionId):
+            actions.append(&#34;edit&#34;)
+
+        (viewer, version) = Viewers.check(viewer, version)
+
+        wrapped = []
+
+        for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
+            row = AttrDict(row)
+
+            isSceneActive = sceneId is None and row.default or row._id == sceneId
+            (frame, buttons) = Viewers.getButtons(
+                row._id, actions, isSceneActive, viewer, version, action
+            )
+
+            sceneUrl = f&#34;/scenes/{row._id}&#34;
+            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+            caption = self.getCaption(
+                row.name,
+                row.candy,
+                sceneUrl,
+                iconUrlBase,
+                active=isSceneActive,
+                frame=frame,
+                buttons=buttons,
+            )
+            wrapped.append(caption)
+
+        return &#34;\n&#34;.join(wrapped)
+
+    def getCaption(
+        self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
+    ):
+        icon = self.getIcon(candy)
+
+        activeCls = &#34;active&#34; if active else &#34;&#34;
+        start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
+        visual = (
+            f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
+        )
+        heading = (
+            f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
+            if frame
+            else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
+        )
+        end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
+        caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
+        return caption
+
+    def getIcon(self, candy):
+        if candy is None:
+            return None
+        first = [image for (image, isIcon) in candy.items() if isIcon]
+        if first:
+            return first[0]
+        return None
+
+    def getViewerFile(self, path):
+        config = self.config
+        Messages = self.Messages
+
+        dataDir = config.dataDir
+
+        dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+
+        exists = os.path.isfile(dataPath)
+        if not exists:
+            logmsg = f&#34;Accessing {dataPath}: &#34;
+            logmsg += &#34;does not exist. &#34;
+            Messages.error(
+                msg=&#34;Accessing a file&#34;,
+                logmsg=logmsg,
+            )
+
+        with open(dataPath, &#34;rb&#34;) as fh:
+            textData = fh.read()
+
+        return textData
+
+    def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+        config = self.config
+        Messages = self.Messages
+        Auth = self.Auth
+
+        dataDir = config.dataDir
+
+        urlBase = (
+            &#34;texts&#34;
+            if projectName == &#34;&#34; and editionName == &#34;&#34;
+            else f&#34;projects/{projectName}&#34;
+            if editionName == &#34;&#34;
+            else f&#34;projects/{projectName}/editions/{editionName}&#34;
+        )
+
+        dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+
+        permitted = (
+            True
+            if urlBase == &#34;texts&#34;
+            else Auth.authorise(
+                &#34;view&#34;, project=projectName, edition=editionName, byName=True
+            )
+        )
+
+        exists = os.path.isfile(dataPath)
+        if not permitted or not exists:
+            logmsg = f&#34;Accessing {dataPath}: &#34;
+            if not permitted:
+                logmsg = &#34;not allowed. &#34;
+            if not exists:
+                logmsg += &#34;does not exist. &#34;
+            Messages.error(
+                msg=&#34;Accessing a file&#34;,
+                logmsg=logmsg,
+            )
+
+        with open(dataPath, &#34;rb&#34;) as fh:
+            textData = fh.read()
+
+        return textData
+
+    def getRecord(self, *args, **kwargs):
+        return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="control.content.Content.addAuth"><code class="name flex">
+<span>def <span class="ident">addAuth</span></span>(<span>self, Auth)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L49-L50" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def addAuth(self, Auth):
+    self.Auth = Auth</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getCaption"><code class="name flex">
+<span>def <span class="ident">getCaption</span></span>(<span>self, title, candy, url, iconUrlBase, active=False, buttons='', frame='')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L182-L199" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getCaption(
+    self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
+):
+    icon = self.getIcon(candy)
+
+    activeCls = &#34;active&#34; if active else &#34;&#34;
+    start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
+    visual = (
+        f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
+    )
+    heading = (
+        f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
+        if frame
+        else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
+    )
+    end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
+    caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
+    return caption</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getData"><code class="name flex">
+<span>def <span class="ident">getData</span></span>(<span>self, path, projectName='', editionName='')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L231-L271" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+    config = self.config
+    Messages = self.Messages
+    Auth = self.Auth
+
+    dataDir = config.dataDir
+
+    urlBase = (
+        &#34;texts&#34;
+        if projectName == &#34;&#34; and editionName == &#34;&#34;
+        else f&#34;projects/{projectName}&#34;
+        if editionName == &#34;&#34;
+        else f&#34;projects/{projectName}/editions/{editionName}&#34;
+    )
+
+    dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+
+    permitted = (
+        True
+        if urlBase == &#34;texts&#34;
+        else Auth.authorise(
+            &#34;view&#34;, project=projectName, edition=editionName, byName=True
+        )
+    )
+
+    exists = os.path.isfile(dataPath)
+    if not permitted or not exists:
+        logmsg = f&#34;Accessing {dataPath}: &#34;
+        if not permitted:
+            logmsg = &#34;not allowed. &#34;
+        if not exists:
+            logmsg += &#34;does not exist. &#34;
+        Messages.error(
+            msg=&#34;Accessing a file&#34;,
+            logmsg=logmsg,
+        )
+
+    with open(dataPath, &#34;rb&#34;) as fh:
+        textData = fh.read()
+
+    return textData</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getEditions"><code class="name flex">
+<span>def <span class="ident">getEditions</span></span>(<span>self, projectId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L99-L124" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getEditions(self, projectId):
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+    projectName = projectInfo.name
+
+    wrapped = []
+
+    for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
+        row = AttrDict(row)
+        editionId = row._id
+        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+        if not permitted:
+            continue
+
+        title = row.title
+        candy = row.candy
+
+        editionUrl = f&#34;/editions/{editionId}&#34;
+        editionName = row.name
+        iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+        caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+        wrapped.append(caption)
+
+    return &#34;\n&#34;.join(wrapped)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getIcon"><code class="name flex">
+<span>def <span class="ident">getIcon</span></span>(<span>self, candy)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L201-L207" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getIcon(self, candy):
+    if candy is None:
+        return None
+    first = [image for (image, isIcon) in candy.items() if isIcon]
+    if first:
+        return first[0]
+    return None</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getMeta"><code class="name flex">
+<span>def <span class="ident">getMeta</span></span>(<span>self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L52-L70" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+    Mongo = self.Mongo
+
+    fields = fieldPath.split(&#34;.&#34;)
+
+    meta = (
+        Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+        if editionId is not None
+        else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+        if projectId is not None
+        else Mongo.getRecord(&#34;meta&#34;)
+    ).meta or {}
+    text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
+
+    for field in fields[1:]:
+        text = text.get(field, {})
+    if type(text) is not str:
+        text = &#34;&#34;
+    return markdown(text) if asMd else text</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getProjects"><code class="name flex">
+<span>def <span class="ident">getProjects</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L75-L97" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getProjects(self):
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    wrapped = []
+
+    for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
+        row = AttrDict(row)
+        projectId = row._id
+        permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+        if not permitted:
+            continue
+
+        title = row.title
+        candy = row.candy
+
+        projectUrl = f&#34;/projects/{projectId}&#34;
+        projectName = row.name
+        iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
+        caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+        wrapped.append(caption)
+
+    return &#34;\n&#34;.join(wrapped)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getRecord"><code class="name flex">
+<span>def <span class="ident">getRecord</span></span>(<span>self, *args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L273-L274" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getRecord(self, *args, **kwargs):
+    return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getScenes"><code class="name flex">
+<span>def <span class="ident">getScenes</span></span>(<span>self, projectId, editionId, sceneId=None, viewer='', version='', action='view')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L126-L180" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getScenes(
+    self,
+    projectId,
+    editionId,
+    sceneId=None,
+    viewer=&#34;&#34;,
+    version=&#34;&#34;,
+    action=&#34;view&#34;,
+):
+    Mongo = self.Mongo
+    Auth = self.Auth
+    Viewers = self.Viewers
+
+    projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
+    projectName = projectInfo.name
+    editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
+    editionName = editionInfo.name
+
+    wrapped = []
+
+    permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+    if not permitted:
+        return []
+
+    action = Auth.checkModifiable(projectId, editionId, action)
+    actions = [&#34;view&#34;]
+    if Auth.isModifiable(projectId, editionId):
+        actions.append(&#34;edit&#34;)
+
+    (viewer, version) = Viewers.check(viewer, version)
+
+    wrapped = []
+
+    for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
+        row = AttrDict(row)
+
+        isSceneActive = sceneId is None and row.default or row._id == sceneId
+        (frame, buttons) = Viewers.getButtons(
+            row._id, actions, isSceneActive, viewer, version, action
+        )
+
+        sceneUrl = f&#34;/scenes/{row._id}&#34;
+        iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
+        caption = self.getCaption(
+            row.name,
+            row.candy,
+            sceneUrl,
+            iconUrlBase,
+            active=isSceneActive,
+            frame=frame,
+            buttons=buttons,
+        )
+        wrapped.append(caption)
+
+    return &#34;\n&#34;.join(wrapped)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getSurprise"><code class="name flex">
+<span>def <span class="ident">getSurprise</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L72-L73" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getSurprise(self):
+    return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getViewerFile"><code class="name flex">
+<span>def <span class="ident">getViewerFile</span></span>(<span>self, path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/content.py#L209-L229" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getViewerFile(self, path):
+    config = self.config
+    Messages = self.Messages
+
+    dataDir = config.dataDir
+
+    dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+
+    exists = os.path.isfile(dataPath)
+    if not exists:
+        logmsg = f&#34;Accessing {dataPath}: &#34;
+        logmsg += &#34;does not exist. &#34;
+        Messages.error(
+            msg=&#34;Accessing a file&#34;,
+            logmsg=logmsg,
+        )
+
+    with open(dataPath, &#34;rb&#34;) as fh:
+        textData = fh.read()
+
+    return textData</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="control" href="index.html">control</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="control.content.Content" href="#control.content.Content">Content</a></code></h4>
+<ul class="two-column">
+<li><code><a title="control.content.Content.addAuth" href="#control.content.Content.addAuth">addAuth</a></code></li>
+<li><code><a title="control.content.Content.getCaption" href="#control.content.Content.getCaption">getCaption</a></code></li>
+<li><code><a title="control.content.Content.getData" href="#control.content.Content.getData">getData</a></code></li>
+<li><code><a title="control.content.Content.getEditions" href="#control.content.Content.getEditions">getEditions</a></code></li>
+<li><code><a title="control.content.Content.getIcon" href="#control.content.Content.getIcon">getIcon</a></code></li>
+<li><code><a title="control.content.Content.getMeta" href="#control.content.Content.getMeta">getMeta</a></code></li>
+<li><code><a title="control.content.Content.getProjects" href="#control.content.Content.getProjects">getProjects</a></code></li>
+<li><code><a title="control.content.Content.getRecord" href="#control.content.Content.getRecord">getRecord</a></code></li>
+<li><code><a title="control.content.Content.getScenes" href="#control.content.Content.getScenes">getScenes</a></code></li>
+<li><code><a title="control.content.Content.getSurprise" href="#control.content.Content.getSurprise">getSurprise</a></code></li>
+<li><code><a title="control.content.Content.getViewerFile" href="#control.content.Content.getViewerFile">getViewerFile</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

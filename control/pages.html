@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>control.pages API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>control.pages</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L1-L281" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">from textwrap import dedent
+from flask import render_template, make_response
+from control.mongo import castObjectId
+from markdown import markdown
+
+TABS = (
+    (&#34;home&#34;, &#34;Home&#34;, True),
+    (&#34;about&#34;, &#34;About&#34;, True),
+    (&#34;projects&#34;, &#34;3D Projects&#34;, True),
+    (&#34;directory&#34;, &#34;3D Directory&#34;, False),
+    (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True),
+    (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False),
+)
+
+CAPTIONS = {
+    &#34;title&#34;: (&#34;{}&#34;, True),
+    &#34;description.abstract&#34;: (&#34;Intro&#34;, True),
+    &#34;description.description&#34;: (&#34;Description&#34;, True),
+    &#34;provenance&#34;: (&#34;About&#34;, True),
+    &#34;instructionalMethod&#34;: (&#34;How to use&#34;, True),
+}
+
+
+class Pages:
+    def __init__(self, config, Viewers, Messages, Content, Auth, Users):
+        &#34;&#34;&#34;Making responses that can be displayed as web pages.
+
+        This class has methods that correspond to routes in the app,
+        for which they get the data (using `control.content.Content`),
+        which gets then wrapped in HTML.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        config: AttrDict
+            App-wide configuration data obtained from
+            `control.config.Config.config`.
+        Viewers: object
+            Singleton instance of `control.viewers.Viewers`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        Users: object
+            Singleton instance of `control.users.Users`.
+        Content: object
+            Singleton instance of `control.content.Content`.
+        Auth: object
+            Singleton instance of `control.auth.Auth`.
+        Users: object
+            Singleton instance of `control.users.Users`.
+        &#34;&#34;&#34;
+        self.config = config
+        self.Viewers = Viewers
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Content = Content
+        self.Auth = Auth
+        self.Users = Users
+
+    def home(self):
+        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        return self.page(&#34;home&#34;, left=left)
+
+    def about(self):
+        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        right = self.putTexts(
+            &#34;description.description@2 + provenance@2&#34;
+        )
+        return self.page(&#34;about&#34;, left=left, right=right)
+
+    def surprise(self):
+        Content = self.Content
+        surpriseMe = Content.getSurprise()
+        left = self.putTexts(&#34;title@1&#34;)
+        right = surpriseMe
+        return self.page(&#34;surpriseme&#34;, left=left, right=right)
+
+    def projects(self):
+        Content = self.Content
+        projects = Content.getProjects()
+        left = self.putTexts(&#34;title@2&#34;) + projects
+        return self.page(&#34;projects&#34;, left=left)
+
+    def project(self, projectId):
+        Content = self.Content
+        projectId = castObjectId(projectId)
+        editions = Content.getEditions(projectId)
+        left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
+        right = self.putTexts(
+            &#34;description.abstract@4 + description.description@4 + &#34;
+            &#34;provenance@4 + instructionalMethod@4&#34;,
+            projectId=projectId,
+        )
+        return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
+
+    def edition(self, editionId):
+        Content = self.Content
+        editionId = castObjectId(editionId)
+        editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+        projectId = editionInfo.projectId
+        return self.scenes(projectId, editionId, None, None, None, None)
+
+    def scene(self, sceneId, viewer, version, action):
+        Content = self.Content
+        sceneId = castObjectId(sceneId)
+        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        projectId = sceneInfo.projectId
+        editionId = sceneInfo.editionId
+        return self.scenes(projectId, editionId, sceneId, viewer, version, action)
+
+    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        Content = self.Content
+        Auth = self.Auth
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+        back = self.backLink(projectId)
+        scenes = Content.getScenes(
+            projectId,
+            editionId,
+            sceneId=sceneId,
+            viewer=viewer,
+            version=version,
+            action=action,
+        )
+        left = (
+            back
+            + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+            + scenes
+        )
+        right = self.putTexts(
+            &#34;description.abstract@5 + description.description@5 + &#34;
+            &#34;provenance@5 + instructionalMethod@5&#34;,
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page(
+            &#34;projects&#34;,
+            left=left,
+            right=right,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+    def viewerFrame(self, sceneId, viewer, version, action):
+        Content = self.Content
+        Viewers = self.Viewers
+        Auth = self.Auth
+
+        sceneId = castObjectId(sceneId)
+        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneName = sceneInfo.name
+
+        projectId = sceneInfo.projectId
+        projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
+
+        editionId = sceneInfo.editionId
+        editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
+
+        urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+
+        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
+
+    def viewerResource(self, path):
+        Content = self.Content
+
+        data = Content.getViewerFile(path)
+        return make_response(data)
+
+    def dataProjects(self, projectName, editionName, path):
+        Content = self.Content
+
+        data = Content.getData(path, projectName=projectName, editionName=editionName)
+        return make_response(data)
+
+    def page(
+        self,
+        url,
+        projectId=None,
+        editionId=None,
+        left=&#34;&#34;,
+        right=&#34;&#34;,
+    ):
+        config = self.config
+        Messages = self.Messages
+        Auth = self.Auth
+        Users = self.Users
+
+        userActive = Auth.user._id
+
+        navigation = self.navigation(url)
+        testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+
+        return render_template(
+            &#34;index.html&#34;,
+            versionInfo=config.versionInfo,
+            navigation=navigation,
+            materialLeft=left,
+            materialRight=right,
+            messages=Messages.generateMessages(),
+            testUsers=testUsers,
+        )
+
+    def navigation(self, url):
+        search = dedent(
+            &#34;&#34;&#34;
+            &lt;span class=&#34;search-bar&#34;&gt;
+                &lt;input
+                    type=&#34;search&#34;
+                    name=&#34;search&#34;
+                    placeholder=&#34;search item&#34;
+                    class=&#34;button disabled&#34;
+                &gt;
+                &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
+            &lt;/span&gt;
+            &#34;&#34;&#34;
+        )
+        html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+        for (tab, label, enabled) in TABS:
+            active = &#34;active&#34; if url == tab else &#34;&#34;
+            elem = &#34;a&#34; if enabled else &#34;span&#34;
+            href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
+            cls = active if enabled else &#34;disabled&#34;
+            html.append(
+                dedent(
+                    f&#34;&#34;&#34;
+                    &lt;{elem}
+                        {href}
+                        class=&#34;button large {cls}&#34;
+                    &gt;{label}&lt;/{elem}&gt;
+                    &#34;&#34;&#34;
+                )
+            )
+        html.append(search)
+        html.append(&#34;&lt;/div&gt;&#34;)
+        return &#34;\n&#34;.join(html)
+
+    def backLink(self, projectId):
+        projectUrl = f&#34;/projects/{projectId}&#34;
+        cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
+        href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
+        text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
+        return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
+
+    def putText(self, field, level, projectId=None, editionId=None):
+        Content = self.Content
+
+        content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
+        info = CAPTIONS.get(field, None)
+
+        if info is None:
+            return content
+
+        (heading, asMd) = info
+        skip = &#34;{}&#34; in heading
+
+        if asMd:
+            heading = markdown(heading)
+            content = markdown(content)
+
+        return dedent(
+            f&#34;&#34;&#34;
+            &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
+            {&#34;&#34; if skip else content}
+            &#34;&#34;&#34;
+        )
+
+    def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+        return &#34;\n&#34;.join(
+            self.putText(
+                *fieldSpec.strip().split(&#34;@&#34;, 1),
+                projectId=projectId,
+                editionId=editionId,
+            )
+            for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+        )</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="control.pages.Pages"><code class="flex name class">
+<span>class <span class="ident">Pages</span></span>
+<span>(</span><span>config, Viewers, Messages, Content, Auth, Users)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Making responses that can be displayed as web pages.</p>
+<p>This class has methods that correspond to routes in the app,
+for which they get the data (using <code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>),
+which gets then wrapped in HTML.</p>
+<p>It is instantiated by a singleton object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>App-wide configuration data obtained from
+<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<dt><strong><code>Viewers</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>.</dd>
+<dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
+<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
+<dt><strong><code>Users</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>.</dd>
+<dt><strong><code>Content</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>.</dd>
+<dt><strong><code>Auth</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>.</dd>
+<dt><strong><code>Users</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L24-L281" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Pages:
+    def __init__(self, config, Viewers, Messages, Content, Auth, Users):
+        &#34;&#34;&#34;Making responses that can be displayed as web pages.
+
+        This class has methods that correspond to routes in the app,
+        for which they get the data (using `control.content.Content`),
+        which gets then wrapped in HTML.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        config: AttrDict
+            App-wide configuration data obtained from
+            `control.config.Config.config`.
+        Viewers: object
+            Singleton instance of `control.viewers.Viewers`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        Users: object
+            Singleton instance of `control.users.Users`.
+        Content: object
+            Singleton instance of `control.content.Content`.
+        Auth: object
+            Singleton instance of `control.auth.Auth`.
+        Users: object
+            Singleton instance of `control.users.Users`.
+        &#34;&#34;&#34;
+        self.config = config
+        self.Viewers = Viewers
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Content = Content
+        self.Auth = Auth
+        self.Users = Users
+
+    def home(self):
+        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        return self.page(&#34;home&#34;, left=left)
+
+    def about(self):
+        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        right = self.putTexts(
+            &#34;description.description@2 + provenance@2&#34;
+        )
+        return self.page(&#34;about&#34;, left=left, right=right)
+
+    def surprise(self):
+        Content = self.Content
+        surpriseMe = Content.getSurprise()
+        left = self.putTexts(&#34;title@1&#34;)
+        right = surpriseMe
+        return self.page(&#34;surpriseme&#34;, left=left, right=right)
+
+    def projects(self):
+        Content = self.Content
+        projects = Content.getProjects()
+        left = self.putTexts(&#34;title@2&#34;) + projects
+        return self.page(&#34;projects&#34;, left=left)
+
+    def project(self, projectId):
+        Content = self.Content
+        projectId = castObjectId(projectId)
+        editions = Content.getEditions(projectId)
+        left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
+        right = self.putTexts(
+            &#34;description.abstract@4 + description.description@4 + &#34;
+            &#34;provenance@4 + instructionalMethod@4&#34;,
+            projectId=projectId,
+        )
+        return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
+
+    def edition(self, editionId):
+        Content = self.Content
+        editionId = castObjectId(editionId)
+        editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+        projectId = editionInfo.projectId
+        return self.scenes(projectId, editionId, None, None, None, None)
+
+    def scene(self, sceneId, viewer, version, action):
+        Content = self.Content
+        sceneId = castObjectId(sceneId)
+        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        projectId = sceneInfo.projectId
+        editionId = sceneInfo.editionId
+        return self.scenes(projectId, editionId, sceneId, viewer, version, action)
+
+    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        Content = self.Content
+        Auth = self.Auth
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+        back = self.backLink(projectId)
+        scenes = Content.getScenes(
+            projectId,
+            editionId,
+            sceneId=sceneId,
+            viewer=viewer,
+            version=version,
+            action=action,
+        )
+        left = (
+            back
+            + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+            + scenes
+        )
+        right = self.putTexts(
+            &#34;description.abstract@5 + description.description@5 + &#34;
+            &#34;provenance@5 + instructionalMethod@5&#34;,
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page(
+            &#34;projects&#34;,
+            left=left,
+            right=right,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+    def viewerFrame(self, sceneId, viewer, version, action):
+        Content = self.Content
+        Viewers = self.Viewers
+        Auth = self.Auth
+
+        sceneId = castObjectId(sceneId)
+        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneName = sceneInfo.name
+
+        projectId = sceneInfo.projectId
+        projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
+
+        editionId = sceneInfo.editionId
+        editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
+
+        urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+
+        action = Auth.checkModifiable(projectId, editionId, action)
+
+        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
+
+    def viewerResource(self, path):
+        Content = self.Content
+
+        data = Content.getViewerFile(path)
+        return make_response(data)
+
+    def dataProjects(self, projectName, editionName, path):
+        Content = self.Content
+
+        data = Content.getData(path, projectName=projectName, editionName=editionName)
+        return make_response(data)
+
+    def page(
+        self,
+        url,
+        projectId=None,
+        editionId=None,
+        left=&#34;&#34;,
+        right=&#34;&#34;,
+    ):
+        config = self.config
+        Messages = self.Messages
+        Auth = self.Auth
+        Users = self.Users
+
+        userActive = Auth.user._id
+
+        navigation = self.navigation(url)
+        testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+
+        return render_template(
+            &#34;index.html&#34;,
+            versionInfo=config.versionInfo,
+            navigation=navigation,
+            materialLeft=left,
+            materialRight=right,
+            messages=Messages.generateMessages(),
+            testUsers=testUsers,
+        )
+
+    def navigation(self, url):
+        search = dedent(
+            &#34;&#34;&#34;
+            &lt;span class=&#34;search-bar&#34;&gt;
+                &lt;input
+                    type=&#34;search&#34;
+                    name=&#34;search&#34;
+                    placeholder=&#34;search item&#34;
+                    class=&#34;button disabled&#34;
+                &gt;
+                &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
+            &lt;/span&gt;
+            &#34;&#34;&#34;
+        )
+        html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+        for (tab, label, enabled) in TABS:
+            active = &#34;active&#34; if url == tab else &#34;&#34;
+            elem = &#34;a&#34; if enabled else &#34;span&#34;
+            href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
+            cls = active if enabled else &#34;disabled&#34;
+            html.append(
+                dedent(
+                    f&#34;&#34;&#34;
+                    &lt;{elem}
+                        {href}
+                        class=&#34;button large {cls}&#34;
+                    &gt;{label}&lt;/{elem}&gt;
+                    &#34;&#34;&#34;
+                )
+            )
+        html.append(search)
+        html.append(&#34;&lt;/div&gt;&#34;)
+        return &#34;\n&#34;.join(html)
+
+    def backLink(self, projectId):
+        projectUrl = f&#34;/projects/{projectId}&#34;
+        cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
+        href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
+        text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
+        return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
+
+    def putText(self, field, level, projectId=None, editionId=None):
+        Content = self.Content
+
+        content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
+        info = CAPTIONS.get(field, None)
+
+        if info is None:
+            return content
+
+        (heading, asMd) = info
+        skip = &#34;{}&#34; in heading
+
+        if asMd:
+            heading = markdown(heading)
+            content = markdown(content)
+
+        return dedent(
+            f&#34;&#34;&#34;
+            &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
+            {&#34;&#34; if skip else content}
+            &#34;&#34;&#34;
+        )
+
+    def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+        return &#34;\n&#34;.join(
+            self.putText(
+                *fieldSpec.strip().split(&#34;@&#34;, 1),
+                projectId=projectId,
+                editionId=editionId,
+            )
+            for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+        )</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="control.pages.Pages.about"><code class="name flex">
+<span>def <span class="ident">about</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L66-L71" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def about(self):
+    left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+    right = self.putTexts(
+        &#34;description.description@2 + provenance@2&#34;
+    )
+    return self.page(&#34;about&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.backLink"><code class="name flex">
+<span>def <span class="ident">backLink</span></span>(<span>self, projectId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L243-L248" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backLink(self, projectId):
+    projectUrl = f&#34;/projects/{projectId}&#34;
+    cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
+    href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
+    text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
+    return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.dataProjects"><code class="name flex">
+<span>def <span class="ident">dataProjects</span></span>(<span>self, projectName, editionName, path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L174-L178" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dataProjects(self, projectName, editionName, path):
+    Content = self.Content
+
+    data = Content.getData(path, projectName=projectName, editionName=editionName)
+    return make_response(data)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.edition"><code class="name flex">
+<span>def <span class="ident">edition</span></span>(<span>self, editionId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L98-L103" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def edition(self, editionId):
+    Content = self.Content
+    editionId = castObjectId(editionId)
+    editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+    projectId = editionInfo.projectId
+    return self.scenes(projectId, editionId, None, None, None, None)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.home"><code class="name flex">
+<span>def <span class="ident">home</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L62-L64" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def home(self):
+    left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+    return self.page(&#34;home&#34;, left=left)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.navigation"><code class="name flex">
+<span>def <span class="ident">navigation</span></span>(<span>self, url)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L208-L241" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def navigation(self, url):
+    search = dedent(
+        &#34;&#34;&#34;
+        &lt;span class=&#34;search-bar&#34;&gt;
+            &lt;input
+                type=&#34;search&#34;
+                name=&#34;search&#34;
+                placeholder=&#34;search item&#34;
+                class=&#34;button disabled&#34;
+            &gt;
+            &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
+        &lt;/span&gt;
+        &#34;&#34;&#34;
+    )
+    html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+    for (tab, label, enabled) in TABS:
+        active = &#34;active&#34; if url == tab else &#34;&#34;
+        elem = &#34;a&#34; if enabled else &#34;span&#34;
+        href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
+        cls = active if enabled else &#34;disabled&#34;
+        html.append(
+            dedent(
+                f&#34;&#34;&#34;
+                &lt;{elem}
+                    {href}
+                    class=&#34;button large {cls}&#34;
+                &gt;{label}&lt;/{elem}&gt;
+                &#34;&#34;&#34;
+            )
+        )
+    html.append(search)
+    html.append(&#34;&lt;/div&gt;&#34;)
+    return &#34;\n&#34;.join(html)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.page"><code class="name flex">
+<span>def <span class="ident">page</span></span>(<span>self, url, projectId=None, editionId=None, left='', right='')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L180-L206" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def page(
+    self,
+    url,
+    projectId=None,
+    editionId=None,
+    left=&#34;&#34;,
+    right=&#34;&#34;,
+):
+    config = self.config
+    Messages = self.Messages
+    Auth = self.Auth
+    Users = self.Users
+
+    userActive = Auth.user._id
+
+    navigation = self.navigation(url)
+    testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+
+    return render_template(
+        &#34;index.html&#34;,
+        versionInfo=config.versionInfo,
+        navigation=navigation,
+        materialLeft=left,
+        materialRight=right,
+        messages=Messages.generateMessages(),
+        testUsers=testUsers,
+    )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.project"><code class="name flex">
+<span>def <span class="ident">project</span></span>(<span>self, projectId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L86-L96" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def project(self, projectId):
+    Content = self.Content
+    projectId = castObjectId(projectId)
+    editions = Content.getEditions(projectId)
+    left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
+    right = self.putTexts(
+        &#34;description.abstract@4 + description.description@4 + &#34;
+        &#34;provenance@4 + instructionalMethod@4&#34;,
+        projectId=projectId,
+    )
+    return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.projects"><code class="name flex">
+<span>def <span class="ident">projects</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L80-L84" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def projects(self):
+    Content = self.Content
+    projects = Content.getProjects()
+    left = self.putTexts(&#34;title@2&#34;) + projects
+    return self.page(&#34;projects&#34;, left=left)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.putText"><code class="name flex">
+<span>def <span class="ident">putText</span></span>(<span>self, field, level, projectId=None, editionId=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L250-L271" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def putText(self, field, level, projectId=None, editionId=None):
+    Content = self.Content
+
+    content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
+    info = CAPTIONS.get(field, None)
+
+    if info is None:
+        return content
+
+    (heading, asMd) = info
+    skip = &#34;{}&#34; in heading
+
+    if asMd:
+        heading = markdown(heading)
+        content = markdown(content)
+
+    return dedent(
+        f&#34;&#34;&#34;
+        &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
+        {&#34;&#34; if skip else content}
+        &#34;&#34;&#34;
+    )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.putTexts"><code class="name flex">
+<span>def <span class="ident">putTexts</span></span>(<span>self, fieldSpecs, projectId=None, editionId=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L273-L281" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+    return &#34;\n&#34;.join(
+        self.putText(
+            *fieldSpec.strip().split(&#34;@&#34;, 1),
+            projectId=projectId,
+            editionId=editionId,
+        )
+        for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+    )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.scene"><code class="name flex">
+<span>def <span class="ident">scene</span></span>(<span>self, sceneId, viewer, version, action)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L105-L111" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def scene(self, sceneId, viewer, version, action):
+    Content = self.Content
+    sceneId = castObjectId(sceneId)
+    sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+    projectId = sceneInfo.projectId
+    editionId = sceneInfo.editionId
+    return self.scenes(projectId, editionId, sceneId, viewer, version, action)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.scenes"><code class="name flex">
+<span>def <span class="ident">scenes</span></span>(<span>self, projectId, editionId, sceneId, viewer, version, action)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L113-L144" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+    Content = self.Content
+    Auth = self.Auth
+
+    action = Auth.checkModifiable(projectId, editionId, action)
+    back = self.backLink(projectId)
+    scenes = Content.getScenes(
+        projectId,
+        editionId,
+        sceneId=sceneId,
+        viewer=viewer,
+        version=version,
+        action=action,
+    )
+    left = (
+        back
+        + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+        + scenes
+    )
+    right = self.putTexts(
+        &#34;description.abstract@5 + description.description@5 + &#34;
+        &#34;provenance@5 + instructionalMethod@5&#34;,
+        projectId=projectId,
+        editionId=editionId,
+    )
+    return self.page(
+        &#34;projects&#34;,
+        left=left,
+        right=right,
+        projectId=projectId,
+        editionId=editionId,
+    )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.surprise"><code class="name flex">
+<span>def <span class="ident">surprise</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L73-L78" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def surprise(self):
+    Content = self.Content
+    surpriseMe = Content.getSurprise()
+    left = self.putTexts(&#34;title@1&#34;)
+    right = surpriseMe
+    return self.page(&#34;surpriseme&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.viewerFrame"><code class="name flex">
+<span>def <span class="ident">viewerFrame</span></span>(<span>self, sceneId, viewer, version, action)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L146-L166" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def viewerFrame(self, sceneId, viewer, version, action):
+    Content = self.Content
+    Viewers = self.Viewers
+    Auth = self.Auth
+
+    sceneId = castObjectId(sceneId)
+    sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+    sceneName = sceneInfo.name
+
+    projectId = sceneInfo.projectId
+    projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
+
+    editionId = sceneInfo.editionId
+    editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
+
+    urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+
+    action = Auth.checkModifiable(projectId, editionId, action)
+
+    viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+    return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.viewerResource"><code class="name flex">
+<span>def <span class="ident">viewerResource</span></span>(<span>self, path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/pages.py#L168-L172" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def viewerResource(self, path):
+    Content = self.Content
+
+    data = Content.getViewerFile(path)
+    return make_response(data)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="control" href="index.html">control</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="control.pages.Pages" href="#control.pages.Pages">Pages</a></code></h4>
+<ul class="two-column">
+<li><code><a title="control.pages.Pages.about" href="#control.pages.Pages.about">about</a></code></li>
+<li><code><a title="control.pages.Pages.backLink" href="#control.pages.Pages.backLink">backLink</a></code></li>
+<li><code><a title="control.pages.Pages.dataProjects" href="#control.pages.Pages.dataProjects">dataProjects</a></code></li>
+<li><code><a title="control.pages.Pages.edition" href="#control.pages.Pages.edition">edition</a></code></li>
+<li><code><a title="control.pages.Pages.home" href="#control.pages.Pages.home">home</a></code></li>
+<li><code><a title="control.pages.Pages.navigation" href="#control.pages.Pages.navigation">navigation</a></code></li>
+<li><code><a title="control.pages.Pages.page" href="#control.pages.Pages.page">page</a></code></li>
+<li><code><a title="control.pages.Pages.project" href="#control.pages.Pages.project">project</a></code></li>
+<li><code><a title="control.pages.Pages.projects" href="#control.pages.Pages.projects">projects</a></code></li>
+<li><code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">putText</a></code></li>
+<li><code><a title="control.pages.Pages.putTexts" href="#control.pages.Pages.putTexts">putTexts</a></code></li>
+<li><code><a title="control.pages.Pages.scene" href="#control.pages.Pages.scene">scene</a></code></li>
+<li><code><a title="control.pages.Pages.scenes" href="#control.pages.Pages.scenes">scenes</a></code></li>
+<li><code><a title="control.pages.Pages.surprise" href="#control.pages.Pages.surprise">surprise</a></code></li>
+<li><code><a title="control.pages.Pages.viewerFrame" href="#control.pages.Pages.viewerFrame">viewerFrame</a></code></li>
+<li><code><a title="control.pages.Pages.viewerResource" href="#control.pages.Pages.viewerResource">viewerResource</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
