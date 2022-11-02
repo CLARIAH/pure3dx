@@ -57,7 +57,12 @@ class Mongo:
 
         if mongo is None:
             try:
-                client = MongoClient(config.mongoHost, config.mongoPort, username=config.mongoUser, password=config.mongoPassword)
+                client = MongoClient(
+                    config.mongoHost,
+                    config.mongoPort,
+                    username=config.mongoUser,
+                    password=config.mongoPassword,
+                )
                 mongo = client[database]
             except Exception as e:
                 self.Messages.error(

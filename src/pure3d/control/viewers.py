@@ -69,8 +69,8 @@ class Viewers:
                             f"""
                             <div class="model">
                                 <iframe
-                                    class="previewer"
-                                    src="/viewer/{viewer}/{version}/{action}/{sceneId}"/>
+                                  class="previewer"
+                                  src="/viewer/{viewer}/{version}/{action}/{sceneId}"/>
                                 </iframe>
                             </div>
                             """

@@ -6,8 +6,6 @@ from control.config import Config
 from control.messages import Messages
 
 
-config = Config(Messages(None), dataDirOnly=True).config
-
 BASE = os.path.dirname(os.path.dirname(__file__))
 
 WEBDAV_METHODS = dict(
@@ -28,17 +26,18 @@ WEBDAV_METHODS = dict(
 )
 
 
-config = {
-    "provider_mapping": {
-        "/webdav/": {
-            "root": config.dataDir,
-            "readonly": False,
-        },
-    },
-    "simple_dc": {"user_mapping": {"*": True}},
-    "verbose": 1,
-}
-
-
 def getWebdavApp():
-    return WsgiDAVApp(config)
+    config = Config(Messages(None), dataDirOnly=True).config
+
+    webdavConfig = {
+        "provider_mapping": {
+            "/webdav/": {
+                "root": config.dataDir,
+                "readonly": False,
+            },
+        },
+        "simple_dc": {"user_mapping": {"*": True}},
+        "verbose": 1,
+    }
+
+    return WsgiDAVApp(webdavConfig)

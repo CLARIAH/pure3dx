@@ -24,6 +24,9 @@ class Config:
         Messages.debugAdd(self)
         self.good = True
         self.config = AttrDict()
+        """The actual configuration settings are stored here.
+        """
+
         self.checkEnv(dataDirOnly)
 
         if not self.good:

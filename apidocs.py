@@ -1,6 +1,6 @@
 import sys
 import os
-from shutil import rmtree, copyfile
+from shutil import rmtree
 
 from subprocess import run, call, Popen, PIPE
 
@@ -28,6 +28,8 @@ BRANCH = "gh-pages"
 PKG = "control"
 ORG = "CLARIAH"
 REPO = "pure3dx"
+RELATIVE = "src/pure3d"
+TEMPLATE_LOC = "../../doctemplates"
 
 
 # COPIED FROM MKDOCS AND MODIFIED
@@ -177,13 +179,7 @@ def _gh_deploy(org, repo, pkg):
         print("Your documentation should shortly be available at: " + url)
 
 
-# END COPIED FROM MKDOCS AND MODIFIED
-
-
-TEMPLATE_LOC = "{}/templates"
-
-
-def getCommand(pkg, asString=False):
+def getCommand(pkg, siteLoc, asString=False):
     templateLoc = TEMPLATE_LOC.format(pkg)
 
     pdoc3 = [
@@ -191,7 +187,7 @@ def getCommand(pkg, asString=False):
         "--force",
         "--html",
         "--output-dir",
-        SITE,
+        siteLoc,
         "--template-dir",
         templateLoc,
     ]
@@ -202,18 +198,12 @@ def pdoc3(pkg):
     """Build the docs into site."""
 
     console("Build docs")
-    if os.path.exists(SITE):
-        console(f"Remove previous build ({SITE})")
-        rmtree(SITE)
+    siteLoc = f"../../{SITE}"
+    if os.path.exists(siteLoc):
+        console(f"Remove previous build ({siteLoc})")
+        rmtree(siteLoc)
     console("Generate docs with pdoc3")
-    run(f"{getCommand(pkg, asString=True)} {pkg}", shell=True)
-    # console("Move docs into place")
-    # run(f"mv {SITE}/{pkg}/* {SITE}", shell=True)
-    # rmtree(f"{SITE}/{pkg}")
-    console("Copy over the images")
-
-    # a link from the old docs url to the new one
-    copyfile(f"{pkg}/docs/index.html", f"{SITE}/index.html")
+    run(f"{getCommand(pkg, siteLoc, asString=True)} {pkg}", cwd=RELATIVE, shell=True)
 
 
 def shipDocs(org, repo, pkg, pdoc=True):

@@ -1,10 +1,7 @@
 import sys
 import os
 
-from control.messages import Messages
-from control.config import Config
-from control.mongo import Mongo
-
+from control.app import prepare
 from control.helpers.files import listFiles, listImages, readYaml
 
 
@@ -15,13 +12,15 @@ WORKFLOW = "workflow"
 
 SCENE_DEFAULT = "intro"
 
-Config = Config(Messages(None, flask=False), dataDirOnly=True).config
-Messages = Messages(Config, flask=False)
-Mongo = Mongo(Config, Messages)
-
 
 def importContent():
-    dataDir = Config.dataDir
+    objects = prepare(flask=False, dataDirOnly=True)
+
+    config = objects.config
+    Messages = objects.Messages
+    Mongo = objects.Mongo
+
+    dataDir = config.dataDir
     Messages.plain(logmsg=f"Data directory = {dataDir}")
 
     for table in (

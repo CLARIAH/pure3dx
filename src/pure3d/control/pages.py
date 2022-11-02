@@ -47,7 +47,7 @@ class Pages:
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
-            Singleton instance of `control.authorise.Auth`.
+            Singleton instance of `control.auth.Auth`.
         Users: object
             Singleton instance of `control.users.Users`.
         """

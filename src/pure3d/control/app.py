@@ -13,33 +13,45 @@ from control.webdavapp import WEBDAV_METHODS
 
 from control.helpers.generic import AttrDict
 
-if True:
-    config = Config(Messages(None)).config
-    Messages = Messages(config)
-    Viewers = Viewers(config)
 
-    Mongo = Mongo(config, Messages)
+def prepare(trivial=False, dataDirOnly=False, flask=True):
+    if trivial:
+        config = AttrDict(dict(secret_key=None))
+        messages = None
+        mongo = None
+        viewers = None
+        users = None
+        content = None
+        auth = None
+        editSessions = None
+        pages = None
+    else:
+        config = Config(Messages(None, flask=flask), dataDirOnly=dataDirOnly).config
+        messages = Messages(config, flask=flask)
+        viewers = Viewers(config)
 
-    Users = Users(config, Messages, Mongo)
-    Content = Content(config, Viewers, Messages, Mongo)
-    Auth = Auth(config, Messages, Mongo, Users, Content)
-    EditSessions = EditSessions(Mongo)
+        mongo = Mongo(config, messages)
 
-    Content.addAuth(Auth)
-    Viewers.addAuth(Auth)
+        users = Users(config, messages, mongo)
+        content = Content(config, viewers, messages, mongo)
+        auth = Auth(config, messages, mongo, users, content)
+        editSessions = EditSessions(mongo)
 
-    Pages = Pages(config, Viewers, Messages, Content, Auth, Users)
-else:
-    (config, Messages, Mongo, Viewers, Users, Content, Auth, EditSessions, Pages) = (
-        AttrDict(dict(secret_key=None)),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        content.addAuth(auth)
+        viewers.addAuth(auth)
+
+        pages = Pages(config, viewers, messages, content, auth, users)
+
+    return AttrDict(
+        config=config,
+        Messages=messages,
+        Mongo=mongo,
+        Viewers=viewers,
+        Users=users,
+        Content=content,
+        Auth=auth,
+        EditSessions=editSessions,
+        Pages=pages,
     )
 
 
@@ -47,6 +59,13 @@ else:
 
 
 def appFactory():
+    objects = prepare()
+
+    config = objects.config
+    Messages = objects.Messages
+    Auth = objects.Auth
+    Pages = objects.Pages
+
     app = Flask(__name__, static_folder="../static")
     app.secret_key = config.secret_key
 
