@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/app.py#L1-L196" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L1-L262" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask import Flask, redirect, abort, request
 
@@ -44,7 +44,50 @@ from control.webdavapp import WEBDAV_METHODS
 from control.helpers.generic import AttrDict
 
 
-def prepare(trivial=False, dataDirOnly=False, flask=True):
+def prepare(trivial=False, flask=True):
+    &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
+
+    Several classes are instantiated with a singleton object;
+    each of these objects has a dedicated task in the app:
+
+    * `control.config.Config`: handle all configuration aspects
+    * `control.messages.Messages`: handle all messaging to user and sysadmin
+    * `control.mongo.Mongo`: higher-level commands to the MongoDb
+    * `control.viewers.Viewers`: support the third party 3D viewers
+    * `control.users.Users`: manage the user data that the app needs
+    * `control.content.Content`: retrieve all data that needs to be displayed
+    * `control.auth.Auth`: compute the permission of the current user
+      to access content
+    * `control.pages.Pages`: high-level functions that
+      distribute content over the page
+
+    Parameters
+    ----------
+    trivial: boolean, optional False
+        If True, skips the initialization of most objects.
+        Useful if the pure3d app container should run without doing anything.
+        This happens when we just want to start the container and run shell commands
+        inside it, for example after a complicated refactoring when the flask app has
+        too many bugs.
+
+    flask: boolean, optional True
+        If False, skips several configuration steps.
+        Useful if you need configuration details of the app before
+        flask is running. Cases are:
+
+        * when setting up the webdav app (`control.webdavapp`) you need some
+          configuration details, and this happens before the flask app is set up
+        * when importing data into MongoDb, we need only non-flask parts of the app.
+          This kind of import happens manually in a running container
+          on the command line.
+
+    Returns
+    -------
+    AttrDict
+        A dictionary keyed by the names of the singleton objects and valued
+        by the singleton objects themselves.
+
+    &#34;&#34;&#34;
     if trivial:
         config = AttrDict(dict(secret_key=None))
         messages = None
@@ -56,7 +99,7 @@ def prepare(trivial=False, dataDirOnly=False, flask=True):
         editSessions = None
         pages = None
     else:
-        config = Config(Messages(None, flask=flask), dataDirOnly=dataDirOnly).config
+        config = Config(Messages(None, flask=flask), flask=flask).config
         messages = Messages(config, flask=flask)
         viewers = Viewers(config)
 
@@ -89,6 +132,29 @@ def prepare(trivial=False, dataDirOnly=False, flask=True):
 
 
 def appFactory():
+    &#34;&#34;&#34;Sets up the flask app.
+
+    There are two main tasks:
+
+    * Gather data and environment information before listening to requests
+    * Configure routes, i.e. mappings from url-patterns to functions that
+      create responses
+
+    !!! note &#34;app combination&#34;
+        The app returned does not deal with *webdav* requests.
+        There is a `control.dispatcher` module that combines a separate
+        `control.webdavapp` with this app, so that the end result
+        accomodates 3d viewers that talk the webdav protocol with the server.
+
+        This happens in [`index`](../index.html).
+
+    Returns
+    -------
+    object
+        A flask app, which is a wsgi app.
+
+    &#34;&#34;&#34;
+
     objects = prepare()
 
     config = objects.config
@@ -237,13 +303,55 @@ def appFactory():
 <span>def <span class="ident">appFactory</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets up the flask app.</p>
+<p>There are two main tasks:</p>
+<ul>
+<li>Gather data and environment information before listening to requests</li>
+<li>Configure routes, i.e. mappings from url-patterns to functions that
+create responses</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">app combination</p>
+<p>The app returned does not deal with <em>webdav</em> requests.
+There is a <code><a title="control.dispatcher" href="dispatcher.html">control.dispatcher</a></code> module that combines a separate
+<code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code> with this app, so that the end result
+accomodates 3d viewers that talk the webdav protocol with the server.</p>
+<p>This happens in <a href="../index.html"><code>index</code></a>.</p>
+</div>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>object</code></dt>
+<dd>A flask app, which is a wsgi app.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/app.py#L61-L196" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L104-L262" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory():
+    &#34;&#34;&#34;Sets up the flask app.
+
+    There are two main tasks:
+
+    * Gather data and environment information before listening to requests
+    * Configure routes, i.e. mappings from url-patterns to functions that
+      create responses
+
+    !!! note &#34;app combination&#34;
+        The app returned does not deal with *webdav* requests.
+        There is a `control.dispatcher` module that combines a separate
+        `control.webdavapp` with this app, so that the end result
+        accomodates 3d viewers that talk the webdav protocol with the server.
+
+        This happens in [`index`](../index.html).
+
+    Returns
+    -------
+    object
+        A flask app, which is a wsgi app.
+
+    &#34;&#34;&#34;
+
     objects = prepare()
 
     config = objects.config
@@ -382,16 +490,101 @@ def appFactory():
 </details>
 </dd>
 <dt id="control.app.prepare"><code class="name flex">
-<span>def <span class="ident">prepare</span></span>(<span>trivial=False, dataDirOnly=False, flask=True)</span>
+<span>def <span class="ident">prepare</span></span>(<span>trivial=False, flask=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Prepares the way for setting up the Flask webapp.</p>
+<p>Several classes are instantiated with a singleton object;
+each of these objects has a dedicated task in the app:</p>
+<ul>
+<li><code><a title="control.config.Config" href="config.html#control.config.Config">Config</a></code>: handle all configuration aspects</li>
+<li><code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>: handle all messaging to user and sysadmin</li>
+<li><code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>: higher-level commands to the MongoDb</li>
+<li><code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>: support the third party 3D viewers</li>
+<li><code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>: manage the user data that the app needs</li>
+<li><code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>: retrieve all data that needs to be displayed</li>
+<li><code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>: compute the permission of the current user
+to access content</li>
+<li><code><a title="control.pages.Pages" href="pages.html#control.pages.Pages">Pages</a></code>: high-level functions that
+distribute content over the page</li>
+</ul>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>trivial</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, skips the initialization of most objects.
+Useful if the pure3d app container should run without doing anything.
+This happens when we just want to start the container and run shell commands
+inside it, for example after a complicated refactoring when the flask app has
+too many bugs.</dd>
+<dt><strong><code>flask</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>
+<p>If False, skips several configuration steps.
+Useful if you need configuration details of the app before
+flask is running. Cases are:</p>
+<ul>
+<li>when setting up the webdav app (<code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code>) you need some
+configuration details, and this happens before the flask app is set up</li>
+<li>when importing data into MongoDb, we need only non-flask parts of the app.
+This kind of import happens manually in a running container
+on the command line.</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>AttrDict</code></dt>
+<dd>A dictionary keyed by the names of the singleton objects and valued
+by the singleton objects themselves.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/app.py#L17-L55" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L17-L98" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def prepare(trivial=False, dataDirOnly=False, flask=True):
+<pre><code class="python">def prepare(trivial=False, flask=True):
+    &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
+
+    Several classes are instantiated with a singleton object;
+    each of these objects has a dedicated task in the app:
+
+    * `control.config.Config`: handle all configuration aspects
+    * `control.messages.Messages`: handle all messaging to user and sysadmin
+    * `control.mongo.Mongo`: higher-level commands to the MongoDb
+    * `control.viewers.Viewers`: support the third party 3D viewers
+    * `control.users.Users`: manage the user data that the app needs
+    * `control.content.Content`: retrieve all data that needs to be displayed
+    * `control.auth.Auth`: compute the permission of the current user
+      to access content
+    * `control.pages.Pages`: high-level functions that
+      distribute content over the page
+
+    Parameters
+    ----------
+    trivial: boolean, optional False
+        If True, skips the initialization of most objects.
+        Useful if the pure3d app container should run without doing anything.
+        This happens when we just want to start the container and run shell commands
+        inside it, for example after a complicated refactoring when the flask app has
+        too many bugs.
+
+    flask: boolean, optional True
+        If False, skips several configuration steps.
+        Useful if you need configuration details of the app before
+        flask is running. Cases are:
+
+        * when setting up the webdav app (`control.webdavapp`) you need some
+          configuration details, and this happens before the flask app is set up
+        * when importing data into MongoDb, we need only non-flask parts of the app.
+          This kind of import happens manually in a running container
+          on the command line.
+
+    Returns
+    -------
+    AttrDict
+        A dictionary keyed by the names of the singleton objects and valued
+        by the singleton objects themselves.
+
+    &#34;&#34;&#34;
     if trivial:
         config = AttrDict(dict(secret_key=None))
         messages = None
@@ -403,7 +596,7 @@ def appFactory():
         editSessions = None
         pages = None
     else:
-        config = Config(Messages(None, flask=flask), dataDirOnly=dataDirOnly).config
+        config = Config(Messages(None, flask=flask), flask=flask).config
         messages = Messages(config, flask=flask)
         viewers = Viewers(config)
 

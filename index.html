@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>control.editsessions API documentation</title>
-<meta name="description" content="" />
+<title>index API documentation</title>
+<meta name="description" content="Synthesize the Web App …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -20,17 +20,47 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>control.editsessions</code></h1>
+<h1 class="title">Module <code>index</code></h1>
 </header>
 <section id="section-intro">
+<p>Synthesize the Web App.</p>
+<p>First an ordinary flask app is constructed, based on
+the routes in <a href="control/app.html"><code>control.app</code></a>.</p>
+<p>Then a prebaked webdav app is constructed,
+see <a href="control/webdavapp.html"><code>control.webdavapp</code></a>.</p>
+<p>Finally, the webdav app is connected to the ordinary app
+by means of <a href="control/dispatcher.html"><code>control.dispatcher</code></a>.</p>
+<p>The result is offered to flask, which will run it over wsgi.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/editsessions.py#L1-L3" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/index.py#L1-L25" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class EditSessions:
-    def __init__(self, Mongo):
-        self.Mongo = Mongo</code></pre>
+<pre><code class="python">&#34;&#34;&#34;Synthesize the Web App.
+
+First an ordinary flask app is constructed, based on
+the routes in [`control.app`](control/app.html).
+
+Then a prebaked webdav app is constructed,
+see [`control.webdavapp`](control/webdavapp.html).
+
+Finally, the webdav app is connected to the ordinary app
+by means of [`control.dispatcher`](control/dispatcher.html).
+
+The result is offered to flask, which will run it over wsgi.
+&#34;&#34;&#34;
+
+import os
+from control.app import appFactory
+from control.webdavapp import getWebdavApp
+from control.dispatcher import dispatchWebdav
+
+flaskAppName = os.environ.get(&#34;FLASK_APP&#34;, None)
+
+if flaskAppName:
+    print(f&#34;Making Flask app {flaskAppName}&#34;)
+    app = appFactory()
+    app.wsgi_app = dispatchWebdav(appFactory(), &#34;/webdav/&#34;, getWebdavApp())</code></pre>
 </details>
 </section>
 <section>
@@ -40,25 +70,6 @@
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="control.editsessions.EditSessions"><code class="flex name class">
-<span>class <span class="ident">EditSessions</span></span>
-<span>(</span><span>Mongo)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/editsessions.py#L1-L3" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">class EditSessions:
-    def __init__(self, Mongo):
-        self.Mongo = Mongo</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -97,7 +108,7 @@ const query = new URL(window.location).searchParams.get('q');
 if (query)
 search(query);
 function search(query) {
-const url = '../doc-search.html#' + encodeURIComponent(query);
+const url = 'doc-search.html#' + encodeURIComponent(query);
 new tingle.modal({
 cssClass: ['modal-dialog'],
 onClose: () => {
@@ -114,18 +125,6 @@ setTimeout(() => input.focus(), 100);
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3>Super-module</h3>
-<ul>
-<li><code><a title="control" href="index.html">control</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="control.editsessions.EditSessions" href="#control.editsessions.EditSessions">EditSessions</a></code></h4>
-</li>
-</ul>
-</li>
 </ul>
 </nav>
 </main>

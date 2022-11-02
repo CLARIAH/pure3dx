@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L1-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L1-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -193,7 +193,7 @@ such an id, otherwise <code>None</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L7-L25" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L7-L25" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def castObjectId(value):
     &#34;&#34;&#34;Try to cast the value as an ObjectId.
@@ -241,7 +241,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L28-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L28-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
     def __init__(self, config, Messages):
@@ -365,7 +365,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L84-L106" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L84-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkCollection(self, table, reset=False):
     Messages = self.Messages
@@ -400,7 +400,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L52-L73" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L52-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def connect(self):
     config = self.config
@@ -434,7 +434,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L75-L82" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L75-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def disconnect(self):
     client = self.client
@@ -454,7 +454,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L116-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L116-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def execute(self, table, command, *args, **kwargs):
     Messages = self.Messages
@@ -489,7 +489,7 @@ to query its data, to insert, update and delete data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/mongo.py#L108-L114" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L108-L114" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRecord(self, table, **criteria):
     result = self.execute(table, &#34;find_one&#34;, criteria, {})

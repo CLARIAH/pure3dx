@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/webdavapp.py#L1-L43" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/webdavapp.py#L1-L43" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 
@@ -57,7 +57,7 @@ WEBDAV_METHODS = dict(
 
 
 def getWebdavApp():
-    config = Config(Messages(None), dataDirOnly=True).config
+    config = Config(Messages(None), flask=False).config
 
     webdavConfig = {
         &#34;provider_mapping&#34;: {
@@ -88,10 +88,10 @@ def getWebdavApp():
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/webdavapp.py#L29-L43" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/webdavapp.py#L29-L43" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getWebdavApp():
-    config = Config(Messages(None), dataDirOnly=True).config
+    config = Config(Messages(None), flask=False).config
 
     webdavConfig = {
         &#34;provider_mapping&#34;: {

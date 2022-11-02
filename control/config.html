@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L1-L309" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L1-L309" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import sys
@@ -40,7 +40,7 @@ VERSION_FILE = &#34;version.txt&#34;
 
 
 class Config:
-    def __init__(self, Messages, dataDirOnly=False):
+    def __init__(self, Messages, flask=True):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -57,14 +57,14 @@ class Config:
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
-        self.checkEnv(dataDirOnly)
+        self.checkEnv(flask)
 
         if not self.good:
             Messages.error(logmsg=&#34;Check environment ...&#34;)
             sys.exit(1)
 
-    def checkEnv(self, dataDirOnly):
-        if dataDirOnly:
+    def checkEnv(self, flask):
+        if not flask:
             self.checkRepo(),
             self.checkData()
             self.checkMongo(),
@@ -350,7 +350,7 @@ class Config:
 <dl>
 <dt id="control.config.Config"><code class="flex name class">
 <span>class <span class="ident">Config</span></span>
-<span>(</span><span>Messages, dataDirOnly=False)</span>
+<span>(</span><span>Messages, flask=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All configuration details of the app.</p>
@@ -363,10 +363,10 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L12-L309" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L12-L309" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
-    def __init__(self, Messages, dataDirOnly=False):
+    def __init__(self, Messages, flask=True):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -383,14 +383,14 @@ class Config:
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
-        self.checkEnv(dataDirOnly)
+        self.checkEnv(flask)
 
         if not self.good:
             Messages.error(logmsg=&#34;Check environment ...&#34;)
             sys.exit(1)
 
-    def checkEnv(self, dataDirOnly):
-        if dataDirOnly:
+    def checkEnv(self, flask):
+        if not flask:
             self.checkRepo(),
             self.checkData()
             self.checkMongo(),
@@ -681,7 +681,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L216-L232" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L216-L232" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
     Messages = self.Messages
@@ -710,7 +710,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L130-L148" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L130-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
     Messages = self.Messages
@@ -734,17 +734,17 @@ class Config:
 </details>
 </dd>
 <dt id="control.config.Config.checkEnv"><code class="name flex">
-<span>def <span class="ident">checkEnv</span></span>(<span>self, dataDirOnly)</span>
+<span>def <span class="ident">checkEnv</span></span>(<span>self, flask)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L36-L56" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L36-L56" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def checkEnv(self, dataDirOnly):
-    if dataDirOnly:
+<pre><code class="python">def checkEnv(self, flask):
+    if not flask:
         self.checkRepo(),
         self.checkData()
         self.checkMongo(),
@@ -774,7 +774,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L150-L179" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L150-L179" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
     Messages = self.Messages
@@ -816,7 +816,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L181-L197" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L181-L197" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     Messages = self.Messages
@@ -845,7 +845,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L58-L84" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L58-L84" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
     Messages = self.Messages
@@ -884,7 +884,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L101-L128" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L101-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     Messages = self.Messages
@@ -924,7 +924,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L199-L214" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L199-L214" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
     Messages = self.Messages
@@ -952,7 +952,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L86-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L86-L99" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     Messages = self.Messages
@@ -978,7 +978,7 @@ class Config:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/547a6e629f5d6f6304f66b65d72d4e57e9444214/src/pure3d/control/config.py#L234-L309" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/config.py#L234-L309" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
     Messages = self.Messages
