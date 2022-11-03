@@ -2,7 +2,7 @@ from textwrap import dedent
 
 
 class Viewers:
-    def __init__(self, config):
+    def __init__(self, Settings):
         """Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -12,13 +12,13 @@ class Viewers:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: AttrDict
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         """
-        self.config = config
-        self.viewers = config.viewers
-        self.viewerDefault = config.viewerDefault
+        self.Settings = Settings
+        self.viewers = Settings.viewers
+        self.viewerDefault = Settings.viewerDefault
 
     def addAuth(self, Auth):
         self.Auth = Auth
@@ -91,9 +91,9 @@ class Viewers:
         return (frame, "\n".join(buttons))
 
     def genHtml(self, urlBase, sceneName, viewer, version, action):
-        config = self.config
-        debugMode = config.debugMode
-        viewerUrlBase = config.viewerUrlBase
+        Settings = self.Settings
+        debugMode = Settings.debugMode
+        viewerUrlBase = Settings.viewerUrlBase
 
         ext = "dev" if debugMode else "min"
 

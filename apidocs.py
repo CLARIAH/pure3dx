@@ -22,14 +22,25 @@ ship : ship docs
 """
 
 
-SITE = "site"
 REMOTE = "origin"
 BRANCH = "gh-pages"
-PKG = "control"
 ORG = "CLARIAH"
 REPO = "pure3dx"
-RELATIVE = "src/pure3d"
-TEMPLATE_LOC = "../../doctemplates"
+
+SITE = "site"
+
+DOCS_CFG = {
+    "app": dict(
+        pkgs=["control"],
+        src="src/pure3d",
+        siteLoc=f"../../{SITE}",
+        templateLoc="../../doctemplates",
+    ),
+}
+
+SRC_SRC = "src"
+SRC_SITE_LOC = f"../{SITE}"
+SRC_TEMPLATE_LOC = "../doctemplates"
 
 
 # COPIED FROM MKDOCS AND MODIFIED
@@ -169,19 +180,17 @@ def _ghp_import():
     return result, _dec(err)
 
 
-def _gh_deploy(org, repo, pkg):
+def _gh_deploy(org, repo):
     (result, error) = _ghp_import()
     if not result:
         print("Failed to deploy to GitHub with error: \n%s", error)
         raise SystemExit(1)
     else:
-        url = f"https://{org}.github.io/{repo}/{pkg}"
+        url = f"https://{org}.github.io/{repo}/"
         print("Your documentation should shortly be available at: " + url)
 
 
-def getCommand(pkg, siteLoc, asString=False):
-    templateLoc = TEMPLATE_LOC.format(pkg)
-
+def getCommand(templateLoc, siteLoc, asString=False):
     pdoc3 = [
         "pdoc3",
         "--force",
@@ -194,24 +203,39 @@ def getCommand(pkg, siteLoc, asString=False):
     return " ".join(pdoc3) if asString else pdoc3
 
 
-def pdoc3(pkg):
+def pdoc3():
     """Build the docs into site."""
 
     console("Build docs")
-    siteLoc = f"../../{SITE}"
-    if os.path.exists(siteLoc):
-        console(f"Remove previous build ({siteLoc})")
-        rmtree(siteLoc)
-    console("Generate docs with pdoc3")
-    run(f"{getCommand(pkg, siteLoc, asString=True)} {pkg}", cwd=RELATIVE, shell=True)
+    if os.path.exists(SITE):
+        console(f"Remove previous build ({SITE})")
+        rmtree(SITE)
+
+    for (name, docCfg) in DOCS_CFG.items():
+        runDocs(name, docCfg)
 
 
-def shipDocs(org, repo, pkg, pdoc=True):
+def runDocs(name, docCfg):
+    console(f"Generate {name} with pdoc3")
+
+    pkgs = docCfg["pkgs"]
+    src = docCfg["src"]
+    templateLoc = docCfg["templateLoc"]
+    siteLoc = docCfg["siteLoc"]
+
+    for pkg in pkgs:
+        console(f"Package {pkg}")
+        run(
+            f"{getCommand(templateLoc, siteLoc, asString=True)} {pkg}",
+            cwd=src,
+            shell=True,
+        )
+
+
+def shipDocs(org, repo):
     """Build the docs into site and ship them."""
 
-    if pdoc:
-        pdoc3(pkg)
-    _gh_deploy(org, repo, pkg)
+    _gh_deploy(org, repo)
 
 
 def main():
@@ -223,9 +247,9 @@ def main():
 
     task = args[0]
     if task == "build":
-        pdoc3(PKG)
+        pdoc3()
     elif task == "ship":
-        shipDocs(ORG, REPO, PKG)
+        shipDocs(ORG, REPO)
     else:
         print(HELP)
         print(f"Unrecognized command: `{task}`")

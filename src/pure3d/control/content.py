@@ -1,6 +1,6 @@
-import os
 from markdown import markdown
 
+from control.helpers.files import fileExists
 from control.helpers.generic import AttrDict
 
 
@@ -19,7 +19,7 @@ COMPONENT = dict(
 
 
 class Content:
-    def __init__(self, config, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -30,9 +30,9 @@ class Content:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: AttrDict
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Viewers: object
             Singleton instance of `control.viewers.Viewers`.
         Messages: object
@@ -40,7 +40,7 @@ class Content:
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         """
-        self.config = config
+        self.Settings = Settings
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -207,15 +207,14 @@ class Content:
         return None
 
     def getViewerFile(self, path):
-        config = self.config
+        Settings = self.Settings
         Messages = self.Messages
 
-        dataDir = config.dataDir
+        dataDir = Settings.dataDir
 
         dataPath = f"{dataDir}/viewers/{path}"
 
-        exists = os.path.isfile(dataPath)
-        if not exists:
+        if not fileExists(dataPath):
             logmsg = f"Accessing {dataPath}: "
             logmsg += "does not exist. "
             Messages.error(
@@ -229,11 +228,11 @@ class Content:
         return textData
 
     def getData(self, path, projectName="", editionName=""):
-        config = self.config
+        Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
 
-        dataDir = config.dataDir
+        dataDir = Settings.dataDir
 
         urlBase = (
             "texts"
@@ -253,12 +252,12 @@ class Content:
             )
         )
 
-        exists = os.path.isfile(dataPath)
-        if not permitted or not exists:
+        fexists = fileExists(dataPath)
+        if not permitted or not fexists:
             logmsg = f"Accessing {dataPath}: "
             if not permitted:
                 logmsg = "not allowed. "
-            if not exists:
+            if not fexists:
                 logmsg += "does not exist. "
             Messages.error(
                 msg="Accessing a file",

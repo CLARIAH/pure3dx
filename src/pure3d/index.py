@@ -1,7 +1,8 @@
-from control.app import appFactory
-from control.webdavapp import getWebdavApp
-from control.dispatcher import dispatchWebdav
+import os
+from control.webdavapp import appFactory
 
+flaskAppName = os.environ.get("FLASK_APP", None)
 
-app = appFactory()
-app.wsgi_app = dispatchWebdav(appFactory(), "/webdav/", getWebdavApp())
+if flaskAppName:
+    print(f"Making Flask app {flaskAppName}")
+    app = appFactory()

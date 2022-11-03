@@ -2,7 +2,7 @@ import os
 import sys
 from textwrap import dedent
 
-from control.helpers.files import readYaml, readPath
+from control.helpers.files import dirExists, fileExists, readYaml, readPath
 from control.helpers.generic import AttrDict
 
 
@@ -10,7 +10,7 @@ VERSION_FILE = "version.txt"
 
 
 class Config:
-    def __init__(self, Messages, dataDirOnly=False):
+    def __init__(self, Messages, flask=True):
         """All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -22,19 +22,20 @@ class Config:
         """
         self.Messages = Messages
         Messages.debugAdd(self)
+        self.debug("CONFIG INIT")
         self.good = True
-        self.config = AttrDict()
+        self.Settings = AttrDict()
         """The actual configuration settings are stored here.
         """
 
-        self.checkEnv(dataDirOnly)
+        self.checkEnv(flask)
 
         if not self.good:
             Messages.error(logmsg="Check environment ...")
             sys.exit(1)
 
-    def checkEnv(self, dataDirOnly):
-        if dataDirOnly:
+    def checkEnv(self, flask):
+        if not flask:
             self.checkRepo(),
             self.checkData()
             self.checkMongo(),
@@ -57,7 +58,7 @@ class Config:
 
     def checkRepo(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
         repoDir = os.environ.get("repodir", None)
         if repoDir is None:
@@ -72,21 +73,21 @@ class Config:
             self.good = False
             return
 
-        if not os.path.exists(repoDir):
+        if not dirExists(repoDir):
             Messages.error(
                 logmsg=f"Cannot run because repo dir does not exist: {repoDir}"
             )
             self.good = False
             return
 
-        config.repoDir = repoDir
+        Settings.repoDir = repoDir
 
         # what is the version of the pure3d app?
 
     def checkVersion(self):
         Messages = self.Messages
-        config = self.config
-        repoDir = config.repoDir
+        Settings = self.Settings
+        repoDir = Settings.repoDir
 
         versionPath = f"{repoDir}/src/{VERSION_FILE}"
         versionInfo = readPath(versionPath)
@@ -96,11 +97,11 @@ class Config:
             self.good = False
             return
 
-        config.versionInfo = versionInfo
+        Settings.versionInfo = versionInfo
 
     def checkSecret(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
         secretFileLoc = os.environ.get("SECRET_FILE", None)
 
@@ -109,7 +110,7 @@ class Config:
             self.good = False
             return
 
-        if not os.path.exists(secretFileLoc):
+        if not fileExists(secretFileLoc):
             Messages.error(
                 logmsg=dedent(
                     f"""
@@ -125,11 +126,11 @@ class Config:
             return
 
         with open(secretFileLoc) as fh:
-            config.secret_key = fh.read()
+            Settings.secret_key = fh.read()
 
     def checkData(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
         dataDir = os.environ.get("DATA_DIR", None)
 
@@ -138,18 +139,18 @@ class Config:
             self.good = False
             return
 
-        if not os.path.exists(dataDir):
+        if not dirExists(dataDir):
             Messages.error(logmsg=f"Data directory does not exist: {dataDir}")
             self.good = False
             return
 
-        config.dataDir = dataDir.rstrip("/")
+        Settings.dataDir = dataDir.rstrip("/")
 
         # are we in test mode?
 
     def checkModes(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
         testMode = os.environ.get("flasktest", None)
         if testMode is None:
@@ -157,7 +158,7 @@ class Config:
             self.good = False
             return
 
-        config.testMode = testMode == "test"
+        Settings.testMode = testMode == "test"
         """With test mode enabled.
 
         This means that there is a row of test users on the interface,
@@ -171,7 +172,7 @@ class Config:
             self.good = False
             return
 
-        config.debugMode = debugMode == "--debug"
+        Settings.debugMode = debugMode == "--debug"
         """With debug mode enabled.
 
         This means that the unminified, development versions of the javascript libraries
@@ -180,7 +181,7 @@ class Config:
 
     def checkMongo(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
         mongoUser = os.environ.get("mongouser", None)
         mongoPassword = os.environ.get("mongopassword", None)
@@ -193,16 +194,16 @@ class Config:
             Messages.error(logmsg="Environment variable `mongopassword` not defined")
             self.good = False
 
-        config.mongoUser = os.environ["mongouser"]
-        config.mongoPassword = os.environ["mongopassword"]
+        Settings.mongoUser = os.environ["mongouser"]
+        Settings.mongoPassword = os.environ["mongopassword"]
 
     def checkSettings(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
-        repoDir = config.repoDir
+        repoDir = Settings.repoDir
         yamlDir = f"{repoDir}/src/pure3d/control/yaml"
-        config.yamlDir = yamlDir
+        Settings.yamlDir = yamlDir
 
         settings = readYaml(f"{yamlDir}/settings.yaml")
         if settings is None:
@@ -211,13 +212,13 @@ class Config:
             return
 
         for (k, v) in settings.items():
-            config[k] = v
+            Settings[k] = v
 
     def checkAuth(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
-        yamlDir = config.yamlDir
+        yamlDir = Settings.yamlDir
 
         authData = readYaml(f"{yamlDir}/authorise.yaml")
         if authData is None:
@@ -226,22 +227,22 @@ class Config:
             return
 
         auth = AttrDict()
-        config.auth = auth
+        Settings.auth = auth
 
         for (k, v) in authData.items():
             auth[k] = v
 
     def checkViewers(self):
         Messages = self.Messages
-        config = self.config
+        Settings = self.Settings
 
-        yamlDir = config.yamlDir
-        dataDir = config.dataDir
+        yamlDir = Settings.yamlDir
+        dataDir = Settings.dataDir
 
         viewerDir = f"{dataDir}/viewers"
 
-        config.viewerDir = viewerDir
-        config.viewerUrlBase = "/data/viewers"
+        Settings.viewerDir = viewerDir
+        Settings.viewerUrlBase = "/data/viewers"
 
         viewerSettingsFile = f"{yamlDir}/viewers.yaml"
         viewerSettings = readYaml(viewerSettingsFile)
@@ -250,7 +251,7 @@ class Config:
             self.good = False
             return
 
-        if not os.path.exists(viewerDir):
+        if not dirExists(viewerDir):
             Messages.error(logmsg=f"No viewer software directory: {viewerDir}")
             self.good = False
             return
@@ -305,5 +306,5 @@ class Config:
             self.good = False
             return
 
-        config.viewerDefault = viewerDefault
-        config.viewers = viewers
+        Settings.viewerDefault = viewerDefault
+        Settings.viewers = viewers

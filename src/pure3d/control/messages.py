@@ -5,7 +5,7 @@ from control.helpers.generic import htmlEsc
 
 
 class Messages:
-    def __init__(self, config, flask=True):
+    def __init__(self, Settings, flask=True):
         """Sending messages to the user and sysadmin.
 
         This class has methods to issue messages to the screen of the webuser
@@ -15,11 +15,11 @@ class Messages:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: AttrDict
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         """
-        self.config = config
+        self.Settings = Settings
         self.messages = []
         self.flask = flask
 
@@ -79,12 +79,12 @@ class Messages:
         return "\n".join(html)
 
     def _addMessage(self, tp, msg):
-        config = self.config
+        Settings = self.Settings
 
-        if config is None:
+        if Settings is None:
             sys.stderr.write(f"{tp}: {msg}\n")
             sys.stderr.flush()
         else:
-            debugMode = config.debugMode
+            debugMode = Settings.debugMode
             if tp != "debug" or debugMode:
                 self.messages.append((tp, msg))

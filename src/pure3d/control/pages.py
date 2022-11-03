@@ -22,7 +22,7 @@ CAPTIONS = {
 
 
 class Pages:
-    def __init__(self, config, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -33,9 +33,9 @@ class Pages:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: AttrDict
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Viewers: object
             Singleton instance of `control.viewers.Viewers`.
         Messages: object
@@ -51,7 +51,7 @@ class Pages:
         Users: object
             Singleton instance of `control.users.Users`.
         """
-        self.config = config
+        self.Settings = Settings
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -185,7 +185,7 @@ class Pages:
         left="",
         right="",
     ):
-        config = self.config
+        Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
         Users = self.Users
@@ -193,11 +193,11 @@ class Pages:
         userActive = Auth.user._id
 
         navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if config.testMode else ""
+        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else ""
 
         return render_template(
             "index.html",
-            versionInfo=config.versionInfo,
+            versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left,
             materialRight=right,

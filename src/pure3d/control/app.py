@@ -1,73 +1,44 @@
 from flask import Flask, redirect, abort, request
 
-from control.messages import Messages
-from control.config import Config
-from control.mongo import Mongo
-from control.viewers import Viewers
-from control.content import Content
-from control.users import Users
-from control.pages import Pages
-from control.editsessions import EditSessions
-from control.auth import Auth
-from control.webdavapp import WEBDAV_METHODS
 
-from control.helpers.generic import AttrDict
+def appFactory(objects):
+    """Sets up the main flask app.
 
+    The main task here is to configure routes,
+    i.e. mappings from url-patterns to functions that create responses
 
-def prepare(trivial=False, dataDirOnly=False, flask=True):
-    if trivial:
-        config = AttrDict(dict(secret_key=None))
-        messages = None
-        mongo = None
-        viewers = None
-        users = None
-        content = None
-        auth = None
-        editSessions = None
-        pages = None
-    else:
-        config = Config(Messages(None, flask=flask), dataDirOnly=dataDirOnly).config
-        messages = Messages(config, flask=flask)
-        viewers = Viewers(config)
+    !!! note "WebDAV enabling"
+        This flask app will later be combined with a webdav app,
+        so that the combined app has the business logic of the main app
+        but can also handle webdav requests.
 
-        mongo = Mongo(config, messages)
+        The routes below contain a few patterns that are used for
+        authorising WebDAV calls: the onses starting with `/auth` and `/no`.
+        See also `control.webdavapp`.
 
-        users = Users(config, messages, mongo)
-        content = Content(config, viewers, messages, mongo)
-        auth = Auth(config, messages, mongo, users, content)
-        editSessions = EditSessions(mongo)
+    Parameters
+    ----------
+    objects: AttrDict
+        a slew of objects that set up the toolkit with which the app works:
+        settings, messaging and logging, MongoDb connection, 3d viewer support,
+        higher level objects that can fetch chunks of content and distribute
+        it over the web page.
 
-        content.addAuth(auth)
-        viewers.addAuth(auth)
+    Returns
+    -------
+    object
+        A WebDAV-enabled flask app, which is a wsgi app.
 
-        pages = Pages(config, viewers, messages, content, auth, users)
+    """
 
-    return AttrDict(
-        config=config,
-        Messages=messages,
-        Mongo=mongo,
-        Viewers=viewers,
-        Users=users,
-        Content=content,
-        Auth=auth,
-        EditSessions=editSessions,
-        Pages=pages,
-    )
-
-
-# create and configure app
-
-
-def appFactory():
-    objects = prepare()
-
-    config = objects.config
+    Settings = objects.Settings
     Messages = objects.Messages
     Auth = objects.Auth
     Pages = objects.Pages
+    webdavMethods = Settings.webdavMethods
 
     app = Flask(__name__, static_folder="../static")
-    app.secret_key = config.secret_key
+    app.secret_key = Settings.secret_key
 
     def redirectResult(url, good):
         code = 302 if good else 303
@@ -162,16 +133,16 @@ def appFactory():
     @app.route(
         "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/",
         defaults=dict(path=""),
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
     @app.route(
         "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/"
         "<path:path>",
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
     def authwebdav(projectName, editionName, path):
         permitted = Auth.authorise(
-            WEBDAV_METHODS[request.method],
+            webdavMethods[request.method],
             project=projectName,
             edition=editionName,
             byName=True,
@@ -183,7 +154,7 @@ def appFactory():
             )
         return permitted
 
-    @app.route("/auth/webdav/<path:path>", methods=tuple(WEBDAV_METHODS))
+    @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
         Messages.info(logmsg=f"Invalid webdav access {path=}")
         return False

@@ -1,7 +1,7 @@
 import sys
 import os
 
-from control.app import prepare
+from control.prepare import prepare
 from control.helpers.files import listFiles, listImages, readYaml
 
 
@@ -38,7 +38,7 @@ def importContent():
     meta = {}
 
     for metaFile in metaFiles:
-        meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml")
+        meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
     Mongo.execute("meta", "insert_one", dict(meta=meta))
 
     projectsPath = f"{dataDir}/{PROJECTS}"
@@ -56,7 +56,9 @@ def importContent():
                 metaFiles = listFiles(metaDir, ".yml")
 
                 for metaFile in metaFiles:
-                    meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml")
+                    meta[metaFile] = readYaml(
+                        f"{metaDir}/{metaFile}.yml", defaultEmpty=True
+                    )
 
                 title = meta.get("dc", {}).get("title", projectName)
 
@@ -90,7 +92,9 @@ def importContent():
                             metaFiles = listFiles(metaDir, ".yml")
 
                             for metaFile in metaFiles:
-                                meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml")
+                                meta[metaFile] = readYaml(
+                                    f"{metaDir}/{metaFile}.yml", defaultEmpty=True
+                                )
 
                             title = meta.get("dc", {}).get("title", editionName)
 
@@ -129,7 +133,9 @@ def importContent():
                             sceneDefault = None
 
                             for scene in scenes:
-                                default = sceneDefault is None and scene == SCENE_DEFAULT
+                                default = (
+                                    sceneDefault is None and scene == SCENE_DEFAULT
+                                )
                                 if default:
                                     sceneDefault = scene
                                 sceneInfo = dict(
@@ -148,7 +154,7 @@ def importContent():
                                 sceneId
 
     workflowPath = f"{dataDir}/{WORKFLOW}/init.yml"
-    workflow = readYaml(workflowPath)
+    workflow = readYaml(workflowPath, defaultEmpty=True)
     users = workflow["users"]
     projectUsers = workflow["projectUsers"]
     projectStatus = workflow["projectStatus"]

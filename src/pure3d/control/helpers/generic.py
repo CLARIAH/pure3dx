@@ -17,7 +17,7 @@ def htmlEsc(val):
 
 
 class AttrDict(dict):
-    """Turn a dict into an object with attributes
+    """Turn a dict into an object with attributes.
 
     If non-existing attributes are accessed for reading, `None` is returned.
 
