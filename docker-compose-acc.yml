@@ -9,6 +9,7 @@ services:
     environment:
       SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
+      docollect: ${docollect}
     entrypoint: ./start.sh test
     networks:
       - traefik-public

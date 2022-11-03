@@ -131,4 +131,5 @@ def appFactory():
     app = appFactoryMain(objects)
 
     app.wsgi_app = dispatchWebdav(origApp, "/webdav/", getWebdavApp(objects))
+
     return app

@@ -7,39 +7,23 @@ Usage
 
 Run it from the /src directory in the repo.
 
-./start.sh [test|prod]
-./start.sh
-    Test mode
+Set the env variable runmode to test if you want test mode,
+otherwise production mode is assumed.
 
-./start.sh prod
-    Production mode
+./start.sh
 "
 
 flaskdebug=""
 flasktest=""
 flaskhost="0.0.0.0"
-flaskport="8000"
-browse="x"
 
-while [ ! -z "$1" ]; do
-    if [[ "$1" == "--help" ]]; then
-        printf "$HELP\n"
-        exit 0
-    fi
-    if [[ "$1" == "prod" ]]; then
-        flaskdebug=""
-        flasktest=""
-        shift
-    elif [[ "$1" == "test" ]]; then
-        flaskdebug="--debug"
-        flasktest="test"
-        shift
-    else
-        flaskport="$1"
-        shift
-        break
-    fi
-done
+if [[ "$runmode" == "test" ]]; then
+    flaskdebug="--debug"
+    flasktest="test"
+else
+    flaskdebug=""
+    flasktest=""
+fi
 
 
 cd ..
@@ -53,7 +37,6 @@ cd src/pure3d
 
 export flasktest
 export flaskdebug
-export flaskport
 export repodir
 export FLASK_APP=index
 

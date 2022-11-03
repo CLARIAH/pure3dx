@@ -1,6 +1,7 @@
 from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
+from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
 from control.content import Content as ContentCls
 from control.users import Users as UsersCls
@@ -70,6 +71,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Settings = AttrDict(dict(secret_key=None))
         Messages = None
         Mongo = None
+        Collect = None
         Viewers = None
         Users = None
         Content = None
@@ -80,9 +82,12 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Settings = ConfigCls(MessagesCls(None, flask=flask), flask=flask).Settings
         Settings.webdavMethods = webdavMethods
         Messages = MessagesCls(Settings, flask=flask)
-        Viewers = ViewersCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
+        Collect = CollectCls(Settings, Messages, Mongo)
+        Collect.fetch()
+
+        Viewers = ViewersCls(Settings)
 
         Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
@@ -98,6 +103,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Settings=Settings,
         Messages=Messages,
         Mongo=Mongo,
+        Collect=Collect,
         Viewers=Viewers,
         Users=Users,
         Content=Content,

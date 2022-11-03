@@ -12,15 +12,18 @@ services:
     environment:
       SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
+      docollect: ${docollect}
+      runmode: ${runmode}
+      flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
-    entrypoint: ["./start.sh", "test"]
+    entrypoint: ["./start.sh"]
     depends_on:
       - mongodb
     volumes:
       - "./:/app"
     ports:
-      - "8000:8000"
+      - "${flaskport}:${flaskport}"
 
   mongodb:
     image: mongo:5.0.6
