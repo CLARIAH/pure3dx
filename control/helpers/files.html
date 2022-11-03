@@ -26,10 +26,9 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L1-L79" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L1-L112" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import json
-import os
+<pre><code class="python">import os
 import yaml
 import re
 
@@ -39,34 +38,49 @@ from control.helpers.generic import AttrDict
 IMAGE_RE = re.compile(r&#34;&#34;&#34;^.*\.(png|jpg|jpeg)$&#34;&#34;&#34;, re.I)
 
 
-def readPath(filePath, mode=&#34;r&#34;):
+def readPath(filePath):
+    &#34;&#34;&#34;Reads the (textual) contents of a file.
+
+    !!! note &#34;Not for binary files&#34;
+        The file will not be opened in binary mode.
+        Use this only for files with textual content.
+
+    Parameters
+    ----------
+    filePath: string
+        The path of the file on the file system.
+
+    Returns
+    -------
+    string
+        The contents of the file as unicode.
+        If the file does not exist, the empty string is returned.
+    &#34;&#34;&#34;
+
     if os.path.isfile(filePath):
-        with open(filePath, mode) as fh:
+        with open(filePath) as fh:
             text = fh.read()
         return text
     return &#34;&#34;
 
 
-def readFile(fileDir, fileName, mode=&#34;r&#34;):
-    filePath = f&#34;{fileDir}/{fileName}&#34;
-    if not os.path.isfile(filePath):
-        return f&#34;No file {fileName} in {fileDir}&#34;
-    return open(filePath, mode)
+def readYaml(path, defaultEmpty=False):
+    &#34;&#34;&#34;Reads a yaml file.
 
+    Parameters
+    ----------
+    filePath: string
+        The path of the file on the file system.
+    defaultEmpty: boolean, optional False
+        What to do if the file does not exist.
+        If True, it returns an empty `control.helpers.generic.AttrDict`
+        otherwise False.
 
-def readJson(path):
-    if not os.path.isfile(path):
-        return None
-
-    data = readPath(path)
-
-    if data:
-        return json.loads(data)
-
-    return None
-
-
-def readYaml(path):
+    Returns
+    -------
+    `control.helpers.generic.AttrDict` or None
+        The data content of the yaml file if it exists.
+    &#34;&#34;&#34;
     if not os.path.isfile(path):
         return None
     with open(path) as fh:
@@ -74,11 +88,23 @@ def readYaml(path):
     return AttrDict(data)
 
 
+def fileExists(path):
+    &#34;&#34;&#34;Whether a path exists as file on the file system.
+    &#34;&#34;&#34;
+    return os.path.isfile(path)
+
+
 def dirExists(path):
+    &#34;&#34;&#34;Whether a path exists as directory on the file system.
+    &#34;&#34;&#34;
     return os.path.isdir(path)
 
 
 def listFiles(path, ext):
+    &#34;&#34;&#34;The list of all files in a directory with a certain extension.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
     if not os.path.isdir(path):
         return []
 
@@ -95,6 +121,13 @@ def listFiles(path, ext):
 
 
 def listImages(path):
+    &#34;&#34;&#34;The list of all image files in a directory.
+
+    If the directory does not exist, the empty list is returned.
+
+    An image is a file with extension .png, .jpg, .jpeg or any of its
+    case variants.
+    &#34;&#34;&#34;
     if not os.path.isdir(path):
         return []
 
@@ -120,27 +153,50 @@ def listImages(path):
 <span>def <span class="ident">dirExists</span></span>(<span>path)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether a path exists as directory on the file system.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L47-L48" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L67-L70" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirExists(path):
+    &#34;&#34;&#34;Whether a path exists as directory on the file system.
+    &#34;&#34;&#34;
     return os.path.isdir(path)</code></pre>
+</details>
+</dd>
+<dt id="control.helpers.files.fileExists"><code class="name flex">
+<span>def <span class="ident">fileExists</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether a path exists as file on the file system.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L61-L64" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fileExists(path):
+    &#34;&#34;&#34;Whether a path exists as file on the file system.
+    &#34;&#34;&#34;
+    return os.path.isfile(path)</code></pre>
 </details>
 </dd>
 <dt id="control.helpers.files.listFiles"><code class="name flex">
 <span>def <span class="ident">listFiles</span></span>(<span>path, ext)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The list of all files in a directory with a certain extension.</p>
+<p>If the directory does not exist, the empty list is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L51-L64" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L73-L90" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFiles(path, ext):
+    &#34;&#34;&#34;The list of all files in a directory with a certain extension.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
     if not os.path.isdir(path):
         return []
 
@@ -160,13 +216,23 @@ def listImages(path):
 <span>def <span class="ident">listImages</span></span>(<span>path)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The list of all image files in a directory.</p>
+<p>If the directory does not exist, the empty list is returned.</p>
+<p>An image is a file with extension .png, .jpg, .jpeg or any of its
+case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L67-L79" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L93-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listImages(path):
+    &#34;&#34;&#34;The list of all image files in a directory.
+
+    If the directory does not exist, the empty list is returned.
+
+    An image is a file with extension .png, .jpg, .jpeg or any of its
+    case variants.
+    &#34;&#34;&#34;
     if not os.path.isdir(path):
         return []
 
@@ -181,74 +247,97 @@ def listImages(path):
     return files</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.readFile"><code class="name flex">
-<span>def <span class="ident">readFile</span></span>(<span>fileDir, fileName, mode='r')</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L20-L24" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def readFile(fileDir, fileName, mode=&#34;r&#34;):
-    filePath = f&#34;{fileDir}/{fileName}&#34;
-    if not os.path.isfile(filePath):
-        return f&#34;No file {fileName} in {fileDir}&#34;
-    return open(filePath, mode)</code></pre>
-</details>
-</dd>
-<dt id="control.helpers.files.readJson"><code class="name flex">
-<span>def <span class="ident">readJson</span></span>(<span>path)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L27-L36" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def readJson(path):
-    if not os.path.isfile(path):
-        return None
-
-    data = readPath(path)
-
-    if data:
-        return json.loads(data)
-
-    return None</code></pre>
-</details>
-</dd>
 <dt id="control.helpers.files.readPath"><code class="name flex">
-<span>def <span class="ident">readPath</span></span>(<span>filePath, mode='r')</span>
+<span>def <span class="ident">readPath</span></span>(<span>filePath)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reads the (textual) contents of a file.</p>
+<div class="admonition note">
+<p class="admonition-title">Not for binary files</p>
+<p>The file will not be opened in binary mode.
+Use this only for files with textual content.</p>
+</div>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>filePath</code></strong> :&ensp;<code>string</code></dt>
+<dd>The path of the file on the file system.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The contents of the file as unicode.
+If the file does not exist, the empty string is returned.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L12-L17" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L11-L34" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def readPath(filePath, mode=&#34;r&#34;):
+<pre><code class="python">def readPath(filePath):
+    &#34;&#34;&#34;Reads the (textual) contents of a file.
+
+    !!! note &#34;Not for binary files&#34;
+        The file will not be opened in binary mode.
+        Use this only for files with textual content.
+
+    Parameters
+    ----------
+    filePath: string
+        The path of the file on the file system.
+
+    Returns
+    -------
+    string
+        The contents of the file as unicode.
+        If the file does not exist, the empty string is returned.
+    &#34;&#34;&#34;
+
     if os.path.isfile(filePath):
-        with open(filePath, mode) as fh:
+        with open(filePath) as fh:
             text = fh.read()
         return text
     return &#34;&#34;</code></pre>
 </details>
 </dd>
 <dt id="control.helpers.files.readYaml"><code class="name flex">
-<span>def <span class="ident">readYaml</span></span>(<span>path)</span>
+<span>def <span class="ident">readYaml</span></span>(<span>path, defaultEmpty=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reads a yaml file.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>filePath</code></strong> :&ensp;<code>string</code></dt>
+<dd>The path of the file on the file system.</dd>
+<dt><strong><code>defaultEmpty</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>What to do if the file does not exist.
+If True, it returns an empty <code><a title="control.helpers.generic.AttrDict" href="generic.html#control.helpers.generic.AttrDict">AttrDict</a></code>
+otherwise False.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="control.helpers.generic.AttrDict" href="generic.html#control.helpers.generic.AttrDict">AttrDict</a></code> or None
+The data content of the yaml file if it exists.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/helpers/files.py#L39-L44" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L37-L58" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def readYaml(path):
+<pre><code class="python">def readYaml(path, defaultEmpty=False):
+    &#34;&#34;&#34;Reads a yaml file.
+
+    Parameters
+    ----------
+    filePath: string
+        The path of the file on the file system.
+    defaultEmpty: boolean, optional False
+        What to do if the file does not exist.
+        If True, it returns an empty `control.helpers.generic.AttrDict`
+        otherwise False.
+
+    Returns
+    -------
+    `control.helpers.generic.AttrDict` or None
+        The data content of the yaml file if it exists.
+    &#34;&#34;&#34;
     if not os.path.isfile(path):
         return None
     with open(path) as fh:
@@ -322,10 +411,9 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="control.helpers.files.dirExists" href="#control.helpers.files.dirExists">dirExists</a></code></li>
+<li><code><a title="control.helpers.files.fileExists" href="#control.helpers.files.fileExists">fileExists</a></code></li>
 <li><code><a title="control.helpers.files.listFiles" href="#control.helpers.files.listFiles">listFiles</a></code></li>
 <li><code><a title="control.helpers.files.listImages" href="#control.helpers.files.listImages">listImages</a></code></li>
-<li><code><a title="control.helpers.files.readFile" href="#control.helpers.files.readFile">readFile</a></code></li>
-<li><code><a title="control.helpers.files.readJson" href="#control.helpers.files.readJson">readJson</a></code></li>
 <li><code><a title="control.helpers.files.readPath" href="#control.helpers.files.readPath">readPath</a></code></li>
 <li><code><a title="control.helpers.files.readYaml" href="#control.helpers.files.readYaml">readYaml</a></code></li>
 </ul>

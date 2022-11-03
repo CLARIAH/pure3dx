@@ -26,13 +26,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/users.py#L1-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/users.py#L1-L62" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.helpers.generic import AttrDict
 
 
 class Users:
-    def __init__(self, config, Messages, Mongo):
+    def __init__(self, Settings, Messages, Mongo):
         &#34;&#34;&#34;All about users and the current users.
 
         This class has methods to login/authenticate a user,
@@ -42,24 +42,34 @@ class Users:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
     def wrapTestUsers(self, userActive):
-        config = self.config
+        &#34;&#34;&#34;Generate HTML for login buttons for test users.
+
+        Only produces a non-empty result if the app is in test mode.
+
+        Parameters
+        ----------
+        userActive: ObjectId
+            The id of the user that is currently logged in.
+            The button for this users will be rendered as the active one.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Mongo = self.Mongo
 
-        if not config.testMode:
+        if not Settings.testMode:
             return &#34;&#34;
 
         def wrap(title, href, cls, text):
@@ -93,7 +103,7 @@ class Users:
 <dl>
 <dt id="control.users.Users"><code class="flex name class">
 <span>class <span class="ident">Users</span></span>
-<span>(</span><span>config, Messages, Mongo)</span>
+<span>(</span><span>Settings, Messages, Mongo)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All about users and the current users.</p>
@@ -102,9 +112,9 @@ to logout/deauthenticate users, to retrieve users' data.</p>
 <p>It is instantiated by a singleton object.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
-<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
 <dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
@@ -113,10 +123,10 @@ to logout/deauthenticate users, to retrieve users' data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/users.py#L4-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/users.py#L4-L62" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Users:
-    def __init__(self, config, Messages, Mongo):
+    def __init__(self, Settings, Messages, Mongo):
         &#34;&#34;&#34;All about users and the current users.
 
         This class has methods to login/authenticate a user,
@@ -126,24 +136,34 @@ to logout/deauthenticate users, to retrieve users' data.</p>
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
     def wrapTestUsers(self, userActive):
-        config = self.config
+        &#34;&#34;&#34;Generate HTML for login buttons for test users.
+
+        Only produces a non-empty result if the app is in test mode.
+
+        Parameters
+        ----------
+        userActive: ObjectId
+            The id of the user that is currently logged in.
+            The button for this users will be rendered as the active one.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Mongo = self.Mongo
 
-        if not config.testMode:
+        if not Settings.testMode:
             return &#34;&#34;
 
         def wrap(title, href, cls, text):
@@ -171,17 +191,34 @@ to logout/deauthenticate users, to retrieve users' data.</p>
 <span>def <span class="ident">wrapTestUsers</span></span>(<span>self, userActive)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Generate HTML for login buttons for test users.</p>
+<p>Only produces a non-empty result if the app is in test mode.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>userActive</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The id of the user that is currently logged in.
+The button for this users will be rendered as the active one.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/users.py#L28-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/users.py#L28-L62" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrapTestUsers(self, userActive):
-    config = self.config
+    &#34;&#34;&#34;Generate HTML for login buttons for test users.
+
+    Only produces a non-empty result if the app is in test mode.
+
+    Parameters
+    ----------
+    userActive: ObjectId
+        The id of the user that is currently logged in.
+        The button for this users will be rendered as the active one.
+    &#34;&#34;&#34;
+    Settings = self.Settings
     Mongo = self.Mongo
 
-    if not config.testMode:
+    if not Settings.testMode:
         return &#34;&#34;
 
     def wrap(title, href, cls, text):

@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L1-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L1-L499" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from flask import render_template, make_response
@@ -52,7 +52,7 @@ CAPTIONS = {
 
 
 class Pages:
-    def __init__(self, config, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
         &#34;&#34;&#34;Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -61,11 +61,17 @@ class Pages:
 
         It is instantiated by a singleton object.
 
+        Most methods generate a response that contains the content of a complete
+        page. For those methods we do not document the return value.
+
+        Some methods return something different.
+        If so, it the return value will be documented.
+
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Viewers: object
             Singleton instance of `control.viewers.Viewers`.
         Messages: object
@@ -81,7 +87,7 @@ class Pages:
         Users: object
             Singleton instance of `control.users.Users`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -90,17 +96,18 @@ class Pages:
         self.Users = Users
 
     def home(self):
+        &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
         left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
+        &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
         left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-        right = self.putTexts(
-            &#34;description.description@2 + provenance@2&#34;
-        )
+        right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
+        &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
         Content = self.Content
         surpriseMe = Content.getSurprise()
         left = self.putTexts(&#34;title@1&#34;)
@@ -108,12 +115,20 @@ class Pages:
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
     def projects(self):
+        &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
         Content = self.Content
         projects = Content.getProjects()
         left = self.putTexts(&#34;title@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
 
     def project(self, projectId):
+        &#34;&#34;&#34;The landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        &#34;&#34;&#34;
         Content = self.Content
         projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
@@ -126,6 +141,18 @@ class Pages:
         return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
 
     def edition(self, editionId):
+        &#34;&#34;&#34;The landing page of an edition.
+
+        This page contains a list of scenes.
+        One of these scenes will be loaded in a 3D viewer.
+        It is dependent on defaults which scene in which viewer/version/mode.
+
+        Parameters
+        ----------
+        editionId: ObjectId
+            The edition in question.
+            From the edition record we can find the project too.
+        &#34;&#34;&#34;
         Content = self.Content
         editionId = castObjectId(editionId)
         editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
@@ -133,6 +160,26 @@ class Pages:
         return self.scenes(projectId, editionId, None, None, None, None)
 
     def scene(self, sceneId, viewer, version, action):
+        &#34;&#34;&#34;The landing page of an edition, but with a scene marked as active.
+
+        This page contains a list of scenes.
+        One of these scenes is chosen as the active scene and
+        will be loaded in a 3D viewer.
+        It is dependent on the parameters and/or defaults
+        in which viewer/version/mode.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The active scene in question.
+            From the scene record we can find the edition and the project too.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        &#34;&#34;&#34;
         Content = self.Content
         sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
@@ -141,6 +188,10 @@ class Pages:
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
     def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+        The common part between the two functions mentioned.
+        &#34;&#34;&#34;
         Content = self.Content
         Auth = self.Auth
 
@@ -174,6 +225,19 @@ class Pages:
         )
 
     def viewerFrame(self, sceneId, viewer, version, action):
+        &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The scene that is shown.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        &#34;&#34;&#34;
         Content = self.Content
         Viewers = self.Viewers
         Auth = self.Auth
@@ -196,12 +260,44 @@ class Pages:
         return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
 
     def viewerResource(self, path):
+        &#34;&#34;&#34;Components requested by viewers.
+
+        This is the javascript code, the css, and other resources
+        that are part of the 3D viewer software.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system under the viewers base directory
+            where the resource resides.
+        &#34;&#34;&#34;
         Content = self.Content
 
         data = Content.getViewerFile(path)
         return make_response(data)
 
     def dataProjects(self, projectName, editionName, path):
+        &#34;&#34;&#34;Data content requested by viewers.
+
+        This is the material belonging to the scene,
+        the scene json itself and additional resources,
+        that are part of the user contributed content that is under
+        control of the viewer: annotations, media, etc.
+
+        Parameters
+        ----------
+        projectName: string or None
+            If not None, the name of a project under which the resource
+            is to be found.
+        editionName: string or None
+            If not None, the name of an edition under which the resource
+            is to be found.
+        path: string
+            Path on the file system under the data directory
+            where the resource resides.
+            If there is a project and or edition given,
+            the path is relative to those.
+        &#34;&#34;&#34;
         Content = self.Content
 
         data = Content.getData(path, projectName=projectName, editionName=editionName)
@@ -215,7 +311,25 @@ class Pages:
         left=&#34;&#34;,
         right=&#34;&#34;,
     ):
-        config = self.config
+        &#34;&#34;&#34;Workhorse function to get content on the page.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url that triggered the page function.
+            This part is used to make one of the tabs on the web page active.
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Maybe needed for back links to the project.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Maybe needed for back links to the edition.
+        left: string, optional &#34;&#34;
+            Content for the left column of the page.
+        right: string, optional &#34;&#34;
+            Content for the right column of the page.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
         Users = self.Users
@@ -223,11 +337,11 @@ class Pages:
         userActive = Auth.user._id
 
         navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
 
         return render_template(
             &#34;index.html&#34;,
-            versionInfo=config.versionInfo,
+            versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left,
             materialRight=right,
@@ -235,7 +349,63 @@ class Pages:
             testUsers=testUsers,
         )
 
+    def authWebdav(self, projectName, editionName, path, action):
+        &#34;&#34;&#34;Authorises a webdav request.
+
+        When a viewer makes a WebDAV request to the server,
+        that request is first checked here for authorisation.
+
+        See `control.webdavapp.dispatchWebdav()`.
+
+        Parameters
+        ----------
+        projectName: string
+            The project in question.
+        editionName: string
+            The edition in question.
+        path: string
+            The path relative to the directory of the edition.
+        action: string
+            The operation that the WebDAV request wants to do on the data
+            (`view` or `edit`).
+
+        Returns
+        -------
+        boolean
+            Whether the action is permitted on ths data by the current user.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            action,
+            project=projectName,
+            edition=editionName,
+            byName=True,
+        )
+        if not permitted:
+            Messages.info(
+                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
+                f&#34; on {projectName=} {editionName=} {path=}&#34;
+            )
+        return permitted
+
     def navigation(self, url):
+        &#34;&#34;&#34;Generates the navigation controls.
+
+        Especially the tab bar.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url on the basis of which one of the
+            tabs can be made active.
+
+        Returns
+        -------
+        string
+            The HTML of the navigation.
+        &#34;&#34;&#34;
         search = dedent(
             &#34;&#34;&#34;
             &lt;span class=&#34;search-bar&#34;&gt;
@@ -271,17 +441,48 @@ class Pages:
         return &#34;\n&#34;.join(html)
 
     def backLink(self, projectId):
+        &#34;&#34;&#34;Makes a link to the landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        &#34;&#34;&#34;
         projectUrl = f&#34;/projects/{projectId}&#34;
         cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
         href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
         text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
         return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
 
-    def putText(self, field, level, projectId=None, editionId=None):
+    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts a piece of metadata on the web page.
+
+        The meta data is retrieved and then wrapped accordingly.
+
+        Parameters
+        ----------
+        nameSpace: string
+            The namespace of the metadata, e.g. `dc` (Dublin Core)
+        fieldPath: string
+            `.`-separated list of fields into a metadata structure.
+        level: integer 1-6
+            The heading level in which the text must be wrapped.
+        projectId: ObjectId or None
+            The project in question
+        editionId: ObjectId or None
+            The edition in question
+
+        Returns
+        -------
+        string
+            The HTML of the formatted text.
+        &#34;&#34;&#34;
         Content = self.Content
 
-        content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
-        info = CAPTIONS.get(field, None)
+        content = Content.getMeta(
+            nameSpace, fieldPath, projectId=projectId, editionId=editionId
+        )
+        info = CAPTIONS.get(fieldPath, None)
 
         if info is None:
             return content
@@ -300,9 +501,26 @@ class Pages:
             &#34;&#34;&#34;
         )
 
-    def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
+
+        See `Pages.putText()` for the parameter specifications.
+
+        One difference:
+
+        Parameters
+        ----------
+        fieldSpecs: string
+            `,`-separated list of fieldSpecs
+
+        Returns
+        -------
+        string
+            The join of the individual results of `Pages.putText`.
+        &#34;&#34;&#34;
         return &#34;\n&#34;.join(
             self.putText(
+                nameSpace,
                 *fieldSpec.strip().split(&#34;@&#34;, 1),
                 projectId=projectId,
                 editionId=editionId,
@@ -322,7 +540,7 @@ class Pages:
 <dl>
 <dt id="control.pages.Pages"><code class="flex name class">
 <span>class <span class="ident">Pages</span></span>
-<span>(</span><span>config, Viewers, Messages, Content, Auth, Users)</span>
+<span>(</span><span>Settings, Viewers, Messages, Content, Auth, Users)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Making responses that can be displayed as web pages.</p>
@@ -330,11 +548,15 @@ class Pages:
 for which they get the data (using <code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>),
 which gets then wrapped in HTML.</p>
 <p>It is instantiated by a singleton object.</p>
+<p>Most methods generate a response that contains the content of a complete
+page. For those methods we do not document the return value.</p>
+<p>Some methods return something different.
+If so, it the return value will be documented.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
-<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Viewers</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
@@ -353,10 +575,10 @@ which gets then wrapped in HTML.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L24-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L24-L499" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Pages:
-    def __init__(self, config, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
         &#34;&#34;&#34;Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -365,11 +587,17 @@ which gets then wrapped in HTML.</p>
 
         It is instantiated by a singleton object.
 
+        Most methods generate a response that contains the content of a complete
+        page. For those methods we do not document the return value.
+
+        Some methods return something different.
+        If so, it the return value will be documented.
+
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Viewers: object
             Singleton instance of `control.viewers.Viewers`.
         Messages: object
@@ -385,7 +613,7 @@ which gets then wrapped in HTML.</p>
         Users: object
             Singleton instance of `control.users.Users`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -394,17 +622,18 @@ which gets then wrapped in HTML.</p>
         self.Users = Users
 
     def home(self):
+        &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
         left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
+        &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
         left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-        right = self.putTexts(
-            &#34;description.description@2 + provenance@2&#34;
-        )
+        right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
+        &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
         Content = self.Content
         surpriseMe = Content.getSurprise()
         left = self.putTexts(&#34;title@1&#34;)
@@ -412,12 +641,20 @@ which gets then wrapped in HTML.</p>
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
     def projects(self):
+        &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
         Content = self.Content
         projects = Content.getProjects()
         left = self.putTexts(&#34;title@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
 
     def project(self, projectId):
+        &#34;&#34;&#34;The landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        &#34;&#34;&#34;
         Content = self.Content
         projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
@@ -430,6 +667,18 @@ which gets then wrapped in HTML.</p>
         return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
 
     def edition(self, editionId):
+        &#34;&#34;&#34;The landing page of an edition.
+
+        This page contains a list of scenes.
+        One of these scenes will be loaded in a 3D viewer.
+        It is dependent on defaults which scene in which viewer/version/mode.
+
+        Parameters
+        ----------
+        editionId: ObjectId
+            The edition in question.
+            From the edition record we can find the project too.
+        &#34;&#34;&#34;
         Content = self.Content
         editionId = castObjectId(editionId)
         editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
@@ -437,6 +686,26 @@ which gets then wrapped in HTML.</p>
         return self.scenes(projectId, editionId, None, None, None, None)
 
     def scene(self, sceneId, viewer, version, action):
+        &#34;&#34;&#34;The landing page of an edition, but with a scene marked as active.
+
+        This page contains a list of scenes.
+        One of these scenes is chosen as the active scene and
+        will be loaded in a 3D viewer.
+        It is dependent on the parameters and/or defaults
+        in which viewer/version/mode.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The active scene in question.
+            From the scene record we can find the edition and the project too.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        &#34;&#34;&#34;
         Content = self.Content
         sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
@@ -445,6 +714,10 @@ which gets then wrapped in HTML.</p>
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
     def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+        The common part between the two functions mentioned.
+        &#34;&#34;&#34;
         Content = self.Content
         Auth = self.Auth
 
@@ -478,6 +751,19 @@ which gets then wrapped in HTML.</p>
         )
 
     def viewerFrame(self, sceneId, viewer, version, action):
+        &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The scene that is shown.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        &#34;&#34;&#34;
         Content = self.Content
         Viewers = self.Viewers
         Auth = self.Auth
@@ -500,12 +786,44 @@ which gets then wrapped in HTML.</p>
         return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
 
     def viewerResource(self, path):
+        &#34;&#34;&#34;Components requested by viewers.
+
+        This is the javascript code, the css, and other resources
+        that are part of the 3D viewer software.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system under the viewers base directory
+            where the resource resides.
+        &#34;&#34;&#34;
         Content = self.Content
 
         data = Content.getViewerFile(path)
         return make_response(data)
 
     def dataProjects(self, projectName, editionName, path):
+        &#34;&#34;&#34;Data content requested by viewers.
+
+        This is the material belonging to the scene,
+        the scene json itself and additional resources,
+        that are part of the user contributed content that is under
+        control of the viewer: annotations, media, etc.
+
+        Parameters
+        ----------
+        projectName: string or None
+            If not None, the name of a project under which the resource
+            is to be found.
+        editionName: string or None
+            If not None, the name of an edition under which the resource
+            is to be found.
+        path: string
+            Path on the file system under the data directory
+            where the resource resides.
+            If there is a project and or edition given,
+            the path is relative to those.
+        &#34;&#34;&#34;
         Content = self.Content
 
         data = Content.getData(path, projectName=projectName, editionName=editionName)
@@ -519,7 +837,25 @@ which gets then wrapped in HTML.</p>
         left=&#34;&#34;,
         right=&#34;&#34;,
     ):
-        config = self.config
+        &#34;&#34;&#34;Workhorse function to get content on the page.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url that triggered the page function.
+            This part is used to make one of the tabs on the web page active.
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Maybe needed for back links to the project.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Maybe needed for back links to the edition.
+        left: string, optional &#34;&#34;
+            Content for the left column of the page.
+        right: string, optional &#34;&#34;
+            Content for the right column of the page.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
         Users = self.Users
@@ -527,11 +863,11 @@ which gets then wrapped in HTML.</p>
         userActive = Auth.user._id
 
         navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
 
         return render_template(
             &#34;index.html&#34;,
-            versionInfo=config.versionInfo,
+            versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left,
             materialRight=right,
@@ -539,7 +875,63 @@ which gets then wrapped in HTML.</p>
             testUsers=testUsers,
         )
 
+    def authWebdav(self, projectName, editionName, path, action):
+        &#34;&#34;&#34;Authorises a webdav request.
+
+        When a viewer makes a WebDAV request to the server,
+        that request is first checked here for authorisation.
+
+        See `control.webdavapp.dispatchWebdav()`.
+
+        Parameters
+        ----------
+        projectName: string
+            The project in question.
+        editionName: string
+            The edition in question.
+        path: string
+            The path relative to the directory of the edition.
+        action: string
+            The operation that the WebDAV request wants to do on the data
+            (`view` or `edit`).
+
+        Returns
+        -------
+        boolean
+            Whether the action is permitted on ths data by the current user.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            action,
+            project=projectName,
+            edition=editionName,
+            byName=True,
+        )
+        if not permitted:
+            Messages.info(
+                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
+                f&#34; on {projectName=} {editionName=} {path=}&#34;
+            )
+        return permitted
+
     def navigation(self, url):
+        &#34;&#34;&#34;Generates the navigation controls.
+
+        Especially the tab bar.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url on the basis of which one of the
+            tabs can be made active.
+
+        Returns
+        -------
+        string
+            The HTML of the navigation.
+        &#34;&#34;&#34;
         search = dedent(
             &#34;&#34;&#34;
             &lt;span class=&#34;search-bar&#34;&gt;
@@ -575,17 +967,48 @@ which gets then wrapped in HTML.</p>
         return &#34;\n&#34;.join(html)
 
     def backLink(self, projectId):
+        &#34;&#34;&#34;Makes a link to the landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        &#34;&#34;&#34;
         projectUrl = f&#34;/projects/{projectId}&#34;
         cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
         href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
         text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
         return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
 
-    def putText(self, field, level, projectId=None, editionId=None):
+    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts a piece of metadata on the web page.
+
+        The meta data is retrieved and then wrapped accordingly.
+
+        Parameters
+        ----------
+        nameSpace: string
+            The namespace of the metadata, e.g. `dc` (Dublin Core)
+        fieldPath: string
+            `.`-separated list of fields into a metadata structure.
+        level: integer 1-6
+            The heading level in which the text must be wrapped.
+        projectId: ObjectId or None
+            The project in question
+        editionId: ObjectId or None
+            The edition in question
+
+        Returns
+        -------
+        string
+            The HTML of the formatted text.
+        &#34;&#34;&#34;
         Content = self.Content
 
-        content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
-        info = CAPTIONS.get(field, None)
+        content = Content.getMeta(
+            nameSpace, fieldPath, projectId=projectId, editionId=editionId
+        )
+        info = CAPTIONS.get(fieldPath, None)
 
         if info is None:
             return content
@@ -604,9 +1027,26 @@ which gets then wrapped in HTML.</p>
             &#34;&#34;&#34;
         )
 
-    def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
+
+        See `Pages.putText()` for the parameter specifications.
+
+        One difference:
+
+        Parameters
+        ----------
+        fieldSpecs: string
+            `,`-separated list of fieldSpecs
+
+        Returns
+        -------
+        string
+            The join of the individual results of `Pages.putText`.
+        &#34;&#34;&#34;
         return &#34;\n&#34;.join(
             self.putText(
+                nameSpace,
                 *fieldSpec.strip().split(&#34;@&#34;, 1),
                 projectId=projectId,
                 editionId=editionId,
@@ -620,31 +1060,114 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">about</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The site-wide about page.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L66-L71" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L73-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def about(self):
+    &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
     left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-    right = self.putTexts(
-        &#34;description.description@2 + provenance@2&#34;
-    )
+    right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
     return self.page(&#34;about&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.authWebdav"><code class="name flex">
+<span>def <span class="ident">authWebdav</span></span>(<span>self, projectName, editionName, path, action)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Authorises a webdav request.</p>
+<p>When a viewer makes a WebDAV request to the server,
+that request is first checked here for authorisation.</p>
+<p>See <code><a title="control.webdavapp.dispatchWebdav" href="webdavapp.html#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code></dt>
+<dd>The project in question.</dd>
+<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code></dt>
+<dd>The edition in question.</dd>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The path relative to the directory of the edition.</dd>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
+<dd>The operation that the WebDAV request wants to do on the data
+(<code>view</code> or <code>edit</code>).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the action is permitted on ths data by the current user.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L322-L361" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def authWebdav(self, projectName, editionName, path, action):
+    &#34;&#34;&#34;Authorises a webdav request.
+
+    When a viewer makes a WebDAV request to the server,
+    that request is first checked here for authorisation.
+
+    See `control.webdavapp.dispatchWebdav()`.
+
+    Parameters
+    ----------
+    projectName: string
+        The project in question.
+    editionName: string
+        The edition in question.
+    path: string
+        The path relative to the directory of the edition.
+    action: string
+        The operation that the WebDAV request wants to do on the data
+        (`view` or `edit`).
+
+    Returns
+    -------
+    boolean
+        Whether the action is permitted on ths data by the current user.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Auth = self.Auth
+
+    permitted = Auth.authorise(
+        action,
+        project=projectName,
+        edition=editionName,
+        byName=True,
+    )
+    if not permitted:
+        Messages.info(
+            logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
+            f&#34; on {projectName=} {editionName=} {path=}&#34;
+        )
+    return permitted</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.backLink"><code class="name flex">
 <span>def <span class="ident">backLink</span></span>(<span>self, projectId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Makes a link to the landing page of a project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The project in question.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L243-L248" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L413-L425" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backLink(self, projectId):
+    &#34;&#34;&#34;Makes a link to the landing page of a project.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        The project in question.
+    &#34;&#34;&#34;
     projectUrl = f&#34;/projects/{projectId}&#34;
     cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
     href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
@@ -656,13 +1179,52 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">dataProjects</span></span>(<span>self, projectName, editionName, path)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Data content requested by viewers.</p>
+<p>This is the material belonging to the scene,
+the scene json itself and additional resources,
+that are part of the user contributed content that is under
+control of the viewer: annotations, media, etc.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>If not None, the name of a project under which the resource
+is to be found.</dd>
+<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>If not None, the name of an edition under which the resource
+is to be found.</dd>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>Path on the file system under the data directory
+where the resource resides.
+If there is a project and or edition given,
+the path is relative to those.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L174-L178" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L249-L274" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dataProjects(self, projectName, editionName, path):
+    &#34;&#34;&#34;Data content requested by viewers.
+
+    This is the material belonging to the scene,
+    the scene json itself and additional resources,
+    that are part of the user contributed content that is under
+    control of the viewer: annotations, media, etc.
+
+    Parameters
+    ----------
+    projectName: string or None
+        If not None, the name of a project under which the resource
+        is to be found.
+    editionName: string or None
+        If not None, the name of an edition under which the resource
+        is to be found.
+    path: string
+        Path on the file system under the data directory
+        where the resource resides.
+        If there is a project and or edition given,
+        the path is relative to those.
+    &#34;&#34;&#34;
     Content = self.Content
 
     data = Content.getData(path, projectName=projectName, editionName=editionName)
@@ -673,13 +1235,34 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">edition</span></span>(<span>self, editionId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The landing page of an edition.</p>
+<p>This page contains a list of scenes.
+One of these scenes will be loaded in a 3D viewer.
+It is dependent on defaults which scene in which viewer/version/mode.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The edition in question.
+From the edition record we can find the project too.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L98-L103" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L113-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def edition(self, editionId):
+    &#34;&#34;&#34;The landing page of an edition.
+
+    This page contains a list of scenes.
+    One of these scenes will be loaded in a 3D viewer.
+    It is dependent on defaults which scene in which viewer/version/mode.
+
+    Parameters
+    ----------
+    editionId: ObjectId
+        The edition in question.
+        From the edition record we can find the project too.
+    &#34;&#34;&#34;
     Content = self.Content
     editionId = castObjectId(editionId)
     editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
@@ -691,13 +1274,14 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">home</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The site-wide home page.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L62-L64" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L68-L71" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def home(self):
+    &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
     left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
     return self.page(&#34;home&#34;, left=left)</code></pre>
 </details>
@@ -706,13 +1290,40 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">navigation</span></span>(<span>self, url)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Generates the navigation controls.</p>
+<p>Especially the tab bar.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>url</code></strong> :&ensp;<code>string</code></dt>
+<dd>Initial part of the url on the basis of which one of the
+tabs can be made active.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML of the navigation.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L208-L241" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L363-L411" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def navigation(self, url):
+    &#34;&#34;&#34;Generates the navigation controls.
+
+    Especially the tab bar.
+
+    Parameters
+    ----------
+    url: string
+        Initial part of the url on the basis of which one of the
+        tabs can be made active.
+
+    Returns
+    -------
+    string
+        The HTML of the navigation.
+    &#34;&#34;&#34;
     search = dedent(
         &#34;&#34;&#34;
         &lt;span class=&#34;search-bar&#34;&gt;
@@ -752,11 +1363,27 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">page</span></span>(<span>self, url, projectId=None, editionId=None, left='', right='')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Workhorse function to get content on the page.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>url</code></strong> :&ensp;<code>string</code></dt>
+<dd>Initial part of the url that triggered the page function.
+This part is used to make one of the tabs on the web page active.</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project in question, if any.
+Maybe needed for back links to the project.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition in question, if any.
+Maybe needed for back links to the edition.</dd>
+<dt><strong><code>left</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dd>Content for the left column of the page.</dd>
+<dt><strong><code>right</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dd>Content for the right column of the page.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L180-L206" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L276-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def page(
     self,
@@ -766,7 +1393,25 @@ which gets then wrapped in HTML.</p>
     left=&#34;&#34;,
     right=&#34;&#34;,
 ):
-    config = self.config
+    &#34;&#34;&#34;Workhorse function to get content on the page.
+
+    Parameters
+    ----------
+    url: string
+        Initial part of the url that triggered the page function.
+        This part is used to make one of the tabs on the web page active.
+    projectId: ObjectId, optional None
+        The project in question, if any.
+        Maybe needed for back links to the project.
+    editionId: ObjectId, optional None
+        The edition in question, if any.
+        Maybe needed for back links to the edition.
+    left: string, optional &#34;&#34;
+        Content for the left column of the page.
+    right: string, optional &#34;&#34;
+        Content for the right column of the page.
+    &#34;&#34;&#34;
+    Settings = self.Settings
     Messages = self.Messages
     Auth = self.Auth
     Users = self.Users
@@ -774,11 +1419,11 @@ which gets then wrapped in HTML.</p>
     userActive = Auth.user._id
 
     navigation = self.navigation(url)
-    testUsers = Users.wrapTestUsers(userActive) if config.testMode else &#34;&#34;
+    testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
 
     return render_template(
         &#34;index.html&#34;,
-        versionInfo=config.versionInfo,
+        versionInfo=Settings.versionInfo,
         navigation=navigation,
         materialLeft=left,
         materialRight=right,
@@ -791,13 +1436,25 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">project</span></span>(<span>self, projectId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The landing page of a project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The project in question.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L86-L96" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L94-L111" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def project(self, projectId):
+    &#34;&#34;&#34;The landing page of a project.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        The project in question.
+    &#34;&#34;&#34;
     Content = self.Content
     projectId = castObjectId(projectId)
     editions = Content.getEditions(projectId)
@@ -814,13 +1471,14 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">projects</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The page with the list of projects.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L80-L84" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L87-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def projects(self):
+    &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
     Content = self.Content
     projects = Content.getProjects()
     left = self.putTexts(&#34;title@2&#34;) + projects
@@ -828,20 +1486,63 @@ which gets then wrapped in HTML.</p>
 </details>
 </dd>
 <dt id="control.pages.Pages.putText"><code class="name flex">
-<span>def <span class="ident">putText</span></span>(<span>self, field, level, projectId=None, editionId=None)</span>
+<span>def <span class="ident">putText</span></span>(<span>self, nameSpace, fieldPath, level, projectId=None, editionId=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Puts a piece of metadata on the web page.</p>
+<p>The meta data is retrieved and then wrapped accordingly.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>nameSpace</code></strong> :&ensp;<code>string</code></dt>
+<dd>The namespace of the metadata, e.g. <code>dc</code> (Dublin Core)</dd>
+<dt><strong><code>fieldPath</code></strong> :&ensp;<code>string</code></dt>
+<dd><code>.</code>-separated list of fields into a metadata structure.</dd>
+<dt><strong><code>level</code></strong> :&ensp;<code>integer 1-6</code></dt>
+<dd>The heading level in which the text must be wrapped.</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>The project in question</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>The edition in question</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML of the formatted text.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L250-L271" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L427-L472" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def putText(self, field, level, projectId=None, editionId=None):
+<pre><code class="python">def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+    &#34;&#34;&#34;Puts a piece of metadata on the web page.
+
+    The meta data is retrieved and then wrapped accordingly.
+
+    Parameters
+    ----------
+    nameSpace: string
+        The namespace of the metadata, e.g. `dc` (Dublin Core)
+    fieldPath: string
+        `.`-separated list of fields into a metadata structure.
+    level: integer 1-6
+        The heading level in which the text must be wrapped.
+    projectId: ObjectId or None
+        The project in question
+    editionId: ObjectId or None
+        The edition in question
+
+    Returns
+    -------
+    string
+        The HTML of the formatted text.
+    &#34;&#34;&#34;
     Content = self.Content
 
-    content = Content.getMeta(&#34;dc&#34;, field, projectId=projectId, editionId=editionId)
-    info = CAPTIONS.get(field, None)
+    content = Content.getMeta(
+        nameSpace, fieldPath, projectId=projectId, editionId=editionId
+    )
+    info = CAPTIONS.get(fieldPath, None)
 
     if info is None:
         return content
@@ -862,18 +1563,47 @@ which gets then wrapped in HTML.</p>
 </details>
 </dd>
 <dt id="control.pages.Pages.putTexts"><code class="name flex">
-<span>def <span class="ident">putTexts</span></span>(<span>self, fieldSpecs, projectId=None, editionId=None)</span>
+<span>def <span class="ident">putTexts</span></span>(<span>self, nameSpace, fieldSpecs, projectId=None, editionId=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Puts a several pieces of metadata on the web page.</p>
+<p>See <code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">Pages.putText()</a></code> for the parameter specifications.</p>
+<p>One difference:</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>fieldSpecs</code></strong> :&ensp;<code>string</code></dt>
+<dd><code>,</code>-separated list of fieldSpecs</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The join of the individual results of <code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">Pages.putText()</a></code>.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L273-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L474-L499" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+<pre><code class="python">def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+    &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
+
+    See `Pages.putText()` for the parameter specifications.
+
+    One difference:
+
+    Parameters
+    ----------
+    fieldSpecs: string
+        `,`-separated list of fieldSpecs
+
+    Returns
+    -------
+    string
+        The join of the individual results of `Pages.putText`.
+    &#34;&#34;&#34;
     return &#34;\n&#34;.join(
         self.putText(
+            nameSpace,
             *fieldSpec.strip().split(&#34;@&#34;, 1),
             projectId=projectId,
             editionId=editionId,
@@ -886,13 +1616,50 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">scene</span></span>(<span>self, sceneId, viewer, version, action)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The landing page of an edition, but with a scene marked as active.</p>
+<p>This page contains a list of scenes.
+One of these scenes is chosen as the active scene and
+will be loaded in a 3D viewer.
+It is dependent on the parameters and/or defaults
+in which viewer/version/mode.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>sceneId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The active scene in question.
+From the scene record we can find the edition and the project too.</dd>
+<dt><strong><code>viewer</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The viewer to use.</dd>
+<dt><strong><code>version</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The version to use.</dd>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The mode in which the viewer is to be used (<code>view</code> or <code>edit</code>).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L105-L111" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L132-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def scene(self, sceneId, viewer, version, action):
+    &#34;&#34;&#34;The landing page of an edition, but with a scene marked as active.
+
+    This page contains a list of scenes.
+    One of these scenes is chosen as the active scene and
+    will be loaded in a 3D viewer.
+    It is dependent on the parameters and/or defaults
+    in which viewer/version/mode.
+
+    Parameters
+    ----------
+    sceneId: ObjectId
+        The active scene in question.
+        From the scene record we can find the edition and the project too.
+    viewer: string or None
+        The viewer to use.
+    version: string or None
+        The version to use.
+    action: string or None
+        The mode in which the viewer is to be used (`view` or `edit`).
+    &#34;&#34;&#34;
     Content = self.Content
     sceneId = castObjectId(sceneId)
     sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
@@ -905,13 +1672,18 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">scenes</span></span>(<span>self, projectId, editionId, sceneId, viewer, version, action)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Workhorse for <code><a title="control.pages.Pages.edition" href="#control.pages.Pages.edition">Pages.edition()</a></code> and <code><a title="control.pages.Pages.scene" href="#control.pages.Pages.scene">Pages.scene()</a></code>.</p>
+<p>The common part between the two functions mentioned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L113-L144" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L160-L195" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+    &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+    The common part between the two functions mentioned.
+    &#34;&#34;&#34;
     Content = self.Content
     Auth = self.Auth
 
@@ -949,13 +1721,14 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">surprise</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The "surprise me!" page.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L73-L78" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L79-L85" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def surprise(self):
+    &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
     Content = self.Content
     surpriseMe = Content.getSurprise()
     left = self.putTexts(&#34;title@1&#34;)
@@ -967,13 +1740,37 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">viewerFrame</span></span>(<span>self, sceneId, viewer, version, action)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The page loaded in an iframe where a 3D viewer operates.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>sceneId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The scene that is shown.</dd>
+<dt><strong><code>viewer</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The viewer to use.</dd>
+<dt><strong><code>version</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The version to use.</dd>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
+<dd>The mode in which the viewer is to be used (<code>view</code> or <code>edit</code>).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L146-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L197-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerFrame(self, sceneId, viewer, version, action):
+    &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
+
+    Parameters
+    ----------
+    sceneId: ObjectId
+        The scene that is shown.
+    viewer: string or None
+        The viewer to use.
+    version: string or None
+        The version to use.
+    action: string or None
+        The mode in which the viewer is to be used (`view` or `edit`).
+    &#34;&#34;&#34;
     Content = self.Content
     Viewers = self.Viewers
     Auth = self.Auth
@@ -1000,13 +1797,32 @@ which gets then wrapped in HTML.</p>
 <span>def <span class="ident">viewerResource</span></span>(<span>self, path)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Components requested by viewers.</p>
+<p>This is the javascript code, the css, and other resources
+that are part of the 3D viewer software.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>Path on the file system under the viewers base directory
+where the resource resides.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/pages.py#L168-L172" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L232-L247" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerResource(self, path):
+    &#34;&#34;&#34;Components requested by viewers.
+
+    This is the javascript code, the css, and other resources
+    that are part of the 3D viewer software.
+
+    Parameters
+    ----------
+    path: string
+        Path on the file system under the viewers base directory
+        where the resource resides.
+    &#34;&#34;&#34;
     Content = self.Content
 
     data = Content.getViewerFile(path)
@@ -1082,6 +1898,7 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.pages.Pages" href="#control.pages.Pages">Pages</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.pages.Pages.about" href="#control.pages.Pages.about">about</a></code></li>
+<li><code><a title="control.pages.Pages.authWebdav" href="#control.pages.Pages.authWebdav">authWebdav</a></code></li>
 <li><code><a title="control.pages.Pages.backLink" href="#control.pages.Pages.backLink">backLink</a></code></li>
 <li><code><a title="control.pages.Pages.dataProjects" href="#control.pages.Pages.dataProjects">dataProjects</a></code></li>
 <li><code><a title="control.pages.Pages.edition" href="#control.pages.Pages.edition">edition</a></code></li>

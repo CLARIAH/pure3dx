@@ -26,144 +26,49 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L1-L262" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/app.py#L1-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask import Flask, redirect, abort, request
 
-from control.messages import Messages
-from control.config import Config
-from control.mongo import Mongo
-from control.viewers import Viewers
-from control.content import Content
-from control.users import Users
-from control.pages import Pages
-from control.editsessions import EditSessions
-from control.auth import Auth
-from control.webdavapp import WEBDAV_METHODS
 
-from control.helpers.generic import AttrDict
+def appFactory(objects):
+    &#34;&#34;&#34;Sets up the main flask app.
 
+    The main task here is to configure routes,
+    i.e. mappings from url-patterns to functions that create responses
 
-def prepare(trivial=False, flask=True):
-    &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
+    !!! note &#34;WebDAV enabling&#34;
+        This flask app will later be combined with a webdav app,
+        so that the combined app has the business logic of the main app
+        but can also handle webdav requests.
 
-    Several classes are instantiated with a singleton object;
-    each of these objects has a dedicated task in the app:
-
-    * `control.config.Config`: handle all configuration aspects
-    * `control.messages.Messages`: handle all messaging to user and sysadmin
-    * `control.mongo.Mongo`: higher-level commands to the MongoDb
-    * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.users.Users`: manage the user data that the app needs
-    * `control.content.Content`: retrieve all data that needs to be displayed
-    * `control.auth.Auth`: compute the permission of the current user
-      to access content
-    * `control.pages.Pages`: high-level functions that
-      distribute content over the page
+        The routes below contain a few patterns that are used for
+        authorising WebDAV calls: the onses starting with `/auth` and `/no`.
+        See also `control.webdavapp`.
 
     Parameters
     ----------
-    trivial: boolean, optional False
-        If True, skips the initialization of most objects.
-        Useful if the pure3d app container should run without doing anything.
-        This happens when we just want to start the container and run shell commands
-        inside it, for example after a complicated refactoring when the flask app has
-        too many bugs.
-
-    flask: boolean, optional True
-        If False, skips several configuration steps.
-        Useful if you need configuration details of the app before
-        flask is running. Cases are:
-
-        * when setting up the webdav app (`control.webdavapp`) you need some
-          configuration details, and this happens before the flask app is set up
-        * when importing data into MongoDb, we need only non-flask parts of the app.
-          This kind of import happens manually in a running container
-          on the command line.
-
-    Returns
-    -------
-    AttrDict
-        A dictionary keyed by the names of the singleton objects and valued
-        by the singleton objects themselves.
-
-    &#34;&#34;&#34;
-    if trivial:
-        config = AttrDict(dict(secret_key=None))
-        messages = None
-        mongo = None
-        viewers = None
-        users = None
-        content = None
-        auth = None
-        editSessions = None
-        pages = None
-    else:
-        config = Config(Messages(None, flask=flask), flask=flask).config
-        messages = Messages(config, flask=flask)
-        viewers = Viewers(config)
-
-        mongo = Mongo(config, messages)
-
-        users = Users(config, messages, mongo)
-        content = Content(config, viewers, messages, mongo)
-        auth = Auth(config, messages, mongo, users, content)
-        editSessions = EditSessions(mongo)
-
-        content.addAuth(auth)
-        viewers.addAuth(auth)
-
-        pages = Pages(config, viewers, messages, content, auth, users)
-
-    return AttrDict(
-        config=config,
-        Messages=messages,
-        Mongo=mongo,
-        Viewers=viewers,
-        Users=users,
-        Content=content,
-        Auth=auth,
-        EditSessions=editSessions,
-        Pages=pages,
-    )
-
-
-# create and configure app
-
-
-def appFactory():
-    &#34;&#34;&#34;Sets up the flask app.
-
-    There are two main tasks:
-
-    * Gather data and environment information before listening to requests
-    * Configure routes, i.e. mappings from url-patterns to functions that
-      create responses
-
-    !!! note &#34;app combination&#34;
-        The app returned does not deal with *webdav* requests.
-        There is a `control.dispatcher` module that combines a separate
-        `control.webdavapp` with this app, so that the end result
-        accomodates 3d viewers that talk the webdav protocol with the server.
-
-        This happens in [`index`](../index.html).
+    objects: `control.helpers.generic.AttrDict`
+        a slew of objects that set up the toolkit with which the app works:
+        settings, messaging and logging, MongoDb connection, 3d viewer support,
+        higher level objects that can fetch chunks of content and distribute
+        it over the web page.
 
     Returns
     -------
     object
-        A flask app, which is a wsgi app.
+        A WebDAV-enabled flask app, which is a wsgi app.
 
     &#34;&#34;&#34;
 
-    objects = prepare()
-
-    config = objects.config
+    Settings = objects.Settings
     Messages = objects.Messages
     Auth = objects.Auth
     Pages = objects.Pages
+    webdavMethods = Settings.webdavMethods
 
     app = Flask(__name__, static_folder=&#34;../static&#34;)
-    app.secret_key = config.secret_key
+    app.secret_key = Settings.secret_key
 
     def redirectResult(url, good):
         code = 302 if good else 303
@@ -258,28 +163,18 @@ def appFactory():
     @app.route(
         &#34;/auth/webdav/projects/&lt;string:projectName&gt;/editions/&lt;string:editionName&gt;/&#34;,
         defaults=dict(path=&#34;&#34;),
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
     @app.route(
         &#34;/auth/webdav/projects/&lt;string:projectName&gt;/editions/&lt;string:editionName&gt;/&#34;
         &#34;&lt;path:path&gt;&#34;,
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
-    def authwebdav(projectName, editionName, path):
-        permitted = Auth.authorise(
-            WEBDAV_METHODS[request.method],
-            project=projectName,
-            edition=editionName,
-            byName=True,
-        )
-        if not permitted:
-            Messages.info(
-                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
-                f&#34; on {projectName=} {editionName=} {path=}&#34;
-            )
-        return permitted
+    def authWebdav(projectName, editionName, path):
+        action = webdavMethods[request.method]
+        return Pages.authWebdav(projectName, editionName, path, action)
 
-    @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(WEBDAV_METHODS))
+    @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
         Messages.info(logmsg=f&#34;Invalid webdav access {path=}&#34;)
         return False
@@ -300,67 +195,77 @@ def appFactory():
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="control.app.appFactory"><code class="name flex">
-<span>def <span class="ident">appFactory</span></span>(<span>)</span>
+<span>def <span class="ident">appFactory</span></span>(<span>objects)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sets up the flask app.</p>
-<p>There are two main tasks:</p>
-<ul>
-<li>Gather data and environment information before listening to requests</li>
-<li>Configure routes, i.e. mappings from url-patterns to functions that
-create responses</li>
-</ul>
+<div class="desc"><p>Sets up the main flask app.</p>
+<p>The main task here is to configure routes,
+i.e. mappings from url-patterns to functions that create responses</p>
 <div class="admonition note">
-<p class="admonition-title">app combination</p>
-<p>The app returned does not deal with <em>webdav</em> requests.
-There is a <code><a title="control.dispatcher" href="dispatcher.html">control.dispatcher</a></code> module that combines a separate
-<code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code> with this app, so that the end result
-accomodates 3d viewers that talk the webdav protocol with the server.</p>
-<p>This happens in <a href="../index.html"><code>index</code></a>.</p>
+<p class="admonition-title">WebDAV enabling</p>
+<p>This flask app will later be combined with a webdav app,
+so that the combined app has the business logic of the main app
+but can also handle webdav requests.</p>
+<p>The routes below contain a few patterns that are used for
+authorising WebDAV calls: the onses starting with <code>/auth</code> and <code>/no</code>.
+See also <code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code>.</p>
 </div>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>objects</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
+<dd>a slew of objects that set up the toolkit with which the app works:
+settings, messaging and logging, MongoDb connection, 3d viewer support,
+higher level objects that can fetch chunks of content and distribute
+it over the web page.</dd>
+</dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>object</code></dt>
-<dd>A flask app, which is a wsgi app.</dd>
+<dd>A WebDAV-enabled flask app, which is a wsgi app.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L104-L262" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/app.py#L4-L157" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def appFactory():
-    &#34;&#34;&#34;Sets up the flask app.
+<pre><code class="python">def appFactory(objects):
+    &#34;&#34;&#34;Sets up the main flask app.
 
-    There are two main tasks:
+    The main task here is to configure routes,
+    i.e. mappings from url-patterns to functions that create responses
 
-    * Gather data and environment information before listening to requests
-    * Configure routes, i.e. mappings from url-patterns to functions that
-      create responses
+    !!! note &#34;WebDAV enabling&#34;
+        This flask app will later be combined with a webdav app,
+        so that the combined app has the business logic of the main app
+        but can also handle webdav requests.
 
-    !!! note &#34;app combination&#34;
-        The app returned does not deal with *webdav* requests.
-        There is a `control.dispatcher` module that combines a separate
-        `control.webdavapp` with this app, so that the end result
-        accomodates 3d viewers that talk the webdav protocol with the server.
+        The routes below contain a few patterns that are used for
+        authorising WebDAV calls: the onses starting with `/auth` and `/no`.
+        See also `control.webdavapp`.
 
-        This happens in [`index`](../index.html).
+    Parameters
+    ----------
+    objects: `control.helpers.generic.AttrDict`
+        a slew of objects that set up the toolkit with which the app works:
+        settings, messaging and logging, MongoDb connection, 3d viewer support,
+        higher level objects that can fetch chunks of content and distribute
+        it over the web page.
 
     Returns
     -------
     object
-        A flask app, which is a wsgi app.
+        A WebDAV-enabled flask app, which is a wsgi app.
 
     &#34;&#34;&#34;
 
-    objects = prepare()
-
-    config = objects.config
+    Settings = objects.Settings
     Messages = objects.Messages
     Auth = objects.Auth
     Pages = objects.Pages
+    webdavMethods = Settings.webdavMethods
 
     app = Flask(__name__, static_folder=&#34;../static&#34;)
-    app.secret_key = config.secret_key
+    app.secret_key = Settings.secret_key
 
     def redirectResult(url, good):
         code = 302 if good else 303
@@ -455,28 +360,18 @@ accomodates 3d viewers that talk the webdav protocol with the server.</p>
     @app.route(
         &#34;/auth/webdav/projects/&lt;string:projectName&gt;/editions/&lt;string:editionName&gt;/&#34;,
         defaults=dict(path=&#34;&#34;),
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
     @app.route(
         &#34;/auth/webdav/projects/&lt;string:projectName&gt;/editions/&lt;string:editionName&gt;/&#34;
         &#34;&lt;path:path&gt;&#34;,
-        methods=tuple(WEBDAV_METHODS),
+        methods=tuple(webdavMethods),
     )
-    def authwebdav(projectName, editionName, path):
-        permitted = Auth.authorise(
-            WEBDAV_METHODS[request.method],
-            project=projectName,
-            edition=editionName,
-            byName=True,
-        )
-        if not permitted:
-            Messages.info(
-                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
-                f&#34; on {projectName=} {editionName=} {path=}&#34;
-            )
-        return permitted
+    def authWebdav(projectName, editionName, path):
+        action = webdavMethods[request.method]
+        return Pages.authWebdav(projectName, editionName, path, action)
 
-    @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(WEBDAV_METHODS))
+    @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
         Messages.info(logmsg=f&#34;Invalid webdav access {path=}&#34;)
         return False
@@ -487,142 +382,6 @@ accomodates 3d viewers that talk the webdav protocol with the server.</p>
         abort(404)
 
     return app</code></pre>
-</details>
-</dd>
-<dt id="control.app.prepare"><code class="name flex">
-<span>def <span class="ident">prepare</span></span>(<span>trivial=False, flask=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Prepares the way for setting up the Flask webapp.</p>
-<p>Several classes are instantiated with a singleton object;
-each of these objects has a dedicated task in the app:</p>
-<ul>
-<li><code><a title="control.config.Config" href="config.html#control.config.Config">Config</a></code>: handle all configuration aspects</li>
-<li><code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>: handle all messaging to user and sysadmin</li>
-<li><code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>: higher-level commands to the MongoDb</li>
-<li><code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>: support the third party 3D viewers</li>
-<li><code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>: manage the user data that the app needs</li>
-<li><code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>: retrieve all data that needs to be displayed</li>
-<li><code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>: compute the permission of the current user
-to access content</li>
-<li><code><a title="control.pages.Pages" href="pages.html#control.pages.Pages">Pages</a></code>: high-level functions that
-distribute content over the page</li>
-</ul>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>trivial</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>If True, skips the initialization of most objects.
-Useful if the pure3d app container should run without doing anything.
-This happens when we just want to start the container and run shell commands
-inside it, for example after a complicated refactoring when the flask app has
-too many bugs.</dd>
-<dt><strong><code>flask</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
-<dd>
-<p>If False, skips several configuration steps.
-Useful if you need configuration details of the app before
-flask is running. Cases are:</p>
-<ul>
-<li>when setting up the webdav app (<code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code>) you need some
-configuration details, and this happens before the flask app is set up</li>
-<li>when importing data into MongoDb, we need only non-flask parts of the app.
-This kind of import happens manually in a running container
-on the command line.</li>
-</ul>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>AttrDict</code></dt>
-<dd>A dictionary keyed by the names of the singleton objects and valued
-by the singleton objects themselves.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/app.py#L17-L98" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def prepare(trivial=False, flask=True):
-    &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
-
-    Several classes are instantiated with a singleton object;
-    each of these objects has a dedicated task in the app:
-
-    * `control.config.Config`: handle all configuration aspects
-    * `control.messages.Messages`: handle all messaging to user and sysadmin
-    * `control.mongo.Mongo`: higher-level commands to the MongoDb
-    * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.users.Users`: manage the user data that the app needs
-    * `control.content.Content`: retrieve all data that needs to be displayed
-    * `control.auth.Auth`: compute the permission of the current user
-      to access content
-    * `control.pages.Pages`: high-level functions that
-      distribute content over the page
-
-    Parameters
-    ----------
-    trivial: boolean, optional False
-        If True, skips the initialization of most objects.
-        Useful if the pure3d app container should run without doing anything.
-        This happens when we just want to start the container and run shell commands
-        inside it, for example after a complicated refactoring when the flask app has
-        too many bugs.
-
-    flask: boolean, optional True
-        If False, skips several configuration steps.
-        Useful if you need configuration details of the app before
-        flask is running. Cases are:
-
-        * when setting up the webdav app (`control.webdavapp`) you need some
-          configuration details, and this happens before the flask app is set up
-        * when importing data into MongoDb, we need only non-flask parts of the app.
-          This kind of import happens manually in a running container
-          on the command line.
-
-    Returns
-    -------
-    AttrDict
-        A dictionary keyed by the names of the singleton objects and valued
-        by the singleton objects themselves.
-
-    &#34;&#34;&#34;
-    if trivial:
-        config = AttrDict(dict(secret_key=None))
-        messages = None
-        mongo = None
-        viewers = None
-        users = None
-        content = None
-        auth = None
-        editSessions = None
-        pages = None
-    else:
-        config = Config(Messages(None, flask=flask), flask=flask).config
-        messages = Messages(config, flask=flask)
-        viewers = Viewers(config)
-
-        mongo = Mongo(config, messages)
-
-        users = Users(config, messages, mongo)
-        content = Content(config, viewers, messages, mongo)
-        auth = Auth(config, messages, mongo, users, content)
-        editSessions = EditSessions(mongo)
-
-        content.addAuth(auth)
-        viewers.addAuth(auth)
-
-        pages = Pages(config, viewers, messages, content, auth, users)
-
-    return AttrDict(
-        config=config,
-        Messages=messages,
-        Mongo=mongo,
-        Viewers=viewers,
-        Users=users,
-        Content=content,
-        Auth=auth,
-        EditSessions=editSessions,
-        Pages=pages,
-    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -691,7 +450,6 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="control.app.appFactory" href="#control.app.appFactory">appFactory</a></code></li>
-<li><code><a title="control.app.prepare" href="#control.app.prepare">prepare</a></code></li>
 </ul>
 </li>
 </ul>

@@ -26,10 +26,26 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/editsessions.py#L1-L3" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/editsessions.py#L1-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class EditSessions:
     def __init__(self, Mongo):
+        &#34;&#34;&#34;Managing edit sessions of users.
+
+        This class has methods to create and delete edit sessions for users,
+        which guard them from overwriting each other&#39;s data.
+
+        Edit sessions prevent users from editing the same piece of content,
+        in particular it prevents multiple `edit`-mode 3D viewers
+        being active with the same scene.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
         self.Mongo = Mongo</code></pre>
 </details>
 </section>
@@ -47,14 +63,41 @@
 <span>(</span><span>Mongo)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Managing edit sessions of users.</p>
+<p>This class has methods to create and delete edit sessions for users,
+which guard them from overwriting each other's data.</p>
+<p>Edit sessions prevent users from editing the same piece of content,
+in particular it prevents multiple <code>edit</code>-mode 3D viewers
+being active with the same scene.</p>
+<p>It is instantiated by a singleton object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/editsessions.py#L1-L3" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/editsessions.py#L1-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class EditSessions:
     def __init__(self, Mongo):
+        &#34;&#34;&#34;Managing edit sessions of users.
+
+        This class has methods to create and delete edit sessions for users,
+        which guard them from overwriting each other&#39;s data.
+
+        Edit sessions prevent users from editing the same piece of content,
+        in particular it prevents multiple `edit`-mode 3D viewers
+        being active with the same scene.
+
+        It is instantiated by a singleton object.
+
+        Parameters
+        ----------
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
         self.Mongo = Mongo</code></pre>
 </details>
 </dd>

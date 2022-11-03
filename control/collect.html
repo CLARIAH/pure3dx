@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>control.collect API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>control.collect</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L1-L332" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import os
+
+from control.helpers.files import listFiles, listImages, readYaml
+
+
+META = &#34;meta&#34;
+PROJECTS = &#34;projects&#34;
+EDITIONS = &#34;editions&#34;
+WORKFLOW = &#34;workflow&#34;
+
+SCENE_DEFAULT = &#34;intro&#34;
+
+
+class Collect:
+    def __init__(self, Settings, Messages, Mongo):
+        &#34;&#34;&#34;Provides initial data collection into MongoDb.
+
+        Normally, this does not have to run, since the MongoDb is persistent.
+        Only when the MongoDb of the Pure3D app is fresh,
+        or when the MongoDb is out of sync with the data on the filesystem
+        it must be initialized.
+
+        It reads:
+
+        * configuration data of the app,
+        * project data on the file system
+        * workflow data on the file system
+        * 3D-viewer code on file system
+
+        The project-, workflow, and viewer data should be placed on the same share
+        in the file system, by a provision step that is done on the host.
+
+        The data for the supported viewers is in repo `pure3d-data`, under `viewers`.
+
+        For testing, there is `exampledata` in the same `pure3d-data` repo.
+        The provision step should copy the contents of `exampledata` to the
+        `data` directory of this repo (`pure3dx`).
+
+        If data collection is triggered in test mode, the user table will be wiped,
+        and the test users present in the example data will be imported.
+
+        Otherwise the user table will be left unchanged.
+
+        Parameters
+        ----------
+        Settings: `control.helpers.generic.AttrDict`
+            App-wide configuration data obtained from
+            `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
+        self.Settings = Settings
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Mongo = Mongo
+
+    def trigger(self):
+        &#34;&#34;&#34;Determines whether data collection should be done.
+
+        We only do data collection if the environment variable `docollect` has
+        the value `v`.
+
+        We also prevent this from happening twice, which occurs when Flask runs
+        in debug mode, since then the code is loaded twice.
+        We guard against this by inspecting the environment variable
+        `WERKZEUG_RUN_MAIN`. If it is set, we are already running the app,
+        and data collection should be inhibited, because it has been done
+        just before Flask started running.
+        &#34;&#34;&#34;
+        doCollect = os.environ.get(&#34;docollect&#34;, &#34;x&#34;) == &#34;v&#34;
+        beforeFlask = os.environ.get(&#39;WERKZEUG_RUN_MAIN&#39;, None) is None
+
+        return beforeFlask and doCollect
+
+    def fetch(self):
+        &#34;&#34;&#34;Performs a data collection, but only if triggered by the right conditions.
+
+        See also `Collect.trigger()`
+        &#34;&#34;&#34;
+        if not self.trigger():
+            return
+
+        Messages = self.Messages
+        Messages.info(logmsg=&#34;Collecting data before starting the app&#34;)
+
+        self.clearDb()
+        self.doOuter()
+        self.doProjects()
+        self.doWorkflow()
+
+    def clearDb(self):
+        &#34;&#34;&#34;Clears selected collections in the MongoDb.
+
+        All collections that will be filled with data from the filesystem
+        will be wiped.
+
+        !!! &#34;Users collection will be wiped in test mode&#34;
+            If in test mode, the `users` collection will be wiped,
+            and then filled from the example data.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        for table in (
+            &#34;meta&#34;,
+            &#34;projects&#34;,
+            &#34;editions&#34;,
+            &#34;scenes&#34;,
+            &#34;users&#34;,
+            &#34;projectUsers&#34;,
+        ):
+            Mongo.checkCollection(table, reset=True)
+
+        if Settings.testMode:
+            Mongo.checkCollection(&#34;users&#34;, reset=True)
+
+    def doOuter(self):
+        &#34;&#34;&#34;Collects data not belonging to specific projects.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        Messages.plain(logmsg=f&#34;Data directory = {dataDir}&#34;)
+
+        metaDir = f&#34;{dataDir}/{META}&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+        meta = {}
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        Mongo.execute(&#34;meta&#34;, &#34;insert_one&#34;, dict(meta=meta))
+
+    def doProjects(self):
+        &#34;&#34;&#34;Collects data belonging to projects.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+
+        dataDir = Settings.dataDir
+        projectsPath = f&#34;{dataDir}/{PROJECTS}&#34;
+
+        self.projectIdByName = {}
+
+        with os.scandir(projectsPath) as pd:
+            for entry in pd:
+                if entry.is_dir():
+                    projectName = entry.name
+                    Messages.plain(logmsg=f&#34;PROJECT {projectName}&#34;)
+                    self.doProject(projectsPath, projectName)
+
+    def doProject(self, projectsPath, projectName):
+        &#34;&#34;&#34;Collects data belonging to a specific project.
+
+        Parameters
+        ----------
+        projectsPath: string
+            Path on the filesystem to the projects directory
+        projectName: string
+            Directory name of the project to collect.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        projectIdByName = self.projectIdByName
+
+        projectPath = f&#34;{projectsPath}/{projectName}&#34;
+
+        meta = {}
+        metaDir = f&#34;{projectPath}/meta&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
+
+        candy = {}
+        candyPath = f&#34;{projectPath}/candy&#34;
+
+        for image in listImages(candyPath):
+            candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+        projectInfo = dict(
+            title=title,
+            name=projectName,
+            meta=meta,
+            candy=candy,
+        )
+
+        result = Mongo.execute(&#34;projects&#34;, &#34;insert_one&#34;, projectInfo)
+        projectId = result.inserted_id if result is not None else None
+        projectIdByName[projectName] = projectId
+
+        self.doEditions(projectId, projectPath)
+
+    def doEditions(self, projectId, projectPath):
+        &#34;&#34;&#34;Collects data belonging to the editions of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to collect.
+        projectPath: string
+            Path on the filesystem to the directory of this project
+        &#34;&#34;&#34;
+        Messages = self.Messages
+
+        editionsPath = f&#34;{projectPath}/{EDITIONS}&#34;
+
+        with os.scandir(editionsPath) as ed:
+            for entry in ed:
+                if entry.is_dir():
+                    editionName = entry.name
+                    Messages.plain(logmsg=f&#34;\tEDITION {editionName}&#34;)
+                    self.doEdition(projectId, editionsPath, editionName)
+
+    def doEdition(self, projectId, editionsPath, editionName):
+        &#34;&#34;&#34;Collects data belonging to a specific edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to which the edition belongs.
+        editionsPath: string
+            Path on the filesystem to the editions directory within this project.
+        editionName: string
+            Directory name of the edition to collect.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        editionPath = f&#34;{editionsPath}/{editionName}&#34;
+
+        meta = {}
+        metaDir = f&#34;{editionPath}/meta&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+
+        scenes = listFiles(editionPath, &#34;.json&#34;)
+        sceneSet = set(scenes)
+        sceneCandy = {scene: {} for scene in scenes}
+
+        candy = {}
+        candyPath = f&#34;{editionPath}/candy&#34;
+
+        for image in listImages(candyPath):
+            (baseName, extension) = image.rsplit(&#34;.&#34;, 1)
+            if baseName in sceneSet:
+                sceneCandy[baseName][image] = extension.lower() == &#34;png&#34;
+            else:
+                candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+        editionInfo = dict(
+            title=title,
+            name=editionName,
+            projectId=projectId,
+            meta=meta,
+            candy=candy,
+        )
+        result = Mongo.execute(&#34;editions&#34;, &#34;insert_one&#34;, editionInfo)
+        editionId = result.inserted_id if result is not None else None
+
+        sceneDefault = None
+
+        for scene in scenes:
+            Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
+            default = sceneDefault is None and scene == SCENE_DEFAULT
+            if default:
+                sceneDefault = scene
+            sceneInfo = dict(
+                name=scene,
+                editionId=editionId,
+                projectId=projectId,
+                candy=sceneCandy[scene],
+                default=default,
+            )
+            result = Mongo.execute(&#34;scenes&#34;, &#34;insert_one&#34;, sceneInfo)
+
+    def doWorkflow(self):
+        &#34;&#34;&#34;Collects workflow information from yaml files.
+
+        !!! note &#34;Test users&#34;
+            This includes test users when in test mode.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        projectIdByName = self.projectIdByName
+
+        workflowPath = f&#34;{dataDir}/{WORKFLOW}/init.yml&#34;
+        workflow = readYaml(workflowPath, defaultEmpty=True)
+        users = workflow[&#34;users&#34;]
+        projectUsers = workflow[&#34;projectUsers&#34;]
+        projectStatus = workflow[&#34;projectStatus&#34;]
+
+        userIdByName = {}
+
+        for (userName, role) in users.items():
+            userInfo = dict(
+                name=userName,
+                role=role,
+            )
+            result = Mongo.execute(&#34;users&#34;, &#34;insert_one&#34;, userInfo)
+            userId = result.inserted_id if result is not None else None
+            userIdByName[userName] = userId
+
+        for (projectName, isPublished) in projectStatus.items():
+            Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
+            Mongo.execute(
+                &#34;projects&#34;,
+                &#34;update_one&#34;,
+                dict(_id=projectIdByName[projectName]),
+                {&#34;$set&#34;: dict(isPublished=isPublished)},
+            )
+
+        for (projectName, projectUsrs) in projectUsers.items():
+            for (userName, role) in projectUsrs.items():
+                xInfo = dict(
+                    userId=userIdByName[userName],
+                    projectId=projectIdByName[projectName],
+                    role=role,
+                )
+                Mongo.execute(&#34;projectUsers&#34;, &#34;insert_one&#34;, xInfo)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="control.collect.Collect"><code class="flex name class">
+<span>class <span class="ident">Collect</span></span>
+<span>(</span><span>Settings, Messages, Mongo)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Provides initial data collection into MongoDb.</p>
+<p>Normally, this does not have to run, since the MongoDb is persistent.
+Only when the MongoDb of the Pure3D app is fresh,
+or when the MongoDb is out of sync with the data on the filesystem
+it must be initialized.</p>
+<p>It reads:</p>
+<ul>
+<li>configuration data of the app,</li>
+<li>project data on the file system</li>
+<li>workflow data on the file system</li>
+<li>3D-viewer code on file system</li>
+</ul>
+<p>The project-, workflow, and viewer data should be placed on the same share
+in the file system, by a provision step that is done on the host.</p>
+<p>The data for the supported viewers is in repo <code>pure3d-data</code>, under <code>viewers</code>.</p>
+<p>For testing, there is <code>exampledata</code> in the same <code>pure3d-data</code> repo.
+The provision step should copy the contents of <code>exampledata</code> to the
+<code>data</code> directory of this repo (<code>pure3dx</code>).</p>
+<p>If data collection is triggered in test mode, the user table will be wiped,
+and the test users present in the example data will be imported.</p>
+<p>Otherwise the user table will be left unchanged.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
+<dd>App-wide configuration data obtained from
+<code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
+<dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
+<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L14-L332" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Collect:
+    def __init__(self, Settings, Messages, Mongo):
+        &#34;&#34;&#34;Provides initial data collection into MongoDb.
+
+        Normally, this does not have to run, since the MongoDb is persistent.
+        Only when the MongoDb of the Pure3D app is fresh,
+        or when the MongoDb is out of sync with the data on the filesystem
+        it must be initialized.
+
+        It reads:
+
+        * configuration data of the app,
+        * project data on the file system
+        * workflow data on the file system
+        * 3D-viewer code on file system
+
+        The project-, workflow, and viewer data should be placed on the same share
+        in the file system, by a provision step that is done on the host.
+
+        The data for the supported viewers is in repo `pure3d-data`, under `viewers`.
+
+        For testing, there is `exampledata` in the same `pure3d-data` repo.
+        The provision step should copy the contents of `exampledata` to the
+        `data` directory of this repo (`pure3dx`).
+
+        If data collection is triggered in test mode, the user table will be wiped,
+        and the test users present in the example data will be imported.
+
+        Otherwise the user table will be left unchanged.
+
+        Parameters
+        ----------
+        Settings: `control.helpers.generic.AttrDict`
+            App-wide configuration data obtained from
+            `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        &#34;&#34;&#34;
+        self.Settings = Settings
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Mongo = Mongo
+
+    def trigger(self):
+        &#34;&#34;&#34;Determines whether data collection should be done.
+
+        We only do data collection if the environment variable `docollect` has
+        the value `v`.
+
+        We also prevent this from happening twice, which occurs when Flask runs
+        in debug mode, since then the code is loaded twice.
+        We guard against this by inspecting the environment variable
+        `WERKZEUG_RUN_MAIN`. If it is set, we are already running the app,
+        and data collection should be inhibited, because it has been done
+        just before Flask started running.
+        &#34;&#34;&#34;
+        doCollect = os.environ.get(&#34;docollect&#34;, &#34;x&#34;) == &#34;v&#34;
+        beforeFlask = os.environ.get(&#39;WERKZEUG_RUN_MAIN&#39;, None) is None
+
+        return beforeFlask and doCollect
+
+    def fetch(self):
+        &#34;&#34;&#34;Performs a data collection, but only if triggered by the right conditions.
+
+        See also `Collect.trigger()`
+        &#34;&#34;&#34;
+        if not self.trigger():
+            return
+
+        Messages = self.Messages
+        Messages.info(logmsg=&#34;Collecting data before starting the app&#34;)
+
+        self.clearDb()
+        self.doOuter()
+        self.doProjects()
+        self.doWorkflow()
+
+    def clearDb(self):
+        &#34;&#34;&#34;Clears selected collections in the MongoDb.
+
+        All collections that will be filled with data from the filesystem
+        will be wiped.
+
+        !!! &#34;Users collection will be wiped in test mode&#34;
+            If in test mode, the `users` collection will be wiped,
+            and then filled from the example data.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        for table in (
+            &#34;meta&#34;,
+            &#34;projects&#34;,
+            &#34;editions&#34;,
+            &#34;scenes&#34;,
+            &#34;users&#34;,
+            &#34;projectUsers&#34;,
+        ):
+            Mongo.checkCollection(table, reset=True)
+
+        if Settings.testMode:
+            Mongo.checkCollection(&#34;users&#34;, reset=True)
+
+    def doOuter(self):
+        &#34;&#34;&#34;Collects data not belonging to specific projects.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        Messages.plain(logmsg=f&#34;Data directory = {dataDir}&#34;)
+
+        metaDir = f&#34;{dataDir}/{META}&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+        meta = {}
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        Mongo.execute(&#34;meta&#34;, &#34;insert_one&#34;, dict(meta=meta))
+
+    def doProjects(self):
+        &#34;&#34;&#34;Collects data belonging to projects.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+
+        dataDir = Settings.dataDir
+        projectsPath = f&#34;{dataDir}/{PROJECTS}&#34;
+
+        self.projectIdByName = {}
+
+        with os.scandir(projectsPath) as pd:
+            for entry in pd:
+                if entry.is_dir():
+                    projectName = entry.name
+                    Messages.plain(logmsg=f&#34;PROJECT {projectName}&#34;)
+                    self.doProject(projectsPath, projectName)
+
+    def doProject(self, projectsPath, projectName):
+        &#34;&#34;&#34;Collects data belonging to a specific project.
+
+        Parameters
+        ----------
+        projectsPath: string
+            Path on the filesystem to the projects directory
+        projectName: string
+            Directory name of the project to collect.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        projectIdByName = self.projectIdByName
+
+        projectPath = f&#34;{projectsPath}/{projectName}&#34;
+
+        meta = {}
+        metaDir = f&#34;{projectPath}/meta&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
+
+        candy = {}
+        candyPath = f&#34;{projectPath}/candy&#34;
+
+        for image in listImages(candyPath):
+            candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+        projectInfo = dict(
+            title=title,
+            name=projectName,
+            meta=meta,
+            candy=candy,
+        )
+
+        result = Mongo.execute(&#34;projects&#34;, &#34;insert_one&#34;, projectInfo)
+        projectId = result.inserted_id if result is not None else None
+        projectIdByName[projectName] = projectId
+
+        self.doEditions(projectId, projectPath)
+
+    def doEditions(self, projectId, projectPath):
+        &#34;&#34;&#34;Collects data belonging to the editions of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to collect.
+        projectPath: string
+            Path on the filesystem to the directory of this project
+        &#34;&#34;&#34;
+        Messages = self.Messages
+
+        editionsPath = f&#34;{projectPath}/{EDITIONS}&#34;
+
+        with os.scandir(editionsPath) as ed:
+            for entry in ed:
+                if entry.is_dir():
+                    editionName = entry.name
+                    Messages.plain(logmsg=f&#34;\tEDITION {editionName}&#34;)
+                    self.doEdition(projectId, editionsPath, editionName)
+
+    def doEdition(self, projectId, editionsPath, editionName):
+        &#34;&#34;&#34;Collects data belonging to a specific edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to which the edition belongs.
+        editionsPath: string
+            Path on the filesystem to the editions directory within this project.
+        editionName: string
+            Directory name of the edition to collect.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        editionPath = f&#34;{editionsPath}/{editionName}&#34;
+
+        meta = {}
+        metaDir = f&#34;{editionPath}/meta&#34;
+        metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+        title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+
+        scenes = listFiles(editionPath, &#34;.json&#34;)
+        sceneSet = set(scenes)
+        sceneCandy = {scene: {} for scene in scenes}
+
+        candy = {}
+        candyPath = f&#34;{editionPath}/candy&#34;
+
+        for image in listImages(candyPath):
+            (baseName, extension) = image.rsplit(&#34;.&#34;, 1)
+            if baseName in sceneSet:
+                sceneCandy[baseName][image] = extension.lower() == &#34;png&#34;
+            else:
+                candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+        editionInfo = dict(
+            title=title,
+            name=editionName,
+            projectId=projectId,
+            meta=meta,
+            candy=candy,
+        )
+        result = Mongo.execute(&#34;editions&#34;, &#34;insert_one&#34;, editionInfo)
+        editionId = result.inserted_id if result is not None else None
+
+        sceneDefault = None
+
+        for scene in scenes:
+            Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
+            default = sceneDefault is None and scene == SCENE_DEFAULT
+            if default:
+                sceneDefault = scene
+            sceneInfo = dict(
+                name=scene,
+                editionId=editionId,
+                projectId=projectId,
+                candy=sceneCandy[scene],
+                default=default,
+            )
+            result = Mongo.execute(&#34;scenes&#34;, &#34;insert_one&#34;, sceneInfo)
+
+    def doWorkflow(self):
+        &#34;&#34;&#34;Collects workflow information from yaml files.
+
+        !!! note &#34;Test users&#34;
+            This includes test users when in test mode.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        projectIdByName = self.projectIdByName
+
+        workflowPath = f&#34;{dataDir}/{WORKFLOW}/init.yml&#34;
+        workflow = readYaml(workflowPath, defaultEmpty=True)
+        users = workflow[&#34;users&#34;]
+        projectUsers = workflow[&#34;projectUsers&#34;]
+        projectStatus = workflow[&#34;projectStatus&#34;]
+
+        userIdByName = {}
+
+        for (userName, role) in users.items():
+            userInfo = dict(
+                name=userName,
+                role=role,
+            )
+            result = Mongo.execute(&#34;users&#34;, &#34;insert_one&#34;, userInfo)
+            userId = result.inserted_id if result is not None else None
+            userIdByName[userName] = userId
+
+        for (projectName, isPublished) in projectStatus.items():
+            Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
+            Mongo.execute(
+                &#34;projects&#34;,
+                &#34;update_one&#34;,
+                dict(_id=projectIdByName[projectName]),
+                {&#34;$set&#34;: dict(isPublished=isPublished)},
+            )
+
+        for (projectName, projectUsrs) in projectUsers.items():
+            for (userName, role) in projectUsrs.items():
+                xInfo = dict(
+                    userId=userIdByName[userName],
+                    projectId=projectIdByName[projectName],
+                    role=role,
+                )
+                Mongo.execute(&#34;projectUsers&#34;, &#34;insert_one&#34;, xInfo)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="control.collect.Collect.clearDb"><code class="name flex">
+<span>def <span class="ident">clearDb</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Clears selected collections in the MongoDb.</p>
+<p>All collections that will be filled with data from the filesystem
+will be wiped.</p>
+<p>!!! "Users collection will be wiped in test mode"
+If in test mode, the <code>users</code> collection will be wiped,
+and then filled from the example data.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L93-L117" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def clearDb(self):
+    &#34;&#34;&#34;Clears selected collections in the MongoDb.
+
+    All collections that will be filled with data from the filesystem
+    will be wiped.
+
+    !!! &#34;Users collection will be wiped in test mode&#34;
+        If in test mode, the `users` collection will be wiped,
+        and then filled from the example data.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Mongo = self.Mongo
+
+    for table in (
+        &#34;meta&#34;,
+        &#34;projects&#34;,
+        &#34;editions&#34;,
+        &#34;scenes&#34;,
+        &#34;users&#34;,
+        &#34;projectUsers&#34;,
+    ):
+        Mongo.checkCollection(table, reset=True)
+
+    if Settings.testMode:
+        Mongo.checkCollection(&#34;users&#34;, reset=True)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doEdition"><code class="name flex">
+<span>def <span class="ident">doEdition</span></span>(<span>self, projectId, editionsPath, editionName)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects data belonging to a specific edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>MongoId of the project to which the edition belongs.</dd>
+<dt><strong><code>editionsPath</code></strong> :&ensp;<code>string</code></dt>
+<dd>Path on the filesystem to the editions directory within this project.</dd>
+<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code></dt>
+<dd>Directory name of the edition to collect.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L220-L284" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doEdition(self, projectId, editionsPath, editionName):
+    &#34;&#34;&#34;Collects data belonging to a specific edition.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        MongoId of the project to which the edition belongs.
+    editionsPath: string
+        Path on the filesystem to the editions directory within this project.
+    editionName: string
+        Directory name of the edition to collect.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Mongo = self.Mongo
+
+    editionPath = f&#34;{editionsPath}/{editionName}&#34;
+
+    meta = {}
+    metaDir = f&#34;{editionPath}/meta&#34;
+    metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+    for metaFile in metaFiles:
+        meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+    title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+
+    scenes = listFiles(editionPath, &#34;.json&#34;)
+    sceneSet = set(scenes)
+    sceneCandy = {scene: {} for scene in scenes}
+
+    candy = {}
+    candyPath = f&#34;{editionPath}/candy&#34;
+
+    for image in listImages(candyPath):
+        (baseName, extension) = image.rsplit(&#34;.&#34;, 1)
+        if baseName in sceneSet:
+            sceneCandy[baseName][image] = extension.lower() == &#34;png&#34;
+        else:
+            candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+    editionInfo = dict(
+        title=title,
+        name=editionName,
+        projectId=projectId,
+        meta=meta,
+        candy=candy,
+    )
+    result = Mongo.execute(&#34;editions&#34;, &#34;insert_one&#34;, editionInfo)
+    editionId = result.inserted_id if result is not None else None
+
+    sceneDefault = None
+
+    for scene in scenes:
+        Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
+        default = sceneDefault is None and scene == SCENE_DEFAULT
+        if default:
+            sceneDefault = scene
+        sceneInfo = dict(
+            name=scene,
+            editionId=editionId,
+            projectId=projectId,
+            candy=sceneCandy[scene],
+            default=default,
+        )
+        result = Mongo.execute(&#34;scenes&#34;, &#34;insert_one&#34;, sceneInfo)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doEditions"><code class="name flex">
+<span>def <span class="ident">doEditions</span></span>(<span>self, projectId, projectPath)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects data belonging to the editions of a project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>MongoId of the project to collect.</dd>
+<dt><strong><code>projectPath</code></strong> :&ensp;<code>string</code></dt>
+<dd>Path on the filesystem to the directory of this project</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L199-L218" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doEditions(self, projectId, projectPath):
+    &#34;&#34;&#34;Collects data belonging to the editions of a project.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        MongoId of the project to collect.
+    projectPath: string
+        Path on the filesystem to the directory of this project
+    &#34;&#34;&#34;
+    Messages = self.Messages
+
+    editionsPath = f&#34;{projectPath}/{EDITIONS}&#34;
+
+    with os.scandir(editionsPath) as ed:
+        for entry in ed:
+            if entry.is_dir():
+                editionName = entry.name
+                Messages.plain(logmsg=f&#34;\tEDITION {editionName}&#34;)
+                self.doEdition(projectId, editionsPath, editionName)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doOuter"><code class="name flex">
+<span>def <span class="ident">doOuter</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects data not belonging to specific projects.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L119-L136" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doOuter(self):
+    &#34;&#34;&#34;Collects data not belonging to specific projects.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Messages = self.Messages
+    Mongo = self.Mongo
+
+    dataDir = Settings.dataDir
+    Messages.plain(logmsg=f&#34;Data directory = {dataDir}&#34;)
+
+    metaDir = f&#34;{dataDir}/{META}&#34;
+    metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+    meta = {}
+
+    for metaFile in metaFiles:
+        meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+    Mongo.execute(&#34;meta&#34;, &#34;insert_one&#34;, dict(meta=meta))</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doProject"><code class="name flex">
+<span>def <span class="ident">doProject</span></span>(<span>self, projectsPath, projectName)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects data belonging to a specific project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectsPath</code></strong> :&ensp;<code>string</code></dt>
+<dd>Path on the filesystem to the projects directory</dd>
+<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code></dt>
+<dd>Directory name of the project to collect.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L156-L197" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doProject(self, projectsPath, projectName):
+    &#34;&#34;&#34;Collects data belonging to a specific project.
+
+    Parameters
+    ----------
+    projectsPath: string
+        Path on the filesystem to the projects directory
+    projectName: string
+        Directory name of the project to collect.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    projectIdByName = self.projectIdByName
+
+    projectPath = f&#34;{projectsPath}/{projectName}&#34;
+
+    meta = {}
+    metaDir = f&#34;{projectPath}/meta&#34;
+    metaFiles = listFiles(metaDir, &#34;.yml&#34;)
+
+    for metaFile in metaFiles:
+        meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
+
+    title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
+
+    candy = {}
+    candyPath = f&#34;{projectPath}/candy&#34;
+
+    for image in listImages(candyPath):
+        candy[image] = True if image.lower() == &#34;icon.png&#34; else False
+
+    projectInfo = dict(
+        title=title,
+        name=projectName,
+        meta=meta,
+        candy=candy,
+    )
+
+    result = Mongo.execute(&#34;projects&#34;, &#34;insert_one&#34;, projectInfo)
+    projectId = result.inserted_id if result is not None else None
+    projectIdByName[projectName] = projectId
+
+    self.doEditions(projectId, projectPath)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doProjects"><code class="name flex">
+<span>def <span class="ident">doProjects</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects data belonging to projects.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L138-L154" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doProjects(self):
+    &#34;&#34;&#34;Collects data belonging to projects.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Messages = self.Messages
+
+    dataDir = Settings.dataDir
+    projectsPath = f&#34;{dataDir}/{PROJECTS}&#34;
+
+    self.projectIdByName = {}
+
+    with os.scandir(projectsPath) as pd:
+        for entry in pd:
+            if entry.is_dir():
+                projectName = entry.name
+                Messages.plain(logmsg=f&#34;PROJECT {projectName}&#34;)
+                self.doProject(projectsPath, projectName)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.doWorkflow"><code class="name flex">
+<span>def <span class="ident">doWorkflow</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Collects workflow information from yaml files.</p>
+<div class="admonition note">
+<p class="admonition-title">Test users</p>
+<p>This includes test users when in test mode.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L286-L332" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def doWorkflow(self):
+    &#34;&#34;&#34;Collects workflow information from yaml files.
+
+    !!! note &#34;Test users&#34;
+        This includes test users when in test mode.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Messages = self.Messages
+    Mongo = self.Mongo
+
+    dataDir = Settings.dataDir
+    projectIdByName = self.projectIdByName
+
+    workflowPath = f&#34;{dataDir}/{WORKFLOW}/init.yml&#34;
+    workflow = readYaml(workflowPath, defaultEmpty=True)
+    users = workflow[&#34;users&#34;]
+    projectUsers = workflow[&#34;projectUsers&#34;]
+    projectStatus = workflow[&#34;projectStatus&#34;]
+
+    userIdByName = {}
+
+    for (userName, role) in users.items():
+        userInfo = dict(
+            name=userName,
+            role=role,
+        )
+        result = Mongo.execute(&#34;users&#34;, &#34;insert_one&#34;, userInfo)
+        userId = result.inserted_id if result is not None else None
+        userIdByName[userName] = userId
+
+    for (projectName, isPublished) in projectStatus.items():
+        Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
+        Mongo.execute(
+            &#34;projects&#34;,
+            &#34;update_one&#34;,
+            dict(_id=projectIdByName[projectName]),
+            {&#34;$set&#34;: dict(isPublished=isPublished)},
+        )
+
+    for (projectName, projectUsrs) in projectUsers.items():
+        for (userName, role) in projectUsrs.items():
+            xInfo = dict(
+                userId=userIdByName[userName],
+                projectId=projectIdByName[projectName],
+                role=role,
+            )
+            Mongo.execute(&#34;projectUsers&#34;, &#34;insert_one&#34;, xInfo)</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.fetch"><code class="name flex">
+<span>def <span class="ident">fetch</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Performs a data collection, but only if triggered by the right conditions.</p>
+<p>See also <code><a title="control.collect.Collect.trigger" href="#control.collect.Collect.trigger">Collect.trigger()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L77-L91" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fetch(self):
+    &#34;&#34;&#34;Performs a data collection, but only if triggered by the right conditions.
+
+    See also `Collect.trigger()`
+    &#34;&#34;&#34;
+    if not self.trigger():
+        return
+
+    Messages = self.Messages
+    Messages.info(logmsg=&#34;Collecting data before starting the app&#34;)
+
+    self.clearDb()
+    self.doOuter()
+    self.doProjects()
+    self.doWorkflow()</code></pre>
+</details>
+</dd>
+<dt id="control.collect.Collect.trigger"><code class="name flex">
+<span>def <span class="ident">trigger</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Determines whether data collection should be done.</p>
+<p>We only do data collection if the environment variable <code>docollect</code> has
+the value <code>v</code>.</p>
+<p>We also prevent this from happening twice, which occurs when Flask runs
+in debug mode, since then the code is loaded twice.
+We guard against this by inspecting the environment variable
+<code>WERKZEUG_RUN_MAIN</code>. If it is set, we are already running the app,
+and data collection should be inhibited, because it has been done
+just before Flask started running.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/collect.py#L59-L75" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def trigger(self):
+    &#34;&#34;&#34;Determines whether data collection should be done.
+
+    We only do data collection if the environment variable `docollect` has
+    the value `v`.
+
+    We also prevent this from happening twice, which occurs when Flask runs
+    in debug mode, since then the code is loaded twice.
+    We guard against this by inspecting the environment variable
+    `WERKZEUG_RUN_MAIN`. If it is set, we are already running the app,
+    and data collection should be inhibited, because it has been done
+    just before Flask started running.
+    &#34;&#34;&#34;
+    doCollect = os.environ.get(&#34;docollect&#34;, &#34;x&#34;) == &#34;v&#34;
+    beforeFlask = os.environ.get(&#39;WERKZEUG_RUN_MAIN&#39;, None) is None
+
+    return beforeFlask and doCollect</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="control" href="index.html">control</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="control.collect.Collect" href="#control.collect.Collect">Collect</a></code></h4>
+<ul class="two-column">
+<li><code><a title="control.collect.Collect.clearDb" href="#control.collect.Collect.clearDb">clearDb</a></code></li>
+<li><code><a title="control.collect.Collect.doEdition" href="#control.collect.Collect.doEdition">doEdition</a></code></li>
+<li><code><a title="control.collect.Collect.doEditions" href="#control.collect.Collect.doEditions">doEditions</a></code></li>
+<li><code><a title="control.collect.Collect.doOuter" href="#control.collect.Collect.doOuter">doOuter</a></code></li>
+<li><code><a title="control.collect.Collect.doProject" href="#control.collect.Collect.doProject">doProject</a></code></li>
+<li><code><a title="control.collect.Collect.doProjects" href="#control.collect.Collect.doProjects">doProjects</a></code></li>
+<li><code><a title="control.collect.Collect.doWorkflow" href="#control.collect.Collect.doWorkflow">doWorkflow</a></code></li>
+<li><code><a title="control.collect.Collect.fetch" href="#control.collect.Collect.fetch">fetch</a></code></li>
+<li><code><a title="control.collect.Collect.trigger" href="#control.collect.Collect.trigger">trigger</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L1-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L1-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -39,12 +39,12 @@ def castObjectId(value):
     Paramaters
     ----------
     value:string
-        The value to cast, normally a string representation of a BSON object id.
+        The value to cast, normally a string representation of a BSON ObjectId.
 
     Returns
     -------
-    objectId | None
-        The corresponding BSON object id if the input is a valid representation of
+    ObjectId | None
+        The corresponding BSON ObjectId if the input is a valid representation of
         such an id, otherwise `None`.
     &#34;&#34;&#34;
 
@@ -56,7 +56,7 @@ def castObjectId(value):
 
 
 class Mongo:
-    def __init__(self, config, Messages):
+    def __init__(self, Settings, Messages):
         &#34;&#34;&#34;CRUD interface to content in the MongoDb database.
 
         This class has methods to connect to a MongoDb database,
@@ -66,21 +66,30 @@ class Mongo:
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
         self.mongo = None
-        self.database = config.database
+        self.database = Settings.database
 
     def connect(self):
-        config = self.config
+        &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
+
+        The connection details come from `control.config.Config.Settings`.
+
+        After a successful connection attempt, the connection handle
+        is stored in the `client` and `mongo` members of the Mongo object.
+
+        When a connection handle exists, this method does nothing.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         client = self.client
         mongo = self.mongo
         database = self.database
@@ -88,10 +97,10 @@ class Mongo:
         if mongo is None:
             try:
                 client = MongoClient(
-                    config.mongoHost,
-                    config.mongoPort,
-                    username=config.mongoUser,
-                    password=config.mongoPassword,
+                    Settings.mongoHost,
+                    Settings.mongoPort,
+                    username=Settings.mongoUser,
+                    password=Settings.mongoPassword,
                 )
                 mongo = client[database]
             except Exception as e:
@@ -103,6 +112,8 @@ class Mongo:
             self.mongo = mongo
 
     def disconnect(self):
+        &#34;&#34;&#34;Disconnect from the MongoDB.
+        &#34;&#34;&#34;
         client = self.client
 
         if client:
@@ -112,6 +123,19 @@ class Mongo:
         self.mongo = None
 
     def checkCollection(self, table, reset=False):
+        &#34;&#34;&#34;Make sure that a collection exists and (optionally) that it is empty.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection.
+            If no such collection exists, it will be created.
+        reset: boolean, optional False
+            If True, and the collection existed before, it will be cleared.
+            Note that the collection will not be deleted, but all its documents
+            will be deleted.
+        &#34;&#34;&#34;
+
         Messages = self.Messages
 
         self.connect()
@@ -136,6 +160,26 @@ class Mongo:
                 )
 
     def getRecord(self, table, **criteria):
+        &#34;&#34;&#34;Get a single document from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection from which we want to retrieve a single record.
+        criteria: dict
+            A set of criteria to narrow down the search.
+            Usually they will be such that there will be just one document
+            that satisfies them.
+            But if there are more, a single one is chosen,
+            by the mechanics of the built-in MongoDb command `findOne`.
+
+        Returns
+        -------
+        `control.helpers.generic.AttrDict`
+            The single document found,
+            or an empty `control.helpers.generic.AttrDict` if no document
+            satisfies the criteria.
+        &#34;&#34;&#34;
         result = self.execute(table, &#34;find_one&#34;, criteria, {})
         if result is None:
             Messages = self.Messages
@@ -144,6 +188,29 @@ class Mongo:
         return AttrDict(result)
 
     def execute(self, table, command, *args, **kwargs):
+        &#34;&#34;&#34;Executes a MongoDb command and returns the result.
+
+        Parameters
+        ----------
+        table: string
+            The collection on which to perform the command.
+        command: string
+            The built-in MongoDb command.
+            Note that the Python interface requires you to write camelCase commands
+            with underscores.
+            So the Mongo command `findOne` should be passed as `find_one`.
+        args: list
+            Any number of additional arguments that the command requires.
+        kwargs: list
+            Any number of additional keyword arguments that the command requires.
+
+        Returns
+        -------
+        any
+            Whatever the MongoDb command returns.
+            If the command fails, an error message is issued and
+            None is returned.
+        &#34;&#34;&#34;
         Messages = self.Messages
 
         self.connect()
@@ -183,29 +250,29 @@ class Mongo:
 Paramaters</p>
 <hr>
 <p>value:string
-The value to cast, normally a string representation of a BSON object id.</p>
+The value to cast, normally a string representation of a BSON ObjectId.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>objectId | None</code></dt>
-<dd>The corresponding BSON object id if the input is a valid representation of
+<dt><code>ObjectId | None</code></dt>
+<dd>The corresponding BSON ObjectId if the input is a valid representation of
 such an id, otherwise <code>None</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L7-L25" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L7-L25" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def castObjectId(value):
     &#34;&#34;&#34;Try to cast the value as an ObjectId.
     Paramaters
     ----------
     value:string
-        The value to cast, normally a string representation of a BSON object id.
+        The value to cast, normally a string representation of a BSON ObjectId.
 
     Returns
     -------
-    objectId | None
-        The corresponding BSON object id if the input is a valid representation of
+    ObjectId | None
+        The corresponding BSON ObjectId if the input is a valid representation of
         such an id, otherwise `None`.
     &#34;&#34;&#34;
 
@@ -223,7 +290,7 @@ such an id, otherwise <code>None</code>.</dd>
 <dl>
 <dt id="control.mongo.Mongo"><code class="flex name class">
 <span>class <span class="ident">Mongo</span></span>
-<span>(</span><span>config, Messages)</span>
+<span>(</span><span>Settings, Messages)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>CRUD interface to content in the MongoDb database.</p>
@@ -232,19 +299,19 @@ to query its data, to insert, update and delete data.</p>
 <p>It is instantiated by a singleton object.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
-<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L28-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L28-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
-    def __init__(self, config, Messages):
+    def __init__(self, Settings, Messages):
         &#34;&#34;&#34;CRUD interface to content in the MongoDb database.
 
         This class has methods to connect to a MongoDb database,
@@ -254,21 +321,30 @@ to query its data, to insert, update and delete data.</p>
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
         self.mongo = None
-        self.database = config.database
+        self.database = Settings.database
 
     def connect(self):
-        config = self.config
+        &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
+
+        The connection details come from `control.config.Config.Settings`.
+
+        After a successful connection attempt, the connection handle
+        is stored in the `client` and `mongo` members of the Mongo object.
+
+        When a connection handle exists, this method does nothing.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         client = self.client
         mongo = self.mongo
         database = self.database
@@ -276,10 +352,10 @@ to query its data, to insert, update and delete data.</p>
         if mongo is None:
             try:
                 client = MongoClient(
-                    config.mongoHost,
-                    config.mongoPort,
-                    username=config.mongoUser,
-                    password=config.mongoPassword,
+                    Settings.mongoHost,
+                    Settings.mongoPort,
+                    username=Settings.mongoUser,
+                    password=Settings.mongoPassword,
                 )
                 mongo = client[database]
             except Exception as e:
@@ -291,6 +367,8 @@ to query its data, to insert, update and delete data.</p>
             self.mongo = mongo
 
     def disconnect(self):
+        &#34;&#34;&#34;Disconnect from the MongoDB.
+        &#34;&#34;&#34;
         client = self.client
 
         if client:
@@ -300,6 +378,19 @@ to query its data, to insert, update and delete data.</p>
         self.mongo = None
 
     def checkCollection(self, table, reset=False):
+        &#34;&#34;&#34;Make sure that a collection exists and (optionally) that it is empty.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection.
+            If no such collection exists, it will be created.
+        reset: boolean, optional False
+            If True, and the collection existed before, it will be cleared.
+            Note that the collection will not be deleted, but all its documents
+            will be deleted.
+        &#34;&#34;&#34;
+
         Messages = self.Messages
 
         self.connect()
@@ -324,6 +415,26 @@ to query its data, to insert, update and delete data.</p>
                 )
 
     def getRecord(self, table, **criteria):
+        &#34;&#34;&#34;Get a single document from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection from which we want to retrieve a single record.
+        criteria: dict
+            A set of criteria to narrow down the search.
+            Usually they will be such that there will be just one document
+            that satisfies them.
+            But if there are more, a single one is chosen,
+            by the mechanics of the built-in MongoDb command `findOne`.
+
+        Returns
+        -------
+        `control.helpers.generic.AttrDict`
+            The single document found,
+            or an empty `control.helpers.generic.AttrDict` if no document
+            satisfies the criteria.
+        &#34;&#34;&#34;
         result = self.execute(table, &#34;find_one&#34;, criteria, {})
         if result is None:
             Messages = self.Messages
@@ -332,6 +443,29 @@ to query its data, to insert, update and delete data.</p>
         return AttrDict(result)
 
     def execute(self, table, command, *args, **kwargs):
+        &#34;&#34;&#34;Executes a MongoDb command and returns the result.
+
+        Parameters
+        ----------
+        table: string
+            The collection on which to perform the command.
+        command: string
+            The built-in MongoDb command.
+            Note that the Python interface requires you to write camelCase commands
+            with underscores.
+            So the Mongo command `findOne` should be passed as `find_one`.
+        args: list
+            Any number of additional arguments that the command requires.
+        kwargs: list
+            Any number of additional keyword arguments that the command requires.
+
+        Returns
+        -------
+        any
+            Whatever the MongoDb command returns.
+            If the command fails, an error message is issued and
+            None is returned.
+        &#34;&#34;&#34;
         Messages = self.Messages
 
         self.connect()
@@ -361,13 +495,36 @@ to query its data, to insert, update and delete data.</p>
 <span>def <span class="ident">checkCollection</span></span>(<span>self, table, reset=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Make sure that a collection exists and (optionally) that it is empty.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the collection.
+If no such collection exists, it will be created.</dd>
+<dt><strong><code>reset</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, and the collection existed before, it will be cleared.
+Note that the collection will not be deleted, but all its documents
+will be deleted.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L84-L106" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L95-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkCollection(self, table, reset=False):
+    &#34;&#34;&#34;Make sure that a collection exists and (optionally) that it is empty.
+
+    Parameters
+    ----------
+    table: string
+        The name of the collection.
+        If no such collection exists, it will be created.
+    reset: boolean, optional False
+        If True, and the collection existed before, it will be cleared.
+        Note that the collection will not be deleted, but all its documents
+        will be deleted.
+    &#34;&#34;&#34;
+
     Messages = self.Messages
 
     self.connect()
@@ -396,14 +553,27 @@ to query its data, to insert, update and delete data.</p>
 <span>def <span class="ident">connect</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Make connection with MongoDb if there is no connection yet.</p>
+<p>The connection details come from <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</p>
+<p>After a successful connection attempt, the connection handle
+is stored in the <code>client</code> and <code>mongo</code> members of the Mongo object.</p>
+<p>When a connection handle exists, this method does nothing.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L52-L73" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L52-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def connect(self):
-    config = self.config
+    &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
+
+    The connection details come from `control.config.Config.Settings`.
+
+    After a successful connection attempt, the connection handle
+    is stored in the `client` and `mongo` members of the Mongo object.
+
+    When a connection handle exists, this method does nothing.
+    &#34;&#34;&#34;
+    Settings = self.Settings
     client = self.client
     mongo = self.mongo
     database = self.database
@@ -411,10 +581,10 @@ to query its data, to insert, update and delete data.</p>
     if mongo is None:
         try:
             client = MongoClient(
-                config.mongoHost,
-                config.mongoPort,
-                username=config.mongoUser,
-                password=config.mongoPassword,
+                Settings.mongoHost,
+                Settings.mongoPort,
+                username=Settings.mongoUser,
+                password=Settings.mongoPassword,
             )
             mongo = client[database]
         except Exception as e:
@@ -430,13 +600,15 @@ to query its data, to insert, update and delete data.</p>
 <span>def <span class="ident">disconnect</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Disconnect from the MongoDB.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L75-L82" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L84-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def disconnect(self):
+    &#34;&#34;&#34;Disconnect from the MongoDB.
+    &#34;&#34;&#34;
     client = self.client
 
     if client:
@@ -450,13 +622,57 @@ to query its data, to insert, update and delete data.</p>
 <span>def <span class="ident">execute</span></span>(<span>self, table, command, *args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Executes a MongoDb command and returns the result.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The collection on which to perform the command.</dd>
+<dt><strong><code>command</code></strong> :&ensp;<code>string</code></dt>
+<dd>The built-in MongoDb command.
+Note that the Python interface requires you to write camelCase commands
+with underscores.
+So the Mongo command <code>findOne</code> should be passed as <code>find_one</code>.</dd>
+<dt><strong><code>args</code></strong> :&ensp;<code>list</code></dt>
+<dd>Any number of additional arguments that the command requires.</dd>
+<dt><strong><code>kwargs</code></strong> :&ensp;<code>list</code></dt>
+<dd>Any number of additional keyword arguments that the command requires.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>any</code></dt>
+<dd>Whatever the MongoDb command returns.
+If the command fails, an error message is issued and
+None is returned.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L116-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L160-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def execute(self, table, command, *args, **kwargs):
+    &#34;&#34;&#34;Executes a MongoDb command and returns the result.
+
+    Parameters
+    ----------
+    table: string
+        The collection on which to perform the command.
+    command: string
+        The built-in MongoDb command.
+        Note that the Python interface requires you to write camelCase commands
+        with underscores.
+        So the Mongo command `findOne` should be passed as `find_one`.
+    args: list
+        Any number of additional arguments that the command requires.
+    kwargs: list
+        Any number of additional keyword arguments that the command requires.
+
+    Returns
+    -------
+    any
+        Whatever the MongoDb command returns.
+        If the command fails, an error message is issued and
+        None is returned.
+    &#34;&#34;&#34;
     Messages = self.Messages
 
     self.connect()
@@ -485,13 +701,49 @@ to query its data, to insert, update and delete data.</p>
 <span>def <span class="ident">getRecord</span></span>(<span>self, table, **criteria)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get a single document from a collection.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the collection from which we want to retrieve a single record.</dd>
+<dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
+<dd>A set of criteria to narrow down the search.
+Usually they will be such that there will be just one document
+that satisfies them.
+But if there are more, a single one is chosen,
+by the mechanics of the built-in MongoDb command <code>findOne</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code>
+The single document found,
+or an empty <code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code> if no document
+satisfies the criteria.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/mongo.py#L108-L114" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/mongo.py#L132-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRecord(self, table, **criteria):
+    &#34;&#34;&#34;Get a single document from a collection.
+
+    Parameters
+    ----------
+    table: string
+        The name of the collection from which we want to retrieve a single record.
+    criteria: dict
+        A set of criteria to narrow down the search.
+        Usually they will be such that there will be just one document
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `findOne`.
+
+    Returns
+    -------
+    `control.helpers.generic.AttrDict`
+        The single document found,
+        or an empty `control.helpers.generic.AttrDict` if no document
+        satisfies the criteria.
+    &#34;&#34;&#34;
     result = self.execute(table, &#34;find_one&#34;, criteria, {})
     if result is None:
         Messages = self.Messages

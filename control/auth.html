@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L1-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L1-L317" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask import request, session
 
@@ -35,7 +35,7 @@ from control.helpers.generic import AttrDict
 
 
 class Auth:
-    def __init__(self, config, Messages, Mongo, Users, Content):
+    def __init__(self, Settings, Messages, Mongo, Users, Content):
         &#34;&#34;&#34;All about authorised data access.
 
         This class knows users and content,
@@ -43,12 +43,14 @@ class Auth:
         actions on content in question.
 
         It is instantiated by a singleton object.
+        This object has a member `user` that contains the data of the current
+        user if there is a current user.
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         Mongo: object
@@ -58,19 +60,45 @@ class Auth:
         Content: object
             Singleton instance of `control.content.Content`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.Users = Users
         self.Content = Content
         self.user = AttrDict()
+        &#34;&#34;&#34;Data of the current user.
+
+        If there is no current user, it is has no members.
+
+        Otherwise, it has member `_id`, the mongodb id of the current user.
+        It may also have additional members, such as `name` and `role`.
+        &#34;&#34;&#34;
 
     def clearUser(self):
+        &#34;&#34;&#34;Clear current user.
+
+        The `user` member of Auth is cleard.
+        Note that it is not deleted, only its members are removed.
+        &#34;&#34;&#34;
         user = self.user
         user.clear()
 
     def getUser(self, userId):
+        &#34;&#34;&#34;Get user data.
+
+        Parameters
+        ----------
+        userId: ObjectId
+            The id of a user in the users table of the MongoDb database.
+
+        Returns
+        -------
+        boolean
+            Whether a user with that id has been found.
+            The data of the user record that has been found is stored
+            in the `user` member of Auth.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Mongo = self.Mongo
         user = self.user
@@ -88,10 +116,27 @@ class Auth:
         return result
 
     def checkLogin(self):
-        config = self.config
+        &#34;&#34;&#34;Get user data.
+
+        Retrieves a user id from the current session, looks up the corresponding
+        user, and fills the `user` member of Auth accordingly.
+
+        In test mode, the user id is obtained from the query string.
+        There is a list of test user buttons on the interface, and they
+        all pass a user id in the querystring of their `href` attribute.
+
+        In production mode, the current session will be inspected for data
+        that corresponds with the logged in user.
+
+        Returns
+        -------
+        boolean
+            Whether a user with a valid id has been found in the current session.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         self.clearUser()
-        if config.testMode:
+        if Settings.testMode:
             userId = request.args.get(&#34;userid&#34;, None)
             result = self.getUser(userId)
             userName = self.user.name
@@ -105,6 +150,26 @@ class Auth:
         return False
 
     def authenticate(self, login=False):
+        &#34;&#34;&#34;Authenticates the current user.
+
+        Checks whether there is a current user and whether that user is fully known,
+        i.e. in the users collection of the mongoDb.
+
+        If there is a current user unknown in the database, the current user
+        will be cleared.
+
+        Parameters
+        ----------
+        login: boolean, optional False
+            Use True to deal with a user that has just logged in.
+            It will retrieve the corresponding user data from MongoDb
+            and populate the `user` member of Auth.
+
+        Returns
+        -------
+        boolean
+            Whether the current user is authenticated.
+        &#34;&#34;&#34;
         user = self.user
 
         if login:
@@ -125,10 +190,36 @@ class Auth:
         return False
 
     def authenticated(self):
+        &#34;&#34;&#34;Cheap check whether there is a current authenticated user.
+
+        The `user` member of Auth is inspected: does it contain an id?
+        If so, that is taken as proof that we have a valid user.
+
+        !!! hint &#34;auhtenticate versus authenticated&#34;
+            We try to enforce at all times that if there is data in the
+            `user` member of Auth, it is the correct data of an authenticated
+            user.
+            But there may arise edge cases,
+            e.g. when a user is successfully authenticated,
+            but then removed from the database by an admin.
+
+            Good practice is: in every request that needs an authenticated user:
+
+            * call `Auth.authenticate()` the first time
+            * call `authenticated` after that.
+
+            With this practice, we can shield a lot of code with the
+            cheaper `Auth.authenticated()` function.
+        &#34;&#34;&#34;
         user = self.user
         return &#34;_id&#34; in user
 
     def deauthenticate(self):
+        &#34;&#34;&#34;Logs off the current user.
+
+        That means that the `user` memebr of Auth is cleared, and the current
+        session is popped.
+        &#34;&#34;&#34;
         Messages = self.Messages
         userId = session.get(&#34;userid&#34;, None)
         if userId:
@@ -140,7 +231,36 @@ class Auth:
         session.pop(&#34;userid&#34;, None)
 
     def authorise(self, action, project=None, edition=None, byName=False):
-        config = self.config
+        &#34;&#34;&#34;Authorise the current user to access a piece of content.
+
+        !!! note &#34;Requests may come from different senders&#34;
+            When 3D viewers are active, they may fire their own requests to
+            this app. These 3D viewers do not know about MongoDb ids, all they
+            know are the names of files and directories.
+
+        Parameters
+        ----------
+        action: string
+            The kind of access: `view`, `edit`, etc.
+        project: string or ObjectId
+            The project that is being accessed, if any.
+        edition: string or ObjectId
+            The edition that is being accessed, if any.
+        byName: boolean, optional False
+            Whether the project and edition parameters contain an ObjectId.
+            If not, it is assumed they contain a name.
+            Sometimes we know projects and editions by their id, especially
+            when we have retrieved them from MongoDb.
+            But some routes access projects and editions on the file system,
+            and then we have only their names.
+            This happens in case the 3D viewers access the file system directly.
+
+        Returns
+        -------
+        boolean
+            Whether the current user is authorised.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Mongo = self.Mongo
 
         user = self.user
@@ -179,7 +299,7 @@ class Auth:
             else &#34;unpublished&#34;
         )
 
-        projectRules = config.auth.projectRules[projectPub]
+        projectRules = Settings.auth.projectRules[projectPub]
         condition = (
             projectRules[user.role] if user.role in projectRules else projectRules[None]
         ).get(action, False)
@@ -187,9 +307,40 @@ class Auth:
         return permission
 
     def isModifiable(self, projectId, editionId):
+        &#34;&#34;&#34;Whether the current user may modify content.
+
+        The content may be outside any project
+        (both `projectId` and `editionId` are None),
+        within a project but outside any edition (`editionId` is None),
+        or within an edition (`editionId` is not None).
+
+        Parameters
+        ----------
+        projectId: ObjectId or None
+            MongoDB id of the project in question.
+        editionId: ObjectId or None
+            MongoDB id of the edition in question.
+        &#34;&#34;&#34;
         return self.authorise(&#34;edit&#34;, project=projectId, edition=editionId)
 
     def checkModifiable(self, projectId, editionId, action):
+        &#34;&#34;&#34;Like `Auth.isModifiable()`, but returns an allowed action.
+
+        This function &#34;demotes&#34; an action to an allowed action if the
+        action itself is not allowed.
+
+        Parameters
+        ----------
+        action: string
+            An intended action.
+
+        Returns
+        -------
+        string
+            If the action is a modifying action, but the content is not modifiable,
+            it returns `view`.
+            Otherwise it returns the action itself.
+        &#34;&#34;&#34;
         if action != &#34;view&#34;:
             if not self.isModifiable(projectId, editionId):
                 action = &#34;view&#34;
@@ -207,19 +358,21 @@ class Auth:
 <dl>
 <dt id="control.auth.Auth"><code class="flex name class">
 <span>class <span class="ident">Auth</span></span>
-<span>(</span><span>config, Messages, Mongo, Users, Content)</span>
+<span>(</span><span>Settings, Messages, Mongo, Users, Content)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All about authorised data access.</p>
 <p>This class knows users and content,
 and decides whether the current user is authorised to perform certain
 actions on content in question.</p>
-<p>It is instantiated by a singleton object.</p>
+<p>It is instantiated by a singleton object.
+This object has a member <code>user</code> that contains the data of the current
+user if there is a current user.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>config</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
-<code><a title="control.config.Config.config" href="config.html#control.config.Config.config">Config.config</a></code>.</dd>
+<code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
 <dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
@@ -232,10 +385,10 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L7-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L7-L317" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth:
-    def __init__(self, config, Messages, Mongo, Users, Content):
+    def __init__(self, Settings, Messages, Mongo, Users, Content):
         &#34;&#34;&#34;All about authorised data access.
 
         This class knows users and content,
@@ -243,12 +396,14 @@ actions on content in question.</p>
         actions on content in question.
 
         It is instantiated by a singleton object.
+        This object has a member `user` that contains the data of the current
+        user if there is a current user.
 
         Parameters
         ----------
-        config: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
-            `control.config.Config.config`.
+            `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         Mongo: object
@@ -258,19 +413,45 @@ actions on content in question.</p>
         Content: object
             Singleton instance of `control.content.Content`.
         &#34;&#34;&#34;
-        self.config = config
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.Users = Users
         self.Content = Content
         self.user = AttrDict()
+        &#34;&#34;&#34;Data of the current user.
+
+        If there is no current user, it is has no members.
+
+        Otherwise, it has member `_id`, the mongodb id of the current user.
+        It may also have additional members, such as `name` and `role`.
+        &#34;&#34;&#34;
 
     def clearUser(self):
+        &#34;&#34;&#34;Clear current user.
+
+        The `user` member of Auth is cleard.
+        Note that it is not deleted, only its members are removed.
+        &#34;&#34;&#34;
         user = self.user
         user.clear()
 
     def getUser(self, userId):
+        &#34;&#34;&#34;Get user data.
+
+        Parameters
+        ----------
+        userId: ObjectId
+            The id of a user in the users table of the MongoDb database.
+
+        Returns
+        -------
+        boolean
+            Whether a user with that id has been found.
+            The data of the user record that has been found is stored
+            in the `user` member of Auth.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Mongo = self.Mongo
         user = self.user
@@ -288,10 +469,27 @@ actions on content in question.</p>
         return result
 
     def checkLogin(self):
-        config = self.config
+        &#34;&#34;&#34;Get user data.
+
+        Retrieves a user id from the current session, looks up the corresponding
+        user, and fills the `user` member of Auth accordingly.
+
+        In test mode, the user id is obtained from the query string.
+        There is a list of test user buttons on the interface, and they
+        all pass a user id in the querystring of their `href` attribute.
+
+        In production mode, the current session will be inspected for data
+        that corresponds with the logged in user.
+
+        Returns
+        -------
+        boolean
+            Whether a user with a valid id has been found in the current session.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         self.clearUser()
-        if config.testMode:
+        if Settings.testMode:
             userId = request.args.get(&#34;userid&#34;, None)
             result = self.getUser(userId)
             userName = self.user.name
@@ -305,6 +503,26 @@ actions on content in question.</p>
         return False
 
     def authenticate(self, login=False):
+        &#34;&#34;&#34;Authenticates the current user.
+
+        Checks whether there is a current user and whether that user is fully known,
+        i.e. in the users collection of the mongoDb.
+
+        If there is a current user unknown in the database, the current user
+        will be cleared.
+
+        Parameters
+        ----------
+        login: boolean, optional False
+            Use True to deal with a user that has just logged in.
+            It will retrieve the corresponding user data from MongoDb
+            and populate the `user` member of Auth.
+
+        Returns
+        -------
+        boolean
+            Whether the current user is authenticated.
+        &#34;&#34;&#34;
         user = self.user
 
         if login:
@@ -325,10 +543,36 @@ actions on content in question.</p>
         return False
 
     def authenticated(self):
+        &#34;&#34;&#34;Cheap check whether there is a current authenticated user.
+
+        The `user` member of Auth is inspected: does it contain an id?
+        If so, that is taken as proof that we have a valid user.
+
+        !!! hint &#34;auhtenticate versus authenticated&#34;
+            We try to enforce at all times that if there is data in the
+            `user` member of Auth, it is the correct data of an authenticated
+            user.
+            But there may arise edge cases,
+            e.g. when a user is successfully authenticated,
+            but then removed from the database by an admin.
+
+            Good practice is: in every request that needs an authenticated user:
+
+            * call `Auth.authenticate()` the first time
+            * call `authenticated` after that.
+
+            With this practice, we can shield a lot of code with the
+            cheaper `Auth.authenticated()` function.
+        &#34;&#34;&#34;
         user = self.user
         return &#34;_id&#34; in user
 
     def deauthenticate(self):
+        &#34;&#34;&#34;Logs off the current user.
+
+        That means that the `user` memebr of Auth is cleared, and the current
+        session is popped.
+        &#34;&#34;&#34;
         Messages = self.Messages
         userId = session.get(&#34;userid&#34;, None)
         if userId:
@@ -340,7 +584,36 @@ actions on content in question.</p>
         session.pop(&#34;userid&#34;, None)
 
     def authorise(self, action, project=None, edition=None, byName=False):
-        config = self.config
+        &#34;&#34;&#34;Authorise the current user to access a piece of content.
+
+        !!! note &#34;Requests may come from different senders&#34;
+            When 3D viewers are active, they may fire their own requests to
+            this app. These 3D viewers do not know about MongoDb ids, all they
+            know are the names of files and directories.
+
+        Parameters
+        ----------
+        action: string
+            The kind of access: `view`, `edit`, etc.
+        project: string or ObjectId
+            The project that is being accessed, if any.
+        edition: string or ObjectId
+            The edition that is being accessed, if any.
+        byName: boolean, optional False
+            Whether the project and edition parameters contain an ObjectId.
+            If not, it is assumed they contain a name.
+            Sometimes we know projects and editions by their id, especially
+            when we have retrieved them from MongoDb.
+            But some routes access projects and editions on the file system,
+            and then we have only their names.
+            This happens in case the 3D viewers access the file system directly.
+
+        Returns
+        -------
+        boolean
+            Whether the current user is authorised.
+        &#34;&#34;&#34;
+        Settings = self.Settings
         Mongo = self.Mongo
 
         user = self.user
@@ -379,7 +652,7 @@ actions on content in question.</p>
             else &#34;unpublished&#34;
         )
 
-        projectRules = config.auth.projectRules[projectPub]
+        projectRules = Settings.auth.projectRules[projectPub]
         condition = (
             projectRules[user.role] if user.role in projectRules else projectRules[None]
         ).get(action, False)
@@ -387,27 +660,104 @@ actions on content in question.</p>
         return permission
 
     def isModifiable(self, projectId, editionId):
+        &#34;&#34;&#34;Whether the current user may modify content.
+
+        The content may be outside any project
+        (both `projectId` and `editionId` are None),
+        within a project but outside any edition (`editionId` is None),
+        or within an edition (`editionId` is not None).
+
+        Parameters
+        ----------
+        projectId: ObjectId or None
+            MongoDB id of the project in question.
+        editionId: ObjectId or None
+            MongoDB id of the edition in question.
+        &#34;&#34;&#34;
         return self.authorise(&#34;edit&#34;, project=projectId, edition=editionId)
 
     def checkModifiable(self, projectId, editionId, action):
+        &#34;&#34;&#34;Like `Auth.isModifiable()`, but returns an allowed action.
+
+        This function &#34;demotes&#34; an action to an allowed action if the
+        action itself is not allowed.
+
+        Parameters
+        ----------
+        action: string
+            An intended action.
+
+        Returns
+        -------
+        string
+            If the action is a modifying action, but the content is not modifiable,
+            it returns `view`.
+            Otherwise it returns the action itself.
+        &#34;&#34;&#34;
         if action != &#34;view&#34;:
             if not self.isModifiable(projectId, editionId):
                 action = &#34;view&#34;
         return action</code></pre>
 </details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="control.auth.Auth.user"><code class="name">var <span class="ident">user</span></code></dt>
+<dd>
+<div class="desc"><p>Data of the current user.</p>
+<p>If there is no current user, it is has no members.</p>
+<p>Otherwise, it has member <code>_id</code>, the mongodb id of the current user.
+It may also have additional members, such as <code>name</code> and <code>role</code>.</p></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="control.auth.Auth.authenticate"><code class="name flex">
 <span>def <span class="ident">authenticate</span></span>(<span>self, login=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Authenticates the current user.</p>
+<p>Checks whether there is a current user and whether that user is fully known,
+i.e. in the users collection of the mongoDb.</p>
+<p>If there is a current user unknown in the database, the current user
+will be cleared.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>login</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Use True to deal with a user that has just logged in.
+It will retrieve the corresponding user data from MongoDb
+and populate the <code>user</code> member of Auth.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the current user is authenticated.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L77-L95" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L122-L160" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authenticate(self, login=False):
+    &#34;&#34;&#34;Authenticates the current user.
+
+    Checks whether there is a current user and whether that user is fully known,
+    i.e. in the users collection of the mongoDb.
+
+    If there is a current user unknown in the database, the current user
+    will be cleared.
+
+    Parameters
+    ----------
+    login: boolean, optional False
+        Use True to deal with a user that has just logged in.
+        It will retrieve the corresponding user data from MongoDb
+        and populate the `user` member of Auth.
+
+    Returns
+    -------
+    boolean
+        Whether the current user is authenticated.
+    &#34;&#34;&#34;
     user = self.user
 
     if login:
@@ -432,13 +782,52 @@ actions on content in question.</p>
 <span>def <span class="ident">authenticated</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Cheap check whether there is a current authenticated user.</p>
+<p>The <code>user</code> member of Auth is inspected: does it contain an id?
+If so, that is taken as proof that we have a valid user.</p>
+<div class="admonition hint">
+<p class="admonition-title">auhtenticate versus authenticated</p>
+<p>We try to enforce at all times that if there is data in the
+<code>user</code> member of Auth, it is the correct data of an authenticated
+user.
+But there may arise edge cases,
+e.g. when a user is successfully authenticated,
+but then removed from the database by an admin.</p>
+<p>Good practice is: in every request that needs an authenticated user:</p>
+<ul>
+<li>call <code><a title="control.auth.Auth.authenticate" href="#control.auth.Auth.authenticate">Auth.authenticate()</a></code> the first time</li>
+<li>call <code>authenticated</code> after that.</li>
+</ul>
+<p>With this practice, we can shield a lot of code with the
+cheaper <code><a title="control.auth.Auth.authenticated" href="#control.auth.Auth.authenticated">Auth.authenticated()</a></code> function.</p>
+</div></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L97-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L162-L185" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authenticated(self):
+    &#34;&#34;&#34;Cheap check whether there is a current authenticated user.
+
+    The `user` member of Auth is inspected: does it contain an id?
+    If so, that is taken as proof that we have a valid user.
+
+    !!! hint &#34;auhtenticate versus authenticated&#34;
+        We try to enforce at all times that if there is data in the
+        `user` member of Auth, it is the correct data of an authenticated
+        user.
+        But there may arise edge cases,
+        e.g. when a user is successfully authenticated,
+        but then removed from the database by an admin.
+
+        Good practice is: in every request that needs an authenticated user:
+
+        * call `Auth.authenticate()` the first time
+        * call `authenticated` after that.
+
+        With this practice, we can shield a lot of code with the
+        cheaper `Auth.authenticated()` function.
+    &#34;&#34;&#34;
     user = self.user
     return &#34;_id&#34; in user</code></pre>
 </details>
@@ -447,14 +836,71 @@ actions on content in question.</p>
 <span>def <span class="ident">authorise</span></span>(<span>self, action, project=None, edition=None, byName=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Authorise the current user to access a piece of content.</p>
+<div class="admonition note">
+<p class="admonition-title">Requests may come from different senders</p>
+<p>When 3D viewers are active, they may fire their own requests to
+this app. These 3D viewers do not know about MongoDb ids, all they
+know are the names of files and directories.</p>
+</div>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
+<dd>The kind of access: <code>view</code>, <code>edit</code>, etc.</dd>
+<dt><strong><code>project</code></strong> :&ensp;<code>string</code> or <code>ObjectId</code></dt>
+<dd>The project that is being accessed, if any.</dd>
+<dt><strong><code>edition</code></strong> :&ensp;<code>string</code> or <code>ObjectId</code></dt>
+<dd>The edition that is being accessed, if any.</dd>
+<dt><strong><code>byName</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether the project and edition parameters contain an ObjectId.
+If not, it is assumed they contain a name.
+Sometimes we know projects and editions by their id, especially
+when we have retrieved them from MongoDb.
+But some routes access projects and editions on the file system,
+and then we have only their names.
+This happens in case the 3D viewers access the file system directly.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the current user is authorised.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L112-L157" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L203-L277" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authorise(self, action, project=None, edition=None, byName=False):
-    config = self.config
+    &#34;&#34;&#34;Authorise the current user to access a piece of content.
+
+    !!! note &#34;Requests may come from different senders&#34;
+        When 3D viewers are active, they may fire their own requests to
+        this app. These 3D viewers do not know about MongoDb ids, all they
+        know are the names of files and directories.
+
+    Parameters
+    ----------
+    action: string
+        The kind of access: `view`, `edit`, etc.
+    project: string or ObjectId
+        The project that is being accessed, if any.
+    edition: string or ObjectId
+        The edition that is being accessed, if any.
+    byName: boolean, optional False
+        Whether the project and edition parameters contain an ObjectId.
+        If not, it is assumed they contain a name.
+        Sometimes we know projects and editions by their id, especially
+        when we have retrieved them from MongoDb.
+        But some routes access projects and editions on the file system,
+        and then we have only their names.
+        This happens in case the 3D viewers access the file system directly.
+
+    Returns
+    -------
+    boolean
+        Whether the current user is authorised.
+    &#34;&#34;&#34;
+    Settings = self.Settings
     Mongo = self.Mongo
 
     user = self.user
@@ -493,7 +939,7 @@ actions on content in question.</p>
         else &#34;unpublished&#34;
     )
 
-    projectRules = config.auth.projectRules[projectPub]
+    projectRules = Settings.auth.projectRules[projectPub]
     condition = (
         projectRules[user.role] if user.role in projectRules else projectRules[None]
     ).get(action, False)
@@ -505,17 +951,46 @@ actions on content in question.</p>
 <span>def <span class="ident">checkLogin</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get user data.</p>
+<p>Retrieves a user id from the current session, looks up the corresponding
+user, and fills the <code>user</code> member of Auth accordingly.</p>
+<p>In test mode, the user id is obtained from the query string.
+There is a list of test user buttons on the interface, and they
+all pass a user id in the querystring of their <code>href</code> attribute.</p>
+<p>In production mode, the current session will be inspected for data
+that corresponds with the logged in user.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether a user with a valid id has been found in the current session.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L60-L75" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L88-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkLogin(self):
-    config = self.config
+    &#34;&#34;&#34;Get user data.
+
+    Retrieves a user id from the current session, looks up the corresponding
+    user, and fills the `user` member of Auth accordingly.
+
+    In test mode, the user id is obtained from the query string.
+    There is a list of test user buttons on the interface, and they
+    all pass a user id in the querystring of their `href` attribute.
+
+    In production mode, the current session will be inspected for data
+    that corresponds with the logged in user.
+
+    Returns
+    -------
+    boolean
+        Whether a user with a valid id has been found in the current session.
+    &#34;&#34;&#34;
+    Settings = self.Settings
     Messages = self.Messages
     self.clearUser()
-    if config.testMode:
+    if Settings.testMode:
         userId = request.args.get(&#34;userid&#34;, None)
         result = self.getUser(userId)
         userName = self.user.name
@@ -533,13 +1008,44 @@ actions on content in question.</p>
 <span>def <span class="ident">checkModifiable</span></span>(<span>self, projectId, editionId, action)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Like <code><a title="control.auth.Auth.isModifiable" href="#control.auth.Auth.isModifiable">Auth.isModifiable()</a></code>, but returns an allowed action.</p>
+<p>This function "demotes" an action to an allowed action if the
+action itself is not allowed.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
+<dd>An intended action.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>If the action is a modifying action, but the content is not modifiable,
+it returns <code>view</code>.
+Otherwise it returns the action itself.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L162-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L296-L317" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModifiable(self, projectId, editionId, action):
+    &#34;&#34;&#34;Like `Auth.isModifiable()`, but returns an allowed action.
+
+    This function &#34;demotes&#34; an action to an allowed action if the
+    action itself is not allowed.
+
+    Parameters
+    ----------
+    action: string
+        An intended action.
+
+    Returns
+    -------
+    string
+        If the action is a modifying action, but the content is not modifiable,
+        it returns `view`.
+        Otherwise it returns the action itself.
+    &#34;&#34;&#34;
     if action != &#34;view&#34;:
         if not self.isModifiable(projectId, editionId):
             action = &#34;view&#34;
@@ -550,13 +1056,20 @@ actions on content in question.</p>
 <span>def <span class="ident">clearUser</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Clear current user.</p>
+<p>The <code>user</code> member of Auth is cleard.
+Note that it is not deleted, only its members are removed.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L39-L41" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L48-L55" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearUser(self):
+    &#34;&#34;&#34;Clear current user.
+
+    The `user` member of Auth is cleard.
+    Note that it is not deleted, only its members are removed.
+    &#34;&#34;&#34;
     user = self.user
     user.clear()</code></pre>
 </details>
@@ -565,13 +1078,20 @@ actions on content in question.</p>
 <span>def <span class="ident">deauthenticate</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Logs off the current user.</p>
+<p>That means that the <code>user</code> memebr of Auth is cleared, and the current
+session is popped.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L101-L110" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L187-L201" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deauthenticate(self):
+    &#34;&#34;&#34;Logs off the current user.
+
+    That means that the `user` memebr of Auth is cleared, and the current
+    session is popped.
+    &#34;&#34;&#34;
     Messages = self.Messages
     userId = session.get(&#34;userid&#34;, None)
     if userId:
@@ -587,13 +1107,39 @@ actions on content in question.</p>
 <span>def <span class="ident">getUser</span></span>(<span>self, userId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get user data.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>userId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The id of a user in the users table of the MongoDb database.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether a user with that id has been found.
+The data of the user record that has been found is stored
+in the <code>user</code> member of Auth.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L43-L58" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L57-L86" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUser(self, userId):
+    &#34;&#34;&#34;Get user data.
+
+    Parameters
+    ----------
+    userId: ObjectId
+        The id of a user in the users table of the MongoDb database.
+
+    Returns
+    -------
+    boolean
+        Whether a user with that id has been found.
+        The data of the user record that has been found is stored
+        in the `user` member of Auth.
+    &#34;&#34;&#34;
     Messages = self.Messages
     Mongo = self.Mongo
     user = self.user
@@ -615,13 +1161,38 @@ actions on content in question.</p>
 <span>def <span class="ident">isModifiable</span></span>(<span>self, projectId, editionId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether the current user may modify content.</p>
+<p>The content may be outside any project
+(both <code>projectId</code> and <code>editionId</code> are None),
+within a project but outside any edition (<code>editionId</code> is None),
+or within an edition (<code>editionId</code> is not None).</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>MongoDB id of the project in question.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>MongoDB id of the edition in question.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/auth.py#L159-L160" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/auth.py#L279-L294" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def isModifiable(self, projectId, editionId):
+    &#34;&#34;&#34;Whether the current user may modify content.
+
+    The content may be outside any project
+    (both `projectId` and `editionId` are None),
+    within a project but outside any edition (`editionId` is None),
+    or within an edition (`editionId` is not None).
+
+    Parameters
+    ----------
+    projectId: ObjectId or None
+        MongoDB id of the project in question.
+    editionId: ObjectId or None
+        MongoDB id of the edition in question.
+    &#34;&#34;&#34;
     return self.authorise(&#34;edit&#34;, project=projectId, edition=editionId)</code></pre>
 </details>
 </dd>
@@ -702,6 +1273,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.auth.Auth.deauthenticate" href="#control.auth.Auth.deauthenticate">deauthenticate</a></code></li>
 <li><code><a title="control.auth.Auth.getUser" href="#control.auth.Auth.getUser">getUser</a></code></li>
 <li><code><a title="control.auth.Auth.isModifiable" href="#control.auth.Auth.isModifiable">isModifiable</a></code></li>
+<li><code><a title="control.auth.Auth.user" href="#control.auth.Auth.user">user</a></code></li>
 </ul>
 </li>
 </ul>

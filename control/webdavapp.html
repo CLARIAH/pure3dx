@@ -26,14 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/webdavapp.py#L1-L43" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L1-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 
 from wsgidav.wsgidav_app import WsgiDAVApp
 
-from control.config import Config
-from control.messages import Messages
+from control.prepare import prepare
+from control.app import appFactory as appFactoryMain
 
 
 BASE = os.path.dirname(os.path.dirname(__file__))
@@ -56,13 +56,19 @@ WEBDAV_METHODS = dict(
 )
 
 
-def getWebdavApp():
-    config = Config(Messages(None), flask=False).config
+def getWebdavApp(objects):
+    &#34;&#34;&#34;Configure a webapp that provides WebDAV.
+
+    We get the WebDAV app ready-made from
+    [WsgiDav](https://wsgidav.readthedocs.io/en/latest/),
+    and configure it here.
+    &#34;&#34;&#34;
+    Settings = objects.Settings
 
     webdavConfig = {
         &#34;provider_mapping&#34;: {
             &#34;/webdav/&#34;: {
-                &#34;root&#34;: config.dataDir,
+                &#34;root&#34;: Settings.dataDir,
                 &#34;readonly&#34;: False,
             },
         },
@@ -70,7 +76,94 @@ def getWebdavApp():
         &#34;verbose&#34;: 1,
     }
 
-    return WsgiDAVApp(webdavConfig)</code></pre>
+    return WsgiDAVApp(webdavConfig)
+
+
+def dispatchWebdav(app, webdavPrefix, webdavApp):
+    &#34;&#34;&#34;Combines the main app with the webdavapp.
+
+    A WSGI app is essentially a function that takes a request
+    environment and a start-response function and produces a response.
+
+    We combine two wsgi apps by defining a new WSGI function
+    out of the WSGI functions of the component apps.
+    We call this function the dispatcher.
+
+    The combined function works so that requests with urls starting
+    with a certain prefix are dispatched to the webdav app,
+    while all other requests are handled by the main app.
+
+    However, we must do proper authorisation for the calls that
+    are sent to the webdav app. But the business-logic for
+    authorisation is in the main app, while we want to leave
+    the code of the webdav app untouched.
+
+    We solve this by making the dispatcher so that it
+    feeds every WebDAV request to the main app first.
+    We mark those requests by prepending `/auth` in front of the
+    original url.
+
+    The main app is programmed to react to such requests by
+    returning a boolean to the dispatcher, instead of sending a
+    response to the client.
+    See `control.pages.Pages.authWebdav`.
+    The dispatcher interprets this boolean as telling whether the
+    request is authorized.
+    If so, it sends the original request to the webdav app.
+    If not, it prepends `/no` to the original url and sends
+    the request to the main app, which is programmed to
+    respond with a 404 to such requests.
+    &#34;&#34;&#34;
+
+    def wsgi_function(environ, start_response):
+        url = environ.get(&#34;PATH_INFO&#34;, &#34;&#34;)
+        aimedAtWebdav = url.startswith(webdavPrefix)
+
+        if aimedAtWebdav:
+            theApp = webdavApp
+            environ[&#34;PATH_INFO&#34;] = f&#34;/auth{url}&#34;
+            with app.request_context(environ) as ctx:
+                ctx.push()
+                authorized = app.dispatch_request()
+                ctx.pop()
+            if authorized:
+                environ[&#34;PATH_INFO&#34;] = url
+                theApp = webdavApp
+            else:
+                environ[&#34;PATH_INFO&#34;] = f&#34;/no{url}&#34;
+                theApp = app.wsgi_app
+        else:
+            theApp = app.wsgi_app
+        return theApp(environ, start_response)
+
+    return wsgi_function
+
+
+def appFactory():
+    &#34;&#34;&#34;Make a WebDAV enabled app.
+
+    * Combine the main app with an other wsgi app that can handle
+    WebDAV requests.
+
+    There is a Python module that offers a wsgi app out of the box
+    that can talk WebDAV, we configure it in `getWebdavApp()`.
+
+    The `dispatchWebdav()` function combines the current app with this
+    WebDAV app at a deep level, before requests are fed to either app.
+
+    !!! note &#34;Authorisation&#34;
+        Authorisation of WebDAV requests happens in the main app.
+        See `dispatchWebdav()`.
+    &#34;&#34;&#34;
+
+    objects = prepare(webdavMethods=WEBDAV_METHODS)
+
+    origApp = appFactoryMain(objects)
+    app = appFactoryMain(objects)
+
+    app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
+
+    return app</code></pre>
 </details>
 </section>
 <section>
@@ -80,23 +173,178 @@ def getWebdavApp():
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="control.webdavapp.getWebdavApp"><code class="name flex">
-<span>def <span class="ident">getWebdavApp</span></span>(<span>)</span>
+<dt id="control.webdavapp.appFactory"><code class="name flex">
+<span>def <span class="ident">appFactory</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Make a WebDAV enabled app.</p>
+<ul>
+<li>Combine the main app with an other wsgi app that can handle
+WebDAV requests.</li>
+</ul>
+<p>There is a Python module that offers a wsgi app out of the box
+that can talk WebDAV, we configure it in <code><a title="control.webdavapp.getWebdavApp" href="#control.webdavapp.getWebdavApp">getWebdavApp()</a></code>.</p>
+<p>The <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code> function combines the current app with this
+WebDAV app at a deep level, before requests are fed to either app.</p>
+<div class="admonition note">
+<p class="admonition-title">Authorisation</p>
+<p>Authorisation of WebDAV requests happens in the main app.
+See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code>.</p>
+</div></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/f98dca0591c52bedacf504c6b32a1e425f94d0d6/src/pure3d/control/webdavapp.py#L29-L43" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L112-L136" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getWebdavApp():
-    config = Config(Messages(None), flask=False).config
+<pre><code class="python">def appFactory():
+    &#34;&#34;&#34;Make a WebDAV enabled app.
+
+    * Combine the main app with an other wsgi app that can handle
+    WebDAV requests.
+
+    There is a Python module that offers a wsgi app out of the box
+    that can talk WebDAV, we configure it in `getWebdavApp()`.
+
+    The `dispatchWebdav()` function combines the current app with this
+    WebDAV app at a deep level, before requests are fed to either app.
+
+    !!! note &#34;Authorisation&#34;
+        Authorisation of WebDAV requests happens in the main app.
+        See `dispatchWebdav()`.
+    &#34;&#34;&#34;
+
+    objects = prepare(webdavMethods=WEBDAV_METHODS)
+
+    origApp = appFactoryMain(objects)
+    app = appFactoryMain(objects)
+
+    app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
+
+    return app</code></pre>
+</details>
+</dd>
+<dt id="control.webdavapp.dispatchWebdav"><code class="name flex">
+<span>def <span class="ident">dispatchWebdav</span></span>(<span>app, webdavPrefix, webdavApp)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Combines the main app with the webdavapp.</p>
+<p>A WSGI app is essentially a function that takes a request
+environment and a start-response function and produces a response.</p>
+<p>We combine two wsgi apps by defining a new WSGI function
+out of the WSGI functions of the component apps.
+We call this function the dispatcher.</p>
+<p>The combined function works so that requests with urls starting
+with a certain prefix are dispatched to the webdav app,
+while all other requests are handled by the main app.</p>
+<p>However, we must do proper authorisation for the calls that
+are sent to the webdav app. But the business-logic for
+authorisation is in the main app, while we want to leave
+the code of the webdav app untouched.</p>
+<p>We solve this by making the dispatcher so that it
+feeds every WebDAV request to the main app first.
+We mark those requests by prepending <code>/auth</code> in front of the
+original url.</p>
+<p>The main app is programmed to react to such requests by
+returning a boolean to the dispatcher, instead of sending a
+response to the client.
+See <code><a title="control.pages.Pages.authWebdav" href="pages.html#control.pages.Pages.authWebdav">Pages.authWebdav()</a></code>.
+The dispatcher interprets this boolean as telling whether the
+request is authorized.
+If so, it sends the original request to the webdav app.
+If not, it prepends <code>/no</code> to the original url and sends
+the request to the main app, which is programmed to
+respond with a 404 to such requests.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L52-L109" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
+    &#34;&#34;&#34;Combines the main app with the webdavapp.
+
+    A WSGI app is essentially a function that takes a request
+    environment and a start-response function and produces a response.
+
+    We combine two wsgi apps by defining a new WSGI function
+    out of the WSGI functions of the component apps.
+    We call this function the dispatcher.
+
+    The combined function works so that requests with urls starting
+    with a certain prefix are dispatched to the webdav app,
+    while all other requests are handled by the main app.
+
+    However, we must do proper authorisation for the calls that
+    are sent to the webdav app. But the business-logic for
+    authorisation is in the main app, while we want to leave
+    the code of the webdav app untouched.
+
+    We solve this by making the dispatcher so that it
+    feeds every WebDAV request to the main app first.
+    We mark those requests by prepending `/auth` in front of the
+    original url.
+
+    The main app is programmed to react to such requests by
+    returning a boolean to the dispatcher, instead of sending a
+    response to the client.
+    See `control.pages.Pages.authWebdav`.
+    The dispatcher interprets this boolean as telling whether the
+    request is authorized.
+    If so, it sends the original request to the webdav app.
+    If not, it prepends `/no` to the original url and sends
+    the request to the main app, which is programmed to
+    respond with a 404 to such requests.
+    &#34;&#34;&#34;
+
+    def wsgi_function(environ, start_response):
+        url = environ.get(&#34;PATH_INFO&#34;, &#34;&#34;)
+        aimedAtWebdav = url.startswith(webdavPrefix)
+
+        if aimedAtWebdav:
+            theApp = webdavApp
+            environ[&#34;PATH_INFO&#34;] = f&#34;/auth{url}&#34;
+            with app.request_context(environ) as ctx:
+                ctx.push()
+                authorized = app.dispatch_request()
+                ctx.pop()
+            if authorized:
+                environ[&#34;PATH_INFO&#34;] = url
+                theApp = webdavApp
+            else:
+                environ[&#34;PATH_INFO&#34;] = f&#34;/no{url}&#34;
+                theApp = app.wsgi_app
+        else:
+            theApp = app.wsgi_app
+        return theApp(environ, start_response)
+
+    return wsgi_function</code></pre>
+</details>
+</dd>
+<dt id="control.webdavapp.getWebdavApp"><code class="name flex">
+<span>def <span class="ident">getWebdavApp</span></span>(<span>objects)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configure a webapp that provides WebDAV.</p>
+<p>We get the WebDAV app ready-made from
+<a href="https://wsgidav.readthedocs.io/en/latest/">WsgiDav</a>,
+and configure it here.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L29-L49" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getWebdavApp(objects):
+    &#34;&#34;&#34;Configure a webapp that provides WebDAV.
+
+    We get the WebDAV app ready-made from
+    [WsgiDav](https://wsgidav.readthedocs.io/en/latest/),
+    and configure it here.
+    &#34;&#34;&#34;
+    Settings = objects.Settings
 
     webdavConfig = {
         &#34;provider_mapping&#34;: {
             &#34;/webdav/&#34;: {
-                &#34;root&#34;: config.dataDir,
+                &#34;root&#34;: Settings.dataDir,
                 &#34;readonly&#34;: False,
             },
         },
@@ -172,6 +420,8 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="control.webdavapp.appFactory" href="#control.webdavapp.appFactory">appFactory</a></code></li>
+<li><code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.dispatchWebdav">dispatchWebdav</a></code></li>
 <li><code><a title="control.webdavapp.getWebdavApp" href="#control.webdavapp.getWebdavApp">getWebdavApp</a></code></li>
 </ul>
 </li>
