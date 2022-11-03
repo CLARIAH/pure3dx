@@ -15,10 +15,25 @@ class Config:
 
         It is instantiated by a singleton object.
 
+        Settings will be collected from the environment:
+
+        * yaml files
+        * environment variables
+        * files and directories (for supported viewer software)
+
+        !!! note "Missing information"
+            If essential information is missing, the flask app will not be started,
+            and no webserving will take place.
+
         Parameters
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
+        flask: boolean, optional True
+            If False, only those settings are fetched that do not have relevance
+            for the actual web serving by flask application.
+            This is used for code that runs prior to web serving, e.g.
+            data collection in `control.collect.Collect`.
         """
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -35,6 +50,17 @@ class Config:
             sys.exit(1)
 
     def checkEnv(self, flask):
+        """Collect the relevant information.
+
+        If essential information is missing, processing stops.
+        This is done by setting the `good` member of Config to False.
+
+        Parameters
+        ----------
+        flask: boolean
+            Whether to collect all, or a subset of variables that are not
+            used for actually serving pages.
+        """
         if not flask:
             self.checkRepo(),
             self.checkData()
@@ -57,6 +83,8 @@ class Config:
                 method()
 
     def checkRepo(self):
+        """Get the location of the pure3dx repository on the file system.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -85,6 +113,8 @@ class Config:
         # what is the version of the pure3d app?
 
     def checkVersion(self):
+        """Get the current version of the pure3d app.
+        """
         Messages = self.Messages
         Settings = self.Settings
         repoDir = Settings.repoDir
@@ -100,6 +130,11 @@ class Config:
         Settings.versionInfo = versionInfo
 
     def checkSecret(self):
+        """Obtain a secret.
+
+        This is secret information used for encrypting sessions.
+        It resides somewhere on the file system, outside the pure3d repository.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -129,6 +164,8 @@ class Config:
             Settings.secret_key = fh.read()
 
     def checkData(self):
+        """Get the location of the project data on the file system.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -149,6 +186,8 @@ class Config:
         # are we in test mode?
 
     def checkModes(self):
+        """Determine whether flask is running in test/debug or production mode.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -180,6 +219,11 @@ class Config:
         """
 
     def checkMongo(self):
+        """Obtain the connection details for MongDB.
+
+        It is not checked whether connection with MongoDb actually works
+        with these credentials.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -198,6 +242,8 @@ class Config:
         Settings.mongoPassword = os.environ["mongopassword"]
 
     def checkSettings(self):
+        """Read the yaml file with application settings.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -215,6 +261,8 @@ class Config:
             Settings[k] = v
 
     def checkAuth(self):
+        """Read gthe yaml file with the authorisation rules.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
@@ -233,6 +281,8 @@ class Config:
             auth[k] = v
 
     def checkViewers(self):
+        """Make an inventory of the supported 3D viewers.
+        """
         Messages = self.Messages
         Settings = self.Settings
 

@@ -21,6 +21,11 @@ class Viewers:
         self.viewerDefault = Settings.viewerDefault
 
     def addAuth(self, Auth):
+        """Give this object a handle to the Auth object.
+
+        The Viewers and Auth objects need each other, so one of them must
+        be given the handle to the other after initialization.
+        """
         self.Auth = Auth
 
     def check(self, viewer, version):

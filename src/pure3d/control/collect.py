@@ -13,10 +13,11 @@ SCENE_DEFAULT = "intro"
 
 class Collect:
     def __init__(self, Settings, Messages, Mongo):
-        """Provides initial content for the MongoDb.
+        """Provides initial data collection into MongoDb.
 
         Normally, this does not have to run, since the MongoDb is persistent.
         Only when the MongoDb of the Pure3D app is fresh,
+        or when the MongoDb is out of sync with the data on the filesystem
         it must be initialized.
 
         It reads:
@@ -33,7 +34,12 @@ class Collect:
 
         For testing, there is `exampledata` in the same `pure3d-data` repo.
         The provision step should copy the contents of `exampledata` to the
-        `data` directory of this repo (`pure3dz`).
+        `data` directory of this repo (`pure3dx`).
+
+        If data collection is triggered in test mode, the user table will be wiped,
+        and the test users present in the example data will be imported.
+
+        Otherwise the user table will be left unchanged.
 
         Parameters
         ----------
@@ -51,12 +57,28 @@ class Collect:
         self.Mongo = Mongo
 
     def trigger(self):
+        """Determines whether data collection should be done.
+
+        We only do data collection if the environment variable `docollect` has
+        the value `v`.
+
+        We also prevent this from happening twice, which occurs when Flask runs
+        in debug mode, since then the code is loaded twice.
+        We guard against this by inspecting the environment variable
+        `WERKZEUG_RUN_MAIN`. If it is set, we are already running the app,
+        and data collection should be inhibited, because it has been done
+        just before Flask started running.
+        """
         doCollect = os.environ.get("docollect", "x") == "v"
         beforeFlask = os.environ.get('WERKZEUG_RUN_MAIN', None) is None
 
         return beforeFlask and doCollect
 
     def fetch(self):
+        """Performs a data collection, but only if triggered by the right conditions.
+
+        See also `Collect.trigger()`
+        """
         if not self.trigger():
             return
 
@@ -69,6 +91,16 @@ class Collect:
         self.doWorkflow()
 
     def clearDb(self):
+        """Clears selected collections in the MongoDb.
+
+        All collections that will be filled with data from the filesystem
+        will be wiped.
+
+        !!! "Users collection will be wiped in test mode"
+            If in test mode, the `users` collection will be wiped,
+            and then filled from the example data.
+        """
+        Settings = self.Settings
         Mongo = self.Mongo
 
         for table in (
@@ -81,7 +113,12 @@ class Collect:
         ):
             Mongo.checkCollection(table, reset=True)
 
+        if Settings.testMode:
+            Mongo.checkCollection("users", reset=True)
+
     def doOuter(self):
+        """Collects data not belonging to specific projects.
+        """
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
@@ -99,6 +136,8 @@ class Collect:
         Mongo.execute("meta", "insert_one", dict(meta=meta))
 
     def doProjects(self):
+        """Collects data belonging to projects.
+        """
         Settings = self.Settings
         Messages = self.Messages
 
@@ -115,6 +154,15 @@ class Collect:
                     self.doProject(projectsPath, projectName)
 
     def doProject(self, projectsPath, projectName):
+        """Collects data belonging to a specific project.
+
+        Parameters
+        ----------
+        projectsPath: string
+            Path on the filesystem to the projects directory
+        projectName: string
+            Directory name of the project to collect.
+        """
         Mongo = self.Mongo
         projectIdByName = self.projectIdByName
 
@@ -146,9 +194,18 @@ class Collect:
         projectId = result.inserted_id if result is not None else None
         projectIdByName[projectName] = projectId
 
-        self.doEditions(projectPath, projectId)
+        self.doEditions(projectId, projectPath)
 
-    def doEditions(self, projectPath, projectId):
+    def doEditions(self, projectId, projectPath):
+        """Collects data belonging to the editions of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to collect.
+        projectPath: string
+            Path on the filesystem to the directory of this project
+        """
         Messages = self.Messages
 
         editionsPath = f"{projectPath}/{EDITIONS}"
@@ -161,6 +218,17 @@ class Collect:
                     self.doEdition(projectId, editionsPath, editionName)
 
     def doEdition(self, projectId, editionsPath, editionName):
+        """Collects data belonging to a specific edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            MongoId of the project to which the edition belongs.
+        editionsPath: string
+            Path on the filesystem to the editions directory within this project.
+        editionName: string
+            Directory name of the edition to collect.
+        """
         Messages = self.Messages
         Mongo = self.Mongo
 
@@ -216,6 +284,11 @@ class Collect:
             result = Mongo.execute("scenes", "insert_one", sceneInfo)
 
     def doWorkflow(self):
+        """Collects workflow information from yaml files.
+
+        !!! note "Test users"
+            This includes test users when in test mode.
+        """
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo

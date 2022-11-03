@@ -47,9 +47,25 @@ class Content:
         self.Mongo = Mongo
 
     def addAuth(self, Auth):
+        """Give this object a handle to the Auth object.
+
+        Because of cyclic dependencies some objects require to be given
+        a handle to Auth after their initialization.
+        """
         self.Auth = Auth
 
     def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+        """Retrieve a metadata string.
+
+        Metadata sits in a big, potentially deeply nested dictionary of keys
+        and values.
+        This function retrieves the information based on a path of keys.
+
+        Parameters
+        ----------
+        nameSpace: string
+            The first selector in the metadata, e.g. `dc` for Dublin Core.
+        """
         Mongo = self.Mongo
 
         fields = fieldPath.split(".")
