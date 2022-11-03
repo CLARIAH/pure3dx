@@ -31,9 +31,15 @@ class Pages:
 
         It is instantiated by a singleton object.
 
+        Most methods generate a response that contains the content of a complete
+        page. For those methods we do not document the return value.
+
+        Some methods return something different.
+        If so, it the return value will be documented.
+
         Parameters
         ----------
-        Settings: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -60,17 +66,18 @@ class Pages:
         self.Users = Users
 
     def home(self):
+        """The site-wide home page."""
         left = self.putTexts("title@1 + description.abstract@2")
         return self.page("home", left=left)
 
     def about(self):
+        """The site-wide about page."""
         left = self.putTexts("title@1 + description.abstract@2")
-        right = self.putTexts(
-            "description.description@2 + provenance@2"
-        )
+        right = self.putTexts("description.description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
+        """The "surprise me!" page."""
         Content = self.Content
         surpriseMe = Content.getSurprise()
         left = self.putTexts("title@1")
@@ -78,12 +85,20 @@ class Pages:
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
+        """The page with the list of projects."""
         Content = self.Content
         projects = Content.getProjects()
         left = self.putTexts("title@2") + projects
         return self.page("projects", left=left)
 
     def project(self, projectId):
+        """The landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        """
         Content = self.Content
         projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
@@ -96,6 +111,18 @@ class Pages:
         return self.page("projects", left=left, right=right, projectId=projectId)
 
     def edition(self, editionId):
+        """The landing page of an edition.
+
+        This page contains a list of scenes.
+        One of these scenes will be loaded in a 3D viewer.
+        It is dependent on defaults which scene in which viewer/version/mode.
+
+        Parameters
+        ----------
+        editionId: ObjectId
+            The edition in question.
+            From the edition record we can find the project too.
+        """
         Content = self.Content
         editionId = castObjectId(editionId)
         editionInfo = Content.getRecord("editions", _id=editionId)
@@ -103,6 +130,26 @@ class Pages:
         return self.scenes(projectId, editionId, None, None, None, None)
 
     def scene(self, sceneId, viewer, version, action):
+        """The landing page of an edition, but with a scene marked as active.
+
+        This page contains a list of scenes.
+        One of these scenes is chosen as the active scene and
+        will be loaded in a 3D viewer.
+        It is dependent on the parameters and/or defaults
+        in which viewer/version/mode.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The active scene in question.
+            From the scene record we can find the edition and the project too.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        """
         Content = self.Content
         sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord("scenes", _id=sceneId)
@@ -111,6 +158,10 @@ class Pages:
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
     def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        """Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+        The common part between the two functions mentioned.
+        """
         Content = self.Content
         Auth = self.Auth
 
@@ -144,6 +195,19 @@ class Pages:
         )
 
     def viewerFrame(self, sceneId, viewer, version, action):
+        """The page loaded in an iframe where a 3D viewer operates.
+
+        Parameters
+        ----------
+        sceneId: ObjectId
+            The scene that is shown.
+        viewer: string or None
+            The viewer to use.
+        version: string or None
+            The version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`view` or `edit`).
+        """
         Content = self.Content
         Viewers = self.Viewers
         Auth = self.Auth
@@ -166,12 +230,44 @@ class Pages:
         return render_template("viewer.html", viewerCode=viewerCode)
 
     def viewerResource(self, path):
+        """Components requested by viewers.
+
+        This is the javascript code, the css, and other resources
+        that are part of the 3D viewer software.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system under the viewers base directory
+            where the resource resides.
+        """
         Content = self.Content
 
         data = Content.getViewerFile(path)
         return make_response(data)
 
     def dataProjects(self, projectName, editionName, path):
+        """Data content requested by viewers.
+
+        This is the material belonging to the scene,
+        the scene json itself and additional resources,
+        that are part of the user contributed content that is under
+        control of the viewer: annotations, media, etc.
+
+        Parameters
+        ----------
+        projectName: string or None
+            If not None, the name of a project under which the resource
+            is to be found.
+        editionName: string or None
+            If not None, the name of an edition under which the resource
+            is to be found.
+        path: string
+            Path on the file system under the data directory
+            where the resource resides.
+            If there is a project and or edition given,
+            the path is relative to those.
+        """
         Content = self.Content
 
         data = Content.getData(path, projectName=projectName, editionName=editionName)
@@ -185,6 +281,24 @@ class Pages:
         left="",
         right="",
     ):
+        """Workhorse function to get content on the page.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url that triggered the page function.
+            This part is used to make one of the tabs on the web page active.
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Maybe needed for back links to the project.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Maybe needed for back links to the edition.
+        left: string, optional ""
+            Content for the left column of the page.
+        right: string, optional ""
+            Content for the right column of the page.
+        """
         Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
@@ -205,7 +319,63 @@ class Pages:
             testUsers=testUsers,
         )
 
+    def authWebdav(self, projectName, editionName, path, action):
+        """Authorises a webdav request.
+
+        When a viewer makes a WebDAV request to the server,
+        that request is first checked here for authorisation.
+
+        See `control.webdavapp.dispatchWebdav()`.
+
+        Parameters
+        ----------
+        projectName: string
+            The project in question.
+        editionName: string
+            The edition in question.
+        path: string
+            The path relative to the directory of the edition.
+        action: string
+            The operation that the WebDAV request wants to do on the data
+            (`view` or `edit`).
+
+        Returns
+        -------
+        boolean
+            Whether the action is permitted on ths data by the current user.
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            action,
+            project=projectName,
+            edition=editionName,
+            byName=True,
+        )
+        if not permitted:
+            Messages.info(
+                logmsg=f"WEBDAV unauthorised by user {Auth.user}"
+                f" on {projectName=} {editionName=} {path=}"
+            )
+        return permitted
+
     def navigation(self, url):
+        """Generates the navigation controls.
+
+        Especially the tab bar.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url on the basis of which one of the
+            tabs can be made active.
+
+        Returns
+        -------
+        string
+            The HTML of the navigation.
+        """
         search = dedent(
             """
             <span class="search-bar">
@@ -241,17 +411,48 @@ class Pages:
         return "\n".join(html)
 
     def backLink(self, projectId):
+        """Makes a link to the landing page of a project.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        """
         projectUrl = f"/projects/{projectId}"
         cls = """ class="button" """
         href = f""" href="{projectUrl}" """
         text = """back to the project page"""
         return f"""<p><a {cls} {href}>{text}</a></p>"""
 
-    def putText(self, field, level, projectId=None, editionId=None):
+    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+        """Puts a piece of metadata on the web page.
+
+        The meta data is retrieved and then wrapped accordingly.
+
+        Parameters
+        ----------
+        nameSpace: string
+            The namespace of the metadata, e.g. `dc` (Dublin Core)
+        fieldPath: string
+            `.`-separated list of fields into a metadata structure.
+        level: integer 1-6
+            The heading level in which the text must be wrapped.
+        projectId: ObjectId or None
+            The project in question
+        editionId: ObjectId or None
+            The edition in question
+
+        Returns
+        -------
+        string
+            The HTML of the formatted text.
+        """
         Content = self.Content
 
-        content = Content.getMeta("dc", field, projectId=projectId, editionId=editionId)
-        info = CAPTIONS.get(field, None)
+        content = Content.getMeta(
+            nameSpace, fieldPath, projectId=projectId, editionId=editionId
+        )
+        info = CAPTIONS.get(fieldPath, None)
 
         if info is None:
             return content
@@ -270,9 +471,26 @@ class Pages:
             """
         )
 
-    def putTexts(self, fieldSpecs, projectId=None, editionId=None):
+    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+        """Puts a several pieces of metadata on the web page.
+
+        See `Pages.putText()` for the parameter specifications.
+
+        One difference:
+
+        Parameters
+        ----------
+        fieldSpecs: string
+            `,`-separated list of fieldSpecs
+
+        Returns
+        -------
+        string
+            The join of the individual results of `Pages.putText`.
+        """
         return "\n".join(
             self.putText(
+                nameSpace,
                 *fieldSpec.strip().split("@", 1),
                 projectId=projectId,
                 editionId=editionId,

@@ -9,12 +9,12 @@ def castObjectId(value):
     Paramaters
     ----------
     value:string
-        The value to cast, normally a string representation of a BSON object id.
+        The value to cast, normally a string representation of a BSON ObjectId.
 
     Returns
     -------
-    objectId | None
-        The corresponding BSON object id if the input is a valid representation of
+    ObjectId | None
+        The corresponding BSON ObjectId if the input is a valid representation of
         such an id, otherwise `None`.
     """
 
@@ -36,7 +36,7 @@ class Mongo:
 
         Parameters
         ----------
-        Settings: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -50,6 +50,15 @@ class Mongo:
         self.database = Settings.database
 
     def connect(self):
+        """Make connection with MongoDb if there is no connection yet.
+
+        The connection details come from `control.config.Config.Settings`.
+
+        After a successful connection attempt, the connection handle
+        is stored in the `client` and `mongo` members of the Mongo object.
+
+        When a connection handle exists, this method does nothing.
+        """
         Settings = self.Settings
         client = self.client
         mongo = self.mongo
@@ -73,6 +82,8 @@ class Mongo:
             self.mongo = mongo
 
     def disconnect(self):
+        """Disconnect from the MongoDB.
+        """
         client = self.client
 
         if client:
@@ -82,6 +93,19 @@ class Mongo:
         self.mongo = None
 
     def checkCollection(self, table, reset=False):
+        """Make sure that a collection exists and (optionally) that it is empty.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection.
+            If no such collection exists, it will be created.
+        reset: boolean, optional False
+            If True, and the collection existed before, it will be cleared.
+            Note that the collection will not be deleted, but all its documents
+            will be deleted.
+        """
+
         Messages = self.Messages
 
         self.connect()
@@ -106,6 +130,26 @@ class Mongo:
                 )
 
     def getRecord(self, table, **criteria):
+        """Get a single document from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection from which we want to retrieve a single record.
+        criteria: dict
+            A set of criteria to narrow down the search.
+            Usually they will be such that there will be just one document
+            that satisfies them.
+            But if there are more, a single one is chosen,
+            by the mechanics of the built-in MongoDb command `findOne`.
+
+        Returns
+        -------
+        `control.helpers.generic.AttrDict`
+            The single document found,
+            or an empty `control.helpers.generic.AttrDict` if no document
+            satisfies the criteria.
+        """
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
             Messages = self.Messages
@@ -114,6 +158,29 @@ class Mongo:
         return AttrDict(result)
 
     def execute(self, table, command, *args, **kwargs):
+        """Executes a MongoDb command and returns the result.
+
+        Parameters
+        ----------
+        table: string
+            The collection on which to perform the command.
+        command: string
+            The built-in MongoDb command.
+            Note that the Python interface requires you to write camelCase commands
+            with underscores.
+            So the Mongo command `findOne` should be passed as `find_one`.
+        args: list
+            Any number of additional arguments that the command requires.
+        kwargs: list
+            Any number of additional keyword arguments that the command requires.
+
+        Returns
+        -------
+        any
+            Whatever the MongoDb command returns.
+            If the command fails, an error message is issued and
+            None is returned.
+        """
         Messages = self.Messages
 
         self.connect()

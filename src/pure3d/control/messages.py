@@ -8,8 +8,9 @@ class Messages:
     def __init__(self, Settings, flask=True):
         """Sending messages to the user and the server log.
 
+        This class is instantiated by a singleton object.
 
-        This class has methods to issue messages to the screen of the webuser
+        It has methods to issue messages to the screen of the webuser
         and to the log for the sysadmin.
 
         They distinguish themselves by the *severity*:
@@ -17,16 +18,15 @@ class Messages:
         There is also **plain**, a leaner variant of **info**.
 
         All those methods have two optional parameters:
+        `logmsg` and `msg`.
 
-        `logmsg`: text that goes into the log file
-        `msg`: content that is accumulated for the next response.
+        The behaviors of these methods are described in detail in
+        the `Messages.message()` function.
 
         !!! hint "What to disclose?"
             You can pass both parameters, which gives you the opportunity
             to make a sensible distinction between what you tell the
             web user (not much) and what you send to the log (the gory details).
-
-        It is instantiated by a singleton object.
 
         When the controllers of the flask app call methods that produce
         messages for the screen of the webusers,
@@ -35,7 +35,7 @@ class Messages:
 
         Parameters
         ----------
-        Settings: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         flask: boolean, optional True
@@ -47,11 +47,6 @@ class Messages:
         self.Settings = Settings
         self.messages = []
         self.flask = flask
-
-    def clearMessages(self):
-        """Clears the accumulated messages.
-        """
-        self.messages.clear()
 
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
@@ -82,61 +77,104 @@ class Messages:
     def debug(self, msg=None, logmsg=None):
         """Issue a debug message.
 
-        When sent to the log, it goes to standard error.
+        See `Messages.message()`
         """
-        if msg is not None:
-            self._addMessage("debug", f"DEBUG: {msg}")
-        if logmsg is not None:
-            sys.stderr.write(f"DEBUG: {logmsg}\n")
-            sys.stderr.flush()
+        self.message("debug", msg=msg, logmsg=logmsg)
 
     def error(self, msg=None, logmsg=None):
         """Issue an error message.
 
-        When sent to the log, it goes to standard error.
-        It also raises an exception, which will lead
-        to a 404 response (if flask is running, that is).
+        See `Messages.message()`
         """
-        if msg is not None:
-            self._addMessage("error", f"ERROR: {msg}")
-        if logmsg is not None:
-            sys.stderr.write(f"ERROR: {logmsg}\n")
-            sys.stderr.flush()
-            if self.flask:
-                abort(404)
+        self.message("error", msg=msg, logmsg=logmsg)
 
     def warning(self, msg=None, logmsg=None):
         """Issue a warning message.
 
-        When sent to the log, it goes to standard error.
+        See `Messages.message()`
         """
-        if msg is not None:
-            self._addMessage("warning", f"WARNING: {msg}")
-        if logmsg is not None:
-            sys.stderr.write(f"WARNING: {logmsg}\n")
-            sys.stderr.flush()
+        self.message("warning", msg=msg, logmsg=logmsg)
 
     def info(self, msg=None, logmsg=None):
         """Issue a informational message.
 
-        When sent to the log, it goes to standard output.
+        See `Messages.message()`
         """
-        if msg is not None:
-            self._addMessage("info", f"INFO: {msg}")
-        if logmsg is not None:
-            sys.stdout.write(f"INFO: {logmsg}\n")
-            sys.stdout.flush()
+        self.message("info", msg=msg, logmsg=logmsg)
 
     def plain(self, msg=None, logmsg=None):
         """Issue a informational message, without bells and whistles.
 
-        When sent to the log, it goes to standard output.
+        See `Messages.message()`
         """
-        if msg is not None:
-            self._addMessage("info", msg)
-        if logmsg is not None:
-            sys.stdout.write(f"{logmsg}\n")
-            sys.stdout.flush()
+        self.message("plain", msg=msg, logmsg=logmsg)
+
+    def message(self, tp, msg, logmsg):
+        """Workhorse to issue a message in a variety of ways.
+
+        It can issue log messages and screen messages.
+
+        Parameters
+        ----------
+        tp: string
+            The severity of the message.
+            There is a fixed number of types:
+
+            * `debug`
+              Messages are prepended with `DEBUG: `.
+              Log messages go to stderr.
+              Messages will only show up on the web page
+              if the app runs in debug mode.
+
+            * `plain`
+              Messages are not prepended with anything.
+              Log messages go to standard output.
+
+            * `info`
+              Messages are prepended with `INFO: `.
+              Log messages go to standard output.
+
+            * `warning`
+              Messages are prepended with `WARNING: `.
+              Log messages go to standard error.
+
+            * `error`
+              Messages are prepended with `ERROR: `.
+              Log messages go to standard error.
+              It also raises an exception, which will lead
+              to a 404 response (if flask is running, that is).
+
+        msg: string, optional None
+            If not None, it is the contents of a screen message.
+        logmsg: string, optional None
+            If not None, it is the contents of a log message.
+        """
+        Settings = self.Settings
+        stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
+        label = "" if tp == "plain" else f"{tp}: "
+
+        if Settings is None:
+            stream.write(f"{label}{msg}\n")
+            stream.write(f"{label}{logmsg}\n")
+            stream.flush()
+        else:
+            debugMode = Settings.debugMode
+            if tp == "debug" and not debugMode:
+                return
+
+            if msg is not None:
+                self.messages.append((tp, msg))
+            if logmsg is not None:
+                stream.write(f"{label}{logmsg}\n")
+                stream.flush()
+
+            if tp == "error" and self.flask:
+                abort(404)
+
+    def clearMessages(self):
+        """Clears the accumulated messages.
+        """
+        self.messages.clear()
 
     def generateMessages(self):
         """Wrap the accumulates messages into html.
@@ -153,14 +191,3 @@ class Messages:
         html.append("</div>")
         self.clearMessages()
         return "\n".join(html)
-
-    def _addMessage(self, tp, msg):
-        Settings = self.Settings
-
-        if Settings is None:
-            sys.stderr.write(f"{tp}: {msg}\n")
-            sys.stderr.flush()
-        else:
-            debugMode = Settings.debugMode
-            if tp != "debug" or debugMode:
-                self.messages.append((tp, msg))

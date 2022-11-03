@@ -76,6 +76,7 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     The main app is programmed to react to such requests by
     returning a boolean to the dispatcher, instead of sending a
     response to the client.
+    See `control.pages.Pages.authWebdav`.
     The dispatcher interprets this boolean as telling whether the
     request is authorized.
     If so, it sends the original request to the webdav app.

@@ -12,7 +12,7 @@ class Users:
 
         Parameters
         ----------
-        Settings: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -26,6 +26,16 @@ class Users:
         self.Mongo = Mongo
 
     def wrapTestUsers(self, userActive):
+        """Generate HTML for login buttons for test users.
+
+        Only produces a non-empty result if the app is in test mode.
+
+        Parameters
+        ----------
+        userActive: ObjectId
+            The id of the user that is currently logged in.
+            The button for this users will be rendered as the active one.
+        """
         Settings = self.Settings
         Mongo = self.Mongo
 

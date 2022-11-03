@@ -18,7 +18,7 @@ def appFactory(objects):
 
     Parameters
     ----------
-    objects: AttrDict
+    objects: `control.helpers.generic.AttrDict`
         a slew of objects that set up the toolkit with which the app works:
         settings, messaging and logging, MongoDb connection, 3d viewer support,
         higher level objects that can fetch chunks of content and distribute
@@ -140,19 +140,9 @@ def appFactory(objects):
         "<path:path>",
         methods=tuple(webdavMethods),
     )
-    def authwebdav(projectName, editionName, path):
-        permitted = Auth.authorise(
-            webdavMethods[request.method],
-            project=projectName,
-            edition=editionName,
-            byName=True,
-        )
-        if not permitted:
-            Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {Auth.user}"
-                f" on {projectName=} {editionName=} {path=}"
-            )
-        return permitted
+    def authWebdav(projectName, editionName, path):
+        action = webdavMethods[request.method]
+        return Pages.authWebdav(projectName, editionName, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):

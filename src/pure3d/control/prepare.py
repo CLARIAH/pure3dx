@@ -62,7 +62,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
 
     Returns
     -------
-    AttrDict
+    `control.helpers.generic.AttrDict`
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 

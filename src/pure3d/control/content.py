@@ -30,7 +30,7 @@ class Content:
 
         Parameters
         ----------
-        Settings: AttrDict
+        Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
