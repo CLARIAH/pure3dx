@@ -67,20 +67,20 @@ class Pages:
 
     def home(self):
         """The site-wide home page."""
-        left = self.putTexts("title@1 + description.abstract@2")
+        left = self.putTexts("dc", "title@1 + description.abstract@2")
         return self.page("home", left=left)
 
     def about(self):
         """The site-wide about page."""
-        left = self.putTexts("title@1 + description.abstract@2")
-        right = self.putTexts("description.description@2 + provenance@2")
+        left = self.putTexts("dc", "title@1 + description.abstract@2")
+        right = self.putTexts("dc", "description.description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
         """The "surprise me!" page."""
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putTexts("title@1")
+        left = self.putTexts("dc", "title@1")
         right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
@@ -88,7 +88,7 @@ class Pages:
         """The page with the list of projects."""
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putTexts("title@2") + projects
+        left = self.putTexts("dc", "title@2") + projects
         return self.page("projects", left=left)
 
     def project(self, projectId):
@@ -102,8 +102,9 @@ class Pages:
         Content = self.Content
         projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
-        left = self.putTexts("title@3", projectId=projectId) + editions
+        left = self.putTexts("dc", "title@3", projectId=projectId) + editions
         right = self.putTexts(
+            "dc",
             "description.abstract@4 + description.description@4 + "
             "provenance@4 + instructionalMethod@4",
             projectId=projectId,
@@ -177,10 +178,11 @@ class Pages:
         )
         left = (
             back
-            + self.putTexts("title@4", projectId=projectId, editionId=editionId)
+            + self.putTexts("dc", "title@4", projectId=projectId, editionId=editionId)
             + scenes
         )
         right = self.putTexts(
+            "dc",
             "description.abstract@5 + description.description@5 + "
             "provenance@5 + instructionalMethod@5",
             projectId=projectId,
