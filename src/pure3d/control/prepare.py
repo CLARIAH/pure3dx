@@ -8,6 +8,7 @@ from control.users import Users as UsersCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
+from control.authoidc import AuthOidc as AuthOidcCls
 from control.helpers.generic import AttrDict
 
 
@@ -78,6 +79,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Auth = None
         EditSessions = None
         Pages = None
+        AuthOidc = None
     else:
         Settings = ConfigCls(MessagesCls(None, flask=flask), flask=flask).Settings
         Settings.webdavMethods = webdavMethods
@@ -92,6 +94,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Users, Content)
+        AuthOidc = AuthOidcCls(Settings)
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
@@ -110,4 +113,5 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Auth=Auth,
         EditSessions=EditSessions,
         Pages=Pages,
+        AuthOidc=AuthOidc,
     )

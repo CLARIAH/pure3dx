@@ -70,6 +70,9 @@ exp_*
 # dotenv environment variables file
 .env
 
+# oidc secret
+src/pure3d/control/client_secrets.json
+
 # Environments
 .venv
 venv/

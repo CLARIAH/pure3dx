@@ -1,5 +1,5 @@
 from flask import Flask, redirect, abort, request
-
+from flask_oidc import OpenIDConnect
 
 def appFactory(objects):
     """Sets up the main flask app.
@@ -34,11 +34,40 @@ def appFactory(objects):
     Settings = objects.Settings
     Messages = objects.Messages
     Auth = objects.Auth
+    AuthOidc = objects.AuthOidc
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
     app = Flask(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
+
+    app.config.update({
+        # 'SECRET_KEY': app.secret_key,
+        'TESTING': True,
+        'DEBUG': True,
+        'OIDC_CLIENT_SECRETS': '/app/src/pure3d/control/client_secrets.json',
+        'OIDC_ID_TOKEN_COOKIE_SECURE': False,
+        'OIDC_REQUIRE_VERIFIED_EMAIL': False,
+        # 'OIDC_OPENID_REALM': 'http://localhost:5000/oidc_callback'
+    })
+
+    oidcauth = OpenIDConnect(app)
+
+    @app.route("/loginoidc")
+    def loginoidc():
+        if oidcauth.user_loggedin:
+            return ('Hello, %s, <a href="/private">See private</a> '
+                    '<a href="/logout">Log out</a>') % \
+                   oidcauth.user_getfield('email')
+        else:
+            return 'Welcome anonymous, <a href="/private">Log in</a>'
+
+    @app.route('/private')
+    @oidcauth.require_login
+    def hello_me():
+        info = oidcauth.user_getinfo(['email', 'openid_id'])
+        return ('Hello, %s (%s)! <a href="/">Return</a>' %
+                (info.get('email'), info.get('openid_id')))
 
     def redirectResult(url, good):
         code = 302 if good else 303
