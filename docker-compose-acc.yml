@@ -19,6 +19,18 @@ services:
       - "traefik.http.routers.pure3dapp.entrypoints=http"
       - "traefik.http.services.pure3dapp.loadbalancer.server.port=8000"
 
+  mongodb:
+    image: mongo:5.0.6
+    hostname: mongodb
+    container_name: mongodb
+    volumes:
+      - "mongodb-volume:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${mongouser}
+      MONGO_INITDB_ROOT_PASSWORD: ${mongopassword}
+    networks:
+      - traefik-public
+
 networks:
   traefik-public:
     external: true
