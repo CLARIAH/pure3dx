@@ -1,5 +1,9 @@
 version: '3.7'
 
+volumes:
+  mongodb-volume:
+    external: false
+    
 services:
   pure3dapp:
     image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
