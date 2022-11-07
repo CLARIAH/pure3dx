@@ -186,7 +186,8 @@ class Messages:
         html = ["""<div class="messages">"""]
 
         for (tp, msg) in self.messages:
-            html.append(f"""<div class="msgitem {tp}">{htmlEsc(msg)}</div>""")
+            cls = "info" if tp == "plain" else tp
+            html.append(f"""<div class="msgitem {cls}">{htmlEsc(msg)}</div>""")
 
         html.append("</div>")
         self.clearMessages()

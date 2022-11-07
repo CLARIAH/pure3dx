@@ -3,6 +3,9 @@ from flask import render_template, make_response
 from control.mongo import castObjectId
 from markdown import markdown
 
+from control.helpers.flask import redirectResult
+
+
 TABS = (
     ("home", "Home", True),
     ("about", "About", True),
@@ -14,6 +17,7 @@ TABS = (
 
 CAPTIONS = {
     "title": ("{}", True),
+    "creator": ("by {}", True),
     "description.abstract": ("Intro", True),
     "description.description": ("Description", True),
     "provenance": ("About", True),
@@ -89,7 +93,28 @@ class Pages:
         Content = self.Content
         projects = Content.getProjects()
         left = self.putTexts("dc", "title@2") + projects
-        return self.page("projects", left=left)
+        insertButton = self.putButton(
+            "+", "insert new project", "/projects/insert", "create"
+        )
+        return self.page("projects", left=left, right=insertButton)
+
+    def projectInsert(self):
+        """Inserts a project and shows the new project."""
+        Messages = self.Messages
+        Content = self.Content
+        projectId = Content.insertProject()
+        if projectId:
+            newUrl = f"/projects/{projectId}"
+            Messages.info(
+                logmsg=f"Created project {projectId}", msg="new project created"
+            )
+        else:
+            Messages.warning(
+                logmsg="Could not create new project",
+                msg="failed to create new project",
+            )
+            newUrl = "/projects"
+        return redirectResult(newUrl, projectId is not None)
 
     def project(self, projectId):
         """The landing page of a project.
@@ -102,7 +127,9 @@ class Pages:
         Content = self.Content
         projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
-        left = self.putTexts("dc", "title@3", projectId=projectId) + editions
+        left = (
+            self.putTexts("dc", "title@3 + creator@4", projectId=projectId) + editions
+        )
         right = self.putTexts(
             "dc",
             "description.abstract@4 + description.description@4 + "
@@ -498,4 +525,44 @@ class Pages:
                 editionId=editionId,
             )
             for fieldSpec in fieldSpecs.split("+")
+        )
+
+    def putButton(self, text, tip, url, action, projectId=None, editionId=None):
+        """Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        Parameters
+        ----------
+        text: string
+            the text on the button
+        tip: string
+            the tooltip for the button
+        url: string
+            the url to go to if the button is pressed
+        action: string
+            the type of action that will be performed if the button triggered.
+            This is only needed to determine whether the button should be placed.
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        """
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            action,
+            project=projectId,
+            edition=editionId,
+        )
+        return (
+            f"""
+            <a title="{tip}" href="{url}" class="button large">{text}</a>
+        """
+            if permitted
+            else ""
         )

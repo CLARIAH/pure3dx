@@ -76,8 +76,8 @@
     --info-fore-o:                     hsla(120,   0%,  30%, 1  );
     --info-fore:                       hsla(120,   0%,  50%, 1  );
     --info-back:                       hsla(120,   0%,  80%, 0.5);
-    --info-fore-i:                     hsla(180, 100%,  60%, 1  );
-    --info-back-i:                     hsla(120, 100%,  40%, 1  );
+    --info-fore-i:                     hsla(180,  10%,  80%, 1  );
+    --info-back-i:                     hsla(120,  10%,  40%, 1  );
 
     --record-back:                     hsla(  0,   0%,  90%, 0.8);
     --record-border:                   hsla(  0,   0%,  70%, 0.5);

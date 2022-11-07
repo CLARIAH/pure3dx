@@ -253,18 +253,23 @@ class Auth:
         else:
             editionId = None
 
-        if projectId is None:
+        if projectId is None and editionId is not None:
             projectId = Mongo.getRecord("editions", _id=editionId).projectId
 
         projectRole = (
             None
-            if user._id is None
+            if projectId is None or user._id is None
             else Mongo.getRecord(
-                "projectUsers", projectId=projectId, userId=castObjectId(user._id)
+                "projectUsers",
+                warn=False,
+                projectId=projectId,
+                userId=castObjectId(user._id),
             ).role
         )
         projectPub = (
-            "published"
+            None
+            if projectId is None
+            else "published"
             if Mongo.getRecord("projects", _id=projectId).isPublished
             else "unpublished"
         )

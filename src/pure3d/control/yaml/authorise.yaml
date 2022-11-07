@@ -91,11 +91,27 @@ projectRules:
       - creator
       - editor
   null:
-    null: false
-    guest: false
-    user: false
+    null:
+      create: false
+      view: true
+      edit: false
+      delete: false
+    guest:
+      create: false
+      view: true
+      edit: false
+      delete: false
+    user:
+      create: true
+      view: true
+      edit: false
+      delete: false
     admin:
-      - allocate
+      allocate: true
+      create: true
+      view: true
+      edit: false
+      delete: false
 
   admin:
     - create

@@ -133,7 +133,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.execute("meta", "insert_one", dict(meta=meta))
+        Mongo.insertItem("meta", **meta)
 
     def doProjects(self):
         """Collects data belonging to projects.
@@ -190,8 +190,7 @@ class Collect:
             candy=candy,
         )
 
-        result = Mongo.execute("projects", "insert_one", projectInfo)
-        projectId = result.inserted_id if result is not None else None
+        projectId = Mongo.insertItem("projects", **projectInfo)
         projectIdByName[projectName] = projectId
 
         self.doEditions(projectId, projectPath)
@@ -264,8 +263,7 @@ class Collect:
             meta=meta,
             candy=candy,
         )
-        result = Mongo.execute("editions", "insert_one", editionInfo)
-        editionId = result.inserted_id if result is not None else None
+        editionId = Mongo.insertItem("editions", **editionInfo)
 
         sceneDefault = None
 
@@ -281,7 +279,7 @@ class Collect:
                 candy=sceneCandy[scene],
                 default=default,
             )
-            result = Mongo.execute("scenes", "insert_one", sceneInfo)
+            Mongo.insertItem("scenes", **sceneInfo)
 
     def doWorkflow(self):
         """Collects workflow information from yaml files.
@@ -309,8 +307,7 @@ class Collect:
                 name=userName,
                 role=role,
             )
-            result = Mongo.execute("users", "insert_one", userInfo)
-            userId = result.inserted_id if result is not None else None
+            userId = Mongo.insertItem("users", **userInfo)
             userIdByName[userName] = userId
 
         for (projectName, isPublished) in projectStatus.items():
@@ -329,4 +326,4 @@ class Collect:
                     projectId=projectIdByName[projectName],
                     role=role,
                 )
-                Mongo.execute("projectUsers", "insert_one", xInfo)
+                Mongo.insertItem("projectUsers", **xInfo)

@@ -129,13 +129,15 @@ class Mongo:
                     logmsg=f"Cannot clear collection: `{table}`: {e}",
                 )
 
-    def getRecord(self, table, **criteria):
+    def getRecord(self, table, warn=True, **criteria):
         """Get a single document from a collection.
 
         Parameters
         ----------
         table: string
             The name of the collection from which we want to retrieve a single record.
+        warn: boolean, optional True
+            If True, warn if there is no record satisfying the criteria.
         criteria: dict
             A set of criteria to narrow down the search.
             Usually they will be such that there will be just one document
@@ -152,10 +154,30 @@ class Mongo:
         """
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
-            Messages = self.Messages
-            Messages.warning(logmsg=f"No record in {table} with {criteria}")
+            if warn:
+                Messages = self.Messages
+                Messages.warning(logmsg=f"No record in {table} with {criteria}")
             result = {}
         return AttrDict(result)
+
+    def insertItem(self, table, **fields):
+        """Inserts a new record in a table.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record will be inserted.
+        **fields: dict
+            The field names and their contents to populate the new record with.
+
+        Returns
+        -------
+        ObjectId
+            The id of the newly inserted record, or None if the record could not be
+            inserted.
+        """
+        result = self.execute(table, "insert_one", dict(**fields))
+        return result.inserted_id if result else None
 
     def execute(self, table, command, *args, **kwargs):
         """Executes a MongoDb command and returns the result.

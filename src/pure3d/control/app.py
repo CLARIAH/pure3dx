@@ -70,18 +70,27 @@ def appFactory(objects):
 
     @app.route("/surpriseme")
     def surpriseme():
+        Auth.authenticate()
         return Pages.surprise()
 
     @app.route("/projects")
     def projects():
+        Auth.authenticate()
         return Pages.projects()
+
+    @app.route("/projects/insert")
+    def projectInsert():
+        Auth.authenticate()
+        return Pages.projectInsert()
 
     @app.route("/projects/<string:projectId>")
     def project(projectId):
+        Auth.authenticate()
         return Pages.project(projectId)
 
     @app.route("/editions/<string:editionId>")
     def edition(editionId):
+        Auth.authenticate()
         return Pages.edition(editionId)
 
     @app.route(
@@ -100,16 +109,19 @@ def appFactory(objects):
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>/<string:action>",
     )
     def scene(sceneId, viewer, version, action):
+        Auth.authenticate()
         return Pages.scene(sceneId, viewer, version, action)
 
     @app.route(
         "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
     )
     def viewerFrame(sceneId, viewer, version, action):
+        Auth.authenticate()
         return Pages.viewerFrame(sceneId, viewer, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
+        Auth.authenticate()
         return Pages.viewerResource(path)
 
     @app.route(
@@ -128,6 +140,7 @@ def appFactory(objects):
         "/data/projects/<string:projectName>/editions/<string:editionName>/<path:path>",
     )
     def dataProjects(projectName, editionName, path):
+        Auth.authenticate()
         return Pages.dataProjects(projectName, editionName, path)
 
     @app.route(
@@ -141,6 +154,7 @@ def appFactory(objects):
         methods=tuple(webdavMethods),
     )
     def authWebdav(projectName, editionName, path):
+        Auth.authenticate()
         action = webdavMethods[request.method]
         return Pages.authWebdav(projectName, editionName, path, action)
 

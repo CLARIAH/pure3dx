@@ -146,6 +146,30 @@ class Content:
 
         return "\n".join(wrapped)
 
+    def insertProject(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise("create")
+        if not permitted:
+            return None
+
+        user = Auth.user
+        name = user.name
+
+        dcMeta = dict(
+            title="No title",
+            description=dict(
+                abstract="No intro",
+                description="No description"
+            ),
+            creator=name,
+        )
+        projectId = Mongo.insertItem("projects", meta=dict(dc=dcMeta))
+        # TODO: make an entry in the projectUsers collection to link the user to
+        # this project in the role of creator
+        return projectId
+
     def getEditions(self, projectId):
         """Get the list of the editions of a project.
 
