@@ -8,7 +8,7 @@ from control.users import Users as UsersCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
 
 
 def prepare(webdavMethods=None, trivial=False, flask=True):

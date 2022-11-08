@@ -1,10 +1,10 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
 
 
-def castObjectId(value):
+def _castObjectId(value):
     """Try to cast the value as an ObjectId.
     Paramaters
     ----------
@@ -18,11 +18,20 @@ def castObjectId(value):
         such an id, otherwise `None`.
     """
 
+    if isinstance(value, ObjectId):
+        return value
+
     try:
         oValue = ObjectId(value)
     except Exception:
         oValue = None
     return oValue
+
+
+def _castFields(fields):
+    for (name, value) in fields.items():
+        if value is not None and name == "_id" or name.endswith("Id"):
+            fields[name] = _castObjectId(value)
 
 
 class Mongo:
@@ -33,6 +42,16 @@ class Mongo:
         to query its data, to insert, update and delete data.
 
         It is instantiated by a singleton object.
+
+        !!! note "string versus ObjectId"
+            Some functions execute MongoDb statements, based on parameters
+            whose values are MongoDb identifiers.
+            These should be objects in the class `bson.objectid.ObjectId`.
+            However, in many cases these ids enter the app as strings.
+
+            In this module, such strings will be cast to proper ObjectIds,
+            provided they are recognizable as values in a field whose name is
+            `_id` or ends with `Id`.
 
         Parameters
         ----------
@@ -152,6 +171,9 @@ class Mongo:
             or an empty `control.helpers.generic.AttrDict` if no document
             satisfies the criteria.
         """
+
+        _castFields(criteria)
+
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
             if warn:
@@ -176,6 +198,7 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         """
+        _castFields(fields)
         result = self.execute(table, "insert_one", dict(**fields))
         return result.inserted_id if result else None
 
@@ -216,6 +239,7 @@ class Mongo:
                 msg="Database action", logmsg=f"Unknown Mongo command: `{method}`"
             )
         try:
+            _castFields(kwargs)
             result = method(*args, **kwargs)
         except Exception as e:
             Messages.error(

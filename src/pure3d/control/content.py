@@ -1,7 +1,7 @@
 from markdown import markdown
 
-from control.helpers.files import fileExists
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
+from control.files import fileExists
 
 
 COMPONENT = dict(
@@ -68,10 +68,10 @@ class Content:
         fieldPath: string
             A `.`-separated list of keys. This is a selector in the nested
             metadata dict selected by the `nameSpace` argument.
-        projectId: ObjectId, optional None
+        projectId: string or ObjectId, optional None
             The project whose metadata we need. If it is None, we need metadata
             outside all of the projects.
-        editionId: ObjectId, optional None
+        editionId: string or ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
         asMd: boolean, optional False
@@ -139,8 +139,7 @@ class Content:
             candy = row.candy
 
             projectUrl = f"/projects/{projectId}"
-            projectName = row.name
-            iconUrlBase = f"/data/projects/{projectName}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/candy"
             caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
             wrapped.append(caption)
 
@@ -157,17 +156,20 @@ class Content:
         user = Auth.user
         name = user.name
 
+        title = "No title"
+
         dcMeta = dict(
-            title="No title",
-            description=dict(
-                abstract="No intro",
-                description="No description"
-            ),
+            title=title,
+            description=dict(abstract="No intro", description="No description"),
             creator=name,
         )
-        projectId = Mongo.insertItem("projects", meta=dict(dc=dcMeta))
-        # TODO: make an entry in the projectUsers collection to link the user to
-        # this project in the role of creator
+        projectId = Mongo.insertItem("projects", title=title, meta=dict(dc=dcMeta))
+        Mongo.insertItem(
+            "projectUsers",
+            projectId=projectId,
+            userId=user._id,
+            role="creator",
+        )
         return projectId
 
     def getEditions(self, projectId):
@@ -181,7 +183,7 @@ class Content:
 
         Parameters
         ----------
-        projectId: ObjectId
+        projectId: string or ObjectId
             The project in question.
 
         Returns
@@ -192,9 +194,6 @@ class Content:
         """
         Mongo = self.Mongo
         Auth = self.Auth
-
-        projectInfo = Mongo.getRecord("projects", _id=projectId)
-        projectName = projectInfo.name
 
         wrapped = []
 
@@ -209,8 +208,7 @@ class Content:
             candy = row.candy
 
             editionUrl = f"/editions/{editionId}"
-            editionName = row.name
-            iconUrlBase = f"/data/projects/{projectName}/editions/{editionName}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
             caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
             wrapped.append(caption)
 
@@ -244,9 +242,9 @@ class Content:
 
         Parameters
         ----------
-        projectId: ObjectId
+        projectId: string or ObjectId
             The project in question.
-        editionId: ObjectId
+        editionId: string or ObjectId
             The edition in question.
         sceneId: ObjectId, optional None
             The active scene. If None the default scene is chosen.
@@ -278,11 +276,6 @@ class Content:
         Auth = self.Auth
         Viewers = self.Viewers
 
-        projectInfo = Mongo.getRecord("projects", _id=projectId)
-        projectName = projectInfo.name
-        editionInfo = Mongo.getRecord("editions", _id=editionId)
-        editionName = editionInfo.name
-
         wrapped = []
 
         permitted = Auth.authorise("view", project=projectId, edition=editionId)
@@ -307,7 +300,7 @@ class Content:
             )
 
             sceneUrl = f"/scenes/{row._id}"
-            iconUrlBase = f"/data/projects/{projectName}/editions/{editionName}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
             caption = self.getCaption(
                 row.name,
                 row.candy,
@@ -438,25 +431,23 @@ class Content:
 
         return textData
 
-    def getData(self, path, projectName="", editionName=""):
+    def getData(self, path, projectId, editionId=None):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
         This is the data directory.
         Below that the files are organized by projects and editions.
 
-        At least one of the parameters `projectName` and `editionName`
-        should be present. And if `editionName` is present,
-        `projectName` should also be present.
+        If `editionId` is present, `projectId` should also be present.
 
         Parameters
         ----------
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectName: string, optional ""
+        projectId: string
             The name of the project in question.
-        editionName: string, optional ""
+        editionId: string, optional None
             The name of the edition in question.
 
         Returns
@@ -471,29 +462,22 @@ class Content:
 
         dataDir = Settings.dataDir
 
-        if (
-            projectName == ""
-            and editionName == ""
-            or projectName == ""
-            and editionName != ""
-        ):
-            logmsg = "no project/edition specified"
+        if projectId is None and editionId is not None:
+            logmsg = "no project specified"
             Messages.error(
                 msg="Accessing a file",
                 logmsg=logmsg,
             )
 
         urlBase = (
-            f"projects/{projectName}"
-            if editionName == ""
-            else f"projects/{projectName}/editions/{editionName}"
+            f"projects/{projectId}"
+            if editionId is None
+            else f"projects/{projectId}/editions/{editionId}"
         )
 
         dataPath = f"{dataDir}/{urlBase}/{path}"
 
-        permitted = Auth.authorise(
-            "view", project=projectName, edition=editionName, byName=True
-        )
+        permitted = Auth.authorise("view", projectId=projectId, edition=editionId)
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -515,7 +499,7 @@ class Content:
     def getRecord(self, *args, **kwargs):
         """Get a record from MongoDb.
 
-        This is just a trivial wrapper around a method with the same
+        This is just a rather trivial wrapper around a method with the same
         name `control.mongo.Mongo.getRecord`.
 
         We have this for reasons of abstraction:

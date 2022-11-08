@@ -1,11 +1,13 @@
 import os
 import yaml
 import re
+from shutil import rmtree, copytree, copy
 
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
 
 
 IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
+THREED_RE = re.compile(r"""^.*\.(gltf|glb|obj|mtl)$""", re.I)
 
 
 def readPath(filePath):
@@ -64,10 +66,70 @@ def fileExists(path):
     return os.path.isfile(path)
 
 
+def fileRemove(path):
+    """Removes a file if it exists as file.
+    """
+    if fileExists(path):
+        os.remove(path)
+
+
+def fileCopy(pathSrc, pathDst):
+    """Copies a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    """
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+        copy(pathSrc, pathDst)
+
+
 def dirExists(path):
     """Whether a path exists as directory on the file system.
     """
     return os.path.isdir(path)
+
+
+def dirRemove(path):
+    """Removes a directory if it exists as directory.
+    """
+    if dirExists(path):
+        rmtree(path)
+
+
+def dirCopy(pathSrc, pathDst):
+    """Copies a directory if it exists as directory.
+
+    Wipes the destination directory, if it exists.
+    """
+    if dirExists(pathSrc):
+        dirRemove(pathDst)
+        copytree(pathSrc, pathDst)
+
+
+def dirMake(path):
+    """Creates a directory if it does not already exist as directory.
+    """
+    if dirExists(path):
+        os.makedirs(path, exist_ok=True)
+
+
+def listDirs(path):
+    """The list of all subdirectories in a directory.
+
+    If the directory does not exist, the empty list is returned.
+    """
+    if not dirExists(path):
+        return []
+
+    subdirs = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            if entry.is_dir():
+                name = entry.name
+                subdirs.append(name)
+
+    return subdirs
 
 
 def listFiles(path, ext):
@@ -75,7 +137,7 @@ def listFiles(path, ext):
 
     If the directory does not exist, the empty list is returned.
     """
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -98,7 +160,7 @@ def listImages(path):
     An image is a file with extension .png, .jpg, .jpeg or any of its
     case variants.
     """
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -107,6 +169,28 @@ def listImages(path):
         for entry in dh:
             name = entry.name
             if IMAGE_RE.match(name) and entry.is_file():
+                files.append(name)
+
+    return files
+
+
+def list3d(path):
+    """The list of all 3D files in a directory.
+
+    If the directory does not exist, the empty list is returned.
+
+    An image is a file with extension .gltf, .glb, .obj, mtl or any of its
+    case variants.
+    """
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            if THREED_RE.match(name) and entry.is_file():
                 files.append(name)
 
     return files

@@ -1,9 +1,9 @@
-import os
 import sys
 from textwrap import dedent
 
-from control.helpers.files import dirExists, fileExists, readYaml, readPath
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
+from control.files import dirExists, fileExists, readYaml, readPath, listDirs
+from control.environment import var
 
 
 VERSION_FILE = "version.txt"
@@ -37,7 +37,7 @@ class Config:
         """
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.debug("CONFIG INIT")
+        Messages.info(logmsg="CONFIG INIT")
         self.good = True
         self.Settings = AttrDict()
         """The actual configuration settings are stored here.
@@ -83,13 +83,12 @@ class Config:
                 method()
 
     def checkRepo(self):
-        """Get the location of the pure3dx repository on the file system.
-        """
+        """Get the location of the pure3dx repository on the file system."""
         Messages = self.Messages
         Settings = self.Settings
 
-        repoDir = os.environ.get("repodir", None)
-        if repoDir is None:
+        repoDir = var("repodir")
+        if repoDir == "":
             Messages.error(
                 logmsg=dedent(
                     """
@@ -113,8 +112,7 @@ class Config:
         # what is the version of the pure3d app?
 
     def checkVersion(self):
-        """Get the current version of the pure3d app.
-        """
+        """Get the current version of the pure3d app."""
         Messages = self.Messages
         Settings = self.Settings
         repoDir = Settings.repoDir
@@ -138,9 +136,9 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = os.environ.get("SECRET_FILE", None)
+        secretFileLoc = var("SECRET_FILE")
 
-        if secretFileLoc is None:
+        if secretFileLoc == "":
             Messages.error(logmsg="Environment variable `SECRET_FILE` not defined")
             self.good = False
             return
@@ -164,14 +162,13 @@ class Config:
             Settings.secret_key = fh.read()
 
     def checkData(self):
-        """Get the location of the project data on the file system.
-        """
+        """Get the location of the project data on the file system."""
         Messages = self.Messages
         Settings = self.Settings
 
-        dataDir = os.environ.get("DATA_DIR", None)
+        dataDir = var("DATA_DIR")
 
-        if dataDir is None:
+        if dataDir == "":
             Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
             self.good = False
             return
@@ -186,13 +183,12 @@ class Config:
         # are we in test mode?
 
     def checkModes(self):
-        """Determine whether flask is running in test/debug or production mode.
-        """
+        """Determine whether flask is running in test/debug or production mode."""
         Messages = self.Messages
         Settings = self.Settings
 
-        testMode = os.environ.get("flasktest", None)
-        if testMode is None:
+        testMode = var("flasktest")
+        if not testMode:
             Messages.error(logmsg="Environment variable `flasktest` not defined")
             self.good = False
             return
@@ -205,8 +201,8 @@ class Config:
         without any kind of authentication.
         """
 
-        debugMode = os.environ.get("flaskdebug", None)
-        if debugMode is None:
+        debugMode = var("flaskdebug")
+        if not debugMode:
             Messages.error(logmsg="Environment variable `flaskdebug` not defined")
             self.good = False
             return
@@ -227,23 +223,22 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        mongoUser = os.environ.get("mongouser", None)
-        mongoPassword = os.environ.get("mongopassword", None)
+        mongoUser = var("mongouser")
+        mongoPassword = var("mongopassword")
 
-        if mongoUser is None:
+        if not mongoUser:
             Messages.error(logmsg="Environment variable `mongouser` not defined")
             self.good = False
 
-        if mongoPassword is None:
+        if not mongoPassword:
             Messages.error(logmsg="Environment variable `mongopassword` not defined")
             self.good = False
 
-        Settings.mongoUser = os.environ["mongouser"]
-        Settings.mongoPassword = os.environ["mongopassword"]
+        Settings.mongoUser = mongoUser
+        Settings.mongoPassword = mongoPassword
 
     def checkSettings(self):
-        """Read the yaml file with application settings.
-        """
+        """Read the yaml file with application settings."""
         Messages = self.Messages
         Settings = self.Settings
 
@@ -261,8 +256,7 @@ class Config:
             Settings[k] = v
 
     def checkAuth(self):
-        """Read gthe yaml file with the authorisation rules.
-        """
+        """Read gthe yaml file with the authorisation rules."""
         Messages = self.Messages
         Settings = self.Settings
 
@@ -281,8 +275,7 @@ class Config:
             auth[k] = v
 
     def checkViewers(self):
-        """Make an inventory of the supported 3D viewers.
-        """
+        """Make an inventory of the supported 3D viewers."""
         Messages = self.Messages
         Settings = self.Settings
 
@@ -309,43 +302,39 @@ class Config:
         viewers = AttrDict()
         viewerDefault = None
 
-        with os.scandir(viewerDir) as vd:
-            for entry in vd:
-                if entry.is_dir():
-                    viewerName = entry.name
-                    if viewerName not in viewerSettings:
-                        Messages.warning(
-                            logmsg=(
-                                f"Skipping viewer {viewerName}"
-                                "because not defined in viewers.yaml"
-                            )
-                        )
-                        continue
-                    viewerConfig = AttrDict(viewerSettings[viewerName])
-                    viewerPath = f"{viewerDir}/{viewerName}"
-                    versions = []
+        viewerNames = listDirs(viewerDir)
 
-                    with os.scandir(viewerPath) as sd:
-                        for entry in sd:
-                            if entry.is_dir():
-                                version = entry.name
-                                versions.append(version)
-
-                    default = viewerConfig.default
-
-                    if default:
-                        if viewerDefault is not None:
-                            Messages.warning(
-                                logmsg=(
-                                    f"default viewer declaration {viewerName} overrides"
-                                    f" previously declared default {viewerDefault}"
-                                )
-                            )
-                        viewerDefault = viewerName
-
-                    viewers[viewerName] = AttrDict(
-                        versions=versions, modes=viewerConfig.modes
+        for viewerName in viewerNames:
+            if viewerName not in viewerSettings:
+                Messages.warning(
+                    logmsg=(
+                        f"Skipping viewer {viewerName}"
+                        "because not defined in viewers.yaml"
                     )
+                )
+                continue
+            viewerConfig = AttrDict(viewerSettings[viewerName])
+            viewerPath = f"{viewerDir}/{viewerName}"
+            versions = []
+
+            versionNames = listDirs(viewerPath)
+
+            for versionName in versionNames:
+                versions.append(versionName)
+
+            default = viewerConfig.default
+
+            if default:
+                if viewerDefault is not None:
+                    Messages.warning(
+                        logmsg=(
+                            f"default viewer declaration {viewerName} overrides"
+                            f" previously declared default {viewerDefault}"
+                        )
+                    )
+                viewerDefault = viewerName
+
+            viewers[viewerName] = AttrDict(versions=versions, modes=viewerConfig.modes)
         if viewerDefault is None:
             Messages.error(
                 logmsg=(

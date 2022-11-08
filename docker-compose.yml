@@ -13,6 +13,7 @@ services:
       SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
       docollect: ${docollect}
+      initdata: ${initdata}
       runmode: ${runmode}
       flaskport: ${flaskport}
       mongouser: ${mongouser}

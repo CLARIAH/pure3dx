@@ -1,4 +1,4 @@
-from flask import Flask, redirect, abort, request
+from control.flask import makeFlask, redirectResult, stop, method
 
 
 def appFactory(objects):
@@ -37,12 +37,8 @@ def appFactory(objects):
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = Flask(__name__, static_folder="../static")
+    app = makeFlask(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
-
-    def redirectResult(url, good):
-        code = 302 if good else 303
-        return redirect(url, code=code)
 
     # app url routes start here
 
@@ -125,38 +121,38 @@ def appFactory(objects):
         return Pages.viewerResource(path)
 
     @app.route(
-        "/data/projects/<string:projectName>/",
-        defaults=dict(editionName="", path=""),
+        "/data/projects/<string:projectId>/",
+        defaults=dict(editionId="", path=""),
     )
     @app.route(
-        "/data/projects/<string:projectName>/<path:path>",
-        defaults=dict(editionName=""),
+        "/data/projects/<string:projectId>/<path:path>",
+        defaults=dict(editionId=""),
     )
     @app.route(
-        "/data/projects/<string:projectName>/editions/<string:editionName>/",
+        "/data/projects/<string:projectId>/editions/<string:editionId>/",
         defaults=dict(path=""),
     )
     @app.route(
-        "/data/projects/<string:projectName>/editions/<string:editionName>/<path:path>",
+        "/data/projects/<string:projectId>/editions/<string:editionId>/<path:path>",
     )
-    def dataProjects(projectName, editionName, path):
+    def dataProjects(projectId, editionId, path):
         Auth.authenticate()
-        return Pages.dataProjects(projectName, editionName, path)
+        return Pages.dataProjects(projectId, editionId, path)
 
     @app.route(
-        "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/",
+        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",
         defaults=dict(path=""),
         methods=tuple(webdavMethods),
     )
     @app.route(
-        "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/"
+        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/"
         "<path:path>",
         methods=tuple(webdavMethods),
     )
-    def authWebdav(projectName, editionName, path):
+    def authWebdav(projectId, editionId, path):
         Auth.authenticate()
-        action = webdavMethods[request.method]
-        return Pages.authWebdav(projectName, editionName, path, action)
+        action = webdavMethods[method()]
+        return Pages.authWebdav(projectId, editionId, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
@@ -166,6 +162,6 @@ def appFactory(objects):
     @app.route("/no/webdav/<path:path>")
     def nowebdav(path):
         Messages.info(logmsg=f"Unauthorized webdav access {path=}")
-        abort(404)
+        stop()
 
     return app

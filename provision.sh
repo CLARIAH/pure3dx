@@ -55,7 +55,10 @@ if [[ "$docontent" == "v" ]]; then
     echo "Provisioning example data ..."
     mkdir -p data
     echo 'Copying stuff in pure3d-data/exampledata to pure3dx/data'
-    cp -r ../pure3d-data/exampledata/* data
+    if [[ -d "data/projects" ]]; then
+        rm -rf data/projects
+    fi
+    cp -r ../pure3d-data/exampledata data/
     echo "Done"
 fi
 
@@ -63,6 +66,9 @@ if [[ "$doviewers" == "v" ]]; then
     echo "Provisioning client code of 3d viewers ..."
     mkdir -p data
     echo 'Copying directory pure3d-data/viewers to pure3dx/data'
+    if [[ -d "data/viewers" ]]; then
+        rm -rf data/viewers
+    fi
     cp -r ../pure3d-data/viewers data/
     echo "Done"
 fi

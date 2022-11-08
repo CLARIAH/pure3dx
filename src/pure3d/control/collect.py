@@ -1,6 +1,15 @@
-import os
-
-from control.helpers.files import listFiles, listImages, readYaml
+from control.files import (
+    listDirs,
+    listFiles,
+    listImages,
+    list3d,
+    readYaml,
+    dirMake,
+    dirRemove,
+    dirCopy,
+    fileCopy,
+)
+from control.environment import var
 
 
 META = "meta"
@@ -59,8 +68,10 @@ class Collect:
     def trigger(self):
         """Determines whether data collection should be done.
 
-        We only do data collection if the environment variable `docollect` has
-        the value `v`.
+        We only do data collection if the environment variable `docollect` is "v"
+        If so, the value of the environment variable `initdata`
+        is the name of a subdirectory of the data directory.
+        This subdirectory contains example data that will be imported into the system.
 
         We also prevent this from happening twice, which occurs when Flask runs
         in debug mode, since then the code is loaded twice.
@@ -69,8 +80,8 @@ class Collect:
         and data collection should be inhibited, because it has been done
         just before Flask started running.
         """
-        doCollect = os.environ.get("docollect", "x") == "v"
-        beforeFlask = os.environ.get('WERKZEUG_RUN_MAIN', None) is None
+        doCollect = var("docollect") == "v"
+        beforeFlask = var("WERKZEUG_RUN_MAIN") == ""
 
         return beforeFlask and doCollect
 
@@ -79,8 +90,12 @@ class Collect:
 
         See also `Collect.trigger()`
         """
+
         if not self.trigger():
             return
+
+        importSubdir = var("initdata") or "exampledata"
+        self.importSubdir = importSubdir
 
         Messages = self.Messages
         Messages.info(logmsg="Collecting data before starting the app")
@@ -117,16 +132,16 @@ class Collect:
             Mongo.checkCollection("users", reset=True)
 
     def doOuter(self):
-        """Collects data not belonging to specific projects.
-        """
+        """Collects data not belonging to specific projects."""
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
 
+        importSubdir = self.importSubdir
         dataDir = Settings.dataDir
-        Messages.plain(logmsg=f"Data directory = {dataDir}")
+        Messages.plain(logmsg=f"Import metadata from {importSubdir}")
 
-        metaDir = f"{dataDir}/{META}"
+        metaDir = f"{dataDir}/{importSubdir}/{META}"
         metaFiles = listFiles(metaDir, ".yml")
         meta = {}
 
@@ -136,40 +151,41 @@ class Collect:
         Mongo.insertItem("meta", **meta)
 
     def doProjects(self):
-        """Collects data belonging to projects.
-        """
+        """Collects data belonging to projects."""
         Settings = self.Settings
-        Messages = self.Messages
+        importSubdir = self.importSubdir
 
         dataDir = Settings.dataDir
-        projectsPath = f"{dataDir}/{PROJECTS}"
+        projectsInPath = f"{dataDir}/{importSubdir}/{PROJECTS}"
+        projectsOutPath = f"{dataDir}/{PROJECTS}"
+        dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
 
-        with os.scandir(projectsPath) as pd:
-            for entry in pd:
-                if entry.is_dir():
-                    projectName = entry.name
-                    Messages.plain(logmsg=f"PROJECT {projectName}")
-                    self.doProject(projectsPath, projectName)
+        projectNames = listDirs(projectsInPath)
+        for projectName in projectNames:
+            self.doProject(projectsInPath, projectsOutPath, projectName)
 
-    def doProject(self, projectsPath, projectName):
+    def doProject(self, projectsInPath, projectsOutPath, projectName):
         """Collects data belonging to a specific project.
 
         Parameters
         ----------
-        projectsPath: string
-            Path on the filesystem to the projects directory
+        projectsInPath: string
+            Path on the filesystem to the projects input directory
+        projectsOutPath: string
+            Path on the filesystem to the projects destination directory
         projectName: string
             Directory name of the project to collect.
         """
+        Messages = self.Messages
         Mongo = self.Mongo
         projectIdByName = self.projectIdByName
 
-        projectPath = f"{projectsPath}/{projectName}"
+        projectInPath = f"{projectsInPath}/{projectName}"
 
         meta = {}
-        metaDir = f"{projectPath}/meta"
+        metaDir = f"{projectInPath}/meta"
         metaFiles = listFiles(metaDir, ".yml")
 
         for metaFile in metaFiles:
@@ -178,63 +194,70 @@ class Collect:
         title = meta.get("dc", {}).get("title", projectName)
 
         candy = {}
-        candyPath = f"{projectPath}/candy"
+        candyInPath = f"{projectInPath}/candy"
 
-        for image in listImages(candyPath):
+        for image in listImages(candyInPath):
             candy[image] = True if image.lower() == "icon.png" else False
 
         projectInfo = dict(
             title=title,
-            name=projectName,
             meta=meta,
             candy=candy,
         )
 
         projectId = Mongo.insertItem("projects", **projectInfo)
         projectIdByName[projectName] = projectId
+        Messages.plain(logmsg=f"PROJECT {projectName} => {projectId}")
+        projectOutPath = f"{projectsOutPath}/{projectId}"
+        dirMake(projectOutPath)
+        candyOutPath = f"{projectOutPath}/candy"
+        dirCopy(candyInPath, candyOutPath)
 
-        self.doEditions(projectId, projectPath)
+        self.doEditions(projectInPath, projectOutPath, projectId)
 
-    def doEditions(self, projectId, projectPath):
+    def doEditions(self, projectInPath, projectOutPath, projectId):
         """Collects data belonging to the editions of a project.
 
         Parameters
         ----------
+        projectInPath: string
+            Path on the filesystem to the input directory of this project
+        projectOutPath: string
+            Path on the filesystem to the destination directory of this project
         projectId: ObjectId
             MongoId of the project to collect.
-        projectPath: string
-            Path on the filesystem to the directory of this project
         """
-        Messages = self.Messages
+        editionsInPath = f"{projectInPath}/{EDITIONS}"
+        editionsOutPath = f"{projectOutPath}/{EDITIONS}"
 
-        editionsPath = f"{projectPath}/{EDITIONS}"
+        editionNames = listDirs(editionsInPath)
 
-        with os.scandir(editionsPath) as ed:
-            for entry in ed:
-                if entry.is_dir():
-                    editionName = entry.name
-                    Messages.plain(logmsg=f"\tEDITION {editionName}")
-                    self.doEdition(projectId, editionsPath, editionName)
+        for editionName in editionNames:
+            self.doEdition(projectId, editionsInPath, editionsOutPath, editionName)
 
-    def doEdition(self, projectId, editionsPath, editionName):
+    def doEdition(self, projectId, editionsInPath, editionsOutPath, editionName):
         """Collects data belonging to a specific edition.
 
         Parameters
         ----------
         projectId: ObjectId
             MongoId of the project to which the edition belongs.
-        editionsPath: string
-            Path on the filesystem to the editions directory within this project.
+        editionsInPath: string
+            Path on the filesystem to the editions input directory
+            within this project.
+        editionsOutPath: string
+            Path on the filesystem to the editions working directory
+            within this project.
         editionName: string
             Directory name of the edition to collect.
         """
         Messages = self.Messages
         Mongo = self.Mongo
 
-        editionPath = f"{editionsPath}/{editionName}"
+        editionInPath = f"{editionsInPath}/{editionName}"
 
         meta = {}
-        metaDir = f"{editionPath}/meta"
+        metaDir = f"{editionInPath}/meta"
         metaFiles = listFiles(metaDir, ".yml")
 
         for metaFile in metaFiles:
@@ -242,14 +265,16 @@ class Collect:
 
         title = meta.get("dc", {}).get("title", editionName)
 
-        scenes = listFiles(editionPath, ".json")
+        scenes = listFiles(editionInPath, ".json")
         sceneSet = set(scenes)
         sceneCandy = {scene: {} for scene in scenes}
 
         candy = {}
-        candyPath = f"{editionPath}/candy"
+        candyInPath = f"{editionInPath}/candy"
+        candyFiles = []
 
-        for image in listImages(candyPath):
+        for image in listImages(candyInPath):
+            candyFiles.append(image)
             (baseName, extension) = image.rsplit(".", 1)
             if baseName in sceneSet:
                 sceneCandy[baseName][image] = extension.lower() == "png"
@@ -258,12 +283,16 @@ class Collect:
 
         editionInfo = dict(
             title=title,
-            name=editionName,
             projectId=projectId,
             meta=meta,
             candy=candy,
         )
         editionId = Mongo.insertItem("editions", **editionInfo)
+        Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
+        editionOutPath = f"{editionsOutPath}/{editionId}"
+        candyOutPath = f"{editionOutPath}/candy"
+        dirMake(editionOutPath)
+        dirCopy(candyInPath, candyOutPath)
 
         sceneDefault = None
 
@@ -280,6 +309,18 @@ class Collect:
                 default=default,
             )
             Mongo.insertItem("scenes", **sceneInfo)
+            sceneInPath = f"{editionInPath}/{scene}.json"
+            sceneOutPath = f"{editionOutPath}/{scene}.json"
+            fileCopy(sceneInPath, sceneOutPath)
+
+        articlesInPath = f"{editionInPath}/articles"
+        articlesOutPath = f"{editionOutPath}/articles"
+        dirCopy(articlesInPath, articlesOutPath)
+
+        for threed in list3d(editionInPath):
+            threedInPath = f"{editionInPath}/{threed}"
+            threedOutPath = f"{editionOutPath}/{threed}"
+            fileCopy(threedInPath, threedOutPath)
 
     def doWorkflow(self):
         """Collects workflow information from yaml files.
@@ -294,7 +335,8 @@ class Collect:
         dataDir = Settings.dataDir
         projectIdByName = self.projectIdByName
 
-        workflowPath = f"{dataDir}/{WORKFLOW}/init.yml"
+        workflowDir = f"{dataDir}/{WORKFLOW}"
+        workflowPath = f"{workflowDir}/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
         users = workflow["users"]
         projectUsers = workflow["projectUsers"]

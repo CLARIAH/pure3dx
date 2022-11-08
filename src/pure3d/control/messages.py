@@ -1,7 +1,7 @@
 import sys
 from flask import abort
 
-from control.helpers.generic import htmlEsc
+from control.generic import htmlEsc
 
 
 class Messages:

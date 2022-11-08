@@ -1,9 +1,8 @@
 from textwrap import dedent
 from flask import render_template, make_response
-from control.mongo import castObjectId
 from markdown import markdown
 
-from control.helpers.flask import redirectResult
+from control.flask import redirectResult
 
 
 TABS = (
@@ -16,12 +15,12 @@ TABS = (
 )
 
 CAPTIONS = {
-    "title": ("{}", True),
-    "creator": ("by {}", True),
-    "description.abstract": ("Intro", True),
-    "description.description": ("Description", True),
-    "provenance": ("About", True),
-    "instructionalMethod": ("How to use", True),
+    "title": "{}",
+    "creator": "by {}",
+    "description.abstract": "Intro",
+    "description.description": "Description",
+    "provenance": "About",
+    "instructionalMethod": "How to use",
 }
 
 
@@ -125,7 +124,6 @@ class Pages:
             The project in question.
         """
         Content = self.Content
-        projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
         left = (
             self.putTexts("dc", "title@3 + creator@4", projectId=projectId) + editions
@@ -152,7 +150,6 @@ class Pages:
             From the edition record we can find the project too.
         """
         Content = self.Content
-        editionId = castObjectId(editionId)
         editionInfo = Content.getRecord("editions", _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
@@ -179,7 +176,6 @@ class Pages:
             The mode in which the viewer is to be used (`view` or `edit`).
         """
         Content = self.Content
-        sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord("scenes", _id=sceneId)
         projectId = sceneInfo.projectId
         editionId = sceneInfo.editionId
@@ -241,17 +237,14 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord("scenes", _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
-        projectName = Content.getRecord("projects", _id=projectId).name
 
         editionId = sceneInfo.editionId
-        editionName = Content.getRecord("editions", _id=editionId).name
 
-        urlBase = f"projects/{projectName}/editions/{editionName}/"
+        urlBase = f"projects/{projectId}/editions/{editionId}/"
 
         action = Auth.checkModifiable(projectId, editionId, action)
 
@@ -275,7 +268,7 @@ class Pages:
         data = Content.getViewerFile(path)
         return make_response(data)
 
-    def dataProjects(self, projectName, editionName, path):
+    def dataProjects(self, projectId, editionId, path):
         """Data content requested by viewers.
 
         This is the material belonging to the scene,
@@ -285,10 +278,9 @@ class Pages:
 
         Parameters
         ----------
-        projectName: string or None
-            If not None, the name of a project under which the resource
-            is to be found.
-        editionName: string or None
+        projectId: string
+            The id of a project under which the resource is to be found.
+        editionId: string or None
             If not None, the name of an edition under which the resource
             is to be found.
         path: string
@@ -299,7 +291,7 @@ class Pages:
         """
         Content = self.Content
 
-        data = Content.getData(path, projectName=projectName, editionName=editionName)
+        data = Content.getData(path, projectId=projectId, editionId=editionId)
         return make_response(data)
 
     def page(
@@ -348,7 +340,7 @@ class Pages:
             testUsers=testUsers,
         )
 
-    def authWebdav(self, projectName, editionName, path, action):
+    def authWebdav(self, projectId, editionId, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -358,9 +350,9 @@ class Pages:
 
         Parameters
         ----------
-        projectName: string
+        projectId: string
             The project in question.
-        editionName: string
+        editionId: string
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -378,14 +370,13 @@ class Pages:
 
         permitted = Auth.authorise(
             action,
-            project=projectName,
-            edition=editionName,
-            byName=True,
+            project=projectId,
+            edition=editionId,
         )
         if not permitted:
             Messages.info(
                 logmsg=f"WEBDAV unauthorised by user {Auth.user}"
-                f" on {projectName=} {editionName=} {path=}"
+                f" on {projectId=} {editionId=} {path=}"
             )
         return permitted
 
@@ -453,7 +444,7 @@ class Pages:
         text = """back to the project page"""
         return f"""<p><a {cls} {href}>{text}</a></p>"""
 
-    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+    def putText(self, nameSpace, fieldPath, level=None, projectId=None, editionId=None):
         """Puts a piece of metadata on the web page.
 
         The meta data is retrieved and then wrapped accordingly.
@@ -464,8 +455,13 @@ class Pages:
             The namespace of the metadata, e.g. `dc` (Dublin Core)
         fieldPath: string
             `.`-separated list of fields into a metadata structure.
-        level: integer 1-6
+        level: integer 1-6, optional None
             The heading level in which the text must be wrapped.
+            The heading is determined from the `fieldPath`, by looking it up
+            in the `CAPTIONS` mapping.
+            It is also possible to render the *contents* of the field as a heading,
+            this happens when the caption contains a `{}`.
+            If the level is None, no heading will be produced.
         projectId: ObjectId or None
             The project in question
         editionId: ObjectId or None
@@ -478,34 +474,32 @@ class Pages:
         """
         Content = self.Content
 
+        heading = None
         content = Content.getMeta(
             nameSpace, fieldPath, projectId=projectId, editionId=editionId
         )
-        info = CAPTIONS.get(fieldPath, None)
 
-        if info is None:
-            return content
+        if level is not None:
+            heading = CAPTIONS.get(fieldPath, None)
 
-        (heading, asMd) = info
-        skip = "{}" in heading
+            if heading is not None:
+                if "{}" in heading:
+                    heading = heading.format(content)
+                    content = None
 
-        if asMd:
-            heading = markdown(heading)
-            content = markdown(content)
-
-        return dedent(
-            f"""
-            <h{level}>{heading.format(content)}</h{level}>
-            {"" if skip else content}
-            """
+        heading = (
+            "" if heading is None else f"""<h{level}>{markdown(heading)}</h{level}>\n"""
         )
+        content = "" if content is None else markdown(content)
+
+        return heading + content
 
     def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
         """Puts a several pieces of metadata on the web page.
 
         See `Pages.putText()` for the parameter specifications.
 
-        One difference:
+        Differences: all texts will be displayed with headings. And:
 
         Parameters
         ----------
@@ -517,14 +511,18 @@ class Pages:
         string
             The join of the individual results of `Pages.putText`.
         """
+
         return "\n".join(
             self.putText(
                 nameSpace,
-                *fieldSpec.strip().split("@", 1),
+                fieldPath,
+                level=level,
                 projectId=projectId,
                 editionId=editionId,
             )
-            for fieldSpec in fieldSpecs.split("+")
+            for (fieldPath, level) in (
+                fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
+            )
         )
 
     def putButton(self, text, tip, url, action, projectId=None, editionId=None):

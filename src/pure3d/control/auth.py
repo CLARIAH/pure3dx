@@ -1,7 +1,7 @@
-from flask import request, session
+from flask import session
 
-from control.mongo import castObjectId
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
+from control.flask import arg, sessionPop, sessionSet
 
 
 class Auth:
@@ -74,7 +74,7 @@ class Auth:
         user = self.user
 
         user.clear()
-        record = Mongo.getRecord("users", _id=castObjectId(userId))
+        record = Mongo.getRecord("users", _id=userId)
         if record:
             user._id = userId
             user.name = record.name
@@ -107,7 +107,7 @@ class Auth:
         Messages = self.Messages
         self.clearUser()
         if Settings.testMode:
-            userId = request.args.get("userid", None)
+            userId = arg("userid")
             result = self.getUser(userId)
             userName = self.user.name
             if result:
@@ -143,9 +143,9 @@ class Auth:
         user = self.user
 
         if login:
-            session.pop("userid", None)
+            sessionPop("userId")
             if self.checkLogin():
-                session["userid"] = user._id
+                sessionSet("userid", user._id)
                 return True
             return False
 
@@ -200,7 +200,7 @@ class Auth:
 
         session.pop("userid", None)
 
-    def authorise(self, action, project=None, edition=None, byName=False):
+    def authorise(self, action, projectId=None, editionId=None):
         """Authorise the current user to access a piece of content.
 
         !!! note "Requests may come from different senders"
@@ -212,18 +212,10 @@ class Auth:
         ----------
         action: string
             The kind of access: `view`, `edit`, etc.
-        project: string or ObjectId
+        projectId: string or ObjectId
             The project that is being accessed, if any.
-        edition: string or ObjectId
+        editionId: string or ObjectId
             The edition that is being accessed, if any.
-        byName: boolean, optional False
-            Whether the project and edition parameters contain an ObjectId.
-            If not, it is assumed they contain a name.
-            Sometimes we know projects and editions by their id, especially
-            when we have retrieved them from MongoDb.
-            But some routes access projects and editions on the file system,
-            and then we have only their names.
-            This happens in case the 3D viewers access the file system directly.
 
         Returns
         -------
@@ -235,24 +227,6 @@ class Auth:
 
         user = self.user
 
-        if project:
-            projectId = (
-                Mongo.getRecord("projects", name=project)._id
-                if byName
-                else project or None
-            )
-        else:
-            projectId = None
-
-        if edition:
-            editionId = (
-                Mongo.getRecord("editions", name=edition)._id
-                if byName
-                else edition or None
-            )
-        else:
-            editionId = None
-
         if projectId is None and editionId is not None:
             projectId = Mongo.getRecord("editions", _id=editionId).projectId
 
@@ -260,10 +234,7 @@ class Auth:
             None
             if projectId is None or user._id is None
             else Mongo.getRecord(
-                "projectUsers",
-                warn=False,
-                projectId=projectId,
-                userId=castObjectId(user._id),
+                "projectUsers", warn=False, projectId=projectId, userId=user._id
             ).role
         )
         projectPub = (

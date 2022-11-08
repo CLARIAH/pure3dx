@@ -1,4 +1,4 @@
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
 
 
 class Users:
