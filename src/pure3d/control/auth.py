@@ -1,7 +1,5 @@
-from flask import session
-
 from control.generic import AttrDict
-from control.flask import arg, sessionPop, sessionSet
+from control.flask import arg, sessionPop, sessionGet, sessionSet
 
 
 class Auth:
@@ -149,7 +147,7 @@ class Auth:
                 return True
             return False
 
-        userId = session.get("userid", None)
+        userId = sessionGet("userid")
         if userId:
             if not self.getUser(userId):
                 self.clearUser()
@@ -191,14 +189,14 @@ class Auth:
         session is popped.
         """
         Messages = self.Messages
-        userId = session.get("userid", None)
+        userId = sessionGet("userid")
         if userId:
             self.clearUser()
             Messages.plain(msg="logged out", logmsg=f"LOGOUT successful: user {userId}")
         else:
             Messages.warning(msg="You were not logged in")
 
-        session.pop("userid", None)
+        sessionPop("userid")
 
     def authorise(self, action, projectId=None, editionId=None):
         """Authorise the current user to access a piece of content.

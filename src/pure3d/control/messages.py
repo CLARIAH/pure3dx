@@ -1,5 +1,5 @@
 import sys
-from flask import abort
+from control.flask import stop
 
 from control.generic import htmlEsc
 
@@ -169,7 +169,7 @@ class Messages:
                 stream.flush()
 
             if tp == "error" and self.flask:
-                abort(404)
+                stop()
 
     def clearMessages(self):
         """Clears the accumulated messages.

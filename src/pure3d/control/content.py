@@ -1,5 +1,3 @@
-from markdown import markdown
-
 from control.generic import AttrDict
 from control.files import fileExists
 
@@ -54,7 +52,7 @@ class Content:
         """
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None):
         """Retrieve a metadata string.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -74,9 +72,6 @@ class Content:
         editionId: string or ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
-        asMd: boolean, optional False
-            If True, and the resulting metadata is a string, we assume that it is
-            a markdown string, and we convert it to HTML.
 
         Returns
         -------
@@ -102,7 +97,7 @@ class Content:
             text = text.get(field, {})
         if type(text) is not str:
             text = ""
-        return markdown(text) if asMd else text
+        return text
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""

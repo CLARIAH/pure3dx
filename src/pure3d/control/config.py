@@ -1,4 +1,3 @@
-import sys
 from textwrap import dedent
 
 from control.generic import AttrDict
@@ -47,7 +46,7 @@ class Config:
 
         if not self.good:
             Messages.error(logmsg="Check environment ...")
-            sys.exit(1)
+            quit()
 
     def checkEnv(self, flask):
         """Collect the relevant information.

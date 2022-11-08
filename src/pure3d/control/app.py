@@ -1,4 +1,4 @@
-from control.flask import makeFlask, redirectResult, stop, method
+from control.flask import make, redirectStatus, stop, method
 
 
 def appFactory(objects):
@@ -37,7 +37,7 @@ def appFactory(objects):
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = makeFlask(__name__, static_folder="../static")
+    app = make(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
     # app url routes start here
@@ -48,12 +48,12 @@ def appFactory(objects):
             good = True
         else:
             good = False
-        return redirectResult("/", good)
+        return redirectStatus("/", good)
 
     @app.route("/logout")
     def logout():
         Auth.deauthenticate()
-        return redirectResult("/", True)
+        return redirectStatus("/", True)
 
     @app.route("/")
     @app.route("/home")

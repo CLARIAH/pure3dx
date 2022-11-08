@@ -1,8 +1,7 @@
 from textwrap import dedent
-from flask import render_template, make_response
 from markdown import markdown
 
-from control.flask import redirectResult
+from control.flask import redirectStatus, template, response
 
 
 TABS = (
@@ -113,7 +112,7 @@ class Pages:
                 msg="failed to create new project",
             )
             newUrl = "/projects"
-        return redirectResult(newUrl, projectId is not None)
+        return redirectStatus(newUrl, projectId is not None)
 
     def project(self, projectId):
         """The landing page of a project.
@@ -249,7 +248,7 @@ class Pages:
         action = Auth.checkModifiable(projectId, editionId, action)
 
         viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
-        return render_template("viewer.html", viewerCode=viewerCode)
+        return template("viewer", viewerCode=viewerCode)
 
     def viewerResource(self, path):
         """Components requested by viewers.
@@ -266,7 +265,7 @@ class Pages:
         Content = self.Content
 
         data = Content.getViewerFile(path)
-        return make_response(data)
+        return response(data)
 
     def dataProjects(self, projectId, editionId, path):
         """Data content requested by viewers.
@@ -292,7 +291,7 @@ class Pages:
         Content = self.Content
 
         data = Content.getData(path, projectId=projectId, editionId=editionId)
-        return make_response(data)
+        return response(data)
 
     def page(
         self,
@@ -330,8 +329,8 @@ class Pages:
         navigation = self.navigation(url)
         testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else ""
 
-        return render_template(
-            "index.html",
+        return template(
+            "index",
             versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left,
