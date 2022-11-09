@@ -81,7 +81,7 @@ class Collect:
         just before Flask started running.
         """
         doCollect = var("docollect") == "v"
-        beforeFlask = var("WERKZEUG_RUN_MAIN") == ""
+        beforeFlask = var("WERKZEUG_RUN_MAIN") is None
 
         return beforeFlask and doCollect
 
@@ -331,11 +331,12 @@ class Collect:
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        importSubdir = self.importSubdir
 
         dataDir = Settings.dataDir
         projectIdByName = self.projectIdByName
 
-        workflowDir = f"{dataDir}/{WORKFLOW}"
+        workflowDir = f"{dataDir}/{importSubdir}/{WORKFLOW}"
         workflowPath = f"{workflowDir}/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
         users = workflow["users"]

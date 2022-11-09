@@ -70,8 +70,10 @@ class Messages:
         Messages.addDebug(self)
         ```
         """
+
         def dbg(m):
             self.debug(logmsg=m)
+
         setattr(dest, "debug", dbg)
 
     def debug(self, msg=None, logmsg=None):
@@ -172,8 +174,7 @@ class Messages:
                 stop()
 
     def clearMessages(self):
-        """Clears the accumulated messages.
-        """
+        """Clears the accumulated messages."""
         self.messages.clear()
 
     def generateMessages(self):
@@ -187,7 +188,8 @@ class Messages:
 
         for (tp, msg) in self.messages:
             cls = "info" if tp == "plain" else tp
-            html.append(f"""<div class="msgitem {cls}">{htmlEsc(msg)}</div>""")
+            label = "" if tp == "plain" else tp.upper()
+            html.append(f"""<div class="msgitem {cls}">{label}: {htmlEsc(msg)}</div>""")
 
         html.append("</div>")
         self.clearMessages()

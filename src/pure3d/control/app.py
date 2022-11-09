@@ -33,6 +33,7 @@ def appFactory(objects):
 
     Settings = objects.Settings
     Messages = objects.Messages
+    Mongo = objects.Mongo
     Auth = objects.Auth
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
@@ -82,38 +83,38 @@ def appFactory(objects):
     @app.route("/projects/<string:projectId>")
     def project(projectId):
         Auth.authenticate()
-        return Pages.project(projectId)
+        return Pages.project(Mongo.cast(projectId))
 
     @app.route("/editions/<string:editionId>")
     def edition(editionId):
         Auth.authenticate()
-        return Pages.edition(editionId)
+        return Pages.edition(Mongo.cast(editionId))
 
     @app.route(
         "/scenes/<string:sceneId>",
-        defaults=dict(viewer="", version="", action=""),
+        defaults=dict(viewer=None, version=None, action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>",
-        defaults=dict(version="", action=""),
+        defaults=dict(version=None, action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>",
-        defaults=dict(action=""),
+        defaults=dict(action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>/<string:action>",
     )
     def scene(sceneId, viewer, version, action):
         Auth.authenticate()
-        return Pages.scene(sceneId, viewer, version, action)
+        return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route(
         "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
     )
     def viewerFrame(sceneId, viewer, version, action):
         Auth.authenticate()
-        return Pages.viewerFrame(sceneId, viewer, version, action)
+        return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
@@ -122,26 +123,28 @@ def appFactory(objects):
 
     @app.route(
         "/data/projects/<string:projectId>/",
-        defaults=dict(editionId="", path=""),
-    )
-    @app.route(
-        "/data/projects/<string:projectId>/<path:path>",
-        defaults=dict(editionId=""),
+        defaults=dict(editionId=None, path=None),
     )
     @app.route(
         "/data/projects/<string:projectId>/editions/<string:editionId>/",
-        defaults=dict(path=""),
+        defaults=dict(path=None),
     )
     @app.route(
         "/data/projects/<string:projectId>/editions/<string:editionId>/<path:path>",
     )
+    @app.route(
+        "/data/projects/<string:projectId>/<path:path>",
+        defaults=dict(editionId=None),
+    )
     def dataProjects(projectId, editionId, path):
         Auth.authenticate()
-        return Pages.dataProjects(projectId, editionId, path)
+        return Pages.dataProjects(
+            path, Mongo.cast(projectId), editionId=Mongo.cast(editionId)
+        )
 
     @app.route(
         "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",
-        defaults=dict(path=""),
+        defaults=dict(path=None),
         methods=tuple(webdavMethods),
     )
     @app.route(
@@ -152,7 +155,9 @@ def appFactory(objects):
     def authWebdav(projectId, editionId, path):
         Auth.authenticate()
         action = webdavMethods[method()]
-        return Pages.authWebdav(projectId, editionId, path, action)
+        return Pages.authWebdav(
+            Mongo.cast(projectId), Mongo.cast(editionId), path, action
+        )
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):

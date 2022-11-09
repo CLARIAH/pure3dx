@@ -87,7 +87,7 @@ class Config:
         Settings = self.Settings
 
         repoDir = var("repodir")
-        if repoDir == "":
+        if repoDir is None:
             Messages.error(
                 logmsg=dedent(
                     """
@@ -137,7 +137,7 @@ class Config:
 
         secretFileLoc = var("SECRET_FILE")
 
-        if secretFileLoc == "":
+        if secretFileLoc is None:
             Messages.error(logmsg="Environment variable `SECRET_FILE` not defined")
             self.good = False
             return
@@ -167,7 +167,7 @@ class Config:
 
         dataDir = var("DATA_DIR")
 
-        if dataDir == "":
+        if dataDir is None:
             Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
             self.good = False
             return
@@ -187,7 +187,7 @@ class Config:
         Settings = self.Settings
 
         testMode = var("flasktest")
-        if not testMode:
+        if testMode is None:
             Messages.error(logmsg="Environment variable `flasktest` not defined")
             self.good = False
             return
@@ -201,7 +201,7 @@ class Config:
         """
 
         debugMode = var("flaskdebug")
-        if not debugMode:
+        if debugMode is None:
             Messages.error(logmsg="Environment variable `flaskdebug` not defined")
             self.good = False
             return
@@ -225,11 +225,11 @@ class Config:
         mongoUser = var("mongouser")
         mongoPassword = var("mongopassword")
 
-        if not mongoUser:
+        if mongoUser is None:
             Messages.error(logmsg="Environment variable `mongouser` not defined")
             self.good = False
 
-        if not mongoPassword:
+        if mongoPassword is None:
             Messages.error(logmsg="Environment variable `mongopassword` not defined")
             self.good = False
 

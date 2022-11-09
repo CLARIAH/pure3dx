@@ -4,37 +4,34 @@ from bson.objectid import ObjectId
 from control.generic import AttrDict
 
 
-def _castObjectId(value):
-    """Try to cast the value as an ObjectId.
-    Paramaters
-    ----------
-    value:string
-        The value to cast, normally a string representation of a BSON ObjectId.
-
-    Returns
-    -------
-    ObjectId | None
-        The corresponding BSON ObjectId if the input is a valid representation of
-        such an id, otherwise `None`.
-    """
-
-    if isinstance(value, ObjectId):
-        return value
-
-    try:
-        oValue = ObjectId(value)
-    except Exception:
-        oValue = None
-    return oValue
-
-
-def _castFields(fields):
-    for (name, value) in fields.items():
-        if value is not None and name == "_id" or name.endswith("Id"):
-            fields[name] = _castObjectId(value)
-
-
 class Mongo:
+    @staticmethod
+    def cast(value):
+        """Try to cast the value as an ObjectId.
+        Paramaters
+        ----------
+        value:string
+            The value to cast, normally a string representation of a BSON ObjectId.
+
+        Returns
+        -------
+        ObjectId | None
+            The corresponding BSON ObjectId if the input is a valid representation of
+            such an id, otherwise `None`.
+        """
+
+        if value is None:
+            return None
+
+        if isinstance(value, ObjectId):
+            return value
+
+        try:
+            oValue = ObjectId(value)
+        except Exception:
+            oValue = None
+        return oValue
+
     def __init__(self, Settings, Messages):
         """CRUD interface to content in the MongoDb database.
 
@@ -172,8 +169,6 @@ class Mongo:
             satisfies the criteria.
         """
 
-        _castFields(criteria)
-
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
             if warn:
@@ -198,7 +193,6 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         """
-        _castFields(fields)
         result = self.execute(table, "insert_one", dict(**fields))
         return result.inserted_id if result else None
 
@@ -239,7 +233,6 @@ class Mongo:
                 msg="Database action", logmsg=f"Unknown Mongo command: `{method}`"
             )
         try:
-            _castFields(kwargs)
             result = method(*args, **kwargs)
         except Exception as e:
             Messages.error(

@@ -99,11 +99,11 @@ def sessionGet(name):
 
     Returns
     -------
-    string
+    string or None
         The value of the variable, if it exists,
-        else the empty string.
+        else None.
     """
-    return session.get(name, "")
+    return session.get(name, None)
 
 
 def sessionSet(name, value):
@@ -138,8 +138,8 @@ def arg(name):
 
     Returns
     -------
-    string
+    string or None
         The value of the arg, if it is defined,
-        else the empty string.
+        else the None.
     """
-    return request.args.get(name, "")
+    return request.args.get(name, None)

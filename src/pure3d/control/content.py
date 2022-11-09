@@ -66,10 +66,10 @@ class Content:
         fieldPath: string
             A `.`-separated list of keys. This is a selector in the nested
             metadata dict selected by the `nameSpace` argument.
-        projectId: string or ObjectId, optional None
+        projectId: ObjectId, optional None
             The project whose metadata we need. If it is None, we need metadata
             outside all of the projects.
-        editionId: string or ObjectId, optional None
+        editionId: ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
 
@@ -126,7 +126,7 @@ class Content:
         for row in Mongo.execute("projects", "find"):
             row = AttrDict(row)
             projectId = row._id
-            permitted = Auth.authorise("view", project=projectId)
+            permitted = Auth.authorise("view", projectId=projectId)
             if not permitted:
                 continue
 
@@ -178,7 +178,7 @@ class Content:
 
         Parameters
         ----------
-        projectId: string or ObjectId
+        projectId: ObjectId
             The project in question.
 
         Returns
@@ -195,7 +195,7 @@ class Content:
         for row in Mongo.execute("editions", "find", dict(projectId=projectId)):
             row = AttrDict(row)
             editionId = row._id
-            permitted = Auth.authorise("view", project=projectId, edition=editionId)
+            permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
             if not permitted:
                 continue
 
@@ -214,9 +214,9 @@ class Content:
         projectId,
         editionId,
         sceneId=None,
-        viewer="",
-        version="",
-        action="view",
+        viewer=None,
+        version=None,
+        action=None,
     ):
         """Get the list of the scenes of an edition of a project.
 
@@ -237,9 +237,9 @@ class Content:
 
         Parameters
         ----------
-        projectId: string or ObjectId
+        projectId: ObjectId
             The project in question.
-        editionId: string or ObjectId
+        editionId: ObjectId
             The edition in question.
         sceneId: ObjectId, optional None
             The active scene. If None the default scene is chosen.
@@ -247,7 +247,7 @@ class Content:
             that edition.
         viewer: string, optional ""
             The viewer to be used for the 3D viewing. It should be a supported viewer.
-            If "", the default viewer is chosen.
+            If None, the default viewer is chosen.
             The list of those viewers is in the `yaml/viewers.yml` file,
             which also specifies what the default viewer is.
         version: string, optional ""
@@ -273,7 +273,7 @@ class Content:
 
         wrapped = []
 
-        permitted = Auth.authorise("view", project=projectId, edition=editionId)
+        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
         if not permitted:
             return []
 
@@ -310,7 +310,7 @@ class Content:
         return "\n".join(wrapped)
 
     def getCaption(
-        self, title, candy, url, iconUrlBase, active=False, buttons="", frame=""
+        self, title, candy, url, iconUrlBase, active=False, buttons=None, frame=None
     ):
         """Get a caption for a project, edition, or scene.
 
@@ -433,17 +433,15 @@ class Content:
         This is the data directory.
         Below that the files are organized by projects and editions.
 
-        If `editionId` is present, `projectId` should also be present.
-
         Parameters
         ----------
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectId: string
-            The name of the project in question.
-        editionId: string, optional None
-            The name of the edition in question.
+        projectId: ObjectId
+            The id of the project in question.
+        editionId: ObjectId, optional None
+            The id of the edition in question.
 
         Returns
         -------
@@ -457,24 +455,20 @@ class Content:
 
         dataDir = Settings.dataDir
 
-        if projectId is None and editionId is not None:
-            logmsg = "no project specified"
-            Messages.error(
-                msg="Accessing a file",
-                logmsg=logmsg,
-            )
-
         urlBase = (
             f"projects/{projectId}"
             if editionId is None
             else f"projects/{projectId}/editions/{editionId}"
         )
 
-        dataPath = f"{dataDir}/{urlBase}/{path}"
+        dataPath = (
+            f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
+        )
 
-        permitted = Auth.authorise("view", projectId=projectId, edition=editionId)
+        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
 
         fexists = fileExists(dataPath)
+        self.debug(f"{path=} {projectId=} {editionId=} => {dataPath=} {permitted=} {fexists=}")
         if not permitted or not fexists:
             logmsg = f"Accessing {dataPath}: "
             if not permitted:

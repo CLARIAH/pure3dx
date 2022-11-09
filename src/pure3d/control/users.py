@@ -56,7 +56,7 @@ class Users:
         for user in sorted(Mongo.execute("users", "find"), key=lambda r: r["name"]):
             user = AttrDict(user)
 
-            active = "active" if str(user._id) == userActive else ""
+            active = "active" if user._id == userActive else ""
             html.append(wrap(user.role, f"/login?userid={user._id}", active, user.name))
 
         return "\n".join(html)

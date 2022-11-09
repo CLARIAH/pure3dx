@@ -92,7 +92,7 @@ class Viewers:
         viewers = self.viewers
 
         buttons = []
-        frame = ""
+        frame = None
 
         for viewer in viewers:
             isViewerActive = isSceneActive and viewer == viewerActive

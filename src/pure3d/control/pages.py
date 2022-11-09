@@ -101,17 +101,17 @@ class Pages:
         Messages = self.Messages
         Content = self.Content
         projectId = Content.insertProject()
-        if projectId:
-            newUrl = f"/projects/{projectId}"
-            Messages.info(
-                logmsg=f"Created project {projectId}", msg="new project created"
-            )
-        else:
+        if projectId is None:
             Messages.warning(
                 logmsg="Could not create new project",
                 msg="failed to create new project",
             )
             newUrl = "/projects"
+        else:
+            Messages.info(
+                logmsg=f"Created project {projectId}", msg="new project created"
+            )
+            newUrl = f"/projects/{projectId}"
         return redirectStatus(newUrl, projectId is not None)
 
     def project(self, projectId):
@@ -133,7 +133,7 @@ class Pages:
             "provenance@4 + instructionalMethod@4",
             projectId=projectId,
         )
-        return self.page("projects", left=left, right=right, projectId=projectId)
+        return self.page("projects", left=left, right=right)
 
     def edition(self, editionId):
         """The landing page of an edition.
@@ -210,13 +210,7 @@ class Pages:
             projectId=projectId,
             editionId=editionId,
         )
-        return self.page(
-            "projects",
-            left=left,
-            right=right,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        return self.page("projects", left=left, right=right)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
@@ -267,7 +261,7 @@ class Pages:
         data = Content.getViewerFile(path)
         return response(data)
 
-    def dataProjects(self, projectId, editionId, path):
+    def dataProjects(self, path, projectId, editionId=None):
         """Data content requested by viewers.
 
         This is the material belonging to the scene,
@@ -277,30 +271,22 @@ class Pages:
 
         Parameters
         ----------
-        projectId: string
-            The id of a project under which the resource is to be found.
-        editionId: string or None
-            If not None, the name of an edition under which the resource
-            is to be found.
         path: string
             Path on the file system under the data directory
             where the resource resides.
-            If there is a project and or edition given,
-            the path is relative to those.
+            The path is relative to the project, and, if given, the edition.
+        projectId: ObjectId
+            The id of a project under which the resource is to be found.
+        editionId: ObjectId, optional None
+            If not None, the name of an edition under which the resource
+            is to be found.
         """
         Content = self.Content
 
-        data = Content.getData(path, projectId=projectId, editionId=editionId)
+        data = Content.getData(path, projectId, editionId=editionId)
         return response(data)
 
-    def page(
-        self,
-        url,
-        projectId=None,
-        editionId=None,
-        left="",
-        right="",
-    ):
+    def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
 
         Parameters
@@ -308,12 +294,6 @@ class Pages:
         url: string
             Initial part of the url that triggered the page function.
             This part is used to make one of the tabs on the web page active.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Maybe needed for back links to the project.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Maybe needed for back links to the edition.
         left: string, optional ""
             Content for the left column of the page.
         right: string, optional ""
@@ -333,8 +313,8 @@ class Pages:
             "index",
             versionInfo=Settings.versionInfo,
             navigation=navigation,
-            materialLeft=left,
-            materialRight=right,
+            materialLeft=left or "",
+            materialRight=right or "",
             messages=Messages.generateMessages(),
             testUsers=testUsers,
         )
@@ -349,9 +329,9 @@ class Pages:
 
         Parameters
         ----------
-        projectId: string
+        projectId: ObjectId
             The project in question.
-        editionId: string
+        editionId: ObjectId
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -369,8 +349,8 @@ class Pages:
 
         permitted = Auth.authorise(
             action,
-            project=projectId,
-            edition=editionId,
+            projectId=projectId,
+            editionId=editionId,
         )
         if not permitted:
             Messages.info(
@@ -553,8 +533,8 @@ class Pages:
 
         permitted = Auth.authorise(
             action,
-            project=projectId,
-            edition=editionId,
+            projectId=projectId,
+            editionId=editionId,
         )
         return (
             f"""

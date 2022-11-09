@@ -46,11 +46,13 @@ class Auth:
     def clearUser(self):
         """Clear current user.
 
-        The `user` member of Auth is cleard.
+        The `user` member of Auth is cleared.
         Note that it is not deleted, only its members are removed.
         """
         user = self.user
         user.clear()
+        sessionPop("userid")
+        self.debug(f"CLEARUSER {sessionGet('userid')=}")
 
     def getUser(self, userId):
         """Get user data.
@@ -80,6 +82,7 @@ class Auth:
             result = True
         else:
             Messages.warning(msg="Unknown user", logmsg=f"Unknown user {userId}")
+            self.clearUser()
             result = False
         return result
 
@@ -103,19 +106,28 @@ class Auth:
         """
         Settings = self.Settings
         Messages = self.Messages
-        self.clearUser()
-        if Settings.testMode:
-            userId = arg("userid")
-            result = self.getUser(userId)
-            userName = self.user.name
-            if result:
-                Messages.plain(msg=f"LOGIN successful: user {userName}")
-            else:
-                Messages.warning(msg=f"LOGIN: user {userId} does not exist")
-            return result
+        Mongo = self.Mongo
 
-        Messages.warning(msg="User management is only available in test mode")
-        return False
+        self.clearUser()
+        userId = (
+            Mongo.cast(arg("userid"))
+            if Settings.testMode
+            else Mongo.cast(sessionGet("userid"))
+        )
+        self.debug(f"CHECKLOGIN {userId=}")
+        result = self.getUser(userId)
+        userName = self.user.name
+        if result:
+            Messages.plain(
+                logmsg=f"LOGIN successful: user {userName} {userId}",
+                msg=f"LOGIN successful: user {userName}",
+            )
+        else:
+            Messages.warning(
+                logmsg=f"LOGIN: user {userId} does not exist",
+                msg="LOGIN: user does not exist",
+            )
+        return result
 
     def authenticate(self, login=False):
         """Authenticates the current user.
@@ -138,20 +150,25 @@ class Auth:
         boolean
             Whether the current user is authenticated.
         """
+        Mongo = self.Mongo
         user = self.user
 
         if login:
-            sessionPop("userId")
+            sessionPop("userid")
             if self.checkLogin():
-                sessionSet("userid", user._id)
+                sessionSet("userid", str(user._id))
                 return True
             return False
 
-        userId = sessionGet("userid")
-        if userId:
+        userIdRaw = sessionGet("userid")
+        userId = Mongo.cast(sessionGet("userid"))
+        self.debug(f"AUTHENTICATE {login=} from session {userId=} {userIdRaw=}")
+
+        if userId is not None:
             if not self.getUser(userId):
                 self.clearUser()
                 return False
+            self.debug(f"AUTHENTICATE {user=}")
             return True
 
         self.clearUser()
@@ -185,18 +202,19 @@ class Auth:
     def deauthenticate(self):
         """Logs off the current user.
 
-        That means that the `user` memebr of Auth is cleared, and the current
+        That means that the `user` member of Auth is cleared, and the current
         session is popped.
         """
         Messages = self.Messages
-        userId = sessionGet("userid")
-        if userId:
+        Mongo = self.Mongo
+
+        userId = Mongo.cast(sessionGet("userid"))
+
+        if userId is not None:
             self.clearUser()
             Messages.plain(msg="logged out", logmsg=f"LOGOUT successful: user {userId}")
         else:
             Messages.warning(msg="You were not logged in")
-
-        sessionPop("userid")
 
     def authorise(self, action, projectId=None, editionId=None):
         """Authorise the current user to access a piece of content.
@@ -210,9 +228,9 @@ class Auth:
         ----------
         action: string
             The kind of access: `view`, `edit`, etc.
-        projectId: string or ObjectId
+        projectId: ObjectId
             The project that is being accessed, if any.
-        editionId: string or ObjectId
+        editionId: ObjectId
             The edition that is being accessed, if any.
 
         Returns
@@ -265,7 +283,7 @@ class Auth:
         editionId: ObjectId or None
             MongoDB id of the edition in question.
         """
-        return self.authorise("edit", project=projectId, edition=editionId)
+        return self.authorise("edit", projectId=projectId, editionId=editionId)
 
     def checkModifiable(self, projectId, editionId, action):
         """Like `Auth.isModifiable()`, but returns an allowed action.
@@ -285,6 +303,9 @@ class Auth:
             it returns `view`.
             Otherwise it returns the action itself.
         """
+        if action is None:
+            return "view"
+
         if action != "view":
             if not self.isModifiable(projectId, editionId):
                 action = "view"
