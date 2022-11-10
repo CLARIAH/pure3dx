@@ -54,7 +54,7 @@ def appFactory(objects):
 
     @app.route("/private")
     @oidcauth.require_login
-    def private():
+    def noaccessprivate():
         return "logged in"
 
     @app.route('/cb')
