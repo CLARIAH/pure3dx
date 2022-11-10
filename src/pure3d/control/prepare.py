@@ -94,7 +94,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Users, Content)
-        AuthOidc = AuthOidcCls(Settings)
+        AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)

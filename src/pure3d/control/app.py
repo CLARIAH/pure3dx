@@ -1,5 +1,5 @@
-from flask import Flask, redirect, abort, request
-from flask_oidc import OpenIDConnect
+from flask import Flask, redirect, abort, request, url_for
+
 
 def appFactory(objects):
     """Sets up the main flask app.
@@ -41,17 +41,7 @@ def appFactory(objects):
     app = Flask(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
-    app.config.update({
-        # 'SECRET_KEY': app.secret_key,
-        'TESTING': True,
-        'DEBUG': True,
-        'OIDC_CLIENT_SECRETS': '/app/src/pure3d/control/client_secrets.json',
-        'OIDC_ID_TOKEN_COOKIE_SECURE': False,
-        'OIDC_REQUIRE_VERIFIED_EMAIL': False,
-        # 'OIDC_OPENID_REALM': 'http://localhost:5000/oidc_callback'
-    })
-
-    oidcauth = OpenIDConnect(app)
+    oidcauth = AuthOidc.prepare(app)
 
     @app.route("/loginoidc")
     def loginoidc():
@@ -62,12 +52,19 @@ def appFactory(objects):
         else:
             return 'Welcome anonymous, <a href="/private">Log in</a>'
 
-    @app.route('/private')
+    @app.route("/private")
     @oidcauth.require_login
+    def private():
+        return "logged in"
+
+    @app.route('/cb')
     def hello_me():
-        info = oidcauth.user_getinfo(['email', 'openid_id'])
-        return ('Hello, %s (%s)! <a href="/">Return</a>' %
-                (info.get('email'), info.get('openid_id')))
+        #data = oidcauth._oidc_callback()
+        raise Exception(f"code is: {request.args.get('code', None)}; state is: {request.args.get('state', None)}")
+        return redirect(url_for("/oidc_callback", code=request.args.get("code", None), state=request.args.get("state", None)))
+        # info = oidcauth.user_getinfo(['email', 'openid_id'])
+        # return ('Hello, %s (%s)! <a href="/">Return</a>' %
+        #         (info.get('email'), info.get('openid_id')))
 
     def redirectResult(url, good):
         code = 302 if good else 303

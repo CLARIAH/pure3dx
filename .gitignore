@@ -71,7 +71,8 @@ exp_*
 .env
 
 # oidc secret
-src/pure3d/control/client_secrets.json
+**/client_secrets.json
+**/client_secrets_org.json
 
 # Environments
 .venv
