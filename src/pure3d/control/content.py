@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from control.generic import AttrDict
 from control.files import fileExists
 
@@ -89,7 +91,7 @@ class Content:
             if editionId is not None
             else Mongo.getRecord("projects", _id=projectId)
             if projectId is not None
-            else Mongo.getRecord("meta")
+            else Mongo.getRecord("meta", name="project")
         ).meta or {}
         text = meta.get(nameSpace, {}).get(fields[0], "" if len(fields) == 0 else {})
 
@@ -245,12 +247,12 @@ class Content:
             The active scene. If None the default scene is chosen.
             A scene record specifies whether that scene is the default scene for
             that edition.
-        viewer: string, optional ""
+        viewer: string, optional None
             The viewer to be used for the 3D viewing. It should be a supported viewer.
             If None, the default viewer is chosen.
             The list of those viewers is in the `yaml/viewers.yml` file,
             which also specifies what the default viewer is.
-        version: string, optional ""
+        version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
@@ -331,12 +333,12 @@ class Content:
             only the selected name from `candy` needs to be appended to it.
         active: boolean, optional False
             Whether the caption should be displayed as being *active*.
-        buttons: string, optional ""
+        buttons: string, optional None
             A set of buttons that should be displayed below the captions.
             This applies to captions for *scenes*: there we want to display
             buttons to open the scene in a variety of veiwers, versions and
             modes.
-        frame: string, optional ""
+        frame: string, optional None
             An iframe to display instead of the visual element of the caption.
             This applies to scene captions, for the case where we want to show
             the scene loaded in a viewer. That will be done in an iframe,
@@ -355,12 +357,19 @@ class Content:
             f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
         )
         heading = (
-            f"""{frame}<a href="{url}">{title}</a>"""
-            if frame
-            else f"""<a href="{url}">{visual}{title}</a>"""
+            dedent(
+                f"""
+                <a class="entry" href="{url}">
+                    {visual}
+                    <span class="entrytitle">{title}</span>
+                </a>
+                """
+            )
+            if frame is None
+            else frame
         )
         end = """</div>"""
-        caption = f"""{start}{heading}{buttons}{end}"""
+        caption = f"""{start}{heading}{buttons or ''}{end}"""
         return caption
 
     def getIcon(self, candy):
@@ -468,7 +477,6 @@ class Content:
         permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
 
         fexists = fileExists(dataPath)
-        self.debug(f"{path=} {projectId=} {editionId=} => {dataPath=} {permitted=} {fexists=}")
         if not permitted or not fexists:
             logmsg = f"Accessing {dataPath}: "
             if not permitted:

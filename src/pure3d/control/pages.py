@@ -294,9 +294,9 @@ class Pages:
         url: string
             Initial part of the url that triggered the page function.
             This part is used to make one of the tabs on the web page active.
-        left: string, optional ""
+        left: string, optional None
             Content for the left column of the page.
-        right: string, optional ""
+        right: string, optional None
             Content for the right column of the page.
         """
         Settings = self.Settings
@@ -466,15 +466,14 @@ class Pages:
                     heading = heading.format(content)
                     content = None
 
-        heading = (
-            "" if heading is None else f"""<h{level}>{markdown(heading)}</h{level}>\n"""
-        )
+                heading = f"""<h{level}>{markdown(heading)}</h{level}>\n"""
+
         content = "" if content is None else markdown(content)
 
         return heading + content
 
     def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
-        """Puts a several pieces of metadata on the web page.
+        """Puts several pieces of metadata on the web page.
 
         See `Pages.putText()` for the parameter specifications.
 

@@ -55,8 +55,8 @@ if [[ "$docontent" == "v" ]]; then
     echo "Provisioning example data ..."
     mkdir -p data
     echo 'Copying stuff in pure3d-data/exampledata to pure3dx/data'
-    if [[ -d "data/projects" ]]; then
-        rm -rf data/projects
+    if [[ -d "data/exampledata" ]]; then
+        rm -rf data/exampledata
     fi
     cp -r ../pure3d-data/exampledata data/
     echo "Done"

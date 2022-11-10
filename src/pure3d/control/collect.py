@@ -148,7 +148,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertItem("meta", **meta)
+        Mongo.insertItem("meta", name="project", meta=dict(**meta))
 
     def doProjects(self):
         """Collects data belonging to projects."""
@@ -315,11 +315,13 @@ class Collect:
 
         articlesInPath = f"{editionInPath}/articles"
         articlesOutPath = f"{editionOutPath}/articles"
+        Messages.plain(logmsg="\t\tARTICLES")
         dirCopy(articlesInPath, articlesOutPath)
 
         for threed in list3d(editionInPath):
             threedInPath = f"{editionInPath}/{threed}"
             threedOutPath = f"{editionOutPath}/{threed}"
+            Messages.plain(logmsg=f"\t\t3D {threed}")
             fileCopy(threedInPath, threedOutPath)
 
     def doWorkflow(self):

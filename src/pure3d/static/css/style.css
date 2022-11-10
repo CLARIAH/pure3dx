@@ -135,3 +135,16 @@ div.caption {
 div.caption.active {
   border-color: var(--caption-border-active);
 }
+
+.entry {
+  display: flex;
+  flex-flow: row wrap;
+}
+span.entrytitle {
+  width: 50%;
+  font-size: large;
+  padding: 0.5rem;
+}
+img.previewicon {
+  width: 50%;
+}
