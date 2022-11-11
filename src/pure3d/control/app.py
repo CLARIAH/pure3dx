@@ -1,4 +1,4 @@
-from flask import Flask, redirect, abort, request, url_for
+from flask import Flask, redirect, abort, request
 
 
 def appFactory(objects):
@@ -46,16 +46,14 @@ def appFactory(objects):
     @app.route("/loginoidc")
     def loginoidc():
         if oidcauth.user_loggedin:
-            return ('Hello, %s, <a href="/private">See private</a> '
-                    '<a href="/logout">Log out</a>') % \
-                   oidcauth.user_getfield('email')
+            return (f"Hello, {oidcauth.user_getfield('nickname')}\nwith email {oidcauth.user_getfield('email')}\nand sub {oidcauth.user_getfield('sub')}")
         else:
-            return 'Welcome anonymous, <a href="/private">Log in</a>'
+            return redirect("/private")
 
     @app.route("/private")
     @oidcauth.require_login
     def noaccessprivate():
-        return "logged in"
+        return redirect("/loginoidc")
 
     def redirectResult(url, good):
         code = 302 if good else 303

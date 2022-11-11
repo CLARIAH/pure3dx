@@ -31,9 +31,16 @@ class AuthOidc:
         import sys
         secrets = cls.load_secrets()
         client_secrets = list(secrets.values())[0]
+
+        # check and set custom redirect
         custom_redirect = client_secrets.get("custom_redirect", None)
         if custom_redirect:
             authconf["OVERWRITE_REDIRECT_URI"] = custom_redirect
+
+        # check and set custom scopes
+        custom_scopes = client_secrets.get("custom_scopes", None)
+        if custom_scopes:
+            authconf["OIDC_SCOPES"] = custom_scopes
 
         app.config.update(authconf)
 
