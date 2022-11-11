@@ -57,15 +57,6 @@ def appFactory(objects):
     def noaccessprivate():
         return "logged in"
 
-    @app.route('/cb')
-    def hello_me():
-        #data = oidcauth._oidc_callback()
-        raise Exception(f"code is: {request.args.get('code', None)}; state is: {request.args.get('state', None)}")
-        return redirect(url_for("/oidc_callback", code=request.args.get("code", None), state=request.args.get("state", None)))
-        # info = oidcauth.user_getinfo(['email', 'openid_id'])
-        # return ('Hello, %s (%s)! <a href="/">Return</a>' %
-        #         (info.get('email'), info.get('openid_id')))
-
     def redirectResult(url, good):
         code = 302 if good else 303
         return redirect(url, code=code)
