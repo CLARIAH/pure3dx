@@ -6,6 +6,7 @@ from flask import (
     session,
     render_template,
     make_response,
+    send_file,
 )
 
 
@@ -46,6 +47,27 @@ def response(data):
         The HTTP response
     """
     return make_response(data)
+
+
+def send(path):
+    """Send a file as a response.
+
+    It is assumed that `path` exists as a readable file
+    on the file system.
+    The function will add headers based on the file
+    extension.
+
+    Parameters
+    ----------
+    path: string
+        The file to be transferred in an HTTP response.
+
+    Returns
+    -------
+    object
+        The HTTP response
+    """
+    return send_file(path)
 
 
 def redirectStatus(url, good):

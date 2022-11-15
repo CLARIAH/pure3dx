@@ -98,8 +98,7 @@ class Mongo:
             self.mongo = mongo
 
     def disconnect(self):
-        """Disconnect from the MongoDB.
-        """
+        """Disconnect from the MongoDB."""
         client = self.client
 
         if client:

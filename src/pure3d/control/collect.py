@@ -197,7 +197,7 @@ class Collect:
         candyInPath = f"{projectInPath}/candy"
 
         for image in listImages(candyInPath):
-            candy[image] = True if image.lower() == "icon.png" else False
+            candy[image] = True if image == "icon.png" else False
 
         projectInfo = dict(
             title=title,
@@ -212,6 +212,9 @@ class Collect:
         dirMake(projectOutPath)
         candyOutPath = f"{projectOutPath}/candy"
         dirCopy(candyInPath, candyOutPath)
+
+        if not candy:
+            Messages.plain(logmsg="No project icon")
 
         self.doEditions(projectInPath, projectOutPath, projectId)
 
@@ -277,9 +280,9 @@ class Collect:
             candyFiles.append(image)
             (baseName, extension) = image.rsplit(".", 1)
             if baseName in sceneSet:
-                sceneCandy[baseName][image] = extension.lower() == "png"
+                sceneCandy[baseName][image] = extension == "png"
             else:
-                candy[image] = True if image.lower() == "icon.png" else False
+                candy[image] = True if image == "icon.png" else False
 
         editionInfo = dict(
             title=title,
@@ -293,6 +296,9 @@ class Collect:
         candyOutPath = f"{editionOutPath}/candy"
         dirMake(editionOutPath)
         dirCopy(candyInPath, candyOutPath)
+
+        if "icon.png" not in candy:
+            Messages.plain(logmsg="\t\tNo edition icon")
 
         sceneDefault = None
 
@@ -312,6 +318,9 @@ class Collect:
             sceneInPath = f"{editionInPath}/{scene}.json"
             sceneOutPath = f"{editionOutPath}/{scene}.json"
             fileCopy(sceneInPath, sceneOutPath)
+
+            if scene not in sceneCandy:
+                Messages.plain(logmsg=f"\t\tNo scene icon for {scene}")
 
         articlesInPath = f"{editionInPath}/articles"
         articlesOutPath = f"{editionOutPath}/articles"

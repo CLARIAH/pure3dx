@@ -134,6 +134,7 @@ div.caption {
 
 div.caption.active {
   border-color: var(--caption-border-active);
+  background-color: initial;
 }
 
 .entry {
@@ -147,4 +148,27 @@ span.entrytitle {
 }
 img.previewicon {
   width: 50%;
+}
+
+div.model {
+  position: relative;
+  width: 100%;
+}
+div.model:after {
+  content: "";
+  display: block;
+  padding-bottom: 100%;
+}
+div.surround {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+iframe.previewer {
+  width: 100%;
+  height: 100%;
+}
+img.previewicon {
+  /*width: 10rem;*/
+  height: 10rem;
 }

@@ -13,16 +13,6 @@
   flex: 1 1 auto;
 }
 
-img.previewicon {
-  /*width: 10rem;*/
-  height: 10rem;
-}
-
-iframe.previewer {
-  width: 100%;
-  height: 80%;
-}
-
 html {
   height: 100vh;
   width: 100vw;

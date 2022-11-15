@@ -51,16 +51,16 @@ class Messages:
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
 
-        The result of this method is that nstead of saying
+        The result of this method is that instead of saying
 
         ```
-        self.Messages.debug(logmsg="blabla")
+        self.Messages.debug (logmsg="blabla")
         ```
 
         you can say
 
         ```
-        self.debug("blabla")
+        self.debug ("blabla")
         ```
 
         It is recommended that in each object where you store a handle
@@ -188,8 +188,8 @@ class Messages:
 
         for (tp, msg) in self.messages:
             cls = "info" if tp == "plain" else tp
-            label = "" if tp == "plain" else tp.upper()
-            html.append(f"""<div class="msgitem {cls}">{label}: {htmlEsc(msg)}</div>""")
+            label = "" if tp == "plain" else f"{tp.upper()}: "
+            html.append(f"""<div class="msgitem {cls}">{label}{htmlEsc(msg)}</div>""")
 
         html.append("</div>")
         self.clearMessages()

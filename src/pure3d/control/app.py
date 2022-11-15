@@ -41,19 +41,18 @@ def appFactory(objects):
     app = make(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
+    Auth.identify()
+
     # app url routes start here
 
     @app.route("/login")
     def login():
-        if Auth.authenticate(login=True):
-            good = True
-        else:
-            good = False
+        good = Auth.login()
         return redirectStatus("/", good)
 
     @app.route("/logout")
     def logout():
-        Auth.deauthenticate()
+        Auth.logout()
         return redirectStatus("/", True)
 
     @app.route("/")
@@ -67,27 +66,22 @@ def appFactory(objects):
 
     @app.route("/surpriseme")
     def surpriseme():
-        Auth.authenticate()
         return Pages.surprise()
 
     @app.route("/projects")
     def projects():
-        Auth.authenticate()
         return Pages.projects()
 
     @app.route("/projects/insert")
     def projectInsert():
-        Auth.authenticate()
         return Pages.projectInsert()
 
     @app.route("/projects/<string:projectId>")
     def project(projectId):
-        Auth.authenticate()
         return Pages.project(Mongo.cast(projectId))
 
     @app.route("/editions/<string:editionId>")
     def edition(editionId):
-        Auth.authenticate()
         return Pages.edition(Mongo.cast(editionId))
 
     @app.route(
@@ -106,19 +100,16 @@ def appFactory(objects):
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>/<string:action>",
     )
     def scene(sceneId, viewer, version, action):
-        Auth.authenticate()
         return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route(
         "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
     )
     def viewerFrame(sceneId, viewer, version, action):
-        Auth.authenticate()
         return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
-        Auth.authenticate()
         return Pages.viewerResource(path)
 
     @app.route(
@@ -137,7 +128,6 @@ def appFactory(objects):
         defaults=dict(editionId=None),
     )
     def dataProjects(projectId, editionId, path):
-        Auth.authenticate()
         return Pages.dataProjects(
             path, Mongo.cast(projectId), editionId=Mongo.cast(editionId)
         )
@@ -153,7 +143,6 @@ def appFactory(objects):
         methods=tuple(webdavMethods),
     )
     def authWebdav(projectId, editionId, path):
-        Auth.authenticate()
         action = webdavMethods[method()]
         return Pages.authWebdav(
             Mongo.cast(projectId), Mongo.cast(editionId), path, action
@@ -161,12 +150,12 @@ def appFactory(objects):
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
-        Messages.info(logmsg=f"Invalid webdav access {path=}")
+        Messages.info(logmsg=f"Invalid webdav access: {path}")
         return False
 
     @app.route("/no/webdav/<path:path>")
     def nowebdav(path):
-        Messages.info(logmsg=f"Unauthorized webdav access {path=}")
+        Messages.info(logmsg=f"Unauthorized webdav access: {path}")
         stop()
 
     return app

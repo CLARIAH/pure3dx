@@ -157,8 +157,7 @@ class Config:
             self.good = False
             return
 
-        with open(secretFileLoc) as fh:
-            Settings.secret_key = fh.read()
+        Settings.secret_key = readPath(secretFileLoc)
 
     def checkData(self):
         """Get the location of the project data on the file system."""

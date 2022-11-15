@@ -1,7 +1,7 @@
 from textwrap import dedent
 from markdown import markdown
 
-from control.flask import redirectStatus, template, response
+from control.flask import redirectStatus, template, send
 
 
 TABS = (
@@ -24,7 +24,7 @@ CAPTIONS = {
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -50,14 +50,10 @@ class Pages:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
             Singleton instance of `control.auth.Auth`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         """
         self.Settings = Settings
         self.Viewers = Viewers
@@ -65,7 +61,6 @@ class Pages:
         Messages.debugAdd(self)
         self.Content = Content
         self.Auth = Auth
-        self.Users = Users
 
     def home(self):
         """The site-wide home page."""
@@ -190,7 +185,7 @@ class Pages:
 
         action = Auth.checkModifiable(projectId, editionId, action)
         back = self.backLink(projectId)
-        scenes = Content.getScenes(
+        sceneMaterial = Content.getScenes(
             projectId,
             editionId,
             sceneId=sceneId,
@@ -201,7 +196,7 @@ class Pages:
         left = (
             back
             + self.putTexts("dc", "title@4", projectId=projectId, editionId=editionId)
-            + scenes
+            + sceneMaterial
         )
         right = self.putTexts(
             "dc",
@@ -234,7 +229,6 @@ class Pages:
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
-
         editionId = sceneInfo.editionId
 
         urlBase = f"projects/{projectId}/editions/{editionId}/"
@@ -255,11 +249,18 @@ class Pages:
         path: string
             Path on the file system under the viewers base directory
             where the resource resides.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         """
         Content = self.Content
 
-        data = Content.getViewerFile(path)
-        return response(data)
+        dataPath = Content.getViewerFile(path)
+        return send(dataPath)
 
     def dataProjects(self, path, projectId, editionId=None):
         """Data content requested by viewers.
@@ -280,11 +281,18 @@ class Pages:
         editionId: ObjectId, optional None
             If not None, the name of an edition under which the resource
             is to be found.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         """
         Content = self.Content
 
-        data = Content.getData(path, projectId, editionId=editionId)
-        return response(data)
+        dataPath = Content.getData(path, projectId, editionId=editionId)
+        return send(dataPath)
 
     def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
@@ -302,12 +310,11 @@ class Pages:
         Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
-        Users = self.Users
 
-        userActive = Auth.user._id
+        userActive = Auth.whoami()._id
 
         navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else ""
+        testUsers = Auth.wrapTestUsers(userActive) if Settings.testMode else ""
 
         return template(
             "index",
@@ -353,9 +360,10 @@ class Pages:
             editionId=editionId,
         )
         if not permitted:
+            User = Auth.whoami()
             Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {Auth.user}"
-                f" on {projectId=} {editionId=} {path=}"
+                logmsg=f"WEBDAV unauthorised by user {User.name} ({User._id}"
+                f" on project {projectId} edition {editionId} path {path}"
             )
         return permitted
 

@@ -1,5 +1,3 @@
-from textwrap import dedent
-
 from control.generic import AttrDict
 from control.files import fileExists
 
@@ -150,8 +148,9 @@ class Content:
         if not permitted:
             return None
 
-        user = Auth.user
-        name = user.name
+        User = Auth.whoami()
+        name = User.name
+        userId = User._id
 
         title = "No title"
 
@@ -164,7 +163,7 @@ class Content:
         Mongo.insertItem(
             "projectUsers",
             projectId=projectId,
-            userId=user._id,
+            userId=userId,
             role="creator",
         )
         return projectId
@@ -277,7 +276,7 @@ class Content:
 
         permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
         if not permitted:
-            return []
+            return ""
 
         action = Auth.checkModifiable(projectId, editionId, action)
         actions = ["view"]
@@ -292,85 +291,39 @@ class Content:
             row = AttrDict(row)
 
             isSceneActive = sceneId is None and row.default or row._id == sceneId
-            (frame, buttons) = Viewers.getButtons(
-                row._id, actions, isSceneActive, viewer, version, action
-            )
+            titleText = f"""<span class="entrytitle">{row.name}</span>"""
 
-            sceneUrl = f"/scenes/{row._id}"
-            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
-            caption = self.getCaption(
-                row.name,
-                row.candy,
-                sceneUrl,
-                iconUrlBase,
-                active=isSceneActive,
-                frame=frame,
-                buttons=buttons,
-            )
+            if isSceneActive:
+                (frame, buttons) = Viewers.getFrame(
+                    row._id, actions, viewer, version, action
+                )
+                title = f"""<span class="entrytitle">{titleText}</span>"""
+                content = f"""{frame}{title}{buttons}"""
+                caption = self.wrapCaption(content, active=True)
+            else:
+                sceneUrl = f"/scenes/{row._id}"
+                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
+                caption = self.getCaption(titleText, row.candy, sceneUrl, iconUrlBase)
+
             wrapped.append(caption)
 
         return "\n".join(wrapped)
 
-    def getCaption(
-        self, title, candy, url, iconUrlBase, active=False, buttons=None, frame=None
-    ):
-        """Get a caption for a project, edition, or scene.
-
-        A caption consists of an icon, and a textual title, both with
-        a hyperlink to the full or active version of the item.
-
-        Parameters
-        ----------
-        title: string
-            The textual bit of the caption.
-        candy: dict
-            A dictionary of visual elements to chose from.
-            If one of the elements is called `icon`, that will be chosen.
-        url: string
-            The url to link to.
-        iconUrlBase: string
-            The url that almost points to the icon image file,
-            only the selected name from `candy` needs to be appended to it.
-        active: boolean, optional False
-            Whether the caption should be displayed as being *active*.
-        buttons: string, optional None
-            A set of buttons that should be displayed below the captions.
-            This applies to captions for *scenes*: there we want to display
-            buttons to open the scene in a variety of veiwers, versions and
-            modes.
-        frame: string, optional None
-            An iframe to display instead of the visual element of the caption.
-            This applies to scene captions, for the case where we want to show
-            the scene loaded in a viewer. That will be done in an iframe,
-            and this is the HTML for that iframe.
-
-        Returns
-        -------
-        string
-            The HTML representing the caption.
-        """
-        icon = self.getIcon(candy)
-
+    def wrapCaption(self, content, active=False):
         activeCls = "active" if active else ""
         start = f"""<div class="caption {activeCls}">"""
+        end = """</div>"""
+        return f"""{start}{content}{end}"""
+
+    def getCaption(self, titleText, candy, url, iconUrlBase):
+        icon = self.getIcon(candy)
+        title = f"""<span class="entrytitle">{titleText}</span>"""
+
         visual = (
             f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
         )
-        heading = (
-            dedent(
-                f"""
-                <a class="entry" href="{url}">
-                    {visual}
-                    <span class="entrytitle">{title}</span>
-                </a>
-                """
-            )
-            if frame is None
-            else frame
-        )
-        end = """</div>"""
-        caption = f"""{start}{heading}{buttons or ''}{end}"""
-        return caption
+        content = f"""<a class="entry" href="{url}">{visual}{title}</a>"""
+        return self.wrapCaption(content)
 
     def getIcon(self, candy):
         """Select an icon from a set of candidates.
@@ -412,7 +365,7 @@ class Content:
         Returns
         -------
         string
-            The contents of the viewer file, if it exists.
+            The full path to the viewer file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         """
         Settings = self.Settings
@@ -430,10 +383,7 @@ class Content:
                 logmsg=logmsg,
             )
 
-        with open(dataPath, "rb") as fh:
-            textData = fh.read()
-
-        return textData
+        return dataPath
 
     def getData(self, path, projectId, editionId=None):
         """Gets a data file from the file system.
@@ -455,7 +405,7 @@ class Content:
         Returns
         -------
         string
-            The contents of the data file, if it exists.
+            The full path of the data file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         """
         Settings = self.Settings
@@ -480,7 +430,7 @@ class Content:
         if not permitted or not fexists:
             logmsg = f"Accessing {dataPath}: "
             if not permitted:
-                logmsg = "not allowed. "
+                logmsg += "not allowed. "
             if not fexists:
                 logmsg += "does not exist. "
             Messages.error(
@@ -488,10 +438,7 @@ class Content:
                 logmsg=logmsg,
             )
 
-        with open(dataPath, "rb") as fh:
-            textData = fh.read()
-
-        return textData
+        return dataPath
 
     def getRecord(self, *args, **kwargs):
         """Get a record from MongoDb.
