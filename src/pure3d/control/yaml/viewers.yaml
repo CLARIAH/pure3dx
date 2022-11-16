@@ -3,3 +3,4 @@ voyager:
     view: "/data"
     edit: "/webdav"
   default: true
+  defaultVersion: "0.21.1p"

@@ -320,7 +320,10 @@ class Config:
             for versionName in versionNames:
                 versions.append(versionName)
 
+            viewerConfig.versions = versions
+
             default = viewerConfig.default
+            del viewerConfig["default"]
 
             if default:
                 if viewerDefault is not None:
@@ -332,7 +335,7 @@ class Config:
                     )
                 viewerDefault = viewerName
 
-            viewers[viewerName] = AttrDict(versions=versions, modes=viewerConfig.modes)
+            viewers[viewerName] = viewerConfig
         if viewerDefault is None:
             Messages.error(
                 logmsg=(

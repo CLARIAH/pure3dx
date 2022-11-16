@@ -52,17 +52,20 @@ class Viewers:
         tuple or boolean
             The viewer and version are returned unmodified if that viewer
             version is supported.
-            If the viewer is supported, but not the version, the latest
-            supported version of that viewer is taken.
+            If the viewer is supported, but not the version, the default version
+            of that viewer is taken, if there is a default version,
+            otherwise the latest supported version.
             If the viewer is not supported, the default viewer is taken.
             See the `fail` parameter above.
         """
         viewers = self.viewers
         if viewer not in viewers:
             viewer = self.viewerDefault
-        versions = viewers[viewer].versions
+        viewerInfo = viewers[viewer]
+        versions = viewerInfo.versions
+        defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
-            version = versions[-1]
+            version = defaultVersion if defaultVersion in versions else versions[-1]
         return (viewer, version)
 
     def getFrame(self, sceneId, actions, viewerActive, versionActive, actionActive):
