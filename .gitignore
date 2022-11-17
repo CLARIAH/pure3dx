@@ -70,10 +70,6 @@ exp_*
 # dotenv environment variables file
 .env
 
-# oidc secret
-**/client_secrets.json
-**/client_secrets_org.json
-
 # Environments
 .venv
 venv/
