@@ -9,7 +9,7 @@ def _json_loads(content):
 
 
 class AuthOidc:
-    OIDC_CLIENT_SECRETS = "/app/src/pure3d/control/client_secrets.json"
+    OIDC_CLIENT_SECRETS = "/app/src/pure3d/secret/client_secrets.json"
 
     @classmethod
     def load_secrets(cls):
