@@ -76,3 +76,6 @@ venv/
 
 # IDE related
 .idea
+
+# Secret
+**/secret/
