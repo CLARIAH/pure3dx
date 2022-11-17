@@ -29,6 +29,7 @@ class Users:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+
         self.__User = AttrDict()
         """Data of the current user.
 

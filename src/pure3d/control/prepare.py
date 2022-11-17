@@ -20,6 +20,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
+    * `control.fields.Fields`: factory for handling fields
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content

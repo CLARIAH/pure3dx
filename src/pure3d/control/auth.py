@@ -27,10 +27,6 @@ class Auth(Users):
             Singleton instance of `control.content.Content`.
         """
         super().__init__(Settings, Messages, Mongo)
-        self.Settings = Settings
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        self.Mongo = Mongo
         self.Content = Content
 
     def authorise(self, action, projectId=None, editionId=None):

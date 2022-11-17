@@ -1,5 +1,4 @@
 from textwrap import dedent
-from markdown import markdown
 
 from control.flask import redirectStatus, template, send
 
@@ -64,20 +63,20 @@ class Pages:
 
     def home(self):
         """The site-wide home page."""
-        left = self.putTexts("dc", "title@1 + description.abstract@2")
+        left = self.putValues("title@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
         """The site-wide about page."""
-        left = self.putTexts("dc", "title@1 + description.abstract@2")
-        right = self.putTexts("dc", "description.description@2 + provenance@2")
+        left = self.putValues("title@1 + abstract@2")
+        right = self.putValues("description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
         """The "surprise me!" page."""
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putTexts("dc", "title@1")
+        left = self.putValues("title@1")
         right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
@@ -85,7 +84,7 @@ class Pages:
         """The page with the list of projects."""
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putTexts("dc", "title@2") + projects
+        left = self.putValues("title@2") + projects
         insertButton = self.putButton(
             "+", "insert new project", "/projects/insert", "create"
         )
@@ -119,13 +118,9 @@ class Pages:
         """
         Content = self.Content
         editions = Content.getEditions(projectId)
-        left = (
-            self.putTexts("dc", "title@3 + creator@4", projectId=projectId) + editions
-        )
-        right = self.putTexts(
-            "dc",
-            "description.abstract@4 + description.description@4 + "
-            "provenance@4 + instructionalMethod@4",
+        left = self.putValues("title@3 + creator@4", projectId=projectId) + editions
+        right = self.putValues(
+            "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
             projectId=projectId,
         )
         return self.page("projects", left=left, right=right)
@@ -195,13 +190,11 @@ class Pages:
         )
         left = (
             back
-            + self.putTexts("dc", "title@4", projectId=projectId, editionId=editionId)
+            + self.putValues("title@4", projectId=projectId, editionId=editionId)
             + sceneMaterial
         )
-        right = self.putTexts(
-            "dc",
-            "description.abstract@5 + description.description@5 + "
-            "provenance@5 + instructionalMethod@5",
+        right = self.putValues(
+            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
             projectId=projectId,
             editionId=editionId,
         )
@@ -431,61 +424,8 @@ class Pages:
         text = """back to the project page"""
         return f"""<p><a {cls} {href}>{text}</a></p>"""
 
-    def putText(self, nameSpace, fieldPath, level=None, projectId=None, editionId=None):
-        """Puts a piece of metadata on the web page.
-
-        The meta data is retrieved and then wrapped accordingly.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The namespace of the metadata, e.g. `dc` (Dublin Core)
-        fieldPath: string
-            `.`-separated list of fields into a metadata structure.
-        level: integer 1-6, optional None
-            The heading level in which the text must be wrapped.
-            The heading is determined from the `fieldPath`, by looking it up
-            in the `CAPTIONS` mapping.
-            It is also possible to render the *contents* of the field as a heading,
-            this happens when the caption contains a `{}`.
-            If the level is None, no heading will be produced.
-        projectId: ObjectId or None
-            The project in question
-        editionId: ObjectId or None
-            The edition in question
-
-        Returns
-        -------
-        string
-            The HTML of the formatted text.
-        """
-        Content = self.Content
-
-        heading = None
-        content = Content.getMeta(
-            nameSpace, fieldPath, projectId=projectId, editionId=editionId
-        )
-
-        if level is not None:
-            heading = CAPTIONS.get(fieldPath, None)
-
-            if heading is not None:
-                if "{}" in heading:
-                    heading = heading.format(content)
-                    content = None
-
-                heading = f"""<h{level}>{markdown(heading)}</h{level}>\n"""
-
-        content = "" if content is None else markdown(content)
-
-        return heading + content
-
-    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+    def putValues(self, fieldSpecs, projectId=None, editionId=None):
         """Puts several pieces of metadata on the web page.
-
-        See `Pages.putText()` for the parameter specifications.
-
-        Differences: all texts will be displayed with headings. And:
 
         Parameters
         ----------
@@ -495,18 +435,18 @@ class Pages:
         Returns
         -------
         string
-            The join of the individual results of `Pages.putText`.
+            The join of the individual results of retrieving metadata value.
         """
+        Content = self.Content
 
         return "\n".join(
-            self.putText(
-                nameSpace,
-                fieldPath,
-                level=level,
+            Content.getValue(
+                key,
                 projectId=projectId,
                 editionId=editionId,
+                level=level,
             )
-            for (fieldPath, level) in (
+            for (key, level) in (
                 fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
             )
         )
