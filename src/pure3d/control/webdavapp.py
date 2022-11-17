@@ -1,12 +1,8 @@
-import os
-
 from wsgidav.wsgidav_app import WsgiDAVApp
 
 from control.prepare import prepare
 from control.app import appFactory as appFactoryMain
 
-
-BASE = os.path.dirname(os.path.dirname(__file__))
 
 WEBDAV_METHODS = dict(
     HEAD="view",

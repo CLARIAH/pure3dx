@@ -1,7 +1,8 @@
 from textwrap import dedent
-from flask import render_template, make_response
-from control.mongo import castObjectId
 from markdown import markdown
+
+from control.flask import redirectStatus, template, send
+
 
 TABS = (
     ("home", "Home", True),
@@ -13,16 +14,17 @@ TABS = (
 )
 
 CAPTIONS = {
-    "title": ("{}", True),
-    "description.abstract": ("Intro", True),
-    "description.description": ("Description", True),
-    "provenance": ("About", True),
-    "instructionalMethod": ("How to use", True),
+    "title": "{}",
+    "creator": "by {}",
+    "description.abstract": "Intro",
+    "description.description": "Description",
+    "provenance": "About",
+    "instructionalMethod": "How to use",
 }
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -48,14 +50,10 @@ class Pages:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
             Singleton instance of `control.auth.Auth`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         """
         self.Settings = Settings
         self.Viewers = Viewers
@@ -63,7 +61,6 @@ class Pages:
         Messages.debugAdd(self)
         self.Content = Content
         self.Auth = Auth
-        self.Users = Users
 
     def home(self):
         """The site-wide home page."""
@@ -89,7 +86,28 @@ class Pages:
         Content = self.Content
         projects = Content.getProjects()
         left = self.putTexts("dc", "title@2") + projects
-        return self.page("projects", left=left)
+        insertButton = self.putButton(
+            "+", "insert new project", "/projects/insert", "create"
+        )
+        return self.page("projects", left=left, right=insertButton)
+
+    def projectInsert(self):
+        """Inserts a project and shows the new project."""
+        Messages = self.Messages
+        Content = self.Content
+        projectId = Content.insertProject()
+        if projectId is None:
+            Messages.warning(
+                logmsg="Could not create new project",
+                msg="failed to create new project",
+            )
+            newUrl = "/projects"
+        else:
+            Messages.info(
+                logmsg=f"Created project {projectId}", msg="new project created"
+            )
+            newUrl = f"/projects/{projectId}"
+        return redirectStatus(newUrl, projectId is not None)
 
     def project(self, projectId):
         """The landing page of a project.
@@ -100,16 +118,17 @@ class Pages:
             The project in question.
         """
         Content = self.Content
-        projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
-        left = self.putTexts("dc", "title@3", projectId=projectId) + editions
+        left = (
+            self.putTexts("dc", "title@3 + creator@4", projectId=projectId) + editions
+        )
         right = self.putTexts(
             "dc",
             "description.abstract@4 + description.description@4 + "
             "provenance@4 + instructionalMethod@4",
             projectId=projectId,
         )
-        return self.page("projects", left=left, right=right, projectId=projectId)
+        return self.page("projects", left=left, right=right)
 
     def edition(self, editionId):
         """The landing page of an edition.
@@ -125,7 +144,6 @@ class Pages:
             From the edition record we can find the project too.
         """
         Content = self.Content
-        editionId = castObjectId(editionId)
         editionInfo = Content.getRecord("editions", _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
@@ -152,7 +170,6 @@ class Pages:
             The mode in which the viewer is to be used (`view` or `edit`).
         """
         Content = self.Content
-        sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord("scenes", _id=sceneId)
         projectId = sceneInfo.projectId
         editionId = sceneInfo.editionId
@@ -168,7 +185,7 @@ class Pages:
 
         action = Auth.checkModifiable(projectId, editionId, action)
         back = self.backLink(projectId)
-        scenes = Content.getScenes(
+        sceneMaterial = Content.getScenes(
             projectId,
             editionId,
             sceneId=sceneId,
@@ -179,7 +196,7 @@ class Pages:
         left = (
             back
             + self.putTexts("dc", "title@4", projectId=projectId, editionId=editionId)
-            + scenes
+            + sceneMaterial
         )
         right = self.putTexts(
             "dc",
@@ -188,13 +205,7 @@ class Pages:
             projectId=projectId,
             editionId=editionId,
         )
-        return self.page(
-            "projects",
-            left=left,
-            right=right,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        return self.page("projects", left=left, right=right)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
@@ -214,22 +225,18 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneId = castObjectId(sceneId)
         sceneInfo = Content.getRecord("scenes", _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
-        projectName = Content.getRecord("projects", _id=projectId).name
-
         editionId = sceneInfo.editionId
-        editionName = Content.getRecord("editions", _id=editionId).name
 
-        urlBase = f"projects/{projectName}/editions/{editionName}/"
+        urlBase = f"projects/{projectId}/editions/{editionId}/"
 
         action = Auth.checkModifiable(projectId, editionId, action)
 
         viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
-        return render_template("viewer.html", viewerCode=viewerCode)
+        return template("viewer", viewerCode=viewerCode)
 
     def viewerResource(self, path):
         """Components requested by viewers.
@@ -242,13 +249,20 @@ class Pages:
         path: string
             Path on the file system under the viewers base directory
             where the resource resides.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         """
         Content = self.Content
 
-        data = Content.getViewerFile(path)
-        return make_response(data)
+        dataPath = Content.getViewerFile(path)
+        return send(dataPath)
 
-    def dataProjects(self, projectName, editionName, path):
+    def dataProjects(self, path, projectId, editionId=None):
         """Data content requested by viewers.
 
         This is the material belonging to the scene,
@@ -258,31 +272,29 @@ class Pages:
 
         Parameters
         ----------
-        projectName: string or None
-            If not None, the name of a project under which the resource
-            is to be found.
-        editionName: string or None
-            If not None, the name of an edition under which the resource
-            is to be found.
         path: string
             Path on the file system under the data directory
             where the resource resides.
-            If there is a project and or edition given,
-            the path is relative to those.
+            The path is relative to the project, and, if given, the edition.
+        projectId: ObjectId
+            The id of a project under which the resource is to be found.
+        editionId: ObjectId, optional None
+            If not None, the name of an edition under which the resource
+            is to be found.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         """
         Content = self.Content
 
-        data = Content.getData(path, projectName=projectName, editionName=editionName)
-        return make_response(data)
+        dataPath = Content.getData(path, projectId, editionId=editionId)
+        return send(dataPath)
 
-    def page(
-        self,
-        url,
-        projectId=None,
-        editionId=None,
-        left="",
-        right="",
-    ):
+    def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
 
         Parameters
@@ -290,38 +302,31 @@ class Pages:
         url: string
             Initial part of the url that triggered the page function.
             This part is used to make one of the tabs on the web page active.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Maybe needed for back links to the project.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Maybe needed for back links to the edition.
-        left: string, optional ""
+        left: string, optional None
             Content for the left column of the page.
-        right: string, optional ""
+        right: string, optional None
             Content for the right column of the page.
         """
         Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
-        Users = self.Users
 
-        userActive = Auth.user._id
+        userActive = Auth.whoami()._id
 
         navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else ""
+        testUsers = Auth.wrapTestUsers(userActive) if Settings.testMode else ""
 
-        return render_template(
-            "index.html",
+        return template(
+            "index",
             versionInfo=Settings.versionInfo,
             navigation=navigation,
-            materialLeft=left,
-            materialRight=right,
+            materialLeft=left or "",
+            materialRight=right or "",
             messages=Messages.generateMessages(),
             testUsers=testUsers,
         )
 
-    def authWebdav(self, projectName, editionName, path, action):
+    def authWebdav(self, projectId, editionId, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -331,9 +336,9 @@ class Pages:
 
         Parameters
         ----------
-        projectName: string
+        projectId: ObjectId
             The project in question.
-        editionName: string
+        editionId: ObjectId
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -351,14 +356,14 @@ class Pages:
 
         permitted = Auth.authorise(
             action,
-            project=projectName,
-            edition=editionName,
-            byName=True,
+            projectId=projectId,
+            editionId=editionId,
         )
         if not permitted:
+            User = Auth.whoami()
             Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {Auth.user}"
-                f" on {projectName=} {editionName=} {path=}"
+                logmsg=f"WEBDAV unauthorised by user {User.name} ({User._id}"
+                f" on project {projectId} edition {editionId} path {path}"
             )
         return permitted
 
@@ -426,7 +431,7 @@ class Pages:
         text = """back to the project page"""
         return f"""<p><a {cls} {href}>{text}</a></p>"""
 
-    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
+    def putText(self, nameSpace, fieldPath, level=None, projectId=None, editionId=None):
         """Puts a piece of metadata on the web page.
 
         The meta data is retrieved and then wrapped accordingly.
@@ -437,8 +442,13 @@ class Pages:
             The namespace of the metadata, e.g. `dc` (Dublin Core)
         fieldPath: string
             `.`-separated list of fields into a metadata structure.
-        level: integer 1-6
+        level: integer 1-6, optional None
             The heading level in which the text must be wrapped.
+            The heading is determined from the `fieldPath`, by looking it up
+            in the `CAPTIONS` mapping.
+            It is also possible to render the *contents* of the field as a heading,
+            this happens when the caption contains a `{}`.
+            If the level is None, no heading will be produced.
         projectId: ObjectId or None
             The project in question
         editionId: ObjectId or None
@@ -451,34 +461,31 @@ class Pages:
         """
         Content = self.Content
 
+        heading = None
         content = Content.getMeta(
             nameSpace, fieldPath, projectId=projectId, editionId=editionId
         )
-        info = CAPTIONS.get(fieldPath, None)
 
-        if info is None:
-            return content
+        if level is not None:
+            heading = CAPTIONS.get(fieldPath, None)
 
-        (heading, asMd) = info
-        skip = "{}" in heading
+            if heading is not None:
+                if "{}" in heading:
+                    heading = heading.format(content)
+                    content = None
 
-        if asMd:
-            heading = markdown(heading)
-            content = markdown(content)
+                heading = f"""<h{level}>{markdown(heading)}</h{level}>\n"""
 
-        return dedent(
-            f"""
-            <h{level}>{heading.format(content)}</h{level}>
-            {"" if skip else content}
-            """
-        )
+        content = "" if content is None else markdown(content)
+
+        return heading + content
 
     def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
-        """Puts a several pieces of metadata on the web page.
+        """Puts several pieces of metadata on the web page.
 
         See `Pages.putText()` for the parameter specifications.
 
-        One difference:
+        Differences: all texts will be displayed with headings. And:
 
         Parameters
         ----------
@@ -490,12 +497,56 @@ class Pages:
         string
             The join of the individual results of `Pages.putText`.
         """
+
         return "\n".join(
             self.putText(
                 nameSpace,
-                *fieldSpec.strip().split("@", 1),
+                fieldPath,
+                level=level,
                 projectId=projectId,
                 editionId=editionId,
             )
-            for fieldSpec in fieldSpecs.split("+")
+            for (fieldPath, level) in (
+                fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
+            )
+        )
+
+    def putButton(self, text, tip, url, action, projectId=None, editionId=None):
+        """Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        Parameters
+        ----------
+        text: string
+            the text on the button
+        tip: string
+            the tooltip for the button
+        url: string
+            the url to go to if the button is pressed
+        action: string
+            the type of action that will be performed if the button triggered.
+            This is only needed to determine whether the button should be placed.
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        """
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            action,
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return (
+            f"""
+            <a title="{tip}" href="{url}" class="button large">{text}</a>
+        """
+            if permitted
+            else ""
         )

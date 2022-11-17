@@ -4,12 +4,11 @@ from control.mongo import Mongo as MongoCls
 from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
 from control.content import Content as ContentCls
-from control.users import Users as UsersCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
+from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
-from control.helpers.generic import AttrDict
 
 
 def prepare(webdavMethods=None, trivial=False, flask=True):
@@ -22,7 +21,6 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.users.Users`: manage the user data that the app needs
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -74,7 +72,6 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Mongo = None
         Collect = None
         Viewers = None
-        Users = None
         Content = None
         Auth = None
         EditSessions = None
@@ -89,18 +86,17 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Collect = CollectCls(Settings, Messages, Mongo)
         Collect.fetch()
 
-        Viewers = ViewersCls(Settings)
+        Viewers = ViewersCls(Settings, Messages)
 
-        Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
-        Auth = AuthCls(Settings, Messages, Mongo, Users, Content)
+        Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth, Users)
+        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
 
     return AttrDict(
         Settings=Settings,
@@ -108,7 +104,6 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
-        Users=Users,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,

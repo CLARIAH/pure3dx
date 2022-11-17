@@ -1,4 +1,4 @@
-from flask import Flask, redirect, abort, request
+from control.flask import make, redirectStatus, stop, method
 
 
 def appFactory(objects):
@@ -33,14 +33,16 @@ def appFactory(objects):
 
     Settings = objects.Settings
     Messages = objects.Messages
+    Mongo = objects.Mongo
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = Flask(__name__, static_folder="../static")
+    app = make(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
+    Auth.identify()
     oidcauth = AuthOidc.prepare(app)
 
     @app.route("/loginoidc")
@@ -48,12 +50,12 @@ def appFactory(objects):
         if oidcauth.user_loggedin:
             return (f"Hello, {oidcauth.user_getfield('nickname')}\nwith email {oidcauth.user_getfield('email')}\nand sub {oidcauth.user_getfield('sub')}")
         else:
-            return redirect("/private")
+            return redirectStatus("/private", True)
 
     @app.route("/private")
     @oidcauth.require_login
     def noaccessprivate():
-        return redirect("/loginoidc")
+        return redirectStatus("/loginoidc", True)
 
     def redirectResult(url, good):
         code = 302 if good else 303
@@ -63,16 +65,13 @@ def appFactory(objects):
 
     @app.route("/login")
     def login():
-        if Auth.authenticate(login=True):
-            good = True
-        else:
-            good = False
-        return redirectResult("/", good)
+        good = Auth.login()
+        return redirectStatus("/", good)
 
     @app.route("/logout")
     def logout():
-        Auth.deauthenticate()
-        return redirectResult("/", True)
+        Auth.logout()
+        return redirectStatus("/", True)
 
     @app.route("/")
     @app.route("/home")
@@ -91,82 +90,90 @@ def appFactory(objects):
     def projects():
         return Pages.projects()
 
+    @app.route("/projects/insert")
+    def projectInsert():
+        return Pages.projectInsert()
+
     @app.route("/projects/<string:projectId>")
     def project(projectId):
-        return Pages.project(projectId)
+        return Pages.project(Mongo.cast(projectId))
 
     @app.route("/editions/<string:editionId>")
     def edition(editionId):
-        return Pages.edition(editionId)
+        return Pages.edition(Mongo.cast(editionId))
 
     @app.route(
         "/scenes/<string:sceneId>",
-        defaults=dict(viewer="", version="", action=""),
+        defaults=dict(viewer=None, version=None, action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>",
-        defaults=dict(version="", action=""),
+        defaults=dict(version=None, action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>",
-        defaults=dict(action=""),
+        defaults=dict(action=None),
     )
     @app.route(
         "/scenes/<string:sceneId>/<string:viewer>/<string:version>/<string:action>",
     )
     def scene(sceneId, viewer, version, action):
-        return Pages.scene(sceneId, viewer, version, action)
+        return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route(
         "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
     )
     def viewerFrame(sceneId, viewer, version, action):
-        return Pages.viewerFrame(sceneId, viewer, version, action)
+        return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
         return Pages.viewerResource(path)
 
     @app.route(
-        "/data/projects/<string:projectName>/",
-        defaults=dict(editionName="", path=""),
+        "/data/projects/<string:projectId>/",
+        defaults=dict(editionId=None, path=None),
     )
     @app.route(
-        "/data/projects/<string:projectName>/<path:path>",
-        defaults=dict(editionName=""),
+        "/data/projects/<string:projectId>/editions/<string:editionId>/",
+        defaults=dict(path=None),
     )
     @app.route(
-        "/data/projects/<string:projectName>/editions/<string:editionName>/",
-        defaults=dict(path=""),
+        "/data/projects/<string:projectId>/editions/<string:editionId>/<path:path>",
     )
     @app.route(
-        "/data/projects/<string:projectName>/editions/<string:editionName>/<path:path>",
+        "/data/projects/<string:projectId>/<path:path>",
+        defaults=dict(editionId=None),
     )
-    def dataProjects(projectName, editionName, path):
-        return Pages.dataProjects(projectName, editionName, path)
+    def dataProjects(projectId, editionId, path):
+        return Pages.dataProjects(
+            path, Mongo.cast(projectId), editionId=Mongo.cast(editionId)
+        )
 
     @app.route(
-        "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/",
-        defaults=dict(path=""),
+        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",
+        defaults=dict(path=None),
         methods=tuple(webdavMethods),
     )
     @app.route(
-        "/auth/webdav/projects/<string:projectName>/editions/<string:editionName>/"
+        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/"
         "<path:path>",
         methods=tuple(webdavMethods),
     )
-    def authWebdav(projectName, editionName, path):
-        action = webdavMethods[request.method]
-        return Pages.authWebdav(projectName, editionName, path, action)
+    def authWebdav(projectId, editionId, path):
+        action = webdavMethods[method()]
+        return Pages.authWebdav(
+            Mongo.cast(projectId), Mongo.cast(editionId), path, action
+        )
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
-        Messages.info(logmsg=f"Invalid webdav access {path=}")
+        Messages.info(logmsg=f"Invalid webdav access: {path}")
         return False
 
     @app.route("/no/webdav/<path:path>")
     def nowebdav(path):
-        Messages.info(logmsg=f"Unauthorized webdav access {path=}")
-        abort(404)
+        Messages.info(logmsg=f"Unauthorized webdav access: {path}")
+        stop()
 
     return app

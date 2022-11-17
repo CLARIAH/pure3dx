@@ -1,31 +1,37 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
-from control.helpers.generic import AttrDict
-
-
-def castObjectId(value):
-    """Try to cast the value as an ObjectId.
-    Paramaters
-    ----------
-    value:string
-        The value to cast, normally a string representation of a BSON ObjectId.
-
-    Returns
-    -------
-    ObjectId | None
-        The corresponding BSON ObjectId if the input is a valid representation of
-        such an id, otherwise `None`.
-    """
-
-    try:
-        oValue = ObjectId(value)
-    except Exception:
-        oValue = None
-    return oValue
+from control.generic import AttrDict
 
 
 class Mongo:
+    @staticmethod
+    def cast(value):
+        """Try to cast the value as an ObjectId.
+        Paramaters
+        ----------
+        value:string
+            The value to cast, normally a string representation of a BSON ObjectId.
+
+        Returns
+        -------
+        ObjectId | None
+            The corresponding BSON ObjectId if the input is a valid representation of
+            such an id, otherwise `None`.
+        """
+
+        if value is None:
+            return None
+
+        if isinstance(value, ObjectId):
+            return value
+
+        try:
+            oValue = ObjectId(value)
+        except Exception:
+            oValue = None
+        return oValue
+
     def __init__(self, Settings, Messages):
         """CRUD interface to content in the MongoDb database.
 
@@ -33,6 +39,16 @@ class Mongo:
         to query its data, to insert, update and delete data.
 
         It is instantiated by a singleton object.
+
+        !!! note "string versus ObjectId"
+            Some functions execute MongoDb statements, based on parameters
+            whose values are MongoDb identifiers.
+            These should be objects in the class `bson.objectid.ObjectId`.
+            However, in many cases these ids enter the app as strings.
+
+            In this module, such strings will be cast to proper ObjectIds,
+            provided they are recognizable as values in a field whose name is
+            `_id` or ends with `Id`.
 
         Parameters
         ----------
@@ -82,8 +98,7 @@ class Mongo:
             self.mongo = mongo
 
     def disconnect(self):
-        """Disconnect from the MongoDB.
-        """
+        """Disconnect from the MongoDB."""
         client = self.client
 
         if client:
@@ -129,13 +144,15 @@ class Mongo:
                     logmsg=f"Cannot clear collection: `{table}`: {e}",
                 )
 
-    def getRecord(self, table, **criteria):
+    def getRecord(self, table, warn=True, **criteria):
         """Get a single document from a collection.
 
         Parameters
         ----------
         table: string
             The name of the collection from which we want to retrieve a single record.
+        warn: boolean, optional True
+            If True, warn if there is no record satisfying the criteria.
         criteria: dict
             A set of criteria to narrow down the search.
             Usually they will be such that there will be just one document
@@ -150,12 +167,33 @@ class Mongo:
             or an empty `control.helpers.generic.AttrDict` if no document
             satisfies the criteria.
         """
+
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
-            Messages = self.Messages
-            Messages.warning(logmsg=f"No record in {table} with {criteria}")
+            if warn:
+                Messages = self.Messages
+                Messages.warning(logmsg=f"No record in {table} with {criteria}")
             result = {}
         return AttrDict(result)
+
+    def insertItem(self, table, **fields):
+        """Inserts a new record in a table.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record will be inserted.
+        **fields: dict
+            The field names and their contents to populate the new record with.
+
+        Returns
+        -------
+        ObjectId
+            The id of the newly inserted record, or None if the record could not be
+            inserted.
+        """
+        result = self.execute(table, "insert_one", dict(**fields))
+        return result.inserted_id if result else None
 
     def execute(self, table, command, *args, **kwargs):
         """Executes a MongoDb command and returns the result.

@@ -1,7 +1,5 @@
-from markdown import markdown
-
-from control.helpers.files import fileExists
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
+from control.files import fileExists
 
 
 COMPONENT = dict(
@@ -54,7 +52,7 @@ class Content:
         """
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
+    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None):
         """Retrieve a metadata string.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -74,9 +72,6 @@ class Content:
         editionId: ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
-        asMd: boolean, optional False
-            If True, and the resulting metadata is a string, we assume that it is
-            a markdown string, and we convert it to HTML.
 
         Returns
         -------
@@ -94,7 +89,7 @@ class Content:
             if editionId is not None
             else Mongo.getRecord("projects", _id=projectId)
             if projectId is not None
-            else Mongo.getRecord("meta")
+            else Mongo.getRecord("meta", name="project")
         ).meta or {}
         text = meta.get(nameSpace, {}).get(fields[0], "" if len(fields) == 0 else {})
 
@@ -102,7 +97,7 @@ class Content:
             text = text.get(field, {})
         if type(text) is not str:
             text = ""
-        return markdown(text) if asMd else text
+        return text
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -131,7 +126,7 @@ class Content:
         for row in Mongo.execute("projects", "find"):
             row = AttrDict(row)
             projectId = row._id
-            permitted = Auth.authorise("view", project=projectId)
+            permitted = Auth.authorise("view", projectId=projectId)
             if not permitted:
                 continue
 
@@ -139,12 +134,39 @@ class Content:
             candy = row.candy
 
             projectUrl = f"/projects/{projectId}"
-            projectName = row.name
-            iconUrlBase = f"/data/projects/{projectName}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/candy"
             caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
             wrapped.append(caption)
 
         return "\n".join(wrapped)
+
+    def insertProject(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise("create")
+        if not permitted:
+            return None
+
+        User = Auth.whoami()
+        name = User.name
+        userId = User._id
+
+        title = "No title"
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract="No intro", description="No description"),
+            creator=name,
+        )
+        projectId = Mongo.insertItem("projects", title=title, meta=dict(dc=dcMeta))
+        Mongo.insertItem(
+            "projectUsers",
+            projectId=projectId,
+            userId=userId,
+            role="creator",
+        )
+        return projectId
 
     def getEditions(self, projectId):
         """Get the list of the editions of a project.
@@ -169,15 +191,12 @@ class Content:
         Mongo = self.Mongo
         Auth = self.Auth
 
-        projectInfo = Mongo.getRecord("projects", _id=projectId)
-        projectName = projectInfo.name
-
         wrapped = []
 
         for row in Mongo.execute("editions", "find", dict(projectId=projectId)):
             row = AttrDict(row)
             editionId = row._id
-            permitted = Auth.authorise("view", project=projectId, edition=editionId)
+            permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
             if not permitted:
                 continue
 
@@ -185,8 +204,7 @@ class Content:
             candy = row.candy
 
             editionUrl = f"/editions/{editionId}"
-            editionName = row.name
-            iconUrlBase = f"/data/projects/{projectName}/editions/{editionName}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
             caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
             wrapped.append(caption)
 
@@ -197,9 +215,9 @@ class Content:
         projectId,
         editionId,
         sceneId=None,
-        viewer="",
-        version="",
-        action="view",
+        viewer=None,
+        version=None,
+        action=None,
     ):
         """Get the list of the scenes of an edition of a project.
 
@@ -228,12 +246,12 @@ class Content:
             The active scene. If None the default scene is chosen.
             A scene record specifies whether that scene is the default scene for
             that edition.
-        viewer: string, optional ""
+        viewer: string, optional None
             The viewer to be used for the 3D viewing. It should be a supported viewer.
-            If "", the default viewer is chosen.
+            If None, the default viewer is chosen.
             The list of those viewers is in the `yaml/viewers.yml` file,
             which also specifies what the default viewer is.
-        version: string, optional ""
+        version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
@@ -254,16 +272,11 @@ class Content:
         Auth = self.Auth
         Viewers = self.Viewers
 
-        projectInfo = Mongo.getRecord("projects", _id=projectId)
-        projectName = projectInfo.name
-        editionInfo = Mongo.getRecord("editions", _id=editionId)
-        editionName = editionInfo.name
-
         wrapped = []
 
-        permitted = Auth.authorise("view", project=projectId, edition=editionId)
+        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
         if not permitted:
-            return []
+            return ""
 
         action = Auth.checkModifiable(projectId, editionId, action)
         actions = ["view"]
@@ -278,78 +291,39 @@ class Content:
             row = AttrDict(row)
 
             isSceneActive = sceneId is None and row.default or row._id == sceneId
-            (frame, buttons) = Viewers.getButtons(
-                row._id, actions, isSceneActive, viewer, version, action
-            )
+            titleText = f"""<span class="entrytitle">{row.name}</span>"""
 
-            sceneUrl = f"/scenes/{row._id}"
-            iconUrlBase = f"/data/projects/{projectName}/editions/{editionName}/candy"
-            caption = self.getCaption(
-                row.name,
-                row.candy,
-                sceneUrl,
-                iconUrlBase,
-                active=isSceneActive,
-                frame=frame,
-                buttons=buttons,
-            )
+            if isSceneActive:
+                (frame, buttons) = Viewers.getFrame(
+                    row._id, actions, viewer, version, action
+                )
+                title = f"""<span class="entrytitle">{titleText}</span>"""
+                content = f"""{frame}{title}{buttons}"""
+                caption = self.wrapCaption(content, active=True)
+            else:
+                sceneUrl = f"/scenes/{row._id}"
+                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
+                caption = self.getCaption(titleText, row.candy, sceneUrl, iconUrlBase)
+
             wrapped.append(caption)
 
         return "\n".join(wrapped)
 
-    def getCaption(
-        self, title, candy, url, iconUrlBase, active=False, buttons="", frame=""
-    ):
-        """Get a caption for a project, edition, or scene.
-
-        A caption consists of an icon, and a textual title, both with
-        a hyperlink to the full or active version of the item.
-
-        Parameters
-        ----------
-        title: string
-            The textual bit of the caption.
-        candy: dict
-            A dictionary of visual elements to chose from.
-            If one of the elements is called `icon`, that will be chosen.
-        url: string
-            The url to link to.
-        iconUrlBase: string
-            The url that almost points to the icon image file,
-            only the selected name from `candy` needs to be appended to it.
-        active: boolean, optional False
-            Whether the caption should be displayed as being *active*.
-        buttons: string, optional ""
-            A set of buttons that should be displayed below the captions.
-            This applies to captions for *scenes*: there we want to display
-            buttons to open the scene in a variety of veiwers, versions and
-            modes.
-        frame: string, optional ""
-            An iframe to display instead of the visual element of the caption.
-            This applies to scene captions, for the case where we want to show
-            the scene loaded in a viewer. That will be done in an iframe,
-            and this is the HTML for that iframe.
-
-        Returns
-        -------
-        string
-            The HTML representing the caption.
-        """
-        icon = self.getIcon(candy)
-
+    def wrapCaption(self, content, active=False):
         activeCls = "active" if active else ""
         start = f"""<div class="caption {activeCls}">"""
+        end = """</div>"""
+        return f"""{start}{content}{end}"""
+
+    def getCaption(self, titleText, candy, url, iconUrlBase):
+        icon = self.getIcon(candy)
+        title = f"""<span class="entrytitle">{titleText}</span>"""
+
         visual = (
             f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
         )
-        heading = (
-            f"""{frame}<a href="{url}">{title}</a>"""
-            if frame
-            else f"""<a href="{url}">{visual}{title}</a>"""
-        )
-        end = """</div>"""
-        caption = f"""{start}{heading}{buttons}{end}"""
-        return caption
+        content = f"""<a class="entry" href="{url}">{visual}{title}</a>"""
+        return self.wrapCaption(content)
 
     def getIcon(self, candy):
         """Select an icon from a set of candidates.
@@ -391,7 +365,7 @@ class Content:
         Returns
         -------
         string
-            The contents of the viewer file, if it exists.
+            The full path to the viewer file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         """
         Settings = self.Settings
@@ -409,36 +383,29 @@ class Content:
                 logmsg=logmsg,
             )
 
-        with open(dataPath, "rb") as fh:
-            textData = fh.read()
+        return dataPath
 
-        return textData
-
-    def getData(self, path, projectName="", editionName=""):
+    def getData(self, path, projectId, editionId=None):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
         This is the data directory.
         Below that the files are organized by projects and editions.
 
-        At least one of the parameters `projectName` and `editionName`
-        should be present. And if `editionName` is present,
-        `projectName` should also be present.
-
         Parameters
         ----------
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectName: string, optional ""
-            The name of the project in question.
-        editionName: string, optional ""
-            The name of the edition in question.
+        projectId: ObjectId
+            The id of the project in question.
+        editionId: ObjectId, optional None
+            The id of the edition in question.
 
         Returns
         -------
         string
-            The contents of the data file, if it exists.
+            The full path of the data file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         """
         Settings = self.Settings
@@ -447,35 +414,23 @@ class Content:
 
         dataDir = Settings.dataDir
 
-        if (
-            projectName == ""
-            and editionName == ""
-            or projectName == ""
-            and editionName != ""
-        ):
-            logmsg = "no project/edition specified"
-            Messages.error(
-                msg="Accessing a file",
-                logmsg=logmsg,
-            )
-
         urlBase = (
-            f"projects/{projectName}"
-            if editionName == ""
-            else f"projects/{projectName}/editions/{editionName}"
+            f"projects/{projectId}"
+            if editionId is None
+            else f"projects/{projectId}/editions/{editionId}"
         )
 
-        dataPath = f"{dataDir}/{urlBase}/{path}"
-
-        permitted = Auth.authorise(
-            "view", project=projectName, edition=editionName, byName=True
+        dataPath = (
+            f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
         )
+
+        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
             logmsg = f"Accessing {dataPath}: "
             if not permitted:
-                logmsg = "not allowed. "
+                logmsg += "not allowed. "
             if not fexists:
                 logmsg += "does not exist. "
             Messages.error(
@@ -483,15 +438,12 @@ class Content:
                 logmsg=logmsg,
             )
 
-        with open(dataPath, "rb") as fh:
-            textData = fh.read()
-
-        return textData
+        return dataPath
 
     def getRecord(self, *args, **kwargs):
         """Get a record from MongoDb.
 
-        This is just a trivial wrapper around a method with the same
+        This is just a rather trivial wrapper around a method with the same
         name `control.mongo.Mongo.getRecord`.
 
         We have this for reasons of abstraction:

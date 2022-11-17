@@ -1,7 +1,7 @@
 import sys
-from flask import abort
+from control.flask import stop
 
-from control.helpers.generic import htmlEsc
+from control.generic import htmlEsc
 
 
 class Messages:
@@ -51,16 +51,16 @@ class Messages:
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
 
-        The result of this method is that nstead of saying
+        The result of this method is that instead of saying
 
         ```
-        self.Messages.debug(logmsg="blabla")
+        self.Messages.debug (logmsg="blabla")
         ```
 
         you can say
 
         ```
-        self.debug("blabla")
+        self.debug ("blabla")
         ```
 
         It is recommended that in each object where you store a handle
@@ -70,8 +70,10 @@ class Messages:
         Messages.addDebug(self)
         ```
         """
+
         def dbg(m):
             self.debug(logmsg=m)
+
         setattr(dest, "debug", dbg)
 
     def debug(self, msg=None, logmsg=None):
@@ -169,11 +171,10 @@ class Messages:
                 stream.flush()
 
             if tp == "error" and self.flask:
-                abort(404)
+                stop()
 
     def clearMessages(self):
-        """Clears the accumulated messages.
-        """
+        """Clears the accumulated messages."""
         self.messages.clear()
 
     def generateMessages(self):
@@ -186,7 +187,9 @@ class Messages:
         html = ["""<div class="messages">"""]
 
         for (tp, msg) in self.messages:
-            html.append(f"""<div class="msgitem {tp}">{htmlEsc(msg)}</div>""")
+            cls = "info" if tp == "plain" else tp
+            label = "" if tp == "plain" else f"{tp.upper()}: "
+            html.append(f"""<div class="msgitem {cls}">{label}{htmlEsc(msg)}</div>""")
 
         html.append("</div>")
         self.clearMessages()
