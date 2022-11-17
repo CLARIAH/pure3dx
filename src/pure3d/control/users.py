@@ -218,7 +218,6 @@ class Users:
                 testUserId = None
 
             userId = testUserId if testUserId is not None else sessionUserId
-            self.debug(f"RECALL {sessionUserId=} {testUserId=} {userId=}")
         else:
             userId = sessionUserId
 

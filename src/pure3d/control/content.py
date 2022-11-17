@@ -89,7 +89,7 @@ class Content(Fields):
             else Mongo.getRecord("meta", name="project")
         ).meta or {}
 
-        return F.formatted(key, record, level=level)
+        return F.formatted(record, level=level)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""

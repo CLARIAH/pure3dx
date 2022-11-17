@@ -92,6 +92,10 @@ class Field:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
+        self.key = key
+        """The identifier of this field within the app.
+        """
+
         self.nameSpace = ""
         """The first key to access the field data in a record.
 
@@ -154,7 +158,7 @@ class Field:
 
         dataSource = record.get(nameSpace, {}) if nameSpace else record
 
-        for field in fields[1:-1]:
+        for field in fields[0:-1]:
             dataSource = dataSource.get(field, {})
 
         value = dataSource.get(fields[-1], None)
@@ -208,6 +212,8 @@ class Field:
                 heading = caption.format(content)
                 content = ""
             else:
-                heading = f"""<h{level}>{caption}</h{level}>\n"""
+                heading = caption
+
+            heading = f"""<h{level}>{heading}</h{level}>\n"""
 
         return heading + content
