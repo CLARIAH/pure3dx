@@ -57,10 +57,6 @@ def appFactory(objects):
     def noaccessprivate():
         return redirectStatus("/loginoidc", True)
 
-    def redirectResult(url, good):
-        code = 302 if good else 303
-        return redirect(url, code=code)
-
     # app url routes start here
 
     @app.route("/login")
