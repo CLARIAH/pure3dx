@@ -75,6 +75,7 @@ class Config:
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
+            self.checkFields,
             self.checkAuth,
             self.checkViewers,
         ):
@@ -252,6 +253,25 @@ class Config:
 
         for (k, v) in settings.items():
             Settings[k] = v
+
+    def checkFields(self):
+        """Read the yaml file with field settings."""
+        Messages = self.Messages
+        Settings = self.Settings
+
+        yamlDir = Settings.yamlDir
+
+        fields = readYaml(f"{yamlDir}/fields.yaml")
+        if fields is None:
+            Messages.error(logmsg=f"Cannot read fields.yaml in {yamlDir}")
+            self.good = False
+            return
+
+        fieldsConfig = AttrDict()
+        Settings.fieldsConfig = fieldsConfig
+
+        for (k, v) in fields.items():
+            fieldsConfig[k] = v
 
     def checkAuth(self):
         """Read gthe yaml file with the authorisation rules."""

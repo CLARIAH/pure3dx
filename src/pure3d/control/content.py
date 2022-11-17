@@ -1,6 +1,8 @@
 from control.generic import AttrDict
 from control.files import fileExists
 
+from control.fields import Fields
+
 
 COMPONENT = dict(
     me=(None, None, None, None),
@@ -16,7 +18,7 @@ COMPONENT = dict(
 )
 
 
-class Content:
+class Content(Fields):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         """Retrieving content from database and file system.
 
@@ -38,11 +40,8 @@ class Content:
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         """
-        self.Settings = Settings
+        super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        self.Mongo = Mongo
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -52,20 +51,20 @@ class Content:
         """
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None):
-        """Retrieve a metadata string.
+    def addFieldHandler(self, key):
+        pass
+
+    def getValue(self, key, projectId=None, editionId=None, level=None):
+        """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
         and values.
-        This function retrieves the information based on a path of keys.
+        These locations are known to the system (based on `fields.yaml`).
+        This function retrieves the information from those known locations.
 
         Parameters
         ----------
-        nameSpace: string
-            The first selector in the metadata, e.g. `dc` for Dublin Core.
-        fieldPath: string
-            A `.`-separated list of keys. This is a selector in the nested
-            metadata dict selected by the `nameSpace` argument.
+        key: an identifier for the meta data field.
         projectId: ObjectId, optional None
             The project whose metadata we need. If it is None, we need metadata
             outside all of the projects.
@@ -76,28 +75,21 @@ class Content:
         Returns
         -------
         string
-            It is assumed that the metadata that is addressed
-            by the `nameSpace` and `fieldPath` arguments exists and is a string.
-            If not, we return the empty string.
+            It is assumed that the metadata value that is addressed exists
+            and is a string. If not, we return the empty string.
         """
         Mongo = self.Mongo
+        F = self.ensure(key)
 
-        fields = fieldPath.split(".")
-
-        meta = (
+        record = (
             Mongo.getRecord("editions", _id=editionId)
             if editionId is not None
             else Mongo.getRecord("projects", _id=projectId)
             if projectId is not None
             else Mongo.getRecord("meta", name="project")
         ).meta or {}
-        text = meta.get(nameSpace, {}).get(fields[0], "" if len(fields) == 0 else {})
 
-        for field in fields[1:]:
-            text = text.get(field, {})
-        if type(text) is not str:
-            text = ""
-        return text
+        return F.formatted(record, level=level)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""

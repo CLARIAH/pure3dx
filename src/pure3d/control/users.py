@@ -29,6 +29,7 @@ class Users:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+
         self.__User = AttrDict()
         """Data of the current user.
 
@@ -217,7 +218,6 @@ class Users:
                 testUserId = None
 
             userId = testUserId if testUserId is not None else sessionUserId
-            self.debug(f"RECALL {sessionUserId=} {testUserId=} {userId=}")
         else:
             userId = sessionUserId
 
