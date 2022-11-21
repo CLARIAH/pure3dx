@@ -17,9 +17,8 @@
       <div id="msgbar">{{ messages | safe }}</div>
       <div id="topbar">
         {% block logo %} {% endblock %}
-        <div id="login-buttons">{{ testUsers | safe }}</div>
         <span class="fill">&nbsp;</span>
-        <div><a class="loginout button disabled" href="/login">login</a></div>
+        <div id="login-buttons">{{ loginWidget | safe }}</div>
       </div>
       <nav id="nav">{% block navigation %} {% endblock %}</nav>
     </header>

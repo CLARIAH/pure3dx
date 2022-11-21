@@ -5,6 +5,11 @@ actions:
   - edit
   - delete
 
+roles:
+  - guest
+  - user
+  - admin
+
 # meaning of project rules
 # key1: published or unpublished projects
 #   null means: there is no project,

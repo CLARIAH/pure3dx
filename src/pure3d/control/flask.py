@@ -9,6 +9,17 @@ from flask import (
     send_file,
 )
 
+from control.environment import var
+
+
+def initializing():
+    """Whether the flask web app is already running.
+
+    It is False during the initialization code in the app factory
+    before the flask app is delivered.
+    """
+    return var("WERKZEUG_RUN_MAIN") is None
+
 
 def make(*args, **kwargs):
     """Create the Flask app."""
@@ -88,6 +99,8 @@ def redirectStatus(url, good):
     """
 
     code = 302 if good else 303
+    if url == "":
+        url = "/"
     return redirect(url, code=code)
 
 
@@ -108,7 +121,10 @@ def sessionPop(name):
     -------
     void
     """
-    session.pop(name, None)
+    try:
+        session.pop(name, None)
+    except Exception:
+        pass
 
 
 def sessionGet(name):
@@ -165,3 +181,21 @@ def arg(name):
         else the None.
     """
     return request.args.get(name, None)
+
+
+def values():
+    return request.values
+
+
+def getReferrer():
+    """Get the referrer from the request.
+    Returns
+    -------
+    string
+    """
+    rootUrl = request.root_url
+    n = len(rootUrl)
+    referrer = request.referrer
+    if referrer.startswith(rootUrl):
+        referrer = referrer[n:]
+    return referrer

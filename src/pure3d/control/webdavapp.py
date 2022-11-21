@@ -2,6 +2,7 @@ from wsgidav.wsgidav_app import WsgiDAVApp
 
 from control.prepare import prepare
 from control.app import appFactory as appFactoryMain
+from control.flask import make
 
 
 WEBDAV_METHODS = dict(
@@ -105,6 +106,11 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     return wsgi_function
 
 
+def appFactoryMaster():
+    app = make(__name__)
+    return app
+
+
 def appFactory():
     """Make a WebDAV enabled app.
 
@@ -125,7 +131,7 @@ def appFactory():
     objects = prepare(webdavMethods=WEBDAV_METHODS)
 
     origApp = appFactoryMain(objects)
-    app = appFactoryMain(objects)
+    app = appFactoryMaster()
 
     app.wsgi_app = dispatchWebdav(origApp, "/webdav/", getWebdavApp(objects))
 

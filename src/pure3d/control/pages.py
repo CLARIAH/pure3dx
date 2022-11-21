@@ -304,10 +304,8 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        userActive = Auth.whoami()._id
-
         navigation = self.navigation(url)
-        testUsers = Auth.wrapTestUsers(userActive) if Settings.testMode else ""
+        loginWidget = Auth.wrapLogin()
 
         return template(
             "index",
@@ -316,7 +314,7 @@ class Pages:
             materialLeft=left or "",
             materialRight=right or "",
             messages=Messages.generateMessages(),
-            testUsers=testUsers,
+            loginWidget=loginWidget,
         )
 
     def authWebdav(self, projectId, editionId, path, action):
@@ -353,9 +351,11 @@ class Pages:
             editionId=editionId,
         )
         if not permitted:
-            User = Auth.whoami()
+            User = Auth.myDetails()
+            user = User.sub
+            name = User.nickname
             Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {User.name} ({User._id}"
+                logmsg=f"WEBDAV unauthorised by user {name} ({user})"
                 f" on project {projectId} edition {editionId} path {path}"
             )
         return permitted

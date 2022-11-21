@@ -45,8 +45,3 @@ class AttrDict(dict):
 
     def __getattr__(self, key, *args, **kwargs):
         return None
-
-
-x = AttrDict(aap=1, noot=2)
-print(f"{x.mies=}")
-print(f"{x['mies']=}")

@@ -140,9 +140,9 @@ class Content(Fields):
         if not permitted:
             return None
 
-        User = Auth.whoami()
-        name = User.name
-        userId = User._id
+        User = Auth.myDetails()
+        user = User.sub
+        name = User.nickname
 
         title = "No title"
 
@@ -151,11 +151,11 @@ class Content(Fields):
             description=dict(abstract="No intro", description="No description"),
             creator=name,
         )
-        projectId = Mongo.insertItem("projects", title=title, meta=dict(dc=dcMeta))
-        Mongo.insertItem(
+        projectId = Mongo.insertRecord("projects", title=title, meta=dict(dc=dcMeta))
+        Mongo.insertRecord(
             "projectUsers",
             projectId=projectId,
-            userId=userId,
+            user=user,
             role="creator",
         )
         return projectId

@@ -28,7 +28,6 @@ class AuthOidc:
             # 'OIDC_OPENID_REALM': 'auth realm',
             # 'OVERWRITE_REDIRECT_URI': OpenIDConnect.client_secrets.get("redirect_uris"),
         }
-        import sys
         secrets = cls.load_secrets()
         client_secrets = list(secrets.values())[0]
 

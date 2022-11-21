@@ -156,8 +156,10 @@ class Messages:
         label = "" if tp == "plain" else f"{tp}: "
 
         if Settings is None:
-            stream.write(f"{label}{msg}\n")
-            stream.write(f"{label}{logmsg}\n")
+            if msg is not None:
+                stream.write(f"{label}{msg}\n")
+            if logmsg is not None:
+                stream.write(f"{label}{logmsg}\n")
             stream.flush()
         else:
             debugMode = Settings.debugMode

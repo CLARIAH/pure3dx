@@ -54,16 +54,17 @@ class Auth(Users):
         Settings = self.Settings
         Mongo = self.Mongo
 
-        User = self.whoami()
+        User = self.myDetails()
+        user = User.sub
 
         if projectId is None and editionId is not None:
             projectId = Mongo.getRecord("editions", _id=editionId).projectId
 
         projectRole = (
             None
-            if projectId is None or User._id is None
+            if projectId is None or user is None
             else Mongo.getRecord(
-                "projectUsers", warn=False, projectId=projectId, userId=User._id
+                "projectUsers", warn=False, projectId=projectId, user=user
             ).role
         )
         projectPub = (

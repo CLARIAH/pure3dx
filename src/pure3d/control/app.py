@@ -1,4 +1,4 @@
-from control.flask import make, redirectStatus, stop, method
+from control.flask import make, stop, method, initializing
 
 
 def appFactory(objects):
@@ -42,32 +42,27 @@ def appFactory(objects):
     app = make(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
-    Auth.identify()
-    oidcauth = AuthOidc.prepare(app)
+    oidc = AuthOidc.prepare(app)
+    Auth.addAuthenticator(oidc)
 
-    @app.route("/loginoidc")
-    def loginoidc():
-        if oidcauth.user_loggedin:
-            return (f"Hello, {oidcauth.user_getfield('nickname')}\nwith email {oidcauth.user_getfield('email')}\nand sub {oidcauth.user_getfield('sub')}")
-        else:
-            return redirectStatus("/private", True)
-
-    @app.route("/private")
-    @oidcauth.require_login
-    def noaccessprivate():
-        return redirectStatus("/loginoidc", True)
-
-    # app url routes start here
+    @app.before_request
+    def identify():
+        if not initializing():
+            Auth.identify()
 
     @app.route("/login")
     def login():
-        good = Auth.login()
-        return redirectStatus("/", good)
+        return Auth.login()
+
+    @app.route("/afterlogin/referrer/<path:referrer>")
+    @app.route("/afterlogin/referrer/", defaults=dict(referrer="/"))
+    @oidc.require_login
+    def afterlogin(referrer):
+        return Auth.afterLogin(referrer)
 
     @app.route("/logout")
     def logout():
-        Auth.logout()
-        return redirectStatus("/", True)
+        return Auth.logout()
 
     @app.route("/")
     @app.route("/home")
