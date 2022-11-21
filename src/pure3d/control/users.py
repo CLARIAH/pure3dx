@@ -364,6 +364,7 @@ class Users:
             # details of logged in user
 
             details = self.myDetails()
+            self.debug(f"{details=}")
             name = details.nickname
             email = details.email
             userRep = f"{name} - {email}" if email else name
@@ -444,8 +445,8 @@ class Users:
             return False
 
         User.clear()
-        User.sub = record.sub
-        User.nickname = record.nickname
+        for att in PROVIDER_ATTS:
+            User[att] = record[att]
         User.role = record.role
 
         return True
@@ -483,8 +484,8 @@ class Users:
             record = Mongo.getRecord("users", _id=userId)
 
         User.clear()
-        User.sub = record.sub
-        User.nickname = record.nickname
+        for att in PROVIDER_ATTS:
+            User[att] = record[att]
         User.role = record.role
 
         if update and not newUser:
