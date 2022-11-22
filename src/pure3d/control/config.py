@@ -245,9 +245,10 @@ class Config:
         yamlDir = f"{repoDir}/src/pure3d/control/yaml"
         Settings.yamlDir = yamlDir
 
-        settings = readYaml(f"{yamlDir}/settings.yaml")
+        settingsFile = "settings.yml"
+        settings = readYaml(f"{yamlDir}/{settingsFile}")
         if settings is None:
-            Messages.error(logmsg=f"Cannot read settings.yaml in {yamlDir}")
+            Messages.error(logmsg=f"Cannot read {settingsFile} in {yamlDir}")
             self.good = False
             return
 
@@ -261,9 +262,10 @@ class Config:
 
         yamlDir = Settings.yamlDir
 
-        fields = readYaml(f"{yamlDir}/fields.yaml")
+        fieldsFile = "fields.yml"
+        fields = readYaml(f"{yamlDir}/{fieldsFile}")
         if fields is None:
-            Messages.error(logmsg=f"Cannot read fields.yaml in {yamlDir}")
+            Messages.error(logmsg=f"Cannot read {fieldsFile} in {yamlDir}")
             self.good = False
             return
 
@@ -274,15 +276,16 @@ class Config:
             fieldsConfig[k] = v
 
     def checkAuth(self):
-        """Read gthe yaml file with the authorisation rules."""
+        """Read the yaml file with the authorisation rules."""
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
-        authData = readYaml(f"{yamlDir}/authorise.yaml")
+        authFile = "authorise.yml"
+        authData = readYaml(f"{yamlDir}/{authFile}")
         if authData is None:
-            Messages.error(logmsg="Cannot read authorise.yaml in {yamlDir}")
+            Messages.error(logmsg="Cannot read {authFile} in {yamlDir}")
             self.good = False
             return
 
@@ -305,10 +308,11 @@ class Config:
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = "/data/viewers"
 
-        viewerSettingsFile = f"{yamlDir}/viewers.yaml"
+        viewersFile = "viewers.yml"
+        viewerSettingsFile = f"{yamlDir}/{viewersFile}"
         viewerSettings = readYaml(viewerSettingsFile)
         if viewerSettings is None:
-            Messages.error(logmsg="Cannot read viewers.yaml in {yamlDir}")
+            Messages.error(logmsg="Cannot read {viewersFile} in {yamlDir}")
             self.good = False
             return
 
@@ -327,7 +331,7 @@ class Config:
                 Messages.warning(
                     logmsg=(
                         f"Skipping viewer {viewerName}"
-                        "because not defined in viewers.yaml"
+                        "because not defined in {viewersFile}"
                     )
                 )
                 continue

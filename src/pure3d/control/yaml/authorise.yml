@@ -1,0 +1,80 @@
+actions:
+  allocate: "a"
+  create: "✚"
+  view: "⚉"
+  edit: "✎"
+  delete: "☓"
+
+recordActions: !!set
+  ? view
+  ? edit
+  ? delete
+
+roles:
+  null: not logged in
+  user: authenticated user
+  admin: administrator
+
+projectRoles:
+  reader: reviewer
+  editor: sub-editor
+  creator: editor
+
+
+projectRules:
+  true:
+    null: !!set
+      ? view
+    reader: !!set
+      ? view
+    editor: !!set
+      ? view
+    creator: !!set
+      ? view
+    user: !!set
+      ? view
+    admin: !!set
+      ? view
+      ? delete
+  false:
+    reader: !!set
+      ? view
+    editor: !!set
+      ? view
+      ? edit
+    creator: !!set
+      ? view
+      ? edit
+      ? delete
+    admin: !!set
+      ? view
+      ? delete
+
+recordRules:
+  meta:
+    null: !!set
+      ? view
+    user: !!set
+      ? view
+    admin: !!set
+      ? view
+      ? edit
+
+createRules:
+  projects: !!set
+    ? admin
+  editions: !!set
+    ? editor
+    ? creator
+  scenes: !!set
+    ? editor
+    ? creator
+
+assignRules:
+  admin: !!set
+    ? creator
+  creator: !!set
+    ? editor
+    ? reader
+  editor: !!set
+    ? reader

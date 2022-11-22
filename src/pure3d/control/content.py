@@ -4,20 +4,6 @@ from control.files import fileExists
 from control.fields import Fields
 
 
-COMPONENT = dict(
-    me=(None, None, None, None),
-    home=("texts/intro", "md", True, ""),
-    about=("texts/about", "md", True, "## About\n\n"),
-    intro=("texts/intro", "md", True, ""),
-    usage=("texts/usage", "md", True, "## Guide\n\n"),
-    description=("texts/description", "md", True, "## Description\n\n"),
-    sources=("texts/sources", "md", True, "## Sources\n\n"),
-    title=("meta/dc", "json", "dc.title", None),
-    icon=("candy/icon", "png", None, None),
-    list=(None, None, None, None),
-)
-
-
 class Content(Fields):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         """Retrieving content from database and file system.
@@ -59,7 +45,7 @@ class Content(Fields):
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
         and values.
-        These locations are known to the system (based on `fields.yaml`).
+        These locations are known to the system (based on `fields.yml`).
         This function retrieves the information from those known locations.
 
         Parameters
@@ -79,17 +65,42 @@ class Content(Fields):
             and is a string. If not, we return the empty string.
         """
         Mongo = self.Mongo
-        F = self.ensure(key)
+        Auth = self.Auth
 
-        record = (
-            Mongo.getRecord("editions", _id=editionId)
-            if editionId is not None
-            else Mongo.getRecord("projects", _id=projectId)
-            if projectId is not None
-            else Mongo.getRecord("meta", name="project")
-        ).meta or {}
+        if editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
 
-        return F.formatted(record, level=level)
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+        meta = record.meta
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "view" not in permissions:
+            return None
+
+        action = "edit"
+        editButton = (
+            self.putButton(
+                action,
+                table,
+                recordId=recordId,
+                projectId=projectId,
+            )
+            if action in permissions
+            else ""
+        )
+
+        F = self.makeField(key)
+
+        return F.formatted(meta, level=level, button=editButton)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -118,7 +129,7 @@ class Content(Fields):
         for row in Mongo.execute("projects", "find"):
             row = AttrDict(row)
             projectId = row._id
-            permitted = Auth.authorise("view", projectId=projectId)
+            permitted = Auth.authorise("projects", recordId=projectId, action="view")
             if not permitted:
                 continue
 
@@ -136,7 +147,7 @@ class Content(Fields):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("create")
+        permitted = Auth.authorise("projects")
         if not permitted:
             return None
 
@@ -188,7 +199,7 @@ class Content(Fields):
         for row in Mongo.execute("editions", "find", dict(projectId=projectId)):
             row = AttrDict(row)
             editionId = row._id
-            permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
+            permitted = Auth.authorise("editions", recordId=editionId, action="view")
             if not permitted:
                 continue
 
@@ -266,14 +277,9 @@ class Content(Fields):
 
         wrapped = []
 
-        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
-        if not permitted:
+        actions = Auth.authorise("editions", recordId=editionId)
+        if "view" not in actions:
             return ""
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        actions = ["view"]
-        if Auth.isModifiable(projectId, editionId):
-            actions.append("edit")
 
         (viewer, version) = Viewers.check(viewer, version)
 
@@ -416,7 +422,13 @@ class Content(Fields):
             f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
         )
 
-        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
+        if editionId is None:
+            table = "projects"
+            recordId = projectId
+        else:
+            table = "editions"
+            recordId = editionId
+        permitted = Auth.authorise(table, recordId=recordId, action="view")
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -444,3 +456,49 @@ class Content(Fields):
         and does not want to know where the content comes from.
         """
         return self.Mongo.getRecord(*args, **kwargs)
+
+    def putButton(self, action, table, recordId=None, projectId=None):
+        """Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        Parameters
+        ----------
+        action: string, optional None
+            The type of action that will be performed if the button triggered.
+        table: string
+            the table to which the action applies;
+        recordId: ObjectId, optional None
+            the record in question
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        """
+        Auth = self.Auth
+
+        permitted = Auth.authorise(
+            table, recordId=recordId, projectId=projectId, action=action
+        )
+
+        if not permitted:
+            return ""
+
+        Settings = self.Settings
+        actions = Settings.auth.actions
+
+        text = actions.get(action, action)
+        tableItem = table.rstrip("s")
+        tip = (
+            f"{action} new {tableItem}"
+            if action == "create"
+            else f"{action} this {tableItem}"
+        )
+        url = (
+            f"{table}/insert" if action == "create" else f"{table}/{recordId}/{action}"
+        )
+
+        return f"""
+            <a title="{tip}" href="{url}" class="button large">{text}</a>
+        """

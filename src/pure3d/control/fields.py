@@ -7,10 +7,10 @@ class Fields:
         """Factory for field objects.
 
         This class has methods to retrieve various pieces of content
-        from the data sources, and hand it over to the `control.pages.Pages`
-        class that will compose a response out of it.
+        from the data sources, and hand it over to higher level objects.
 
-        It is instantiated by a singleton object.
+        It is instantiated by a singleton object, which is a factory object
+        for `control.fields.Field` objects, which deal with individual fields.
 
         Parameters
         ----------
@@ -30,7 +30,7 @@ class Fields:
         self.fieldsConfig = Settings.fieldsConfig
         self.fieldObjects = AttrDict()
 
-    def ensure(self, key):
+    def makeField(self, key):
         """Make a field object and registers it.
 
         An instance of class `control.fields.Field` is created,
@@ -42,7 +42,9 @@ class Fields:
         Parameters
         ----------
         key: string
-            Identifier of the field in question.
+            Identifier for the field.
+            The configuration for this field will be retrieved using this key.
+            The new field object will be stored under this key.
 
         Returns
         -------
@@ -74,12 +76,21 @@ class Field:
     def __init__(self, Messages, Mongo, key, **kwargs):
         """Handle field business.
 
-        Methods to deliver field values, formatted field values,
-        edit widgets to modify field values, handlers to save field
+        A Field object does not correspond with an individual field in a record.
+        It represents a *column*, i.e. a set of fields with the same name in all
+        records of a collection.
+
+        First of all there is a method to retrieve the value of the field from
+        a specific record.
+
+        Then there are methods to deliver those values, either bare or formatted,
+        to produce edit widgets to modify the values, and handlers to save
         values.
 
         How to do this is steered by the specification of the field by keys and
         values that are stored in this object.
+
+        All field access should be guarded by the authorisation rules.
 
         Parameters
         ----------
@@ -118,6 +129,9 @@ class Field:
 
         self.tp = "string"
         """The value type of the field.
+
+        Value types can be string, integer, but also date times, and values
+        from an other collection (value lists).
         """
 
         self.caption = key
@@ -159,9 +173,11 @@ class Field:
         dataSource = record.get(nameSpace, {}) if nameSpace else record
 
         for field in fields[0:-1]:
-            dataSource = dataSource.get(field, {})
+            dataSource = dataSource.get(field, None)
+            if dataSource is None:
+                break
 
-        value = dataSource.get(fields[-1], None)
+        value = None if dataSource is None else dataSource.get(fields[-1], None)
         return value
 
     def bare(self, record):
@@ -181,10 +197,10 @@ class Field:
         logical = self.logical(record)
         return "" if logical is None else str(logical)
 
-    def formatted(self, record, level=None):
+    def formatted(self, record, level=None, button=""):
         """Give the formatted value of the field in a record.
 
-        Optionally also puts a caption.
+        Optionally also puts a caption and/or an edit control.
 
         Parameters
         ----------
@@ -193,6 +209,8 @@ class Field:
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
+        button: string, optional ""
+            An optional edit button.
 
         Returns
         -------
@@ -206,6 +224,10 @@ class Field:
         bare = self.bare(record)
 
         content = markdown(bare) if tp == "text" else bare
+
+        sep = "&nbsp;" if button else ""
+
+        content = f"{button}{sep}{content}"
 
         if level is not None:
             if "{}" in caption:

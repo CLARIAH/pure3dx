@@ -357,7 +357,7 @@ class Users:
                 User = AttrDict(row)
                 user = User.sub
                 name = User.nickname
-                role = User.role
+                role = self.presentRole(User.role)
 
                 active = user == userActive
                 wrap(None, name, role, f"/login?user={user}", active, enabled)
@@ -369,7 +369,7 @@ class Users:
             name = details.nickname
             email = details.email
             userRep = f"{name} - {email}" if email else name
-            role = details.role
+            role = self.presentRole(details.role)
             wrap("Logged in as", userRep, role, None, True, True)
 
             # logout button
@@ -380,6 +380,24 @@ class Users:
             wrap(None, "log in", "log in", "/login", False, True)
 
         return "\n".join(html)
+
+    def presentRole(self, role):
+        """Finds the interface representation of a role.
+
+        Parameters
+        ----------
+        role: string
+            The internal name of the role.
+
+        Returns
+        -------
+        string
+            The name of the role as it should be presented to users.
+            If no representation can be found, the internal name is returned.
+        """
+        Settings = self.Settings
+        roles = Settings.auth.roles
+        return roles.get(role, role)
 
     def __loginTest(self, referrer, user):
         """Perform the steps to log in a test user.

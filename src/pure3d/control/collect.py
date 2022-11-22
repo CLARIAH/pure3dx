@@ -148,7 +148,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertRecord("meta", name="project", meta=dict(**meta))
+        Mongo.insertRecord("meta", name="site", meta=dict(**meta))
 
     def doProjects(self):
         """Collects data belonging to projects."""

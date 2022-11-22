@@ -12,15 +12,6 @@ TABS = (
     ("advancedsearch", "Advanced Search", False),
 )
 
-CAPTIONS = {
-    "title": "{}",
-    "creator": "by {}",
-    "description.abstract": "Intro",
-    "description.description": "Description",
-    "provenance": "About",
-    "instructionalMethod": "How to use",
-}
-
 
 class Pages:
     def __init__(self, Settings, Viewers, Messages, Content, Auth):
@@ -85,9 +76,7 @@ class Pages:
         Content = self.Content
         projects = Content.getProjects()
         left = self.putValues("title@2") + projects
-        insertButton = self.putButton(
-            "+", "insert new project", "/projects/insert", "create"
-        )
+        insertButton = Content.putButton("create", "projects")
         return self.page("projects", left=left, right=insertButton)
 
     def projectInsert(self):
@@ -178,15 +167,19 @@ class Pages:
         Content = self.Content
         Auth = self.Auth
 
-        action = Auth.checkModifiable(projectId, editionId, action)
         back = self.backLink(projectId)
-        sceneMaterial = Content.getScenes(
-            projectId,
-            editionId,
-            sceneId=sceneId,
-            viewer=viewer,
-            version=version,
-            action=action,
+        action = Auth.makeSafe("editions", editionId, action)
+        sceneMaterial = (
+            ""
+            if action is None
+            else Content.getScenes(
+                projectId,
+                editionId,
+                sceneId=sceneId,
+                viewer=viewer,
+                version=version,
+                action=action,
+            )
         )
         left = (
             back
@@ -226,9 +219,13 @@ class Pages:
 
         urlBase = f"projects/{projectId}/editions/{editionId}/"
 
-        action = Auth.checkModifiable(projectId, editionId, action)
+        action = Auth.makeSafe("scenes", sceneId, action)
 
-        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        viewerCode = (
+            ""
+            if action is None
+            else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        )
         return template("viewer", viewerCode=viewerCode)
 
     def viewerResource(self, path):
@@ -345,11 +342,7 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        permitted = Auth.authorise(
-            action,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        permitted = Auth.authorise("editions", recordId=editionId, action=action)
         if not permitted:
             User = Auth.myDetails()
             user = User.sub
@@ -446,47 +439,8 @@ class Pages:
                 editionId=editionId,
                 level=level,
             )
+            or ""
             for (key, level) in (
                 fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
             )
-        )
-
-    def putButton(self, text, tip, url, action, projectId=None, editionId=None):
-        """Puts a button on the interface, if that makes sense.
-
-        The button, when pressed, will lead to an action on certain content.
-        It will be checked first if that action is allowed for the current user.
-        If not the button will not be shown.
-
-        Parameters
-        ----------
-        text: string
-            the text on the button
-        tip: string
-            the tooltip for the button
-        url: string
-            the url to go to if the button is pressed
-        action: string
-            the type of action that will be performed if the button triggered.
-            This is only needed to determine whether the button should be placed.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Needed to determine whether a press on the button is permitted.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Needed to determine whether a press on the button is permitted.
-        """
-        Auth = self.Auth
-
-        permitted = Auth.authorise(
-            action,
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return (
-            f"""
-            <a title="{tip}" href="{url}" class="button large">{text}</a>
-        """
-            if permitted
-            else ""
         )

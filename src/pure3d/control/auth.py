@@ -29,98 +29,106 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, action, projectId=None, editionId=None):
-        """Authorise the current user to access a piece of content.
-
-        !!! note "Requests may come from different senders"
-            When 3D viewers are active, they may fire their own requests to
-            this app. These 3D viewers do not know about MongoDb ids, all they
-            know are the names of files and directories.
+    def authorise(self, table, recordId=None, projectId=None, action=None):
+        """Gather the access conditions for the relevant record or table.
 
         Parameters
         ----------
-        action: string
-            The kind of access: `view`, `edit`, etc.
+        table: string, optional None
+            the table that is being used
+        recordId: ObjectId
+            The id of the record that is being accessed, if any.
         projectId: ObjectId
-            The project that is being accessed, if any.
-        editionId: ObjectId
-            The edition that is being accessed, if any.
+            Only relevant if recordId is None.
+            If passed, the new record to be created will belong to this project
+        action: string, optional None
+            If None, returns all permitted actions on the record in question,
+            otherwise whether the indicated action is permitted.
+            If recordId is None, it is assumed that the action is `create`,
+            and a boolean is returned.
 
         Returns
         -------
-        boolean
-            Whether the current user is authorised.
+        set | boolean
+            If `recordId` is None: whether the user is allowed to create a new
+            record in `table`.
+            Otherwise: if `action` is passed: whether the user is allowed to
+            perform that action on the record in question.
+            Otherwise: the set of actions that the user may perform on this record.
         """
         Settings = self.Settings
         Mongo = self.Mongo
 
         User = self.myDetails()
         user = User.sub
+        role = User.role
 
-        if projectId is None and editionId is not None:
-            projectId = Mongo.getRecord("editions", _id=editionId).projectId
+        if recordId is not None:
+            record = Mongo.getRecord(table, _id=recordId)
+            projectId = record._id if table == "projects" else record.projectId
+            createRules = Settings.auth.createRules.get(table, set())
 
-        projectRole = (
-            None
-            if projectId is None or user is None
-            else Mongo.getRecord(
-                "projectUsers", warn=False, projectId=projectId, user=user
-            ).role
-        )
-        projectPub = (
-            None
-            if projectId is None
-            else "published"
-            if Mongo.getRecord("projects", _id=projectId).isPublished
-            else "unpublished"
-        )
-
-        projectRules = Settings.auth.projectRules[projectPub]
-        condition = (
-            projectRules[User.role] if User.role in projectRules else projectRules[None]
-        ).get(action, False)
-        permission = condition if type(condition) is bool else projectRole in condition
+        if projectId is not None:
+            # we are inside a project
+            projectPub = (
+                True
+                if Mongo.getRecord("projects", _id=projectId).isPublished
+                else False
+            )
+            projectRole = (
+                None
+                if user is None
+                else Mongo.getRecord(
+                    "projectUsers", warn=False, projectId=projectId, user=user
+                ).role
+            )
+            actualRole = projectRole or role
+            if recordId is not None:
+                # we are dealing with an existing record
+                projectRules = Settings.auth.projectRules[projectPub].get(
+                    actualRole, set()
+                )
+                actions = projectRules.get(actualRole, set())
+                permission = actions if action is None else action in actions
+            else:
+                # we wonder whether we may insert a record
+                permission = actualRole in createRules
+        else:
+            # we are outside any project
+            if recordId is not None:
+                # we are dealing with an existing record
+                recordRules = Settings.auth.recordRules.get(table, {})
+                actions = recordRules.get(role, set())
+                permission = actions if action is None else action in actions
+            else:
+                # we wonder whether we may insert a record
+                permission = role in createRules
         return permission
 
-    def isModifiable(self, projectId, editionId):
-        """Whether the current user may modify content.
-
-        The content may be outside any project
-        (both `projectId` and `editionId` are None),
-        within a project but outside any edition (`editionId` is None),
-        or within an edition (`editionId` is not None).
-
-        Parameters
-        ----------
-        projectId: ObjectId or None
-            MongoDB id of the project in question.
-        editionId: ObjectId or None
-            MongoDB id of the edition in question.
-        """
-        return self.authorise("edit", projectId=projectId, editionId=editionId)
-
-    def checkModifiable(self, projectId, editionId, action):
-        """Like `isModifiable()`, but returns an allowed action.
+    def makeSafe(self, table, recordId, action):
+        """Changes an action into an allowed action if needed.
 
         This function "demotes" an action to an allowed action if the
         action itself is not allowed.
 
+        In practice, if the action is "edit" or "delete", but that is not
+        allowed, it is changed into "view".
+
+        If "view" itself is not allowed, None is returned.
+
         Parameters
         ----------
+        table: string
+            The table in which the record exists.
+        recordId: ObjectId
+            The id of the record.
         action: string
             An intended action.
 
         Returns
         -------
-        string
-            If the action is a modifying action, but the content is not modifiable,
-            it returns `view`.
-            Otherwise it returns the action itself.
+        string or None
+            The resulting safe action.
         """
-        if action is None:
-            return "view"
-
-        if action != "view":
-            if not self.isModifiable(projectId, editionId):
-                action = "view"
-        return action
+        actions = self.authorise(table, recordId=recordId)
+        return action if action in actions else "view" if "view" in actions else None
