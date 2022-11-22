@@ -334,10 +334,12 @@ class Users:
         def wrap(label, text, title, href, active, enabled):
             labelRep = f"""<span class="label">{label}</span>""" if label else ""
             cls = "active" if active else ""
-            if not enabled:
-                cls = "disabled"
             elem = "span" if active else "a"
             hrefAtt = "" if active else f'href="{href}"'
+            if not enabled:
+                cls = "disabled"
+                elem = "span"
+                hrefAtt = ""
             html.append(
                 f"{labelRep}"
                 f'<{elem} title="{title}" {hrefAtt} class="button small {cls}">'
@@ -364,7 +366,6 @@ class Users:
             # details of logged in user
 
             details = self.myDetails()
-            self.debug(f"{details=}")
             name = details.nickname
             email = details.email
             userRep = f"{name} - {email}" if email else name
