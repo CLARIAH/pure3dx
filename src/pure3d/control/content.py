@@ -86,21 +86,18 @@ class Content(Fields):
         if "view" not in permissions:
             return None
 
-        action = "edit"
-        editButton = (
-            self.putButton(
-                action,
-                table,
-                recordId=recordId,
-                projectId=projectId,
-            )
-            if action in permissions
-            else ""
+        button = self.actionButton(
+            "edit",
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
         )
 
         F = self.makeField(key)
 
-        return F.formatted(meta, level=level, button=editButton)
+        return F.formatted(meta, level=level, button=button)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -125,6 +122,7 @@ class Content(Fields):
         Auth = self.Auth
 
         wrapped = []
+        wrapped.append(self.actionButton("create", "projects"))
 
         for row in Mongo.execute("projects", "find"):
             row = AttrDict(row)
@@ -138,7 +136,13 @@ class Content(Fields):
 
             projectUrl = f"/projects/{projectId}"
             iconUrlBase = f"/data/projects/{projectId}/candy"
-            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            button = self.actionButton(
+                "delete",
+                "projects",
+                recordId=projectId,
+            )
+            caption = self.getCaption(title, candy, button, projectUrl, iconUrlBase)
+
             wrapped.append(caption)
 
         return "\n".join(wrapped)
@@ -208,10 +212,43 @@ class Content(Fields):
 
             editionUrl = f"/editions/{editionId}"
             iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
-            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            button = self.actionButton(
+                "delete",
+                "editions",
+                recordId=editionId,
+            )
+            caption = self.getCaption(title, candy, button, editionUrl, iconUrlBase)
             wrapped.append(caption)
 
+        wrapped.append(self.actionButton("create", "editions", projectId=projectId))
         return "\n".join(wrapped)
+
+    def insertEdition(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise("editions", projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = "No title"
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract="No intro",
+                description="No description",
+                provenance="No sources",
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            "editions", title=title, projectId=projectId, meta=dict(dc=dcMeta)
+        )
+        return editionId
 
     def getScenes(
         self,
@@ -287,33 +324,73 @@ class Content(Fields):
 
         for row in Mongo.execute("scenes", "find", dict(editionId=editionId)):
             row = AttrDict(row)
+            thisSceneId = row._id
+            candy = row.candy
 
             isSceneActive = sceneId is None and row.default or row._id == sceneId
             titleText = f"""<span class="entrytitle">{row.name}</span>"""
+            button = self.actionButton(
+                "delete",
+                "scenes",
+                recordId=thisSceneId,
+            )
 
             if isSceneActive:
                 (frame, buttons) = Viewers.getFrame(
-                    row._id, actions, viewer, version, action
+                    thisSceneId, actions, viewer, version, action
                 )
                 title = f"""<span class="entrytitle">{titleText}</span>"""
                 content = f"""{frame}{title}{buttons}"""
-                caption = self.wrapCaption(content, active=True)
+                caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{row._id}"
                 iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
-                caption = self.getCaption(titleText, row.candy, sceneUrl, iconUrlBase)
+                caption = self.getCaption(
+                    titleText, candy, button, sceneUrl, iconUrlBase
+                )
 
             wrapped.append(caption)
 
+        wrapped.append(
+            self.actionButton(
+                "create", "scenes", projectId=projectId, editionId=editionId
+            )
+        )
         return "\n".join(wrapped)
 
-    def wrapCaption(self, content, active=False):
-        activeCls = "active" if active else ""
-        start = f"""<div class="caption {activeCls}">"""
-        end = """</div>"""
-        return f"""{start}{content}{end}"""
+    def insertScene(self, projectId, editionId):
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-    def getCaption(self, titleText, candy, url, iconUrlBase):
+        permitted = Auth.authorise("scenes", projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = "No title"
+
+        dcMeta = dict(
+            title=title,
+            creator=name,
+        )
+        sceneId = Mongo.insertRecord(
+            "scenes",
+            name=title,
+            projectId=projectId,
+            editionId=editionId,
+            meta=dict(dc=dcMeta),
+        )
+        return sceneId
+
+    def wrapCaption(self, content, button, active=False):
+        activeCls = "active" if active else ""
+        start = f"""<div class="captioncontent"><div class="caption {activeCls}">"""
+        end = """</div>"""
+        return f"""{start}{content}{end}{button}{end}"""
+
+    def getCaption(self, titleText, candy, button, url, iconUrlBase):
         icon = self.getIcon(candy)
         title = f"""<span class="entrytitle">{titleText}</span>"""
 
@@ -321,7 +398,7 @@ class Content(Fields):
             f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
         )
         content = f"""<a class="entry" href="{url}">{visual}{title}</a>"""
-        return self.wrapCaption(content)
+        return self.wrapCaption(content, button)
 
     def getIcon(self, candy):
         """Select an icon from a set of candidates.
@@ -457,7 +534,9 @@ class Content(Fields):
         """
         return self.Mongo.getRecord(*args, **kwargs)
 
-    def putButton(self, action, table, recordId=None, projectId=None):
+    def actionButton(
+        self, action, table, recordId=None, key=None, projectId=None, editionId=None
+    ):
         """Puts a button on the interface, if that makes sense.
 
         The button, when pressed, will lead to an action on certain content.
@@ -475,8 +554,20 @@ class Content(Fields):
         projectId: ObjectId, optional None
             The project in question, if any.
             Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a metadata field that is stored inside the
+            record. From the key, the value can be found.
         """
         Auth = self.Auth
+
+        urlInsert = "/"
+        if projectId is not None:
+            urlInsert += f"projects/{projectId}/"
+        if editionId is not None:
+            urlInsert += f"editions/{editionId}/"
 
         permitted = Auth.authorise(
             table, recordId=recordId, projectId=projectId, action=action
@@ -490,13 +581,18 @@ class Content(Fields):
 
         text = actions.get(action, action)
         tableItem = table.rstrip("s")
+        keyRepTip = "" if key is None else f" {key} of"
+        keyRepUrl = "" if key is None else f"/{key}"
+        recordIdRep = "" if recordId is None else f"/{recordId}"
         tip = (
             f"{action} new {tableItem}"
             if action == "create"
-            else f"{action} this {tableItem}"
+            else f"{action}{keyRepTip} this {tableItem}"
         )
         url = (
-            f"{table}/insert" if action == "create" else f"{table}/{recordId}/{action}"
+            f"{urlInsert}{table}/insert"
+            if action == "create"
+            else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
         )
 
         return f"""

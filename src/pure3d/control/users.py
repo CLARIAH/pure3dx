@@ -121,7 +121,7 @@ class Users:
                 ),
                 msg=f"first log out as user {name}",
             )
-            return redirectStatus(referrer, False)
+            return redirectStatus(f"/{referrer}", False)
 
         return (
             self.__loginTest(referrer, arg(USERIDFIELD))
@@ -172,14 +172,14 @@ class Users:
                 logmsg="LOGIN failed for user {user}",
                 msg="failed to log in",
             )
-            return redirectStatus(referrer, False)
+            return redirectStatus(f"/{referrer}", False)
 
         name = self.__User.nickname
         Messages.plain(
             logmsg=f"LOGIN successful: user {name} {user}",
             msg=f"LOGIN successful: user {name}",
         )
-        return redirectStatus(referrer, True)
+        return redirectStatus(f"{referrer}", True)
 
     def logout(self):
         """Logs off the current user.
@@ -423,7 +423,7 @@ class Users:
         Messages = self.Messages
 
         if user is None or not self.__findTestUser(user):
-            return redirectStatus(referrer, False)
+            return redirectStatus(f"/{referrer}", False)
 
         sessionSet(USERIDFIELD, user)
         name = self.__User.nickname
@@ -431,7 +431,7 @@ class Users:
             logmsg=f"LOGIN successful: test user {name} {user}",
             msg=f"LOGIN successful: test user {name}",
         )
-        return redirectStatus(referrer, True)
+        return redirectStatus(f"/{referrer}", True)
 
     def __loginOidc(self, referrer):
         """Redirect step in logging in normal user.
@@ -442,7 +442,7 @@ class Users:
         Parameters
         ----------
         referrer: string
-            url where we came from. We past this to the private url.
+            url where we came from. We pass this to the private url.
 
         Returns
         -------

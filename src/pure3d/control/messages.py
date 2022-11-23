@@ -153,7 +153,7 @@ class Messages:
         """
         Settings = self.Settings
         stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
-        label = "" if tp == "plain" else f"{tp}: "
+        label = "" if tp == "plain" else f"{tp.upper()}: "
 
         if Settings is None:
             if msg is not None:

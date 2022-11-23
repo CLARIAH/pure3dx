@@ -29,7 +29,9 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, recordId=None, projectId=None, action=None):
+    def authorise(
+        self, table, recordId=None, projectId=None, action=None
+    ):
         """Gather the access conditions for the relevant record or table.
 
         Parameters
@@ -66,7 +68,8 @@ class Auth(Users):
         if recordId is not None:
             record = Mongo.getRecord(table, _id=recordId)
             projectId = record._id if table == "projects" else record.projectId
-            createRules = Settings.auth.createRules.get(table, set())
+        else:
+            tableRules = Settings.auth.createRules.get(table, set())
 
         if projectId is not None:
             # we are inside a project
@@ -85,24 +88,20 @@ class Auth(Users):
             actualRole = projectRole or role
             if recordId is not None:
                 # we are dealing with an existing record
-                projectRules = Settings.auth.projectRules[projectPub].get(
-                    actualRole, set()
-                )
-                actions = projectRules.get(actualRole, set())
+                actions = Settings.auth.projectRules[projectPub].get(actualRole, [])
                 permission = actions if action is None else action in actions
             else:
                 # we wonder whether we may insert a record
-                permission = actualRole in createRules
+                permission = actualRole in tableRules
         else:
             # we are outside any project
             if recordId is not None:
                 # we are dealing with an existing record
-                recordRules = Settings.auth.recordRules.get(table, {})
-                actions = recordRules.get(role, set())
+                actions = Settings.auth.recordRules.get(table, {}).get(role, [])
                 permission = actions if action is None else action in actions
             else:
                 # we wonder whether we may insert a record
-                permission = role in createRules
+                permission = role in tableRules
         return permission
 
     def makeSafe(self, table, recordId, action):

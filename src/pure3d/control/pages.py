@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from control.flask import redirectStatus, template, send
+from control.flask import redirectStatus, template, send, stop, getReferrer
 
 
 TABS = (
@@ -52,6 +52,32 @@ class Pages:
         self.Content = Content
         self.Auth = Auth
 
+    def remaining(self, path):
+        Messages = self.Messages
+
+        def splitUrl(url):
+            url = url.strip('/')
+            parts = url.rsplit("/", 1)
+            lastPart = parts[-1]
+            firstPart = parts[0] if len(parts) > 1 else ""
+            firstPart = f"/{firstPart}"
+            return (firstPart, lastPart)
+
+        (firstPath, lastPath) = splitUrl(path)
+
+        if lastPath in {"delete", "edit", "view"}:
+            Messages.warning(
+                logmsg=f"Not yet implemented /{lastPath}: /{path}",
+                msg=f"Not yet implemented: /{lastPath}",
+            )
+            ref = getReferrer()
+            (firstRef, lastRef) = splitUrl(ref)
+            back = firstRef if lastRef in {"delete", "edit", "view"} else f"/{ref}"
+            return redirectStatus(back, True)
+
+        Messages.warning(logmsg=f"Not found: /{path}")
+        stop()
+
     def home(self):
         """The site-wide home page."""
         left = self.putValues("title@1 + abstract@2")
@@ -76,8 +102,7 @@ class Pages:
         Content = self.Content
         projects = Content.getProjects()
         left = self.putValues("title@2") + projects
-        insertButton = Content.putButton("create", "projects")
-        return self.page("projects", left=left, right=insertButton)
+        return self.page("projects", left=left)
 
     def projectInsert(self):
         """Inserts a project and shows the new project."""
@@ -114,6 +139,30 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
+    def editionInsert(self, projectId):
+        """Inserts an edition into a project and shows the new edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the edition belongs.
+        """
+        Messages = self.Messages
+        Content = self.Content
+        editionId = Content.insertEdition(projectId)
+        if editionId is None:
+            Messages.warning(
+                logmsg="Could not create new edition",
+                msg="failed to create new edition",
+            )
+            newUrl = f"/projects/{projectId}"
+        else:
+            Messages.info(
+                logmsg=f"Created edition {editionId}", msg="new edition created"
+            )
+            newUrl = f"/editions/{editionId}"
+        return redirectStatus(newUrl, editionId is not None)
+
     def edition(self, editionId):
         """The landing page of an edition.
 
@@ -131,6 +180,32 @@ class Pages:
         editionInfo = Content.getRecord("editions", _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
+
+    def sceneInsert(self, projectId, editionId):
+        """Inserts a scene into an edition and shows the new scene.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the scene belongs.
+        editionId: ObjectId
+            The edition to which the scene belongs.
+        """
+        Messages = self.Messages
+        Content = self.Content
+        sceneId = Content.insertScene(projectId, editionId)
+        if sceneId is None:
+            Messages.warning(
+                logmsg="Could not create new scene",
+                msg="failed to create new scene",
+            )
+            newUrl = f"/editions/{editionId}"
+        else:
+            Messages.info(
+                logmsg=f"Created scene {sceneId}", msg="new scene created"
+            )
+            newUrl = f"/scenes/{sceneId}"
+        return redirectStatus(newUrl, sceneId is not None)
 
     def scene(self, sceneId, viewer, version, action):
         """The landing page of an edition, but with a scene marked as active.
@@ -168,6 +243,7 @@ class Pages:
         Auth = self.Auth
 
         back = self.backLink(projectId)
+        self.debug(f"SCENES: {editionId=}")
         action = Auth.makeSafe("editions", editionId, action)
         sceneMaterial = (
             ""
