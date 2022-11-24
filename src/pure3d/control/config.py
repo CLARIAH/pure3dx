@@ -1,4 +1,5 @@
 from textwrap import dedent
+from subprocess import check_output
 
 from control.generic import AttrDict
 from control.files import dirExists, fileExists, readYaml, readPath, listDirs
@@ -78,6 +79,7 @@ class Config:
             self.checkFields,
             self.checkAuth,
             self.checkViewers,
+            self.checkBanner,
         ):
             if self.good:
                 method()
@@ -112,20 +114,28 @@ class Config:
         # what is the version of the pure3d app?
 
     def checkVersion(self):
-        """Get the current version of the pure3d app."""
-        Messages = self.Messages
+        """Get the current version of the pure3d app.
+
+        We represent the version as the short hash of the current commit
+        of the git repo that the running code is in.
+        """
+        Settings = self.Settings
+        repoDir = Settings.repoDir
+        (long, short) = tuple(
+            check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
+            .decode("ascii")
+            .strip()
+            for args in ([], ["--short"])
+        )
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        versionPath = f"{repoDir}/src/{VERSION_FILE}"
-        versionInfo = readPath(versionPath)
-
-        if not versionInfo:
-            Messages.error(logmsg=f"Cannot find version info in {versionPath}")
-            self.good = False
-            return
-
-        Settings.versionInfo = versionInfo
+        title = "visit the running code on GitHub"
+        gitLocation = var("gitlocation").removesuffix(".git")
+        href = f"{gitLocation}/tree/{long}"
+        Settings.versionInfo = (
+            f"""<a target="_blank" title="{title}" href="{href}">{short}</a>"""
+        )
 
     def checkSecret(self):
         """Obtain a secret.
@@ -372,3 +382,34 @@ class Config:
 
         Settings.viewerDefault = viewerDefault
         Settings.viewers = viewers
+
+    def checkBanner(self):
+        """Sets a banner for all pages.
+
+        This banner may include warnings that the site is still work
+        in progress.
+
+        Returns
+        -------
+        void
+            The banner is stored in the `banner` member of the
+            `Settings` object.
+        """
+        Settings = self.Settings
+        wip = var("devstatus")
+
+        banner = ""
+
+        if wip == "wip":
+            banner = dedent(
+                """
+                <div id="statusbanner">
+                This site is Work in Progress.
+                Use it only for testing.
+                All work you commit to this site can be erased
+                without warning.
+                </div>
+                """
+            )
+
+        Settings.banner = banner

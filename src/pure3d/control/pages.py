@@ -53,10 +53,25 @@ class Pages:
         self.Auth = Auth
 
     def remaining(self, path):
+        """When the url of the request is not recognized.
+
+        Parameters
+        ----------
+        path: string
+            The url (without leading /) that is not recognized.
+
+        Returns
+        -------
+        response
+            Either a redirect to the referred, for some
+            recognized urls that correspond to not-yet
+            implemented one. Or a 404 abort for all other
+            cases.
+        """
         Messages = self.Messages
 
         def splitUrl(url):
-            url = url.strip('/')
+            url = url.strip("/")
             parts = url.rsplit("/", 1)
             lastPart = parts[-1]
             firstPart = parts[0] if len(parts) > 1 else ""
@@ -201,9 +216,7 @@ class Pages:
             )
             newUrl = f"/editions/{editionId}"
         else:
-            Messages.info(
-                logmsg=f"Created scene {sceneId}", msg="new scene created"
-            )
+            Messages.info(logmsg=f"Created scene {sceneId}", msg="new scene created")
             newUrl = f"/scenes/{sceneId}"
         return redirectStatus(newUrl, sceneId is not None)
 
@@ -382,6 +395,7 @@ class Pages:
 
         return template(
             "index",
+            banner=Settings.banner,
             versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left or "",

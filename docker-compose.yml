@@ -16,6 +16,8 @@ services:
       docollect: ${docollect}
       initdata: ${initdata}
       runmode: ${runmode}
+      devstatus: ${devstatus}
+      gitlocation: ${gitlocation}
       flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}

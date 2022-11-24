@@ -87,6 +87,14 @@ body {
   align-content: flex-start;
 }
 
+#statusbanner {
+  width: 100%;
+  margin: 0.3rem;
+  color: var(--warning-fore-i);
+  background-color: var(--warning-back-i);
+  text-align: center;
+}
+
 #nav {
   width: 100%;
   margin-top: 1rem;
@@ -111,7 +119,7 @@ body {
 }
 
 #version {
-  font-size: x-small;
+  font-size: large;
   color: #888888;
 }
 
