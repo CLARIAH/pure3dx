@@ -76,7 +76,7 @@ class Config:
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
-            self.checkFields,
+            self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
@@ -265,8 +265,61 @@ class Config:
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkFields(self):
-        """Read the yaml file with field settings."""
+    def checkTables(self):
+        """Read the yaml file with table and field settings.
+
+        It contains model `master` that contains the master tables
+        with the information which tables are details of it.
+
+        It also contains ``link` that contains the link tables
+        with the information which tables are being linked.
+
+        Both elements are needed when we delete records.
+
+        If a user deletes a master record, its detail records become invalid.
+        So either we must enforce that the user deletes the details first,
+        or the system must delete those records automatically.
+
+        When a user deletes a record that is linked to another record by means
+        of a coupling record, the coupling record must be deleted automatically.
+
+        Fields are bits of data that are stored in parts of documents
+        in MongoDb collections.
+
+        Fields have several properties which we summarize under a key.
+        So if we know the key of a field, we have access to all of its
+        properties.
+
+        The properties `nameSpave` and `fieldPath` determine how to drill
+        down in a document in order to find the value of that field.
+
+        The property `tp` is the data type of the field, default `string`.
+
+        The property `caption` is a label that may accompany a field value
+        on the interface.
+        """
+        Messages = self.Messages
+        Settings = self.Settings
+
+        yamlDir = Settings.yamlDir
+
+        tablesFile = "tables.yml"
+        tables = readYaml(f"{yamlDir}/{tablesFile}")
+        if tables is None:
+            Messages.error(logmsg=f"Cannot read {tablesFile} in {yamlDir}")
+            self.good = False
+            return
+
+        tablesConfig = AttrDict()
+        Settings.tablesConfig = tablesConfig
+
+        for (k, v) in tables.items():
+            tablesConfig[k] = AttrDict(v)
+
+    def checkDatamodel(self):
+        """Read the yaml file with table and field settings.
+
+        """
         Messages = self.Messages
         Settings = self.Settings
 

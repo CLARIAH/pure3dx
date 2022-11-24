@@ -1,0 +1,36 @@
+master:
+  projects:
+    - editions
+    - scenes
+
+  editions:
+    - scenes
+
+link:
+  projectUser:
+    - project
+    - user
+
+fields:
+  title:
+    nameSpace: dc
+    caption: "{}"
+  abstract:
+    nameSpace: dc
+    fieldPath: description.abstract
+    tp: text
+    caption: "Intro"
+  description:
+    nameSpace: dc
+    fieldPath: description.description
+    tp: text
+    caption: "Description"
+  provenance:
+    nameSpace: dc
+    caption: "About"
+  instructionalMethod:
+    nameSpace: dc
+    caption: "How to use"
+  creator:
+    nameSpace: dc
+    caption: "by {}"

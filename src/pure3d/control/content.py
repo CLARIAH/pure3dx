@@ -1,10 +1,10 @@
 from control.generic import AttrDict
 from control.files import fileExists
 
-from control.fields import Fields
+from control.datamodel import Datamodel
 
 
-class Content(Fields):
+class Content(Datamodel):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         """Retrieving content from database and file system.
 

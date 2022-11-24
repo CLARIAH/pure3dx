@@ -2,7 +2,7 @@ from control.generic import AttrDict
 from markdown import markdown
 
 
-class Fields:
+class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
         """Factory for field objects.
 
