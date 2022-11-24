@@ -265,7 +265,7 @@ class Config:
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkTables(self):
+    def checkDatamodel(self):
         """Read the yaml file with table and field settings.
 
         It contains model `master` that contains the master tables
@@ -303,40 +303,22 @@ class Config:
 
         yamlDir = Settings.yamlDir
 
-        tablesFile = "tables.yml"
-        tables = readYaml(f"{yamlDir}/{tablesFile}")
-        if tables is None:
-            Messages.error(logmsg=f"Cannot read {tablesFile} in {yamlDir}")
+        datamodelFile = "datamodel.yml"
+        datamodel = readYaml(f"{yamlDir}/{datamodelFile}")
+        if datamodel is None:
+            Messages.error(logmsg=f"Cannot read {datamodelFile} in {yamlDir}")
             self.good = False
             return
 
-        tablesConfig = AttrDict()
-        Settings.tablesConfig = tablesConfig
+        datamodelConfig = AttrDict()
+        Settings.datamodel = datamodelConfig
 
-        for (k, v) in tables.items():
-            tablesConfig[k] = AttrDict(v)
+        for (k, vDict) in datamodel.items():
+            v = AttrDict()
+            for (m, w) in vDict.items():
+                v[m] = AttrDict(w) if type(w) is dict else w
 
-    def checkDatamodel(self):
-        """Read the yaml file with table and field settings.
-
-        """
-        Messages = self.Messages
-        Settings = self.Settings
-
-        yamlDir = Settings.yamlDir
-
-        fieldsFile = "fields.yml"
-        fields = readYaml(f"{yamlDir}/{fieldsFile}")
-        if fields is None:
-            Messages.error(logmsg=f"Cannot read {fieldsFile} in {yamlDir}")
-            self.good = False
-            return
-
-        fieldsConfig = AttrDict()
-        Settings.fieldsConfig = fieldsConfig
-
-        for (k, v) in fields.items():
-            fieldsConfig[k] = v
+            datamodelConfig[k] = v
 
     def checkAuth(self):
         """Read the yaml file with the authorisation rules."""

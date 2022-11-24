@@ -124,15 +124,14 @@ class Content(Datamodel):
         wrapped = []
         wrapped.append(self.actionButton("create", "projects"))
 
-        for row in Mongo.execute("projects", "find"):
-            row = AttrDict(row)
-            projectId = row._id
+        for record in Mongo.getList("projects"):
+            projectId = record._id
             permitted = Auth.authorise("projects", recordId=projectId, action="view")
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
+            candy = record.candy
 
             projectUrl = f"/projects/{projectId}"
             iconUrlBase = f"/data/projects/{projectId}/candy"
@@ -200,15 +199,14 @@ class Content(Datamodel):
 
         wrapped = []
 
-        for row in Mongo.execute("editions", "find", dict(projectId=projectId)):
-            row = AttrDict(row)
-            editionId = row._id
+        for record in Mongo.getList("editions", projectId=projectId):
+            editionId = record._id
             permitted = Auth.authorise("editions", recordId=editionId, action="view")
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
+            candy = record.candy
 
             editionUrl = f"/editions/{editionId}"
             iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
@@ -322,13 +320,12 @@ class Content(Datamodel):
 
         wrapped = []
 
-        for row in Mongo.execute("scenes", "find", dict(editionId=editionId)):
-            row = AttrDict(row)
-            thisSceneId = row._id
-            candy = row.candy
+        for record in Mongo.getList("scenes", editionId=editionId):
+            thisSceneId = record._id
+            candy = record.candy
 
-            isSceneActive = sceneId is None and row.default or row._id == sceneId
-            titleText = f"""<span class="entrytitle">{row.name}</span>"""
+            isSceneActive = sceneId is None and record.default or record._id == sceneId
+            titleText = f"""<span class="entrytitle">{record.name}</span>"""
             button = self.actionButton(
                 "delete",
                 "scenes",
@@ -343,7 +340,7 @@ class Content(Datamodel):
                 content = f"""{frame}{title}{buttons}"""
                 caption = self.wrapCaption(content, button, active=True)
             else:
-                sceneUrl = f"/scenes/{row._id}"
+                sceneUrl = f"/scenes/{record._id}"
                 iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
                 caption = self.getCaption(
                     titleText, candy, button, sceneUrl, iconUrlBase
@@ -543,6 +540,13 @@ class Content(Datamodel):
         It will be checked first if that action is allowed for the current user.
         If not the button will not be shown.
 
+        !!! note "Delete buttons"
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
         Parameters
         ----------
         action: string, optional None
@@ -579,22 +583,52 @@ class Content(Datamodel):
         Settings = self.Settings
         actions = Settings.auth.actions
 
+        disable = False
+        report = ""
+
+        if action == "delete":
+            details = self.getDetailRecords(table, recordId)
+            if len(details):
+                disable = True
+                report = ["<div>"]
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = "" if nDetails == 1 else "s"
+                    detailRep = detailTable.rstrip("s") + plural
+
+                    report.append(
+                        """<span class="dreport">"""
+                        f"""{nDetails}&nbsp;{detailRep}</span><br>"""
+                    )
+                report.append("</div>")
+                report = "<br>" + "\n".join(report)
+
         text = actions.get(action, action)
         tableItem = table.rstrip("s")
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
         recordIdRep = "" if recordId is None else f"/{recordId}"
+        can = "Cannot " if disable else ""
+        elem = "span" if disable else "a"
+        cls = " disabled" if disable else ""
         tip = (
             f"{action} new {tableItem}"
             if action == "create"
-            else f"{action}{keyRepTip} this {tableItem}"
+            else f"{can}{action}{keyRepTip} this {tableItem}"
         )
-        url = (
-            f"{urlInsert}{table}/insert"
-            if action == "create"
-            else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
+        href = (
+            ""
+            if disable
+            else 'href="'
+            + (
+                f"{urlInsert}{table}/insert"
+                if action == "create"
+                else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
+            )
+            + '"'
         )
 
         return f"""
-            <a title="{tip}" href="{url}" class="button large">{text}</a>
+            <{elem} title="{tip}" {href} class="button large {cls}">{text}</{elem}>
+            {report}
         """

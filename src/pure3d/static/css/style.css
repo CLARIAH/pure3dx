@@ -180,3 +180,7 @@ img.previewicon {
   /*width: 10rem;*/
   height: 10rem;
 }
+.dreport {
+  font-size: x-small;
+  color: var(--error-fore);
+}

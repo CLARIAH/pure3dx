@@ -256,7 +256,6 @@ class Pages:
         Auth = self.Auth
 
         back = self.backLink(projectId)
-        self.debug(f"SCENES: {editionId=}")
         action = Auth.makeSafe("editions", editionId, action)
         sceneMaterial = (
             ""

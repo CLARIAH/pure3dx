@@ -350,14 +350,13 @@ class Users:
             # row of test users
 
             enabled = not userActive or isTestUser
-            for row in sorted(
-                Mongo.execute("users", "find", dict(isTest=True)),
-                key=lambda r: r["nickname"],
+            for record in sorted(
+                Mongo.getList("users", isTest=True),
+                key=lambda r: r.nickname,
             ):
-                User = AttrDict(row)
-                user = User.sub
-                name = User.nickname
-                role = self.presentRole(User.role)
+                user = record.sub
+                name = record.nickname
+                role = self.presentRole(record.role)
 
                 active = user == userActive
                 wrap(None, name, role, f"/login?user={user}", active, enabled)

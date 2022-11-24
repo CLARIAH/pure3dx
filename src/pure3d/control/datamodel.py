@@ -4,13 +4,18 @@ from markdown import markdown
 
 class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
-        """Factory for field objects.
+        """Datamodel related operations.
 
-        This class has methods to retrieve various pieces of content
-        from the data sources, and hand it over to higher level objects.
+        This class has methods to manipulate various pieces of content
+        in the data sources, and hand it over to higher level objects.
 
-        It is instantiated by a singleton object, which is a factory object
-        for `control.fields.Field` objects, which deal with individual fields.
+        It can find out dependencies between related records, and it knows
+        a thing or two about fields.
+
+        It is instantiated by a singleton object.
+
+        It has a method which is a factory for `control.fields.Field` objects,
+        which deal with individual fields.
 
         Parameters
         ----------
@@ -27,8 +32,52 @@ class Datamodel:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
-        self.fieldsConfig = Settings.fieldsConfig
+        datamodel = Settings.datamodel
+        self.masterConfig = datamodel.master
+        self.linkConfig = datamodel.link
+        self.fieldsConfig = datamodel.fields
         self.fieldObjects = AttrDict()
+
+    def getDetailRecords(self, masterTable, masterId):
+        """Retrieve the detail records of a master record.
+
+        It finds all records that have a field containing an id of the
+        given master record.
+
+        Details are not retrieved recursively, only the direct details
+        of a master are fetched.
+
+        Parameters
+        ----------
+        masterTable: string
+            The name of the table in which the master record lives.
+        masterId: ObjectId
+            The id of the master record.
+
+        Returns
+        -------
+        AttrDict
+            The list of detail records, categorized by detail table in which
+            they occur. The detail tables are the keys, the lists of records
+            in those tables are the values.
+            If the master record cannot be found or if there are no detail
+            records, the empty dict is returned.
+        """
+        Mongo = self.Mongo
+        masterConfig = self.masterConfig
+
+        detailTables = masterConfig.get(masterTable, [])
+
+        crit = {f"{masterTable.rstrip('s')}Id": masterId}
+
+        detailRecords = AttrDict()
+
+        for detailTable in detailTables:
+            details = Mongo.getList(detailTable, **crit)
+            if len(details):
+                detailRecords[detailTable] = details
+
+        return detailRecords
 
     def makeField(self, key):
         """Make a field object and registers it.

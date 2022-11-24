@@ -75,6 +75,7 @@ class Mongo:
 
         When a connection handle exists, this method does nothing.
         """
+        Messages = self.Messages
         Settings = self.Settings
         client = self.client
         mongo = self.mongo
@@ -90,7 +91,7 @@ class Mongo:
                 )
                 mongo = client[database]
             except Exception as e:
-                self.Messages.error(
+                Messages.error(
                     msg="Could not connect to the database",
                     logmsg=f"Mongo connection: `{e}`",
                 )
@@ -120,7 +121,6 @@ class Mongo:
             Note that the collection will not be deleted, but all its documents
             will be deleted.
         """
-
         Messages = self.Messages
 
         self.connect()
@@ -167,14 +167,33 @@ class Mongo:
             or an empty `control.helpers.generic.AttrDict` if no document
             satisfies the criteria.
         """
+        Messages = self.Messages
 
         result = self.execute(table, "find_one", criteria, {})
         if result is None:
             if warn:
-                Messages = self.Messages
                 Messages.warning(logmsg=f"No record in {table} with {criteria}")
             result = {}
         return AttrDict(result)
+
+    def getList(self, table, **criteria):
+        """Get a list of documents from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection from which we want to retrieve records.
+        criteria: dict
+            A set of criteria to narrow down the search.
+
+        Returns
+        -------
+        list of `control.helpers.generic.AttrDict`
+            The list of documents found, empty if no documents are found.
+            Each document is cast to an AttrDict.
+        """
+        result = self.execute(table, "find", criteria, {})
+        return [AttrDict(record) for record in result]
 
     def updateRecord(self, table, updates, warn=True, **criteria):
         """Updates a single document from a collection.
