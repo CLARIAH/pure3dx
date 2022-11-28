@@ -122,14 +122,22 @@
   align-content: flex-start;
 }
 
-div.caption {
+div.captioncontent {
   display: flex;
-  flex-flow: column nowrap;
+  flex-flow: row nowrap;
+  align-items: flex-start;
   border-radius: 0.4em;
   border-style: solid;
   border-width: 0.2em;
   border-color: var(--caption-border);
   margin-bottom: 1em;
+}
+
+div.caption {
+  display: flex;
+  flex-flow: column nowrap;
+  flex-grow: 1;
+  width: 90%;
 }
 
 div.caption.active {

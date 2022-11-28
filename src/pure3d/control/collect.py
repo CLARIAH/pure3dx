@@ -10,6 +10,7 @@ from control.files import (
     fileCopy,
 )
 from control.environment import var
+from control.flask import initializing
 
 
 META = "meta"
@@ -81,9 +82,8 @@ class Collect:
         just before Flask started running.
         """
         doCollect = var("docollect") == "v"
-        beforeFlask = var("WERKZEUG_RUN_MAIN") is None
 
-        return beforeFlask and doCollect
+        return initializing() and doCollect
 
     def fetch(self):
         """Performs a data collection, but only if triggered by the right conditions.
@@ -148,7 +148,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertItem("meta", name="project", meta=dict(**meta))
+        Mongo.insertRecord("meta", name="site", meta=dict(**meta))
 
     def doProjects(self):
         """Collects data belonging to projects."""
@@ -205,7 +205,7 @@ class Collect:
             candy=candy,
         )
 
-        projectId = Mongo.insertItem("projects", **projectInfo)
+        projectId = Mongo.insertRecord("projects", **projectInfo)
         projectIdByName[projectName] = projectId
         Messages.plain(logmsg=f"PROJECT {projectName} => {projectId}")
         projectOutPath = f"{projectsOutPath}/{projectId}"
@@ -290,7 +290,7 @@ class Collect:
             meta=meta,
             candy=candy,
         )
-        editionId = Mongo.insertItem("editions", **editionInfo)
+        editionId = Mongo.insertRecord("editions", **editionInfo)
         Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
         editionOutPath = f"{editionsOutPath}/{editionId}"
         candyOutPath = f"{editionOutPath}/candy"
@@ -314,7 +314,7 @@ class Collect:
                 candy=sceneCandy[scene],
                 default=default,
             )
-            Mongo.insertItem("scenes", **sceneInfo)
+            Mongo.insertRecord("scenes", **sceneInfo)
             sceneInPath = f"{editionInPath}/{scene}.json"
             sceneOutPath = f"{editionOutPath}/{scene}.json"
             fileCopy(sceneInPath, sceneOutPath)
@@ -354,30 +354,32 @@ class Collect:
         projectUsers = workflow["projectUsers"]
         projectStatus = workflow["projectStatus"]
 
-        userIdByName = {}
+        userByName = {}
 
         for (userName, role) in users.items():
+            sub = f"{userName:0>16}"
             userInfo = dict(
-                name=userName,
+                nickname=userName,
+                sub=sub,
                 role=role,
+                isTest=True,
             )
-            userId = Mongo.insertItem("users", **userInfo)
-            userIdByName[userName] = userId
+            Mongo.insertRecord("users", **userInfo)
+            userByName[userName] = sub
 
         for (projectName, isPublished) in projectStatus.items():
             Messages.plain(logmsg=f"PROJECT {projectName} published: {isPublished}")
-            Mongo.execute(
+            Mongo.updateRecord(
                 "projects",
-                "update_one",
-                dict(_id=projectIdByName[projectName]),
-                {"$set": dict(isPublished=isPublished)},
+                dict(isPublished=isPublished),
+                _id=projectIdByName[projectName],
             )
 
         for (projectName, projectUsrs) in projectUsers.items():
             for (userName, role) in projectUsrs.items():
                 xInfo = dict(
-                    userId=userIdByName[userName],
+                    user=userByName[userName],
                     projectId=projectIdByName[projectName],
                     role=role,
                 )
-                Mongo.insertItem("projectUsers", **xInfo)
+                Mongo.insertRecord("projectUsers", **xInfo)

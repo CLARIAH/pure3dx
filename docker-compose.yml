@@ -7,7 +7,7 @@ volumes:
 services:
   pure3dapp:
     image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
-    restart: unless-stopped
+    # restart: unless-stopped
     container_name: pure3dapp
     hostname: pure3dapp
     environment:
@@ -16,6 +16,8 @@ services:
       docollect: ${docollect}
       initdata: ${initdata}
       runmode: ${runmode}
+      devstatus: ${devstatus}
+      gitlocation: ${gitlocation}
       flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}

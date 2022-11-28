@@ -1,22 +1,10 @@
 from control.generic import AttrDict
 from control.files import fileExists
 
-
-COMPONENT = dict(
-    me=(None, None, None, None),
-    home=("texts/intro", "md", True, ""),
-    about=("texts/about", "md", True, "## About\n\n"),
-    intro=("texts/intro", "md", True, ""),
-    usage=("texts/usage", "md", True, "## Guide\n\n"),
-    description=("texts/description", "md", True, "## Description\n\n"),
-    sources=("texts/sources", "md", True, "## Sources\n\n"),
-    title=("meta/dc", "json", "dc.title", None),
-    icon=("candy/icon", "png", None, None),
-    list=(None, None, None, None),
-)
+from control.fields import Fields
 
 
-class Content:
+class Content(Fields):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         """Retrieving content from database and file system.
 
@@ -38,11 +26,8 @@ class Content:
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         """
-        self.Settings = Settings
+        super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        self.Mongo = Mongo
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -52,20 +37,20 @@ class Content:
         """
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None):
-        """Retrieve a metadata string.
+    def addFieldHandler(self, key):
+        pass
+
+    def getValue(self, key, projectId=None, editionId=None, level=None):
+        """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
         and values.
-        This function retrieves the information based on a path of keys.
+        These locations are known to the system (based on `fields.yml`).
+        This function retrieves the information from those known locations.
 
         Parameters
         ----------
-        nameSpace: string
-            The first selector in the metadata, e.g. `dc` for Dublin Core.
-        fieldPath: string
-            A `.`-separated list of keys. This is a selector in the nested
-            metadata dict selected by the `nameSpace` argument.
+        key: an identifier for the meta data field.
         projectId: ObjectId, optional None
             The project whose metadata we need. If it is None, we need metadata
             outside all of the projects.
@@ -76,28 +61,43 @@ class Content:
         Returns
         -------
         string
-            It is assumed that the metadata that is addressed
-            by the `nameSpace` and `fieldPath` arguments exists and is a string.
-            If not, we return the empty string.
+            It is assumed that the metadata value that is addressed exists
+            and is a string. If not, we return the empty string.
         """
         Mongo = self.Mongo
+        Auth = self.Auth
 
-        fields = fieldPath.split(".")
+        if editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
 
-        meta = (
-            Mongo.getRecord("editions", _id=editionId)
-            if editionId is not None
-            else Mongo.getRecord("projects", _id=projectId)
-            if projectId is not None
-            else Mongo.getRecord("meta", name="project")
-        ).meta or {}
-        text = meta.get(nameSpace, {}).get(fields[0], "" if len(fields) == 0 else {})
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+        meta = record.meta
 
-        for field in fields[1:]:
-            text = text.get(field, {})
-        if type(text) is not str:
-            text = ""
-        return text
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "view" not in permissions:
+            return None
+
+        button = self.actionButton(
+            "edit",
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+        F = self.makeField(key)
+
+        return F.formatted(meta, level=level, button=button)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -122,11 +122,12 @@ class Content:
         Auth = self.Auth
 
         wrapped = []
+        wrapped.append(self.actionButton("create", "projects"))
 
         for row in Mongo.execute("projects", "find"):
             row = AttrDict(row)
             projectId = row._id
-            permitted = Auth.authorise("view", projectId=projectId)
+            permitted = Auth.authorise("projects", recordId=projectId, action="view")
             if not permitted:
                 continue
 
@@ -135,7 +136,13 @@ class Content:
 
             projectUrl = f"/projects/{projectId}"
             iconUrlBase = f"/data/projects/{projectId}/candy"
-            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            button = self.actionButton(
+                "delete",
+                "projects",
+                recordId=projectId,
+            )
+            caption = self.getCaption(title, candy, button, projectUrl, iconUrlBase)
+
             wrapped.append(caption)
 
         return "\n".join(wrapped)
@@ -144,13 +151,13 @@ class Content:
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("create")
+        permitted = Auth.authorise("projects")
         if not permitted:
             return None
 
-        User = Auth.whoami()
-        name = User.name
-        userId = User._id
+        User = Auth.myDetails()
+        user = User.sub
+        name = User.nickname
 
         title = "No title"
 
@@ -159,11 +166,11 @@ class Content:
             description=dict(abstract="No intro", description="No description"),
             creator=name,
         )
-        projectId = Mongo.insertItem("projects", title=title, meta=dict(dc=dcMeta))
-        Mongo.insertItem(
+        projectId = Mongo.insertRecord("projects", title=title, meta=dict(dc=dcMeta))
+        Mongo.insertRecord(
             "projectUsers",
             projectId=projectId,
-            userId=userId,
+            user=user,
             role="creator",
         )
         return projectId
@@ -196,7 +203,7 @@ class Content:
         for row in Mongo.execute("editions", "find", dict(projectId=projectId)):
             row = AttrDict(row)
             editionId = row._id
-            permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
+            permitted = Auth.authorise("editions", recordId=editionId, action="view")
             if not permitted:
                 continue
 
@@ -205,10 +212,43 @@ class Content:
 
             editionUrl = f"/editions/{editionId}"
             iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
-            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            button = self.actionButton(
+                "delete",
+                "editions",
+                recordId=editionId,
+            )
+            caption = self.getCaption(title, candy, button, editionUrl, iconUrlBase)
             wrapped.append(caption)
 
+        wrapped.append(self.actionButton("create", "editions", projectId=projectId))
         return "\n".join(wrapped)
+
+    def insertEdition(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise("editions", projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = "No title"
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract="No intro",
+                description="No description",
+                provenance="No sources",
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            "editions", title=title, projectId=projectId, meta=dict(dc=dcMeta)
+        )
+        return editionId
 
     def getScenes(
         self,
@@ -274,14 +314,9 @@ class Content:
 
         wrapped = []
 
-        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
-        if not permitted:
+        actions = Auth.authorise("editions", recordId=editionId)
+        if "view" not in actions:
             return ""
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        actions = ["view"]
-        if Auth.isModifiable(projectId, editionId):
-            actions.append("edit")
 
         (viewer, version) = Viewers.check(viewer, version)
 
@@ -289,33 +324,73 @@ class Content:
 
         for row in Mongo.execute("scenes", "find", dict(editionId=editionId)):
             row = AttrDict(row)
+            thisSceneId = row._id
+            candy = row.candy
 
             isSceneActive = sceneId is None and row.default or row._id == sceneId
             titleText = f"""<span class="entrytitle">{row.name}</span>"""
+            button = self.actionButton(
+                "delete",
+                "scenes",
+                recordId=thisSceneId,
+            )
 
             if isSceneActive:
                 (frame, buttons) = Viewers.getFrame(
-                    row._id, actions, viewer, version, action
+                    thisSceneId, actions, viewer, version, action
                 )
                 title = f"""<span class="entrytitle">{titleText}</span>"""
                 content = f"""{frame}{title}{buttons}"""
-                caption = self.wrapCaption(content, active=True)
+                caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{row._id}"
                 iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
-                caption = self.getCaption(titleText, row.candy, sceneUrl, iconUrlBase)
+                caption = self.getCaption(
+                    titleText, candy, button, sceneUrl, iconUrlBase
+                )
 
             wrapped.append(caption)
 
+        wrapped.append(
+            self.actionButton(
+                "create", "scenes", projectId=projectId, editionId=editionId
+            )
+        )
         return "\n".join(wrapped)
 
-    def wrapCaption(self, content, active=False):
-        activeCls = "active" if active else ""
-        start = f"""<div class="caption {activeCls}">"""
-        end = """</div>"""
-        return f"""{start}{content}{end}"""
+    def insertScene(self, projectId, editionId):
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-    def getCaption(self, titleText, candy, url, iconUrlBase):
+        permitted = Auth.authorise("scenes", projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = "No title"
+
+        dcMeta = dict(
+            title=title,
+            creator=name,
+        )
+        sceneId = Mongo.insertRecord(
+            "scenes",
+            name=title,
+            projectId=projectId,
+            editionId=editionId,
+            meta=dict(dc=dcMeta),
+        )
+        return sceneId
+
+    def wrapCaption(self, content, button, active=False):
+        activeCls = "active" if active else ""
+        start = f"""<div class="captioncontent"><div class="caption {activeCls}">"""
+        end = """</div>"""
+        return f"""{start}{content}{end}{button}{end}"""
+
+    def getCaption(self, titleText, candy, button, url, iconUrlBase):
         icon = self.getIcon(candy)
         title = f"""<span class="entrytitle">{titleText}</span>"""
 
@@ -323,7 +398,7 @@ class Content:
             f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
         )
         content = f"""<a class="entry" href="{url}">{visual}{title}</a>"""
-        return self.wrapCaption(content)
+        return self.wrapCaption(content, button)
 
     def getIcon(self, candy):
         """Select an icon from a set of candidates.
@@ -424,7 +499,13 @@ class Content:
             f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
         )
 
-        permitted = Auth.authorise("view", projectId=projectId, editionId=editionId)
+        if editionId is None:
+            table = "projects"
+            recordId = projectId
+        else:
+            table = "editions"
+            recordId = editionId
+        permitted = Auth.authorise(table, recordId=recordId, action="view")
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -452,3 +533,68 @@ class Content:
         and does not want to know where the content comes from.
         """
         return self.Mongo.getRecord(*args, **kwargs)
+
+    def actionButton(
+        self, action, table, recordId=None, key=None, projectId=None, editionId=None
+    ):
+        """Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        Parameters
+        ----------
+        action: string, optional None
+            The type of action that will be performed if the button triggered.
+        table: string
+            the table to which the action applies;
+        recordId: ObjectId, optional None
+            the record in question
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a metadata field that is stored inside the
+            record. From the key, the value can be found.
+        """
+        Auth = self.Auth
+
+        urlInsert = "/"
+        if projectId is not None:
+            urlInsert += f"projects/{projectId}/"
+        if editionId is not None:
+            urlInsert += f"editions/{editionId}/"
+
+        permitted = Auth.authorise(
+            table, recordId=recordId, projectId=projectId, action=action
+        )
+
+        if not permitted:
+            return ""
+
+        Settings = self.Settings
+        actions = Settings.auth.actions
+
+        text = actions.get(action, action)
+        tableItem = table.rstrip("s")
+        keyRepTip = "" if key is None else f" {key} of"
+        keyRepUrl = "" if key is None else f"/{key}"
+        recordIdRep = "" if recordId is None else f"/{recordId}"
+        tip = (
+            f"{action} new {tableItem}"
+            if action == "create"
+            else f"{action}{keyRepTip} this {tableItem}"
+        )
+        url = (
+            f"{urlInsert}{table}/insert"
+            if action == "create"
+            else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
+        )
+
+        return f"""
+            <a title="{tip}" href="{url}" class="button large">{text}</a>
+        """

@@ -94,6 +94,7 @@ class Viewers:
         string
             The HTML that represents the buttons.
         """
+        actionInfo = self.Settings.auth.actions
         viewers = self.viewers
 
         frame = dedent(
@@ -136,6 +137,8 @@ class Viewers:
                 f"""<span class="vv"><span class="vvl {activeCls}">{version}</span>"""
             )
             for action in actions:
+                if action == "delete":
+                    continue
                 isActionActive = active and action == actionActive
                 buttons.append(getActionButton(viewer, version, action, isActionActive))
 
@@ -148,17 +151,36 @@ class Viewers:
         def getActionButton(viewer, version, action, active):
             activeCls = "active" if active else ""
 
-            if activeCls:
+            if active:
                 attStr = ""
                 elem = "span"
             else:
                 elem = "a"
-                attStr = f' href="/scenes/{sceneId}/{viewer}/{version}/{action}" '
+                href = f"/scenes/{sceneId}/{viewer}/{version}/{action}"
+                attStr = f""" href="{href}" """
+
+                if action == "edit":
+                    viewerHref = f"/viewer/{viewer}/{version}/{action}/{sceneId}"
+                    viewerAttStr = dedent(
+                        f"""
+                        onclick="
+                            window.open(
+                                '{viewerHref}',
+                                'newwindow',
+                                width=window.innerWidth,
+                                height=window.innerHeight
+                            );
+                            return false;
+                        "
+                        """
+                    )
+                    attStr += viewerAttStr
 
             cls = f"button {activeCls} vwb"
             begin = f"""<{elem} class="{cls}" {attStr}>"""
+            actionRep = actionInfo.get(action, action)
             end = f"</{elem}>"
-            return f"{begin}{action}{end}"
+            return f"{begin}{actionRep}{end}"
 
         for viewer in viewers:
             isViewerActive = viewer == viewerActive
@@ -168,6 +190,8 @@ class Viewers:
 
         activeButtons = []
         for action in actions:
+            if action == "delete":
+                continue
             activeButtons.append(
                 getActionButton(
                     viewerActive, versionActive, action, action == actionActive

@@ -1,7 +1,6 @@
 from textwrap import dedent
-from markdown import markdown
 
-from control.flask import redirectStatus, template, send
+from control.flask import redirectStatus, template, send, stop, getReferrer
 
 
 TABS = (
@@ -12,15 +11,6 @@ TABS = (
     ("surpriseme", "Surprise Me", True),
     ("advancedsearch", "Advanced Search", False),
 )
-
-CAPTIONS = {
-    "title": "{}",
-    "creator": "by {}",
-    "description.abstract": "Intro",
-    "description.description": "Description",
-    "provenance": "About",
-    "instructionalMethod": "How to use",
-}
 
 
 class Pages:
@@ -62,22 +52,63 @@ class Pages:
         self.Content = Content
         self.Auth = Auth
 
+    def remaining(self, path):
+        """When the url of the request is not recognized.
+
+        Parameters
+        ----------
+        path: string
+            The url (without leading /) that is not recognized.
+
+        Returns
+        -------
+        response
+            Either a redirect to the referred, for some
+            recognized urls that correspond to not-yet
+            implemented one. Or a 404 abort for all other
+            cases.
+        """
+        Messages = self.Messages
+
+        def splitUrl(url):
+            url = url.strip("/")
+            parts = url.rsplit("/", 1)
+            lastPart = parts[-1]
+            firstPart = parts[0] if len(parts) > 1 else ""
+            firstPart = f"/{firstPart}"
+            return (firstPart, lastPart)
+
+        (firstPath, lastPath) = splitUrl(path)
+
+        if lastPath in {"delete", "edit", "view"}:
+            Messages.warning(
+                logmsg=f"Not yet implemented /{lastPath}: /{path}",
+                msg=f"Not yet implemented: /{lastPath}",
+            )
+            ref = getReferrer()
+            (firstRef, lastRef) = splitUrl(ref)
+            back = firstRef if lastRef in {"delete", "edit", "view"} else f"/{ref}"
+            return redirectStatus(back, True)
+
+        Messages.warning(logmsg=f"Not found: /{path}")
+        stop()
+
     def home(self):
         """The site-wide home page."""
-        left = self.putTexts("dc", "title@1 + description.abstract@2")
+        left = self.putValues("title@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
         """The site-wide about page."""
-        left = self.putTexts("dc", "title@1 + description.abstract@2")
-        right = self.putTexts("dc", "description.description@2 + provenance@2")
+        left = self.putValues("title@1 + abstract@2")
+        right = self.putValues("description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
         """The "surprise me!" page."""
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putTexts("dc", "title@1")
+        left = self.putValues("title@1")
         right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
@@ -85,11 +116,8 @@ class Pages:
         """The page with the list of projects."""
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putTexts("dc", "title@2") + projects
-        insertButton = self.putButton(
-            "+", "insert new project", "/projects/insert", "create"
-        )
-        return self.page("projects", left=left, right=insertButton)
+        left = self.putValues("title@2") + projects
+        return self.page("projects", left=left)
 
     def projectInsert(self):
         """Inserts a project and shows the new project."""
@@ -119,16 +147,36 @@ class Pages:
         """
         Content = self.Content
         editions = Content.getEditions(projectId)
-        left = (
-            self.putTexts("dc", "title@3 + creator@4", projectId=projectId) + editions
-        )
-        right = self.putTexts(
-            "dc",
-            "description.abstract@4 + description.description@4 + "
-            "provenance@4 + instructionalMethod@4",
+        left = self.putValues("title@3 + creator@4", projectId=projectId) + editions
+        right = self.putValues(
+            "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
             projectId=projectId,
         )
         return self.page("projects", left=left, right=right)
+
+    def editionInsert(self, projectId):
+        """Inserts an edition into a project and shows the new edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the edition belongs.
+        """
+        Messages = self.Messages
+        Content = self.Content
+        editionId = Content.insertEdition(projectId)
+        if editionId is None:
+            Messages.warning(
+                logmsg="Could not create new edition",
+                msg="failed to create new edition",
+            )
+            newUrl = f"/projects/{projectId}"
+        else:
+            Messages.info(
+                logmsg=f"Created edition {editionId}", msg="new edition created"
+            )
+            newUrl = f"/editions/{editionId}"
+        return redirectStatus(newUrl, editionId is not None)
 
     def edition(self, editionId):
         """The landing page of an edition.
@@ -147,6 +195,30 @@ class Pages:
         editionInfo = Content.getRecord("editions", _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
+
+    def sceneInsert(self, projectId, editionId):
+        """Inserts a scene into an edition and shows the new scene.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the scene belongs.
+        editionId: ObjectId
+            The edition to which the scene belongs.
+        """
+        Messages = self.Messages
+        Content = self.Content
+        sceneId = Content.insertScene(projectId, editionId)
+        if sceneId is None:
+            Messages.warning(
+                logmsg="Could not create new scene",
+                msg="failed to create new scene",
+            )
+            newUrl = f"/editions/{editionId}"
+        else:
+            Messages.info(logmsg=f"Created scene {sceneId}", msg="new scene created")
+            newUrl = f"/scenes/{sceneId}"
+        return redirectStatus(newUrl, sceneId is not None)
 
     def scene(self, sceneId, viewer, version, action):
         """The landing page of an edition, but with a scene marked as active.
@@ -183,25 +255,28 @@ class Pages:
         Content = self.Content
         Auth = self.Auth
 
-        action = Auth.checkModifiable(projectId, editionId, action)
         back = self.backLink(projectId)
-        sceneMaterial = Content.getScenes(
-            projectId,
-            editionId,
-            sceneId=sceneId,
-            viewer=viewer,
-            version=version,
-            action=action,
+        self.debug(f"SCENES: {editionId=}")
+        action = Auth.makeSafe("editions", editionId, action)
+        sceneMaterial = (
+            ""
+            if action is None
+            else Content.getScenes(
+                projectId,
+                editionId,
+                sceneId=sceneId,
+                viewer=viewer,
+                version=version,
+                action=action,
+            )
         )
         left = (
             back
-            + self.putTexts("dc", "title@4", projectId=projectId, editionId=editionId)
+            + self.putValues("title@4", projectId=projectId, editionId=editionId)
             + sceneMaterial
         )
-        right = self.putTexts(
-            "dc",
-            "description.abstract@5 + description.description@5 + "
-            "provenance@5 + instructionalMethod@5",
+        right = self.putValues(
+            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
             projectId=projectId,
             editionId=editionId,
         )
@@ -233,9 +308,13 @@ class Pages:
 
         urlBase = f"projects/{projectId}/editions/{editionId}/"
 
-        action = Auth.checkModifiable(projectId, editionId, action)
+        action = Auth.makeSafe("scenes", sceneId, action)
 
-        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        viewerCode = (
+            ""
+            if action is None
+            else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        )
         return template("viewer", viewerCode=viewerCode)
 
     def viewerResource(self, path):
@@ -311,19 +390,18 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        userActive = Auth.whoami()._id
-
         navigation = self.navigation(url)
-        testUsers = Auth.wrapTestUsers(userActive) if Settings.testMode else ""
+        loginWidget = Auth.wrapLogin()
 
         return template(
             "index",
+            banner=Settings.banner,
             versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left or "",
             materialRight=right or "",
             messages=Messages.generateMessages(),
-            testUsers=testUsers,
+            loginWidget=loginWidget,
         )
 
     def authWebdav(self, projectId, editionId, path, action):
@@ -354,15 +432,13 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        permitted = Auth.authorise(
-            action,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        permitted = Auth.authorise("editions", recordId=editionId, action=action)
         if not permitted:
-            User = Auth.whoami()
+            User = Auth.myDetails()
+            user = User.sub
+            name = User.nickname
             Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {User.name} ({User._id}"
+                logmsg=f"WEBDAV unauthorised by user {name} ({user})"
                 f" on project {projectId} edition {editionId} path {path}"
             )
         return permitted
@@ -431,61 +507,8 @@ class Pages:
         text = """back to the project page"""
         return f"""<p><a {cls} {href}>{text}</a></p>"""
 
-    def putText(self, nameSpace, fieldPath, level=None, projectId=None, editionId=None):
-        """Puts a piece of metadata on the web page.
-
-        The meta data is retrieved and then wrapped accordingly.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The namespace of the metadata, e.g. `dc` (Dublin Core)
-        fieldPath: string
-            `.`-separated list of fields into a metadata structure.
-        level: integer 1-6, optional None
-            The heading level in which the text must be wrapped.
-            The heading is determined from the `fieldPath`, by looking it up
-            in the `CAPTIONS` mapping.
-            It is also possible to render the *contents* of the field as a heading,
-            this happens when the caption contains a `{}`.
-            If the level is None, no heading will be produced.
-        projectId: ObjectId or None
-            The project in question
-        editionId: ObjectId or None
-            The edition in question
-
-        Returns
-        -------
-        string
-            The HTML of the formatted text.
-        """
-        Content = self.Content
-
-        heading = None
-        content = Content.getMeta(
-            nameSpace, fieldPath, projectId=projectId, editionId=editionId
-        )
-
-        if level is not None:
-            heading = CAPTIONS.get(fieldPath, None)
-
-            if heading is not None:
-                if "{}" in heading:
-                    heading = heading.format(content)
-                    content = None
-
-                heading = f"""<h{level}>{markdown(heading)}</h{level}>\n"""
-
-        content = "" if content is None else markdown(content)
-
-        return heading + content
-
-    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
+    def putValues(self, fieldSpecs, projectId=None, editionId=None):
         """Puts several pieces of metadata on the web page.
-
-        See `Pages.putText()` for the parameter specifications.
-
-        Differences: all texts will be displayed with headings. And:
 
         Parameters
         ----------
@@ -495,58 +518,19 @@ class Pages:
         Returns
         -------
         string
-            The join of the individual results of `Pages.putText`.
+            The join of the individual results of retrieving metadata value.
         """
+        Content = self.Content
 
         return "\n".join(
-            self.putText(
-                nameSpace,
-                fieldPath,
-                level=level,
+            Content.getValue(
+                key,
                 projectId=projectId,
                 editionId=editionId,
+                level=level,
             )
-            for (fieldPath, level) in (
+            or ""
+            for (key, level) in (
                 fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
             )
-        )
-
-    def putButton(self, text, tip, url, action, projectId=None, editionId=None):
-        """Puts a button on the interface, if that makes sense.
-
-        The button, when pressed, will lead to an action on certain content.
-        It will be checked first if that action is allowed for the current user.
-        If not the button will not be shown.
-
-        Parameters
-        ----------
-        text: string
-            the text on the button
-        tip: string
-            the tooltip for the button
-        url: string
-            the url to go to if the button is pressed
-        action: string
-            the type of action that will be performed if the button triggered.
-            This is only needed to determine whether the button should be placed.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Needed to determine whether a press on the button is permitted.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Needed to determine whether a press on the button is permitted.
-        """
-        Auth = self.Auth
-
-        permitted = Auth.authorise(
-            action,
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return (
-            f"""
-            <a title="{tip}" href="{url}" class="button large">{text}</a>
-        """
-            if permitted
-            else ""
         )

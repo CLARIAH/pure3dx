@@ -1,5 +1,23 @@
 from control.generic import AttrDict
-from control.flask import arg, sessionPop, sessionGet, sessionSet
+from control.flask import (
+    arg,
+    sessionPop,
+    sessionGet,
+    sessionSet,
+    getReferrer,
+    redirectStatus,
+)
+
+
+USERIDFIELD = "user"
+
+PROVIDER_ATTS = tuple(
+    """
+    sub
+    email
+    nickname
+""".strip().split()
+)
 
 
 class Users:
@@ -29,114 +47,178 @@ class Users:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+
         self.__User = AttrDict()
         """Data of the current user.
 
         If there is no current user, it has no members.
 
-        Otherwise, it has member `_id`, the mongodb id of the current user.
+        Otherwise, it has member `sub`, the sub of the current user.
         It may also have additional members, such as `name` and `role`.
         """
 
-    def wrapTestUsers(self, userActive):
-        """Generate HTML for login buttons for test users.
+        self.oidc = None
+        """The object that gives access to authentication methods.
+        """
 
-        Only produces a non-empty result if the app is in test mode.
+    def addAuthenticator(self, oidc):
+        """Adds the object that gives access to authentication methods.
 
         Parameters
         ----------
-        userActive: ObjectId
-            The id of the user that is currently logged in.
-            The button for this users will be rendered as the active one.
+        oidc: object
+            The object corresponding to the flask app prepared with the
+            Flask-OIDC authenticator.
 
         Returns
         -------
-        string
-            HTML of the list of buttons for test users, with the button
-            for the current user styled as active.
+        void
+            The object is stored in the `oidc` member.
         """
-        Settings = self.Settings
-        Mongo = self.Mongo
-
-        if not Settings.testMode:
-            return ""
-
-        def wrap(title, href, cls, text):
-            return (
-                f'<a title="{title}" href="{href}" class="button small {cls}">'
-                f"{text}</a>"
-            )
-
-        active = "active" if userActive is None else ""
-
-        html = []
-        html.append(wrap("if not logged in", "/logout", active, "logged out"))
-
-        for user in sorted(Mongo.execute("users", "find"), key=lambda r: r["name"]):
-            user = AttrDict(user)
-
-            active = "active" if user._id == userActive else ""
-            html.append(wrap(user.role, f"/login?userid={user._id}", active, user.name))
-
-        return "\n".join(html)
+        self.oidc = oidc
 
     def login(self):
-        """Logs in a user.
+        """Log in a user.
 
-        The fact that a user has changed is triggered by the `/login` url,
-        the new user id is expected in the session.
+        Logging in has several main steps:
 
-        In test mode, the new userid may also be present as a request argument.
+        1. redirecting to a private page, for which login is required
+        2. obtaining the authentication results when the user visits that page
+        3. storing the relevant user data
 
-        It is possible that we find a user id for which there is no corresponding
-        entry in the users table in MongoDb.
+        When we log in test users, we can skip the first step, because
+        we already know everything about the test user on the basis of the
+        information in the request that brought us here.
 
-        Then we remove the user id from the session, and we do not log in any user.
+        So, we find out if we have to log in a test user or a user that must be
+        authenticated through oidc.
+
+        We only log in a test user if we are in test mode and the user's sub
+        is passed in the request.
+
+        Returns
+        -------
+        response
+            A redirect. When logging in in test mode, the redirect
+            is to *referrer* (the url we came from). Otherwise it is to a url
+            that triggers an oidc login procedure. To that page we pass
+            the referrer as part of the url, so that after login the user
+            can be redirected to the original referrer.
         """
         Messages = self.Messages
+        Settings = self.Settings
+        testMode = Settings.testMode
 
-        userId = self.__recallUser()
+        referrer = getReferrer()
+        (testMode, isTestUser, user) = self.getUser(fromArg=True)
+        name = self.__User.nickname
 
-        if self.__retrieveUserAttributes(userId):
-            self.__rememberUser(userId)
-            userName = self.__User.name
-            Messages.plain(
-                logmsg=f"LOGIN successful: user {userName} {userId}",
-                msg=f"LOGIN successful: user {userName}",
-            )
-            return True
-        else:
+        if user and not isTestUser and testMode:
             Messages.warning(
-                logmsg=f"LOGIN: user {userId} does not exist",
-                msg="LOGIN: user does not exist",
+                logmsg=(
+                    "LOGIN attempt while an user is already logged in: "
+                    f"user {name} {user}"
+                ),
+                msg=f"first log out as user {name}",
             )
-            self.__forgetUser()
-            self.__clearUserAttributes()
-            return False
+            return redirectStatus(f"/{referrer}", False)
+
+        return (
+            self.__loginTest(referrer, arg(USERIDFIELD))
+            if isTestUser
+            else self.__loginOidc(referrer)
+        )
+
+    def afterLogin(self, referrer):
+        """Logs in a user.
+
+        When this function starts operating, the user has been through the login
+        process provided by the authentication service.
+
+        We can now find the user's sub and additional attributes in the request
+        context.
+
+        We use that information to lookup the user in the MongoDb users table.
+        If the user does not exists, we add a new user record, with this sub and
+        these attributes, and role `user`.
+
+        If the user does exists, we check whether we have to update his attributes.
+        If the attributes found in MongoDb differ from those supplied by the
+        authentication service, we update the MongoDb values on the basis
+        of the provider values.
+
+        Parameters
+        ----------
+        referrer: string
+            url where we came from.
+
+        Returns
+        -------
+        response
+            A redirect to the referrer, with a status 302 if the log in was
+            successful or 303 if not.
+        """
+        Messages = self.Messages
+        oidc = self.oidc
+
+        user = None
+
+        if oidc.user_loggedin:
+            user = oidc.user_getfield("sub")
+            name = oidc.user_getfield("nickname")
+
+        if user is None or not self.__findUser(user, update=True):
+            Messages.warning(
+                logmsg="LOGIN failed for user {user}",
+                msg="failed to log in",
+            )
+            return redirectStatus(f"/{referrer}", False)
+
+        name = self.__User.nickname
+        Messages.plain(
+            logmsg=f"LOGIN successful: user {name} {user}",
+            msg=f"LOGIN successful: user {name}",
+        )
+        return redirectStatus(f"{referrer}", True)
 
     def logout(self):
         """Logs off the current user.
 
-        That means that the `__User` member of Auth is cleared, and the current
-        session is popped.
+        First we find out whether we have to log out a test user or a normal
+        user.
+        After logging out, we redirect to the home page.
+
+        Returns
+        -------
+        response
+            A redirect to the home page.
         """
+        oidc = self.oidc
         Messages = self.Messages
+        name = self.__User.nickname
 
-        userId = self.__recallUser()
-        userName = self.__User.name
+        (testMode, isTestUser, user) = self.getUser()
 
-        if userId is None:
-            Messages.warning(
-                logmsg=f"LOGOUT when no user was logged in: user {userName} {userId}",
-                msg="You were not logged in",
-            )
+        if user is None:
+            if testMode:
+                sessionPop(USERIDFIELD)
+            else:
+                oidc.logout()
+            self.__User.clear()
+            Messages.plain(logmsg="LOGOUT but no user was logged in.")
+            return redirectStatus("/", False)
+
+        if isTestUser:
+            sessionPop(USERIDFIELD)
         else:
-            Messages.plain(
-                logmsg=f"LOGOUT successful: user {userName} {userId}",
-                msg=f"{userName} logged out",
-            )
-        self.__clearUserAttributes()
-        self.__forgetUser()
+            oidc.logout()
+
+        self.__User.clear()
+        Messages.plain(
+            logmsg=f"LOGOUT successful: user {name} {user}",
+            msg=f"{name} logged out",
+        )
+        return redirectStatus("/", True)
 
     def identify(self):
         """Make sure who is the current user.
@@ -146,117 +228,293 @@ class Users:
 
         If there is a current user that is unknown to the database, the current user
         will be cleared.
+
+        Otherwise, we make sure that we retrieve the current user's attributes from
+        the database.
+
+        !!! note "No login"
+            We do not try to perform a login of a user,
+            we only check who is the currently logged in user.
+
+            A login must be explicitly triggered by the the `/login` url.
         """
-        userId = self.__recallUser()
+        oidc = self.oidc
 
-        if userId is None or not self.__retrieveUserAttributes(userId):
-            self.__clearUserAttributes()
-            self.__forgetUser()
+        (testMode, isTestUser, user) = self.getUser()
 
-    def whoami(self):
+        if user is not None:
+            if isTestUser:
+                if not self.__findTestUser(user):
+                    self.__User.clear()
+                    sessionPop(USERIDFIELD)
+            else:
+                if not self.__findUser(user, update=False):
+                    self.__User.clear()
+                    oidc.logout()
+
+    def myDetails(self):
         """Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain an id?
+        The `__User` member is inspected: does it contain an sub?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
-        boolean or dict
-            If there is on `_id` member in the current user, False is returned.
+        dict
             Otherwise a copy of the complete __User record is returned.
+            unless there is no `sub` member in the current user, then
+            the empty dictionary is returned.
         """
         User = self.__User
-        return AttrDict(**User) if "_id" in User else AttrDict({})
+        return AttrDict(**User) if "sub" in User else AttrDict({})
 
-    def __rememberUser(self, userId):
-        """Stores the user id in the current session.
+    def getUser(self, fromArg=False):
+        """Obtain the sub of the currently logged in user from the request info.
+
+        It works for test users and normal users.
 
         Parameters
         ----------
-        userId: ObjectId
-            The user id to remember.
-            It will be stored as string.
-        """
-
-        try:
-            sessionSet("userid", str(userId))
-        except Exception:
-            pass
-
-    def __forgetUser(self):
-        """Removes the current user id from the current session."""
-
-        try:
-            sessionPop("userid")
-        except Exception:
-            pass
-
-    def __recallUser(self):
-        """Retrieves the current user id from the current session.
+        fromArg: boolean, optional False
+            If True, the test user is not read from the session, but from a
+            request argument.
+            This is used during the login procedure of test users.
 
         Returns
         -------
-        ObjectId or None
-            The user id stored in the current session in MongoDb format,
-            if there is a user id, else None.
+        boolean, boolean, string
+            Whether we are in test mode.
+            Whether the user is a test user.
+            The sub of the user
         """
+        oidc = self.oidc
         Settings = self.Settings
-        Mongo = self.Mongo
-
         testMode = Settings.testMode
 
-        try:
-            sessionUserId = sessionGet("userid")
-        except Exception:
-            sessionUserId = None
+        user = None
+        isTestUser = None
 
         if testMode:
-            try:
-                testUserId = arg("userid")
-            except Exception:
-                testUserId = None
+            user = arg(USERIDFIELD) if fromArg else sessionGet(USERIDFIELD)
+            if user:
+                isTestUser = True
 
-            userId = testUserId if testUserId is not None else sessionUserId
-            self.debug(f"RECALL {sessionUserId=} {testUserId=} {userId=}")
-        else:
-            userId = sessionUserId
+        if user is None:
+            user = oidc.user_getfield("sub") if oidc.user_loggedin else None
+            if user:
+                isTestUser = False
 
-        return Mongo.cast(userId)
+        return (testMode, isTestUser, user)
 
-    def __clearUserAttributes(self):
-        """Clear current user.
+    def wrapLogin(self):
+        """Generate HTML for the login widget.
 
-        The `__User` member is cleared.
-        Note that it is not deleted, only its members are removed.
-        """
-        self.__User.clear()
+        De task is to generate login/logout buttons.
 
-    def __retrieveUserAttributes(self, userId):
-        """Get user data.
+        If the user is logged in, his nickname should be displayed, together
+        with a logout button.
 
-        Parameters
-        ----------
-        userId: ObjectId
-            The id of a user in the users table of the MongoDb database.
+        If no user is logged in, a login button should be displayed.
+
+        If in test mode, a list of buttons for each test-user should be
+        displayed.
 
         Returns
         -------
-        boolean
-            Whether a user with id = `userId` has been found.
-            If so, the data of that user record is stored
-            in the `__User` member.
+        string
+            HTML of the list of buttons for test users, with the button
+            for the current user styled as active.
         """
+        Mongo = self.Mongo
+
+        (testMode, isTestUser, userActive) = self.getUser()
+
+        html = []
+
+        def wrap(label, text, title, href, active, enabled):
+            labelRep = f"""<span class="label">{label}</span>""" if label else ""
+            cls = "active" if active else ""
+            elem = "span" if active else "a"
+            hrefAtt = "" if active else f'href="{href}"'
+            if not enabled:
+                cls = "disabled"
+                elem = "span"
+                hrefAtt = ""
+            html.append(
+                f"{labelRep}"
+                f'<{elem} title="{title}" {hrefAtt} class="button small {cls}">'
+                f"{text}</{elem}>"
+            )
+
+        if testMode:
+            # row of test users
+
+            enabled = not userActive or isTestUser
+            for row in sorted(
+                Mongo.execute("users", "find", dict(isTest=True)),
+                key=lambda r: r["nickname"],
+            ):
+                User = AttrDict(row)
+                user = User.sub
+                name = User.nickname
+                role = self.presentRole(User.role)
+
+                active = user == userActive
+                wrap(None, name, role, f"/login?user={user}", active, enabled)
+
+        if userActive:
+            # details of logged in user
+
+            details = self.myDetails()
+            name = details.nickname
+            email = details.email
+            userRep = f"{name} - {email}" if email else name
+            role = self.presentRole(details.role)
+            wrap("Logged in as", userRep, role, None, True, True)
+
+            # logout button
+            wrap(None, "log out", f"log out {name}", "/logout", False, True)
+
+        else:
+            # login button
+            wrap(None, "log in", "log in", "/login", False, True)
+
+        return "\n".join(html)
+
+    def presentRole(self, role):
+        """Finds the interface representation of a role.
+
+        Parameters
+        ----------
+        role: string
+            The internal name of the role.
+
+        Returns
+        -------
+        string
+            The name of the role as it should be presented to users.
+            If no representation can be found, the internal name is returned.
+        """
+        Settings = self.Settings
+        roles = Settings.auth.roles
+        return roles.get(role, role)
+
+    def __loginTest(self, referrer, user):
+        """Perform the steps to log in a test user.
+
+        This involves looking up the user in the user table,
+        copying its information in the `__User` member of this object,
+        and storing the user in the session. After that the user is redirected
+        to where he came from.
+
+        Parameters
+        ----------
+        referrer: string
+            url where we came from.
+        user: string
+            The sub of the test user that we must log in as.
+
+        Returns
+        -------
+        response
+            A redirect to the referrer, with a status 302 if the log in was
+            successful or 303 if not.
+        """
+        Messages = self.Messages
+
+        if user is None or not self.__findTestUser(user):
+            return redirectStatus(f"/{referrer}", False)
+
+        sessionSet(USERIDFIELD, user)
+        name = self.__User.nickname
+        Messages.plain(
+            logmsg=f"LOGIN successful: test user {name} {user}",
+            msg=f"LOGIN successful: test user {name}",
+        )
+        return redirectStatus(f"/{referrer}", True)
+
+    def __loginOidc(self, referrer):
+        """Redirect step in logging in normal user.
+
+        This means redirecting the user to a url for which authentication
+        is required.
+
+        Parameters
+        ----------
+        referrer: string
+            url where we came from. We pass this to the private url.
+
+        Returns
+        -------
+        response
+            A redirect to the referrer, with a status 302 if the log in was
+            successful or 303 if not.
+        """
+        return redirectStatus(f"/afterlogin/referrer/{referrer}", True)
+
+    def __findTestUser(self, user):
         Messages = self.Messages
         Mongo = self.Mongo
         User = self.__User
 
-        record = Mongo.getRecord("users", _id=userId)
-        if record:
-            User.clear()
-            User._id = userId
-            User.name = record.name
-            User.role = record.role
-            return True
+        record = Mongo.getRecord("users", sub=user)
 
-        Messages.warning(msg="Unknown user", logmsg=f"Unknown user {userId}")
-        return False
+        if not record:
+            Messages.warning(msg="Unknown user", logmsg=f"Unknown user {user}")
+            return False
+
+        User.clear()
+        for att in PROVIDER_ATTS:
+            User[att] = record[att]
+        User.role = record.role
+
+        return True
+
+    def __findUser(self, user, update=False):
+        """Lookup user data in the MongoDb users collection.
+
+        The user is looked up by the `sub` field.
+        Optionally, the user record in MongoDb is updated with attributes from
+        the identity provider.
+
+        Parameters
+        ----------
+        user: string
+            The `sub` of by which a user is looked up, if not None.
+        update: boolean, optional False
+
+        Returns
+        -------
+        boolean
+            Whether a user has been found/created.
+            If so, the data of that user record is stored
+            in the `__User` member.
+        """
+        Mongo = self.Mongo
+        oidc = self.oidc
+        User = self.__User
+
+        record = Mongo.getRecord("users", sub=user, warn=False)
+        newUser = None
+
+        if not record:
+            newUser = {att: oidc.user_getfield(att) for att in PROVIDER_ATTS}
+            userId = Mongo.insertRecord("users", role="user", **newUser)
+            record = Mongo.getRecord("users", _id=userId)
+
+        User.clear()
+        for att in PROVIDER_ATTS:
+            User[att] = record[att]
+        User.role = record.role
+
+        if update and not newUser:
+            changes = {}
+            for att in PROVIDER_ATTS:
+                orig = User[att]
+                new = oidc.user_getfield(att)
+                if new is not None and orig != new:
+                    changes[att] = new
+                    User[att] = new
+            if changes:
+                Mongo.updateRecord("users", changes, sub=User.sub)
+        return True

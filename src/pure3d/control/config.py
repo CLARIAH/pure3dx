@@ -1,4 +1,5 @@
 from textwrap import dedent
+from subprocess import check_output
 
 from control.generic import AttrDict
 from control.files import dirExists, fileExists, readYaml, readPath, listDirs
@@ -75,8 +76,10 @@ class Config:
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
+            self.checkFields,
             self.checkAuth,
             self.checkViewers,
+            self.checkBanner,
         ):
             if self.good:
                 method()
@@ -111,20 +114,28 @@ class Config:
         # what is the version of the pure3d app?
 
     def checkVersion(self):
-        """Get the current version of the pure3d app."""
-        Messages = self.Messages
+        """Get the current version of the pure3d app.
+
+        We represent the version as the short hash of the current commit
+        of the git repo that the running code is in.
+        """
+        Settings = self.Settings
+        repoDir = Settings.repoDir
+        (long, short) = tuple(
+            check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
+            .decode("ascii")
+            .strip()
+            for args in ([], ["--short"])
+        )
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        versionPath = f"{repoDir}/src/{VERSION_FILE}"
-        versionInfo = readPath(versionPath)
-
-        if not versionInfo:
-            Messages.error(logmsg=f"Cannot find version info in {versionPath}")
-            self.good = False
-            return
-
-        Settings.versionInfo = versionInfo
+        title = "visit the running code on GitHub"
+        gitLocation = var("gitlocation").removesuffix(".git")
+        href = f"{gitLocation}/tree/{long}"
+        Settings.versionInfo = (
+            f"""<a target="_blank" title="{title}" href="{href}">{short}</a>"""
+        )
 
     def checkSecret(self):
         """Obtain a secret.
@@ -244,25 +255,47 @@ class Config:
         yamlDir = f"{repoDir}/src/pure3d/control/yaml"
         Settings.yamlDir = yamlDir
 
-        settings = readYaml(f"{yamlDir}/settings.yaml")
+        settingsFile = "settings.yml"
+        settings = readYaml(f"{yamlDir}/{settingsFile}")
         if settings is None:
-            Messages.error(logmsg=f"Cannot read settings.yaml in {yamlDir}")
+            Messages.error(logmsg=f"Cannot read {settingsFile} in {yamlDir}")
             self.good = False
             return
 
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkAuth(self):
-        """Read gthe yaml file with the authorisation rules."""
+    def checkFields(self):
+        """Read the yaml file with field settings."""
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
-        authData = readYaml(f"{yamlDir}/authorise.yaml")
+        fieldsFile = "fields.yml"
+        fields = readYaml(f"{yamlDir}/{fieldsFile}")
+        if fields is None:
+            Messages.error(logmsg=f"Cannot read {fieldsFile} in {yamlDir}")
+            self.good = False
+            return
+
+        fieldsConfig = AttrDict()
+        Settings.fieldsConfig = fieldsConfig
+
+        for (k, v) in fields.items():
+            fieldsConfig[k] = v
+
+    def checkAuth(self):
+        """Read the yaml file with the authorisation rules."""
+        Messages = self.Messages
+        Settings = self.Settings
+
+        yamlDir = Settings.yamlDir
+
+        authFile = "authorise.yml"
+        authData = readYaml(f"{yamlDir}/{authFile}")
         if authData is None:
-            Messages.error(logmsg="Cannot read authorise.yaml in {yamlDir}")
+            Messages.error(logmsg="Cannot read {authFile} in {yamlDir}")
             self.good = False
             return
 
@@ -285,10 +318,11 @@ class Config:
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = "/data/viewers"
 
-        viewerSettingsFile = f"{yamlDir}/viewers.yaml"
+        viewersFile = "viewers.yml"
+        viewerSettingsFile = f"{yamlDir}/{viewersFile}"
         viewerSettings = readYaml(viewerSettingsFile)
         if viewerSettings is None:
-            Messages.error(logmsg="Cannot read viewers.yaml in {yamlDir}")
+            Messages.error(logmsg="Cannot read {viewersFile} in {yamlDir}")
             self.good = False
             return
 
@@ -307,7 +341,7 @@ class Config:
                 Messages.warning(
                     logmsg=(
                         f"Skipping viewer {viewerName}"
-                        "because not defined in viewers.yaml"
+                        "because not defined in {viewersFile}"
                     )
                 )
                 continue
@@ -348,3 +382,34 @@ class Config:
 
         Settings.viewerDefault = viewerDefault
         Settings.viewers = viewers
+
+    def checkBanner(self):
+        """Sets a banner for all pages.
+
+        This banner may include warnings that the site is still work
+        in progress.
+
+        Returns
+        -------
+        void
+            The banner is stored in the `banner` member of the
+            `Settings` object.
+        """
+        Settings = self.Settings
+        wip = var("devstatus")
+
+        banner = ""
+
+        if wip == "wip":
+            banner = dedent(
+                """
+                <div id="statusbanner">
+                This site is Work in Progress.
+                Use it only for testing.
+                All work you commit to this site can be erased
+                without warning.
+                </div>
+                """
+            )
+
+        Settings.banner = banner

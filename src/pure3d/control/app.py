@@ -1,4 +1,4 @@
-from control.flask import make, redirectStatus, stop, method
+from control.flask import make, stop, method, initializing
 
 
 def appFactory(objects):
@@ -42,32 +42,27 @@ def appFactory(objects):
     app = make(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
-    Auth.identify()
-    oidcauth = AuthOidc.prepare(app)
+    oidc = AuthOidc.prepare(app)
+    Auth.addAuthenticator(oidc)
 
-    @app.route("/loginoidc")
-    def loginoidc():
-        if oidcauth.user_loggedin:
-            return (f"Hello, {oidcauth.user_getfield('nickname')}\nwith email {oidcauth.user_getfield('email')}\nand sub {oidcauth.user_getfield('sub')}")
-        else:
-            return redirectStatus("/private", True)
-
-    @app.route("/private")
-    @oidcauth.require_login
-    def noaccessprivate():
-        return redirectStatus("/loginoidc", True)
-
-    # app url routes start here
+    @app.before_request
+    def identify():
+        if not initializing():
+            Auth.identify()
 
     @app.route("/login")
     def login():
-        good = Auth.login()
-        return redirectStatus("/", good)
+        return Auth.login()
+
+    @app.route("/afterlogin/referrer/<path:referrer>")
+    @app.route("/afterlogin/referrer/", defaults=dict(referrer="/"))
+    @oidc.require_login
+    def afterlogin(referrer):
+        return Auth.afterLogin(referrer)
 
     @app.route("/logout")
     def logout():
-        Auth.logout()
-        return redirectStatus("/", True)
+        return Auth.logout()
 
     @app.route("/")
     @app.route("/home")
@@ -94,6 +89,10 @@ def appFactory(objects):
     def project(projectId):
         return Pages.project(Mongo.cast(projectId))
 
+    @app.route("/projects/<string:projectId>/editions/insert")
+    def editionInsert(projectId):
+        return Pages.editionInsert(Mongo.cast(projectId))
+
     @app.route("/editions/<string:editionId>")
     def edition(editionId):
         return Pages.edition(Mongo.cast(editionId))
@@ -115,6 +114,10 @@ def appFactory(objects):
     )
     def scene(sceneId, viewer, version, action):
         return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
+
+    @app.route("/projects/<string:projectId>/editions/<string:editionId>/scenes/insert")
+    def sceneInsert(projectId, editionId):
+        return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
 
     @app.route(
         "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
@@ -164,12 +167,16 @@ def appFactory(objects):
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
-        Messages.info(logmsg=f"Invalid webdav access: {path}")
+        Messages.warning(logmsg=f"Invalid webdav access: {path}")
         return False
 
     @app.route("/no/webdav/<path:path>")
     def nowebdav(path):
-        Messages.info(logmsg=f"Unauthorized webdav access: {path}")
+        Messages.warning(logmsg=f"Unauthorized webdav access: {path}")
         stop()
+
+    @app.route("/<path:path>")
+    def remaining(path):
+        return Pages.remaining(path)
 
     return app

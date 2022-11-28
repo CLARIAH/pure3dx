@@ -176,7 +176,37 @@ class Mongo:
             result = {}
         return AttrDict(result)
 
-    def insertItem(self, table, **fields):
+    def updateRecord(self, table, updates, warn=True, **criteria):
+        """Updates a single document from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection in which we want to update a single record.
+        updates: dict
+            The fields that must be updated with the values they must get
+        warn: boolean, optional True
+            If True, warn if there is no record satisfying the criteria.
+        criteria: dict
+            A set of criteria to narrow down the selection.
+            Usually they will be such that there will be just one document
+            that satisfies them.
+            But if there are more, a single one is chosen,
+            by the mechanics of the built-in MongoDb command `updateOne`.
+
+        Returns
+        -------
+        boolean
+            Whether the update was successful
+        """
+        return self.execute(
+            table,
+            "update_one",
+            criteria,
+            {"$set": updates},
+        )
+
+    def insertRecord(self, table, **fields):
         """Inserts a new record in a table.
 
         Parameters

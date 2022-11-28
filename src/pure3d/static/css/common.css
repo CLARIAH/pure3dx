@@ -111,7 +111,9 @@ td
   cursor: pointer;
 }
 .symbol,
-.label
+.label,
+.button.active,
+.icon.active
 {
   cursor: default;
 }

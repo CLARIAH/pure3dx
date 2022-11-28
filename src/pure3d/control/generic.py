@@ -31,11 +31,17 @@ class AttrDict(dict):
     > `__getattr__` is only used for missing attribute lookup
 
     )
+
+    We also need to define the `__missing__` method in case we access the underlying
+    dict by means of keys, like `xxx["yyy"]` rather then by attribute like `xxx.yyy`.
     """
 
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
+
+    def __missing__(self, key, *args, **kwargs):
+        return None
 
     def __getattr__(self, key, *args, **kwargs):
         return None

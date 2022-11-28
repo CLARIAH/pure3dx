@@ -153,11 +153,13 @@ class Messages:
         """
         Settings = self.Settings
         stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
-        label = "" if tp == "plain" else f"{tp}: "
+        label = "" if tp == "plain" else f"{tp.upper()}: "
 
         if Settings is None:
-            stream.write(f"{label}{msg}\n")
-            stream.write(f"{label}{logmsg}\n")
+            if msg is not None:
+                stream.write(f"{label}{msg}\n")
+            if logmsg is not None:
+                stream.write(f"{label}{logmsg}\n")
             stream.flush()
         else:
             debugMode = Settings.debugMode
