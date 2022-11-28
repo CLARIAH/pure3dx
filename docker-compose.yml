@@ -19,6 +19,8 @@ services:
       flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
+      devstatus: ${devstatus}
+      gitlocation: ${gitlocation}
     entrypoint: ["./start.sh"]
     depends_on:
       - mongodb
