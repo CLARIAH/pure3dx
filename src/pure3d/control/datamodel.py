@@ -1,5 +1,7 @@
-from control.generic import AttrDict
 from markdown import markdown
+
+from control.generic import AttrDict
+from control.html import HtmlElements as H
 
 
 class Datamodel:
@@ -101,6 +103,7 @@ class Datamodel:
             The resulting Field object.
             It is also added to the `fieldObjects` member.
         """
+        Settings = self.Settings
 
         fieldObjects = self.fieldObjects
 
@@ -116,13 +119,13 @@ class Datamodel:
         if fieldsConfig is None:
             Messages.error(logmsg=f"Unknown field key '{key}'")
 
-        fieldObject = Field(Messages, Mongo, key, **fieldsConfig)
+        fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
 
 
 class Field:
-    def __init__(self, Messages, Mongo, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
         """Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -148,6 +151,7 @@ class Field:
             It will be checked that certain parts of the field configuration
             are present, such as `nameSpace`, `fieldPath` and `tp`.
         """
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
@@ -246,18 +250,21 @@ class Field:
         logical = self.logical(record)
         return "" if logical is None else str(logical)
 
-    def formatted(self, record, level=None, button=""):
+    def formatted(self, table, record, level=None, button=""):
         """Give the formatted value of the field in a record.
 
         Optionally also puts a caption and/or an edit control.
 
         Parameters
         ----------
+        table: string
+            The table from which the record is taken
         record: AttrDict or dict
             The record in which the field  value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
+            If 0, the caption will be placed in a span.
         button: string, optional ""
             An optional edit button.
 
@@ -279,12 +286,13 @@ class Field:
         content = f"{button}{sep}{content}"
 
         if level is not None:
-            if "{}" in caption:
-                heading = caption.format(content)
+            if "{value}" in caption:
+                kind = table.rstrip("s")
+                heading = caption.format(kind=kind, value=content)
                 content = ""
             else:
                 heading = caption
 
-            heading = f"""<h{level}>{heading}</h{level}>\n"""
+            heading = H.span(heading) if level == 0 else H.h(level, heading)
 
         return heading + content

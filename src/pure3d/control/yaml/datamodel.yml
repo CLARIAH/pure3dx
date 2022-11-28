@@ -12,25 +12,33 @@ link:
     - user
 
 fields:
+  siteTitle:
+    nameSpace: dc
+    fieldPath: title
+    caption: "{value}"
   title:
     nameSpace: dc
-    caption: "{}"
+    caption: "{kind}: {value}"
   abstract:
     nameSpace: dc
     fieldPath: description.abstract
     tp: text
-    caption: "Intro"
+    caption: Intro
   description:
     nameSpace: dc
     fieldPath: description.description
     tp: text
-    caption: "Description"
+    caption: Description
   provenance:
     nameSpace: dc
-    caption: "About"
+    caption: About
   instructionalMethod:
     nameSpace: dc
-    caption: "How to use"
+    caption: How to use
   creator:
     nameSpace: dc
-    caption: "by {}"
+    caption: "by {value}"
+  model:
+    namespace: ""
+    fieldPath: model
+    caption: "3D model file: {value}"

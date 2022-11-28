@@ -1,9 +1,19 @@
 actions:
-  allocate: "a"
-  create: "✚"
-  view: "⎚"
-  edit: "✎"
-  delete: "✖︎"
+  allocate:
+    acro: a
+    name: allocate
+  create:
+    acro: "✚"
+    name: create
+  read:
+    acro: "⎚"
+    name: view
+  update:
+    acro: "✎"
+    name: edit
+  delete:
+    acro: "✖︎"
+    name: delete
 
 roles:
   null: not logged in
@@ -19,41 +29,41 @@ projectRoles:
 projectRules:
   true:
     null:
-      - view
+      - read
     reader:
-      - view
+      - read
     editor:
-      - view
+      - read
     creator:
-      - view
+      - read
     user:
-      - view
+      - read
     admin:
-      - view
+      - read
       - delete
   false:
     reader:
-      - view
+      - read
     editor:
-      - view
-      - edit
+      - read
+      - update
     creator:
-      - view
-      - edit
+      - read
+      - update
       - delete
     admin:
-      - view
+      - read
       - delete
 
 recordRules:
   meta:
     null:
-      - view
+      - read
     user:
-      - view
+      - read
     admin:
-      - view
-      - edit
+      - read
+      - update
 
 createRules:
   projects:

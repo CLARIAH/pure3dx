@@ -13,7 +13,7 @@ def appFactory(objects):
         but can also handle webdav requests.
 
         The routes below contain a few patterns that are used for
-        authorising WebDAV calls: the onses starting with `/auth` and `/no`.
+        authorising WebDAV calls: the onses starting with `/auth` and `/cannot`.
         See also `control.webdavapp`.
 
     Parameters
@@ -55,7 +55,7 @@ def appFactory(objects):
         return Auth.login()
 
     @app.route("/afterlogin/referrer/<path:referrer>")
-    @app.route("/afterlogin/referrer/", defaults=dict(referrer="/"))
+    @app.route("/afterlogin/referrer/", defaults={"referrer": "/"})
     @oidc.require_login
     def afterlogin(referrer):
         return Auth.afterLogin(referrer)
@@ -63,6 +63,11 @@ def appFactory(objects):
     @app.route("/logout")
     def logout():
         return Auth.logout()
+
+    @app.route("/collect")
+    def collect():
+        objects.Collect.fetch()
+        return Pages.home()
 
     @app.route("/")
     @app.route("/home")
@@ -81,7 +86,7 @@ def appFactory(objects):
     def projects():
         return Pages.projects()
 
-    @app.route("/projects/insert")
+    @app.route("/projects/create")
     def projectInsert():
         return Pages.projectInsert()
 
@@ -89,7 +94,7 @@ def appFactory(objects):
     def project(projectId):
         return Pages.project(Mongo.cast(projectId))
 
-    @app.route("/projects/<string:projectId>/editions/insert")
+    @app.route("/projects/<string:projectId>/editions/create")
     def editionInsert(projectId):
         return Pages.editionInsert(Mongo.cast(projectId))
 
@@ -115,7 +120,9 @@ def appFactory(objects):
     def scene(sceneId, viewer, version, action):
         return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
-    @app.route("/projects/<string:projectId>/editions/<string:editionId>/scenes/insert")
+    @app.route(
+        "/projects/<string:projectId>/editions/<string:editionId>/scenes/create"
+    )
     def sceneInsert(projectId, editionId):
         return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
 
@@ -155,8 +162,8 @@ def appFactory(objects):
         methods=tuple(webdavMethods),
     )
     @app.route(
-        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/"
-        "<path:path>",
+        "/auth/webdav/projects/<string:projectId>/editions/"
+        "<string:editionId>/<path:path>",
         methods=tuple(webdavMethods),
     )
     def authWebdav(projectId, editionId, path):
@@ -170,7 +177,7 @@ def appFactory(objects):
         Messages.warning(logmsg=f"Invalid webdav access: {path}")
         return False
 
-    @app.route("/no/webdav/<path:path>")
+    @app.route("/cannot/webdav/<path:path>")
     def nowebdav(path):
         Messages.warning(logmsg=f"Unauthorized webdav access: {path}")
         stop()

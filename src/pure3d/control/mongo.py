@@ -36,7 +36,7 @@ class Mongo:
         """CRUD interface to content in the MongoDb database.
 
         This class has methods to connect to a MongoDb database,
-        to query its data, to insert, update and delete data.
+        to query its data, to create, update and delete data.
 
         It is instantiated by a singleton object.
 
@@ -192,6 +192,7 @@ class Mongo:
             The list of documents found, empty if no documents are found.
             Each document is cast to an AttrDict.
         """
+
         result = self.execute(table, "find", criteria, {})
         return [AttrDict(record) for record in result]
 

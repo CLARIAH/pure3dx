@@ -1,0 +1,15 @@
+methods:
+  HEAD: read
+  GET: read
+  PUT: update
+  POST: update
+  OPTIONS: read
+  TRACE: read
+  DELETE: update
+  PROPFIND: read
+  PROPPATCH: update
+  MKCOL: update
+  COPY: update
+  MOVE: update
+  LOCK: update
+  UNLOCK: update

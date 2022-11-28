@@ -5,24 +5,6 @@ from control.app import appFactory as appFactoryMain
 from control.flask import make
 
 
-WEBDAV_METHODS = dict(
-    HEAD="view",
-    GET="view",
-    PUT="edit",
-    POST="edit",
-    OPTIONS="view",
-    TRACE="view",
-    DELETE="edit",
-    PROPFIND="view",
-    PROPPATCH="edit",
-    MKCOL="edit",
-    COPY="edit",
-    MOVE="edit",
-    LOCK="edit",
-    UNLOCK="edit",
-)
-
-
 def getWebdavApp(objects):
     """Configure a webapp that provides WebDAV.
 
@@ -77,9 +59,18 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     The dispatcher interprets this boolean as telling whether the
     request is authorized.
     If so, it sends the original request to the webdav app.
-    If not, it prepends `/no` to the original url and sends
+    If not, it prepends `/cannot` to the original url and sends
     the request to the main app, which is programmed to
     respond with a 404 to such requests.
+
+    Parameters
+    ----------
+    app: object
+        The original flask app.
+    webdavPrefix: string
+        Initial part of the url that is used as trigger to divert to the WEBDav app.
+    webdavApp:
+        A WEBDav server.
     """
 
     def wsgi_function(environ, start_response):
@@ -97,7 +88,7 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
                 environ["PATH_INFO"] = url
                 theApp = webdavApp
             else:
-                environ["PATH_INFO"] = f"/no{url}"
+                environ["PATH_INFO"] = f"/cannot{url}"
                 theApp = app.wsgi_app
         else:
             theApp = app.wsgi_app
@@ -128,7 +119,7 @@ def appFactory():
         See `dispatchWebdav()`.
     """
 
-    objects = prepare(webdavMethods=WEBDAV_METHODS)
+    objects = prepare()
 
     origApp = appFactoryMain(objects)
     app = appFactoryMaster()

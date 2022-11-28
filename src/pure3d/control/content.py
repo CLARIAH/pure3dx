@@ -1,7 +1,7 @@
 from control.generic import AttrDict
 from control.files import fileExists
-
 from control.datamodel import Datamodel
+from control.html import HtmlElements as H
 
 
 class Content(Datamodel):
@@ -40,7 +40,7 @@ class Content(Datamodel):
     def addFieldHandler(self, key):
         pass
 
-    def getValue(self, key, projectId=None, editionId=None, level=None):
+    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
         """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -57,6 +57,8 @@ class Content(Datamodel):
         editionId: ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
+        bare: boolean, optional None
+            Get the bare value, without HTML wrapping and without buttons.
 
         Returns
         -------
@@ -79,15 +81,19 @@ class Content(Datamodel):
 
         record = Mongo.getRecord(table, **crit) or AttrDict()
         recordId = record._id
-        meta = record.meta
 
         permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
 
-        if "view" not in permissions:
+        if "read" not in permissions:
             return None
 
+        F = self.makeField(key)
+
+        if bare:
+            return F.bare(record)
+
         button = self.actionButton(
-            "edit",
+            "update",
             table,
             recordId=recordId,
             key=key,
@@ -95,13 +101,11 @@ class Content(Datamodel):
             editionId=editionId,
         )
 
-        F = self.makeField(key)
-
-        return F.formatted(meta, level=level, button=button)
+        return F.formatted(table, record, level=level, button=button)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
-        return "<h2>You will be surprised!</h2>"
+        return H.h(2, "You will be surprised!")
 
     def getProjects(self):
         """Get the list of all projects.
@@ -126,7 +130,7 @@ class Content(Datamodel):
 
         for record in Mongo.getList("projects"):
             projectId = record._id
-            permitted = Auth.authorise("projects", recordId=projectId, action="view")
+            permitted = Auth.authorise("projects", recordId=projectId, action="read")
             if not permitted:
                 continue
 
@@ -158,7 +162,7 @@ class Content(Datamodel):
         user = User.sub
         name = User.nickname
 
-        title = "No title"
+        title = "Project without title"
 
         dcMeta = dict(
             title=title,
@@ -201,7 +205,7 @@ class Content(Datamodel):
 
         for record in Mongo.getList("editions", projectId=projectId):
             editionId = record._id
-            permitted = Auth.authorise("editions", recordId=editionId, action="view")
+            permitted = Auth.authorise("editions", recordId=editionId, action="read")
             if not permitted:
                 continue
 
@@ -232,7 +236,7 @@ class Content(Datamodel):
         User = Auth.myDetails()
         name = User.nickname
 
-        title = "No title"
+        title = "Edition without title"
 
         dcMeta = dict(
             title=title,
@@ -293,7 +297,7 @@ class Content(Datamodel):
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `"view"`
+        action: string, optional `view`
             The mode in which the viewer should be opened.
             If the mode is `edit`, the viewer is opened in edit mode.
             All other modes lead to the viewer being opened in read-only
@@ -313,7 +317,7 @@ class Content(Datamodel):
         wrapped = []
 
         actions = Auth.authorise("editions", recordId=editionId)
-        if "view" not in actions:
+        if "read" not in actions:
             return ""
 
         (viewer, version) = Viewers.check(viewer, version)
@@ -325,7 +329,7 @@ class Content(Datamodel):
             candy = record.candy
 
             isSceneActive = sceneId is None and record.default or record._id == sceneId
-            titleText = f"""<span class="entrytitle">{record.name}</span>"""
+            titleText = H.span(record.name, cls="entrytitle")
             button = self.actionButton(
                 "delete",
                 "scenes",
@@ -336,12 +340,14 @@ class Content(Datamodel):
                 (frame, buttons) = Viewers.getFrame(
                     thisSceneId, actions, viewer, version, action
                 )
-                title = f"""<span class="entrytitle">{titleText}</span>"""
+                title = H.span(titleText, cls="entrytitle")
                 content = f"""{frame}{title}{buttons}"""
                 caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{record._id}"
-                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
+                iconUrlBase = (
+                    f"/data/projects/{projectId}/editions/{editionId}" f"/candy"
+                )
                 caption = self.getCaption(
                     titleText, candy, button, sceneUrl, iconUrlBase
                 )
@@ -366,7 +372,7 @@ class Content(Datamodel):
         User = Auth.myDetails()
         name = User.nickname
 
-        title = "No title"
+        title = "Scene without title"
 
         dcMeta = dict(
             title=title,
@@ -383,18 +389,18 @@ class Content(Datamodel):
 
     def wrapCaption(self, content, button, active=False):
         activeCls = "active" if active else ""
-        start = f"""<div class="captioncontent"><div class="caption {activeCls}">"""
-        end = """</div>"""
-        return f"""{start}{content}{end}{button}{end}"""
+        return H.div(H.div(content, cls=f"caption {activeCls}"), cls="captioncontent")
 
     def getCaption(self, titleText, candy, button, url, iconUrlBase):
         icon = self.getIcon(candy)
-        title = f"""<span class="entrytitle">{titleText}</span>"""
+        title = H.span(titleText, cls="entrytitle")
 
         visual = (
-            f"""<img class="previewicon" src="{iconUrlBase}/{icon}">""" if icon else ""
+            H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
+            if icon
+            else ""
         )
-        content = f"""<a class="entry" href="{url}">{visual}{title}</a>"""
+        content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
 
     def getIcon(self, candy):
@@ -502,7 +508,7 @@ class Content(Datamodel):
         else:
             table = "editions"
             recordId = editionId
-        permitted = Auth.authorise(table, recordId=recordId, action="view")
+        permitted = Auth.authorise(table, recordId=recordId, action="read")
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -518,18 +524,27 @@ class Content(Datamodel):
 
         return dataPath
 
-    def getRecord(self, *args, **kwargs):
-        """Get a record from MongoDb.
+    def getItem(self, table, *args, **kwargs):
+        """Get a all information about an item.
 
-        This is just a rather trivial wrapper around a method with the same
-        name `control.mongo.Mongo.getRecord`.
+        The item can be a project, edition, or scene.
+        The information about that item is a record in MongoDb.
+        possibly additional files on the file system.
 
-        We have this for reasons of abstraction:
-        the `control.pages.Pages` object relies
-        on this Content object to retrieve content,
-        and does not want to know where the content comes from.
+        Parameters
+        ----------
+        table: string
+            The name of the table from which to fetch an item
+        *args, **kwargs: any
+            Additional arguments to select the item's record
+            from MongoDB
+
+        Returns
+        -------
+        AttrDict
+            the contents of the item's record in MongoDB
         """
-        return self.Mongo.getRecord(*args, **kwargs)
+        return self.Mongo.getRecord(table, *args, **kwargs)
 
     def actionButton(
         self, action, table, recordId=None, key=None, projectId=None, editionId=None
@@ -565,6 +580,7 @@ class Content(Datamodel):
             If present, it identifies a metadata field that is stored inside the
             record. From the key, the value can be found.
         """
+        Settings = self.Settings
         Auth = self.Auth
 
         urlInsert = "/"
@@ -590,45 +606,44 @@ class Content(Datamodel):
             details = self.getDetailRecords(table, recordId)
             if len(details):
                 disable = True
-                report = ["<div>"]
+                detailContent = []
                 for (detailTable, detailRecords) in details.items():
                     nDetails = len(detailRecords)
                     plural = "" if nDetails == 1 else "s"
                     detailRep = detailTable.rstrip("s") + plural
+                    detailContent.append(f"""{nDetails}&nbsp;{detailRep}""")
 
-                    report.append(
-                        """<span class="dreport">"""
-                        f"""{nDetails}&nbsp;{detailRep}</span><br>"""
-                    )
-                report.append("</div>")
-                report = "<br>" + "\n".join(report)
+                report = H.div(
+                    [
+                        H.span(thisContent, cls="dreport") + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
 
-        text = actions.get(action, action)
+        actionInfo = AttrDict(actions.get(action, {}))
+        text = actionInfo.acro
+        name = actionInfo.name
         tableItem = table.rstrip("s")
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
         recordIdRep = "" if recordId is None else f"/{recordId}"
         can = "Cannot " if disable else ""
-        elem = "span" if disable else "a"
         cls = " disabled" if disable else ""
         tip = (
-            f"{action} new {tableItem}"
+            f"{name} new {tableItem}"
             if action == "create"
-            else f"{can}{action}{keyRepTip} this {tableItem}"
+            else f"{can}{name}{keyRepTip} this {tableItem}"
         )
-        href = (
+        url = (
             ""
             if disable
-            else 'href="'
-            + (
-                f"{urlInsert}{table}/insert"
+            else (
+                f"{urlInsert}{table}/create"
                 if action == "create"
                 else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
             )
-            + '"'
         )
 
-        return f"""
-            <{elem} title="{tip}" {href} class="button large {cls}">{text}</{elem}>
-            {report}
-        """
+        atts = dict(title=tip, cls=f"button large {cls}")
+        return (H.span(text, **atts) if disable else H.a(text, url, **atts)) + report

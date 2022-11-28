@@ -13,14 +13,6 @@ from control.environment import var
 from control.flask import initializing
 
 
-META = "meta"
-PROJECTS = "projects"
-EDITIONS = "editions"
-WORKFLOW = "workflow"
-
-SCENE_DEFAULT = "intro"
-
-
 class Collect:
     def __init__(self, Settings, Messages, Mongo):
         """Provides initial data collection into MongoDb.
@@ -69,7 +61,7 @@ class Collect:
     def trigger(self):
         """Determines whether data collection should be done.
 
-        We only do data collection if the environment variable `docollect` is "v"
+        We only do data collection if the environment variable `docollect` is `v`
         If so, the value of the environment variable `initdata`
         is the name of a subdirectory of the data directory.
         This subdirectory contains example data that will be imported into the system.
@@ -86,14 +78,8 @@ class Collect:
         return initializing() and doCollect
 
     def fetch(self):
-        """Performs a data collection, but only if triggered by the right conditions.
-
-        See also `Collect.trigger()`
+        """Performs a data collection.
         """
-
-        if not self.trigger():
-            return
-
         importSubdir = var("initdata") or "exampledata"
         self.importSubdir = importSubdir
 
@@ -141,14 +127,14 @@ class Collect:
         dataDir = Settings.dataDir
         Messages.plain(logmsg=f"Import metadata from {importSubdir}")
 
-        metaDir = f"{dataDir}/{importSubdir}/{META}"
+        metaDir = f"{dataDir}/{importSubdir}/meta"
         metaFiles = listFiles(metaDir, ".yml")
         meta = {}
 
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertRecord("meta", name="site", meta=dict(**meta))
+        Mongo.insertRecord("meta", name="site", **meta)
 
     def doProjects(self):
         """Collects data belonging to projects."""
@@ -156,8 +142,8 @@ class Collect:
         importSubdir = self.importSubdir
 
         dataDir = Settings.dataDir
-        projectsInPath = f"{dataDir}/{importSubdir}/{PROJECTS}"
-        projectsOutPath = f"{dataDir}/{PROJECTS}"
+        projectsInPath = f"{dataDir}/{importSubdir}/projects"
+        projectsOutPath = f"{dataDir}/projects"
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
@@ -201,8 +187,8 @@ class Collect:
 
         projectInfo = dict(
             title=title,
-            meta=meta,
             candy=candy,
+            **meta,
         )
 
         projectId = Mongo.insertRecord("projects", **projectInfo)
@@ -230,8 +216,8 @@ class Collect:
         projectId: ObjectId
             MongoId of the project to collect.
         """
-        editionsInPath = f"{projectInPath}/{EDITIONS}"
-        editionsOutPath = f"{projectOutPath}/{EDITIONS}"
+        editionsInPath = f"{projectInPath}/editions"
+        editionsOutPath = f"{projectOutPath}/editions"
 
         editionNames = listDirs(editionsInPath)
 
@@ -258,6 +244,35 @@ class Collect:
         Mongo = self.Mongo
 
         editionInPath = f"{editionsInPath}/{editionName}"
+        model = None
+
+        modelFiles = list3d(editionInPath)
+        models = {}
+        for modelFile in modelFiles:
+            (base, ext) = modelFile.rsplit(".", 1)
+            models.setdefault(ext, []).append(base)
+
+        none = False
+        multiple = False
+
+        if len(models) == 0:
+            none = True
+        elif len(models) > 1:
+            multiple = True
+        else:
+            ext = list(models)[0]
+            theseModels = models[ext]
+            if len(theseModels) == 0:
+                none = True
+            else:
+                if len(theseModels) > 1:
+                    multiple = True
+                model = f"{theseModels[0]}.{ext}"
+
+        if none:
+            Messages.plain(logmsg="\t\tNo model")
+        if multiple:
+            Messages.plain(logmsg=f"\t\tMultiple models: {', '.join(modelFiles)}")
 
         meta = {}
         metaDir = f"{editionInPath}/meta"
@@ -287,8 +302,9 @@ class Collect:
         editionInfo = dict(
             title=title,
             projectId=projectId,
-            meta=meta,
+            model=model,
             candy=candy,
+            **meta,
         )
         editionId = Mongo.insertRecord("editions", **editionInfo)
         Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
@@ -304,7 +320,7 @@ class Collect:
 
         for scene in scenes:
             Messages.plain(logmsg=f"\t\tSCENE {scene}")
-            default = sceneDefault is None and scene == SCENE_DEFAULT
+            default = sceneDefault is None and scene == "intro"
             if default:
                 sceneDefault = scene
             sceneInfo = dict(
@@ -347,7 +363,7 @@ class Collect:
         dataDir = Settings.dataDir
         projectIdByName = self.projectIdByName
 
-        workflowDir = f"{dataDir}/{importSubdir}/{WORKFLOW}"
+        workflowDir = f"{dataDir}/{importSubdir}/workflow"
         workflowPath = f"{workflowDir}/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
         users = workflow["users"]

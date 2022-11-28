@@ -9,8 +9,6 @@ from control.flask import (
 )
 
 
-USERIDFIELD = "user"
-
 PROVIDER_ATTS = tuple(
     """
     sub
@@ -124,7 +122,7 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         return (
-            self.__loginTest(referrer, arg(USERIDFIELD))
+            self.__loginTest(referrer, arg("user"))
             if isTestUser
             else self.__loginOidc(referrer)
         )
@@ -179,7 +177,7 @@ class Users:
             logmsg=f"LOGIN successful: user {name} {user}",
             msg=f"LOGIN successful: user {name}",
         )
-        return redirectStatus(f"{referrer}", True)
+        return redirectStatus(f"/{referrer}", True)
 
     def logout(self):
         """Logs off the current user.
@@ -201,7 +199,7 @@ class Users:
 
         if user is None:
             if testMode:
-                sessionPop(USERIDFIELD)
+                sessionPop("user")
             else:
                 oidc.logout()
             self.__User.clear()
@@ -209,7 +207,7 @@ class Users:
             return redirectStatus("/", False)
 
         if isTestUser:
-            sessionPop(USERIDFIELD)
+            sessionPop("user")
         else:
             oidc.logout()
 
@@ -246,7 +244,7 @@ class Users:
             if isTestUser:
                 if not self.__findTestUser(user):
                     self.__User.clear()
-                    sessionPop(USERIDFIELD)
+                    sessionPop("user")
             else:
                 if not self.__findUser(user, update=False):
                     self.__User.clear()
@@ -295,7 +293,7 @@ class Users:
         isTestUser = None
 
         if testMode:
-            user = arg(USERIDFIELD) if fromArg else sessionGet(USERIDFIELD)
+            user = arg("user") if fromArg else sessionGet("user")
             if user:
                 isTestUser = True
 
@@ -424,7 +422,7 @@ class Users:
         if user is None or not self.__findTestUser(user):
             return redirectStatus(f"/{referrer}", False)
 
-        sessionSet(USERIDFIELD, user)
+        sessionSet("user", user)
         name = self.__User.nickname
         Messages.plain(
             logmsg=f"LOGIN successful: test user {name} {user}",

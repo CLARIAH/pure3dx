@@ -52,7 +52,7 @@ class Auth(Users):
         Returns
         -------
         set | boolean
-            If `recordId` is None: whether the user is allowed to create a new
+            If `recordId` is None: whether the user is allowed to insert a new
             record in `table`.
             Otherwise: if `action` is passed: whether the user is allowed to
             perform that action on the record in question.
@@ -107,13 +107,13 @@ class Auth(Users):
     def makeSafe(self, table, recordId, action):
         """Changes an action into an allowed action if needed.
 
-        This function "demotes" an action to an allowed action if the
+        This function 'demotes' an action to an allowed action if the
         action itself is not allowed.
 
-        In practice, if the action is "edit" or "delete", but that is not
-        allowed, it is changed into "view".
+        In practice, if the action is `update` or `delete`, but that is not
+        allowed, it is changed into `read`.
 
-        If "view" itself is not allowed, None is returned.
+        If `read` itself is not allowed, None is returned.
 
         Parameters
         ----------
@@ -130,4 +130,4 @@ class Auth(Users):
             The resulting safe action.
         """
         actions = self.authorise(table, recordId=recordId)
-        return action if action in actions else "view" if "view" in actions else None
+        return action if action in actions else "read" if "read" in actions else None

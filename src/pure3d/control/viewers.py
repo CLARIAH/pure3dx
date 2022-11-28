@@ -1,5 +1,7 @@
 from textwrap import dedent
 
+from control.generic import AttrDict
+
 
 class Viewers:
     def __init__(self, Settings, Messages):
@@ -77,7 +79,7 @@ class Viewers:
             The scene in question.
         actions: iterable of string
             The actions for which we have to create buttons.
-            Typically `view` and possibly also `edit`.
+            Typically `read` and possibly also `update`.
         viewerActive: string or None
             The viewer in which the scene is currently loaded,
             if any, otherwise None
@@ -86,7 +88,7 @@ class Viewers:
             if any, otherwise None
         actionActive: string or None
             The mode in which the scene is currently loaded in the viewer
-            (`view` or `edit`),
+            (`read` or `update`),
             if any, otherwise None
 
         Returns
@@ -97,13 +99,15 @@ class Viewers:
         actionInfo = self.Settings.auth.actions
         viewers = self.viewers
 
+        src = f"/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"
         frame = dedent(
             f"""
             <div class="model">
                 <div class="surround">
                 <iframe
                   class="previewer"
-                  src="/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"/></iframe>
+                  src="{src}"
+                ></iframe>
                 </div>
             </div>
             """
@@ -150,6 +154,9 @@ class Viewers:
 
         def getActionButton(viewer, version, action, active):
             activeCls = "active" if active else ""
+            thisActionInfo = AttrDict(actionInfo.get(action, {}))
+            acro = thisActionInfo.acro
+            name = thisActionInfo.name
 
             if active:
                 attStr = ""
@@ -159,7 +166,7 @@ class Viewers:
                 href = f"/scenes/{sceneId}/{viewer}/{version}/{action}"
                 attStr = f""" href="{href}" """
 
-                if action == "edit":
+                if action == "update":
                     viewerHref = f"/viewer/{viewer}/{version}/{action}/{sceneId}"
                     viewerAttStr = dedent(
                         f"""
@@ -176,11 +183,16 @@ class Viewers:
                     )
                     attStr += viewerAttStr
 
+            if action == "update":
+                titleAttstr = f""" title="{name} this scene in a new window" """
+                attStr += titleAttstr
+            else:
+                titleAttstr = f""" title="{name} this scene in place" """
+                attStr += titleAttstr
             cls = f"button {activeCls} vwb"
             begin = f"""<{elem} class="{cls}" {attStr}>"""
-            actionRep = actionInfo.get(action, action)
             end = f"</{elem}>"
-            return f"{begin}{actionRep}{end}"
+            return f"{begin}{acro}{end}"
 
         for viewer in viewers:
             isViewerActive = viewer == viewerActive
@@ -238,13 +250,14 @@ class Viewers:
         version: string
             The chosen version of the viewer.
         action: string
-            The chosen mode in which the viewer is launched (`view` or `edit`).
+            The chosen mode in which the viewer is launched (`read` or `update`).
 
         Returns
         -------
         string
             The HTML for the iframe.
         """
+        viewers = self.viewers
         Settings = self.Settings
         debugMode = Settings.debugMode
         viewerUrlBase = Settings.viewerUrlBase
@@ -256,7 +269,9 @@ class Viewers:
         viewerRoot = self.getRoot(urlBase, action, viewer)
 
         if viewer == "voyager":
-            element = "explorer" if action == "view" else "story"
+            modes = viewers[viewer].modes
+            element = modes[action].element
+            fileBase = modes[action].fileBase
             return dedent(
                 f"""
                 <head>
@@ -272,18 +287,18 @@ class Viewers:
                 >-->
                 <link
                   rel="stylesheet"
-                  href="{viewerStaticRoot}/css/voyager-{element}.{ext}.css"
+                  href="{viewerStaticRoot}/css/{fileBase}.{ext}.css"
                 >
                 <script
                   defer
-                  src="{viewerStaticRoot}/js/voyager-{element}.{ext}.js"></script>
+                  src="{viewerStaticRoot}/js/{fileBase}.{ext}.js"></script>
                 </head>
                 <body>
-                <voyager-{element}
+                <{element}
                   root="{viewerRoot}"
                   document="{sceneName}.json"
                   resourceroot="{viewerStaticRoot}/">
-                </voyager-{element}>
+                </{element}>
                 </body>
                 """
             )
@@ -320,8 +335,8 @@ class Viewers:
             Depending on the mode, the viewer code may communicate with the server
             with different urls.
             For example, for the voyager,
-            the `view` mode (voyager-explorer) uses ordinary HTTP requests,
-            but the `edit` mode (voyager-story) uses WebDAV requests.
+            the `read` mode (voyager-explorer) uses ordinary HTTP requests,
+            but the `update` mode (voyager-story) uses WebDAV requests.
 
             So this app points voyager-explorer to a root url starting with `/data`,
             and voyager-story to a root url starting with `/webdav`.
@@ -336,7 +351,8 @@ class Viewers:
 
         modes = viewers[viewer].modes
 
-        prefix = modes[action] or modes.view
+        thisMode = modes[action] or modes.read
+        prefix = thisMode.prefix
 
         return f"{prefix}/{urlBase}"
 
@@ -360,8 +376,8 @@ class Viewers:
             Depending on the mode, the viewer code may communicate with the server
             with different urls.
             For example, for the voyager,
-            the `view` mode (voyager-explorer) uses ordinary HTTP requests,
-            but the `edit` mode (voyager-story) uses WebDAV requests.
+            the `read` mode (voyager-explorer) uses ordinary HTTP requests,
+            but the `update` mode (voyager-story) uses WebDAV requests.
 
             So this app points voyager-explorer to a root url starting with `/data`,
             and voyager-story to a root url starting with `/webdav`.

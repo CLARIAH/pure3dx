@@ -11,7 +11,7 @@ from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
 
 
-def prepare(webdavMethods=None, trivial=False, flask=True):
+def prepare(trivial=False):
     """Prepares the way for setting up the Flask webapp.
 
     Several classes are instantiated with a singleton object;
@@ -49,17 +49,6 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         inside it, for example after a complicated refactoring when the flask app has
         too many bugs.
 
-    flask: boolean, optional True
-        If False, skips several configuration steps.
-        Useful if you need configuration details of the app before
-        flask is running. Cases are:
-
-        * when setting up the webdav app (`control.webdavapp`) you need some
-          configuration details, and this happens before the flask app is set up
-        * when importing data into MongoDb, we need only non-flask parts of the app.
-          This kind of import happens manually in a running container
-          on the command line.
-
     Returns
     -------
     `control.helpers.generic.AttrDict`
@@ -79,13 +68,13 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Pages = None
         AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, flask=flask), flask=flask).Settings
-        Settings.webdavMethods = webdavMethods
-        Messages = MessagesCls(Settings, flask=flask)
+        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
         Collect = CollectCls(Settings, Messages, Mongo)
-        Collect.fetch()
+        if Collect.trigger():
+            Collect.fetch()
 
         Viewers = ViewersCls(Settings, Messages)
 

@@ -1,11 +1,11 @@
 import sys
 from control.flask import stop
 
-from control.generic import htmlEsc
+from control.html import HtmlElements as H
 
 
 class Messages:
-    def __init__(self, Settings, flask=True):
+    def __init__(self, Settings, onFlask=True):
         """Sending messages to the user and the server log.
 
         This class is instantiated by a singleton object.
@@ -38,7 +38,7 @@ class Messages:
         Settings: `control.helpers.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
-        flask: boolean, optional True
+        onFlask: boolean, optional True
             If False, mo messages will be sent to the screen of the webuser,
             instead those messages end up in the log.
             This is useful in the initial processing that takes place
@@ -46,7 +46,7 @@ class Messages:
         """
         self.Settings = Settings
         self.messages = []
-        self.flask = flask
+        self.onFlask = onFlask
 
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
@@ -152,6 +152,7 @@ class Messages:
             If not None, it is the contents of a log message.
         """
         Settings = self.Settings
+
         stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
         label = "" if tp == "plain" else f"{tp.upper()}: "
 
@@ -172,7 +173,7 @@ class Messages:
                 stream.write(f"{label}{logmsg}\n")
                 stream.flush()
 
-            if tp == "error" and self.flask:
+            if tp == "error" and self.onFlask:
                 stop()
 
     def clearMessages(self):
@@ -186,13 +187,15 @@ class Messages:
 
         The list of accumulated messages will be cleared afterwards.
         """
-        html = ["""<div class="messages">"""]
-
+        msgs = []
         for (tp, msg) in self.messages:
-            cls = "info" if tp == "plain" else tp
             label = "" if tp == "plain" else f"{tp.upper()}: "
-            html.append(f"""<div class="msgitem {cls}">{label}{htmlEsc(msg)}</div>""")
+            m = H.he(msg)
+            cls = "info" if tp == "plain" else tp
+            msgs.append((f"{label}{m}", f"msgitem {cls}"))
 
-        html.append("</div>")
+        html = H.div(
+            [H.div(txt, cls=cls) for (txt, cls) in self.messages], cls="messages"
+        )
         self.clearMessages()
-        return "\n".join(html)
+        return html

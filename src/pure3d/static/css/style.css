@@ -30,6 +30,25 @@
   text-align: justify;
 }
 
+.modelfile {
+  font-family: monospace;
+  font-size: large;
+  font-weight: bold;
+  color: var(--model-fore);
+  background-color: var(--model-back);
+  border-radius: 0.2em;
+  border-style: solid;
+  border-width: 0.1em;
+  border-color: var(--model-border);
+  padding: 0.2rem 1rem;
+}
+.modelfile.none {
+  font-family: sans-serif;
+  font-size: large;
+  color: var(--model-fore-none);
+  border-style: dashed;
+}
+
 .wrapper {
   display: flex;
   flex-direction: column;
