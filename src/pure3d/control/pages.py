@@ -1,6 +1,5 @@
-from textwrap import dedent
-
 from control.flask import redirectStatus, template, send, stop, getReferrer
+from control.html import HtmlElements as H
 
 
 class Pages:
@@ -96,7 +95,7 @@ class Pages:
         """
         Content = self.Content
         editions = Content.getEditions(projectId)
-        left = self.putValues("title@3 + creator@4", projectId=projectId) + editions
+        left = self.putValues("title@3 + creator@0", projectId=projectId) + editions
         right = self.putValues(
             "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
             projectId=projectId,
@@ -382,7 +381,7 @@ class Pages:
         Auth = self.Auth
 
         navigation = self.navigation(url)
-        loginWidget = Auth.wrapLogin()
+        (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return template(
             "index",
@@ -392,6 +391,7 @@ class Pages:
             materialLeft=left or "",
             materialRight=right or "",
             messages=Messages.generateMessages(),
+            testLoginWidget=testLoginWidget,
             loginWidget=loginWidget,
         )
 
@@ -460,39 +460,38 @@ class Pages:
             ("advancedsearch", "Advanced Search", False),
         )
 
-        search = dedent(
-            """
-            <span class="search-bar">
-                <input
-                    type="search"
-                    name="search"
-                    placeholder="search item"
-                    class="button disabled"
-                >
-                <input type="submit" value="Search" class="button disabled">
-            </span>
-            """
+        search = H.span(
+            [
+                H.input(
+                    "",
+                    tp="search",
+                    name="search",
+                    placeholder="search item",
+                    cls="button disabled",
+                ),
+                H.input("Search", tp="submit", cls="button disabled"),
+            ],
+            cls="search-bar",
         )
-        html = ["""<div class="tabs">"""]
+
+        divContent = []
 
         for (tab, label, enabled) in TABS:
             active = "active" if url == tab else ""
-            elem = "a" if enabled else "span"
-            href = f""" href="/{tab}" """ if enabled else ""
-            cls = active if enabled else "disabled"
-            html.append(
-                dedent(
-                    f"""
-                    <{elem}
-                        {href}
-                        class="button large {cls}"
-                    >{label}</{elem}>
-                    """
-                )
-            )
-        html.append(search)
-        html.append("</div>")
-        return "\n".join(html)
+            if enabled:
+                elem = "a"
+                cls = active
+                href = [f"/{tab}"]
+            else:
+                elem = "span"
+                cls = "disabled"
+                href = []
+            fullCls = f"button large {cls}"
+            divContent.append(H.elem(elem, label, *href, cls=fullCls))
+
+        divContent.append(search)
+
+        return H.div(divContent, cls="tabs")
 
     def breadCrumb(self, projectId):
         """Makes a link to the landing page of a project.
@@ -504,11 +503,18 @@ class Pages:
         """
         Content = self.Content
         projectUrl = f"/projects/{projectId}"
-        cls = """ class="button" """
-        href = f""" href="{projectUrl}" """
-        title = """back to the project page"""
         text = Content.getValue("title", projectId=projectId, bare=True)
-        return f"""<p>Project: <a {cls} {title} {href}>{text} &gt;</a></p>"""
+        return H.p(
+            [
+                "Project: ",
+                H.a(
+                    [text, H.gt()],
+                    projectUrl,
+                    cls="button",
+                    title="back to the project page",
+                ),
+            ]
+        )
 
     def putValues(self, fieldSpecs, projectId=None, editionId=None):
         """Puts several pieces of metadata on the web page.
@@ -525,7 +531,7 @@ class Pages:
         """
         Content = self.Content
 
-        return "\n".join(
+        return H.content(
             Content.getValue(
                 key,
                 projectId=projectId,

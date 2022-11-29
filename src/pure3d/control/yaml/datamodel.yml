@@ -31,9 +31,11 @@ fields:
     caption: Description
   provenance:
     nameSpace: dc
+    tp: text
     caption: About
   instructionalMethod:
     nameSpace: dc
+    tp: text
     caption: How to use
   creator:
     nameSpace: dc

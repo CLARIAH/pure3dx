@@ -48,6 +48,9 @@ class Content(Datamodel):
         These locations are known to the system (based on `fields.yml`).
         This function retrieves the information from those known locations.
 
+        If a value is in fact composed of multiple values, it will be
+        handled accordingly.
+
         Parameters
         ----------
         key: an identifier for the meta data field.
@@ -63,8 +66,8 @@ class Content(Datamodel):
         Returns
         -------
         string
-            It is assumed that the metadata value that is addressed exists
-            and is a string. If not, we return the empty string.
+            It is assumed that the metadata value that is addressed exists.
+            If not, we return the empty string.
         """
         Mongo = self.Mongo
         Auth = self.Auth
@@ -148,7 +151,7 @@ class Content(Datamodel):
 
             wrapped.append(caption)
 
-        return "\n".join(wrapped)
+        return H.content(*wrapped)
 
     def insertProject(self):
         Mongo = self.Mongo
@@ -223,7 +226,7 @@ class Content(Datamodel):
             wrapped.append(caption)
 
         wrapped.append(self.actionButton("create", "editions", projectId=projectId))
-        return "\n".join(wrapped)
+        return H.content(*wrapped)
 
     def insertEdition(self, projectId):
         Mongo = self.Mongo
@@ -359,7 +362,7 @@ class Content(Datamodel):
                 "create", "scenes", projectId=projectId, editionId=editionId
             )
         )
-        return "\n".join(wrapped)
+        return H.content(*wrapped)
 
     def insertScene(self, projectId, editionId):
         Mongo = self.Mongo
@@ -628,22 +631,27 @@ class Content(Datamodel):
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
         recordIdRep = "" if recordId is None else f"/{recordId}"
-        can = "Cannot " if disable else ""
-        cls = " disabled" if disable else ""
+
+        if disable:
+            elem = "span"
+            href = []
+            cls = "disabled"
+            can = "Cannot "
+        else:
+            elem = "a"
+            href = [
+                f"{urlInsert}{table}/create"
+                if action == "create"
+                else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
+            ]
+            cls = ""
+            can = ""
+
+        fullCls = f"button large {cls}"
         tip = (
             f"{name} new {tableItem}"
             if action == "create"
             else f"{can}{name}{keyRepTip} this {tableItem}"
         )
-        url = (
-            ""
-            if disable
-            else (
-                f"{urlInsert}{table}/create"
-                if action == "create"
-                else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
-            )
-        )
 
-        atts = dict(title=tip, cls=f"button large {cls}")
-        return (H.span(text, **atts) if disable else H.a(text, url, **atts)) + report
+        return H.elem(elem, text, *href, title=tip, cls=fullCls) + report

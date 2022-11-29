@@ -7,6 +7,7 @@ from control.flask import (
     getReferrer,
     redirectStatus,
 )
+from control.html import HtmlElements as H
 
 
 PROVIDER_ATTS = tuple(
@@ -160,6 +161,7 @@ class Users:
         oidc = self.oidc
 
         user = None
+        referrer = referrer.removeprefix("/")
 
         if oidc.user_loggedin:
             user = oidc.user_getfield("sub")
@@ -327,22 +329,30 @@ class Users:
 
         (testMode, isTestUser, userActive) = self.getUser()
 
-        html = []
+        testContent = []
+        content = []
 
         def wrap(label, text, title, href, active, enabled):
-            labelRep = f"""<span class="label">{label}</span>""" if label else ""
-            cls = "active" if active else ""
-            elem = "span" if active else "a"
-            hrefAtt = "" if active else f'href="{href}"'
+            if label:
+                content.append(H.span(label, cls="label"))
+
+            if active:
+                cls = "active"
+                elem = "span"
+                href = []
+            else:
+                cls = ""
+                elem = "a"
+                href = [href]
+
             if not enabled:
                 cls = "disabled"
                 elem = "span"
-                hrefAtt = ""
-            html.append(
-                f"{labelRep}"
-                f'<{elem} title="{title}" {hrefAtt} class="button small {cls}">'
-                f"{text}</{elem}>"
-            )
+                href = []
+
+            fullCls = f"button small {cls}"
+
+            return H.elem(elem, text, *href, cls=fullCls, title=title)
 
         if testMode:
             # row of test users
@@ -357,7 +367,9 @@ class Users:
                 role = self.presentRole(record.role)
 
                 active = user == userActive
-                wrap(None, name, role, f"/login?user={user}", active, enabled)
+                testContent.append(
+                    wrap(None, name, role, f"/login?user={user}", active, enabled)
+                )
 
         if userActive:
             # details of logged in user
@@ -367,16 +379,18 @@ class Users:
             email = details.email
             userRep = f"{name} - {email}" if email else name
             role = self.presentRole(details.role)
-            wrap("Logged in as", userRep, role, None, True, True)
+            content.append(wrap("Logged in as", userRep, role, None, True, True))
 
             # logout button
-            wrap(None, "log out", f"log out {name}", "/logout", False, True)
+            content.append(
+                wrap(None, "log out", f"log out {name}", "/logout", False, True)
+            )
 
         else:
             # login button
-            wrap(None, "log in", "log in", "/login", False, True)
+            content.append(wrap(None, "log in", "log in", "/login", False, True))
 
-        return "\n".join(html)
+        return (H.content(*testContent), H.content(*content))
 
     def presentRole(self, role):
         """Finds the interface representation of a role.

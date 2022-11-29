@@ -1,6 +1,7 @@
 from textwrap import dedent
 
 from control.generic import AttrDict
+from control.html import HtmlElements as H
 
 
 class Viewers:
@@ -100,54 +101,45 @@ class Viewers:
         viewers = self.viewers
 
         src = f"/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"
-        frame = dedent(
-            f"""
-            <div class="model">
-                <div class="surround">
-                <iframe
-                  class="previewer"
-                  src="{src}"
-                ></iframe>
-                </div>
-            </div>
-            """
+        frame = H.div(
+            H.div(H.iframe(src, cls="previewer"), cls="surround"), cls="model"
         )
-
-        buttons = []
 
         def getViewerButtons(viewer, active):
             activeCls = "active" if active else ""
-            buttons = []
-            buttons.append(
-                dedent(
-                    f"""<span class="vw"><span class="vwl {activeCls}">{viewer}</span>
-                        <span class="vwv">
-                    """
-                )
+            return H.span(
+                [
+                    H.span(viewer, cls=f"vwl {activeCls}"),
+                    H.span(
+                        [
+                            getVersionButtons(
+                                viewer, version, active and version == versionActive
+                            )
+                            for version in viewers[viewer].versions
+                        ],
+                        cls="vwv",
+                    ),
+                ],
+                cls="vw",
             )
-            for version in viewers[viewer].versions:
-                isVersionActive = active and version == versionActive
-                buttons.append(getVersionButtons(viewer, version, isVersionActive))
-
-            buttons.append("""</span></span> """)
-            return "\n".join(buttons)
 
         def getVersionButtons(viewer, version, active):
             nonlocal activeButtons
 
             activeCls = "active" if active else ""
-            buttons = []
-            buttons.append(
-                f"""<span class="vv"><span class="vvl {activeCls}">{version}</span>"""
-            )
-            for action in actions:
-                if action == "delete":
-                    continue
-                isActionActive = active and action == actionActive
-                buttons.append(getActionButton(viewer, version, action, isActionActive))
 
-            buttons.append("""</span> """)
-            versionButtons = "\n".join(buttons)
+            versionButtons = H.span(
+                [H.span(version, cls=f"vvl {activeCls}")]
+                + [
+                    getActionButton(
+                        viewer, version, action, active and action == actionActive
+                    )
+                    for action in actions
+                    if action != "delete"
+                ],
+                cls="vv",
+            )
+
             if active:
                 activeButtons = versionButtons
             return versionButtons
@@ -158,77 +150,52 @@ class Viewers:
             acro = thisActionInfo.acro
             name = thisActionInfo.name
 
+            atts = {}
+
             if active:
-                attStr = ""
                 elem = "span"
+                href = []
             else:
                 elem = "a"
-                href = f"/scenes/{sceneId}/{viewer}/{version}/{action}"
-                attStr = f""" href="{href}" """
+                href = [f"/scenes/{sceneId}/{viewer}/{version}/{action}"]
 
                 if action == "update":
                     viewerHref = f"/viewer/{viewer}/{version}/{action}/{sceneId}"
-                    viewerAttStr = dedent(
+                    atts["onclick"] = dedent(
                         f"""
-                        onclick="
-                            window.open(
-                                '{viewerHref}',
-                                'newwindow',
-                                width=window.innerWidth,
-                                height=window.innerHeight
-                            );
-                            return false;
-                        "
+                        window.open(
+                            '{viewerHref}',
+                            'newwindow',
+                            width=window.innerWidth,
+                            height=window.innerHeight
+                        );
+                        return false;
                         """
                     )
-                    attStr += viewerAttStr
 
-            if action == "update":
-                titleAttstr = f""" title="{name} this scene in a new window" """
-                attStr += titleAttstr
-            else:
-                titleAttstr = f""" title="{name} this scene in place" """
-                attStr += titleAttstr
+            titleFragment = "a new window" if action == "update" else "place"
+            atts["title"] = f"{name} this scene in {titleFragment}"
+
             cls = f"button {activeCls} vwb"
-            begin = f"""<{elem} class="{cls}" {attStr}>"""
-            end = f"</{elem}>"
-            return f"{begin}{acro}{end}"
 
-        for viewer in viewers:
-            isViewerActive = viewer == viewerActive
-            buttons.append(getViewerButtons(viewer, isViewerActive))
+            return H.elem(elem, acro, *href, cls=cls, **atts)
 
-        allButtons = "\n".join(buttons)
+        allButtons = [
+            getViewerButtons(viewer, viewer == viewerActive) for viewer in viewers
+        ]
 
-        activeButtons = []
-        for action in actions:
-            if action == "delete":
-                continue
-            activeButtons.append(
-                getActionButton(
-                    viewerActive, versionActive, action, action == actionActive
-                )
-            )
-        activeButtons = "\n".join(activeButtons)
+        activeButtons = [
+            H.span(viewerActive, cls="vwla"),
+            H.span(versionActive, cls="vvla"),
+        ] + [
+            getActionButton(viewerActive, versionActive, action, action == actionActive)
+            for action in actions
+            if action != "delete"
+        ]
 
-        activeButtons = dedent(
-            f"""
-            <span class="vwla">{viewerActive}</span>
-            <span class="vvla">{versionActive}</span>
-            {activeButtons}
-            """
-        )
+        buttons = H.details(activeButtons, allButtons, f"vwbuttons-{sceneId}")
 
-        buttonsHtml = dedent(
-            f"""
-            <details>
-                <summary>{activeButtons}</summary>
-                {allButtons}
-            </details>
-            """
-        )
-
-        return (frame, buttonsHtml)
+        return (frame, buttons)
 
     def genHtml(self, urlBase, sceneName, viewer, version, action):
         """Generates the HTML for the viewer page that is loaded in an iframe.
@@ -272,46 +239,40 @@ class Viewers:
             modes = viewers[viewer].modes
             element = modes[action].element
             fileBase = modes[action].fileBase
-            return dedent(
-                f"""
-                <head>
-                <meta charset="utf-8">
-                <!--<link
-                  rel="stylesheet"
-                  href="{viewerStaticRoot}/fonts/fonts.css"
-                >
-                <link
-                  rel="shortcut icon"
-                  type="image/png"
-                  href="{viewerStaticRoot}/favicon.png"
-                >-->
-                <link
-                  rel="stylesheet"
-                  href="{viewerStaticRoot}/css/{fileBase}.{ext}.css"
-                >
-                <script
-                  defer
-                  src="{viewerStaticRoot}/js/{fileBase}.{ext}.js"></script>
-                </head>
-                <body>
-                <{element}
-                  root="{viewerRoot}"
-                  document="{sceneName}.json"
-                  resourceroot="{viewerStaticRoot}/">
-                </{element}>
-                </body>
-                """
+            return H.content(
+                H.head(
+                    [
+                        H.meta(charset="utf-8"),
+                        H.link(
+                            "shortcut icon",
+                            f"{viewerStaticRoot}/favicon.png",
+                            tp="image/png",
+                        ),
+                        H.link("stylesheet", f"{viewerStaticRoot}/fonts/fonts.css"),
+                        H.link(
+                            "stylesheet", f"{viewerStaticRoot}/css/{fileBase}.{ext}.css"
+                        ),
+                        H.script(
+                            "",
+                            defer=True,
+                            src=f"{viewerStaticRoot}/js/{fileBase}.{ext}.js",
+                        ),
+                    ]
+                ),
+                H.body(
+                    H.elem(
+                        element,
+                        "XXXXXXXXXX",
+                        root=viewerRoot,
+                        document=f"{sceneName}.json",
+                        resourceroot=f"{viewerStaticRoot}/",
+                    )
+                ),
             )
         else:
-            return dedent(
-                f"""
-                <head>
-                <meta charset="utf-8">
-                </head>
-                <body>
-                <p>Unsupported viewer: {viewer}</p>
-                </body>
-                """.strip()
+            return H.content(
+                H.head(H.meta(charset="utf-8")),
+                H.body(H.p(f"Unsupported viewer: {viewer}")),
             )
 
     def getRoot(self, urlBase, action, viewer):

@@ -54,6 +54,14 @@
     --error-fore-i:                    hsla( 60, 100%,  60%, 1  );
     --error-back-i:                    hsla(  0, 100%,  40%, 1  );
 
+    --field-outer-fore:                hsla(  0,   0%,  30%, 1  );
+    --field-outer-back:                hsla(  0,   0%,  98%, 1  );
+    --field-outer-border:              hsla(  0,   0%,  80%, 0.5);
+
+    --field-inner-fore:                hsla(  0,   0%,  30%, 1  );
+    --field-inner-back:                hsla(  0,   0%,  90%, 1  );
+    --field-inner-border:              hsla(  0,   0%,  50%, 0.5);
+
     --frozen-back:                     hsla(180, 100%,  95%, 1  );
     --frozen-border:                   hsla(180, 100%,  50%, 1  );
 

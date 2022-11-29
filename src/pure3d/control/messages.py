@@ -194,8 +194,6 @@ class Messages:
             cls = "info" if tp == "plain" else tp
             msgs.append((f"{label}{m}", f"msgitem {cls}"))
 
-        html = H.div(
-            [H.div(txt, cls=cls) for (txt, cls) in self.messages], cls="messages"
-        )
+        html = H.div([H.div(txt, cls=cls) for (txt, cls) in msgs], cls="messages")
         self.clearMessages()
         return html

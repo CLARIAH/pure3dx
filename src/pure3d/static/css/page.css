@@ -9,8 +9,11 @@
 .container {
   display: flex;
 }
-.fill {
+.fill1 {
   flex: 1 1 auto;
+}
+.fill5 {
+  flex: 5 1 auto;
 }
 
 html {

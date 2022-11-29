@@ -250,10 +250,31 @@ class Field:
         logical = self.logical(record)
         return "" if logical is None else str(logical)
 
-    def formatted(self, table, record, level=None, button=""):
+    def formatted(
+        self,
+        table,
+        record,
+        level=None,
+        button="",
+        outerCls="fieldouter",
+        innerCls="fieldinner",
+    ):
         """Give the formatted value of the field in a record.
 
         Optionally also puts a caption and/or an edit control.
+
+        The value retrieved is (recursively) wrapped in HTML, steered by additional
+        argument, as in `control.html.HtmlElements.wrapValue`.
+        be applied.
+
+        If the type is 'text', multiple values will simply be concatenated
+        with newlines in between, and no extra classes will be applied.
+        Instead, a markdown formatter is applied to the result.
+
+        For other types:
+
+        If the value is an iterable, each individual value is wrapped in a span
+        to which an (other) extra CSS class may be applied.
 
         Parameters
         ----------
@@ -267,6 +288,12 @@ class Field:
             If 0, the caption will be placed in a span.
         button: string, optional ""
             An optional edit button.
+        outerCls: string optional "fieldouter"
+            If given, an extra CSS class for the outer element that wraps the total
+            value. Only relevant if the type is not 'text'
+        innerCls: string optional "fieldinner"
+            If given, an extra CSS class for the inner elements that wrap parts of the
+            value. Only relevant if the type is not 'text'
 
         Returns
         -------
@@ -277,10 +304,18 @@ class Field:
         tp = self.tp
         caption = self.caption
 
-        bare = self.bare(record)
+        logical = self.logical(record)
 
-        content = markdown(bare) if tp == "text" else bare
-
+        if tp == "text":
+            content = markdown(H.content(logical), tight=False)
+        else:
+            content = H.wrapValue(
+                logical,
+                outerElem="span",
+                outerAtts=dict(cls=outerCls),
+                innerElem="span",
+                innerAtts=dict(cls=innerCls),
+            )
         sep = "&nbsp;" if button else ""
 
         content = f"{button}{sep}{content}"
@@ -293,6 +328,12 @@ class Field:
             else:
                 heading = caption
 
-            heading = H.span(heading) if level == 0 else H.h(level, heading)
+            if level == 0:
+                elem = "span"
+                lv = []
+            else:
+                elem = "h"
+                lv = [level]
+            heading = H.elem(elem, *lv, heading)
 
         return heading + content

@@ -10,6 +10,7 @@ from control.generic import AttrDict
 
 AMP = "&"
 LT = "<"
+GT = ">"
 APOS = "'"
 QUOT = '"'
 E = ""
@@ -19,6 +20,9 @@ ONE = "1"
 
 CLS = "cls"
 CLASS = "class"
+
+TP = "tp"
+TYPE = "type"
 
 EMPTY_ELEMENTS = {
     "area",
@@ -55,6 +59,8 @@ ICONS = AttrDict(
     refresh="♺",
 )
 
+# study url_for
+
 
 class HtmlElement:
     """Wrapping of attributes and content into an HTML element."""
@@ -76,12 +82,23 @@ class HtmlElement:
 
     @staticmethod
     def atNormal(k):
-        """Substitute the `cls` attribute name with `class`."""
+        """Normalize the names of attributes.
 
-        return CLASS if k == CLS else k
+        Substitute the `cls` attribute name with `class`.
+
+        Substitute the `tp` attribute name with `type`.
+        """
+
+        return CLASS if k == CLS else TYPE if k == TP else k
 
     @staticmethod
-    def attStr(atts, addClass=None):
+    def atEscape(v):
+        """Escapes double quotes in attribute values."""
+
+        return v.replace('"', "&quot;")
+
+    @classmethod
+    def attStr(thisCls, atts, addClass=None):
         """Stringify attributes.
 
         !!! hint
@@ -116,7 +133,8 @@ class HtmlElement:
             else:
                 atts = dict(cls=addClass)
         return E.join(
-            f""" {HtmlElement.atNormal(k)}""" + (E if v is True else f"""='{v}'""")
+            f""" {thisCls.atNormal(k)}"""
+            + (E if v is True else f'''="{thisCls.atEscape(v)}"''')
             for (k, v) in atts.items()
             if v is not None
         )
@@ -148,7 +166,7 @@ class HtmlElement:
 
         name = self.name
         content = asString(material)
-        attributes = HtmlElement.attStr(atts, addClass=addClass)
+        attributes = self.attStr(atts, addClass=addClass)
         return (
             f"""<{name}{attributes}>"""
             if name in EMPTY_ELEMENTS
@@ -189,6 +207,161 @@ class HtmlElements:
         )
 
     @staticmethod
+    def amp():
+        return "&amp;"
+
+    @staticmethod
+    def lt():
+        return "&lt;"
+
+    @staticmethod
+    def gt():
+        return "&gt;"
+
+    @staticmethod
+    def apos():
+        return "&apos;"
+
+    @staticmethod
+    def quot():
+        return "&quot;"
+
+    @staticmethod
+    def content(*material, tight=False):
+        """fragment.
+
+        This is a pseudo element.
+        The material will be joined together, without wrapping it in an element.
+        There are no attributes.
+
+        The material is recursively joined into a string.
+
+        Parameters
+        ----------
+        material: string | iterable
+            Every argument in `material` may be None, a string, or an iterable.
+        tight: boolean, optional False
+            If True, all material will be joined tightly, with no intervening string.
+            Otherwise, all pieces will be joined with a newline.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return asString(material, tight=tight)
+
+    @classmethod
+    def wrapValue(
+        thisCls,
+        value,
+        _level=0,
+        outerElem="div",
+        outerArgs=[],
+        outerAtts={},
+        innerElem="span",
+        innerArgs=[],
+        innerAtts={},
+    ):
+        """Wraps one or more values in elements.
+
+        The value is recursively joined into elements.
+        The at the outermost level the result is wrapped in a single outer element.
+        All nested values are wrapped in inner elements.
+
+        If the value is None, a bare empty string is returned.
+
+        The structure of elements reflects the structure of the value.
+
+        Parameters
+        ----------
+        value: string | iterable
+            Every argument in `value` may be None, a string, or an iterable.
+        outerElem: string, optional "div"
+            The single element at the outermost level
+        outerArgs: list, optional []
+            Arguments for the outer element.
+        outerAtts: dict, optional {}
+            Attributes for the outer element.
+        innerElem: string, optional "span"
+            The elements at all deeper levels
+        innerArgs: list, optional []
+            Arguments for the inner elements.
+        innerAtts: dict, optional {}
+            Attributes for the inner elements.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        if value is None:
+            return E
+
+        if _level == 0:
+            elem = outerElem
+            args = outerArgs
+            atts = outerAtts
+        else:
+            elem = innerElem
+            args = innerArgs
+            atts = innerAtts
+
+        isMany = isIterable(value)
+
+        if type(value) is str or not isMany:
+            if _level == 0:
+                elem = outerElem
+                args = outerArgs
+                atts = outerAtts
+            else:
+                elem = innerElem
+                args = innerArgs
+                atts = innerAtts
+            return thisCls.elem(elem, thisCls.he(str(value)), *args, **atts)
+
+        return thisCls.elem(
+            elem,
+            [
+                thisCls.wrapValue(
+                    val,
+                    _level=_level + 1,
+                    outerElem=innerElem,
+                    outerArgs=innerArgs,
+                    outerAtts=innerAtts,
+                    innerElem=innerElem,
+                    innerArgs=innerArgs,
+                    innerAtts=innerAtts,
+                )
+                for val in value
+            ],
+            *args,
+            **atts,
+        )
+
+    @classmethod
+    def elem(thisClass, tag, *args, **kwargs):
+        """Wraps an element whose tag is determined at run time.
+
+        You can also use this to wrap non-html elements.
+
+        Parameters
+        ----------
+        thisClass: class
+            The current class
+        tag: string
+            The name of the element
+        *args, **kwargs: any
+            The remaining arguments to be passed to the underlying wrapper.
+        """
+        method = getattr(thisClass, tag, None)
+        return (
+            HtmlElement(tag).wrap(*args, **kwargs)
+            if method is None
+            else method(*args, **kwargs)
+        )
+
+    @staticmethod
     def a(material, href, **atts):
         """A.
 
@@ -209,6 +382,23 @@ class HtmlElements:
         return HtmlElement("a").wrap(material, href=href, **atts)
 
     @staticmethod
+    def body(material, **atts):
+        """BODY.
+
+        The <body> part of a document
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("body").wrap(material, **atts)
+
+    @staticmethod
     def br():
         """BR.
 
@@ -220,6 +410,30 @@ class HtmlElements:
         """
 
         return HtmlElement("br").wrap(E)
+
+    @staticmethod
+    def checkbox(var, **atts):
+        """INPUT type=checkbox.
+
+        The element to receive user clicks.
+
+        Parameters
+        ----------
+        var: string
+            The name of an identifier for the element.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("input").wrap(
+            E,
+            tp="checkbox",
+            id=var,
+            addClass="option",
+            **atts,
+        )
 
     @staticmethod
     def dd(material, **atts):
@@ -396,13 +610,30 @@ class HtmlElements:
         return HtmlElement(f"h{level}").wrap(material, **atts)
 
     @staticmethod
+    def head(material, **atts):
+        """HEAD.
+
+        The <head> part of a document
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("head").wrap(material, **atts)
+
+    @staticmethod
     def icon(icon, asChar=False, **atts):
         """icon.
 
         Pseudo element for an icon.
 
         !!! warning
-            The `icon` names must be listed in the web.yaml config file
+            The `icon` names must be listed in the authorise.yaml config file
             under the key `icons`. The icon itself is a Unicode character.
 
         Parameters
@@ -461,6 +692,24 @@ class HtmlElements:
         return HtmlElement("span" if href is None else "a").wrap(
             iconChar, addClass=addClass, **atts
         )
+
+    @staticmethod
+    def iframe(src, **atts):
+        """IFRAME.
+
+        An iframe, which is an empty element with an obligatory end tag.
+
+        Parameters
+        ----------
+        src: url
+            Source for the iframe.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("iframe").wrap("", src=src, **atts)
 
     @staticmethod
     def img(src, href=None, title=None, imgAtts={}, **atts):
@@ -526,47 +775,37 @@ class HtmlElements:
         return HtmlElement("input").wrap(E, value=HtmlElements.he(content), **atts)
 
     @staticmethod
-    def join(material):
-        """fragment.
+    def link(rel, href, **atts):
+        """LINK.
 
-        This is a pseudo element.
-        The material will be joined together, without wrapping it in an element.
-        There are no attributes.
+        Typed hyperlink in the <head> element.
 
         Parameters
         ----------
-        material: string | iterable
+        rel: string:
+            The type of the link
+        href: url
+            Destination of the link.
 
         Returns
         -------
         string(html)
         """
 
-        return asString(material)
+        return HtmlElement("link").wrap(E, rel=rel, href=href, **atts)
 
     @staticmethod
-    def checkbox(var, **atts):
-        """INPUT type=checkbox.
+    def meta(**atts):
+        """META.
 
-        The element to receive user clicks.
-
-        Parameters
-        ----------
-        var: string
-            The name of an identifier for the element.
+        A <meta> element inside the <head> part of a document
 
         Returns
         -------
         string(html)
         """
 
-        return HtmlElement("input").wrap(
-            E,
-            type="checkbox",
-            id=var,
-            addClass="option",
-            **atts,
-        )
+        return HtmlElement("meta").wrap(E, **atts)
 
     @staticmethod
     def p(material, **atts):
@@ -692,14 +931,38 @@ class HtmlElements:
         return material
 
 
-def asString(value):
-    """Join an iterable of strings into a string.
+def asString(value, tight=False):
+    """Join an iterable of strings or iterables into a string.
 
     And if the value is already a string, return it, and if it is `None`
     return the empty string.
+
+    The material is recursively joined into a string.
+
+    Parameters
+    ----------
+    material: string | iterable
+        Every argument in `material` may be None, a string, or an iterable.
+    tight: boolean, optional False
+        If True, all material will be joined tightly, with no intervening string.
+        Otherwise, all pieces will be joined with a newline.
+
+    Returns
+    -------
+    string(html)
     """
 
-    return E if value is None else E.join(value) if isIterable(value) else value
+    sep = E if tight else "\n"
+
+    return (
+        E
+        if value is None
+        else value
+        if type(value) is str
+        else sep.join(asString(val) for val in value)
+        if isIterable(value)
+        else str(value)
+    )
 
 
 def isIterable(value):
