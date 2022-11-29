@@ -9,8 +9,11 @@
 .container {
   display: flex;
 }
-.fill {
+.fill1 {
   flex: 1 1 auto;
+}
+.fill5 {
+  flex: 5 1 auto;
 }
 
 html {
@@ -89,10 +92,12 @@ body {
 
 #statusbanner {
   width: 100%;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-evenly;
   margin: 0.3rem;
   color: var(--warning-fore-i);
   background-color: var(--warning-back-i);
-  text-align: center;
 }
 
 #nav {

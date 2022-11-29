@@ -1,16 +1,23 @@
-from control.generic import AttrDict
 from markdown import markdown
 
+from control.generic import AttrDict
+from control.html import HtmlElements as H
 
-class Fields:
+
+class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
-        """Factory for field objects.
+        """Datamodel related operations.
 
-        This class has methods to retrieve various pieces of content
-        from the data sources, and hand it over to higher level objects.
+        This class has methods to manipulate various pieces of content
+        in the data sources, and hand it over to higher level objects.
 
-        It is instantiated by a singleton object, which is a factory object
-        for `control.fields.Field` objects, which deal with individual fields.
+        It can find out dependencies between related records, and it knows
+        a thing or two about fields.
+
+        It is instantiated by a singleton object.
+
+        It has a method which is a factory for `control.fields.Field` objects,
+        which deal with individual fields.
 
         Parameters
         ----------
@@ -27,8 +34,52 @@ class Fields:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
-        self.fieldsConfig = Settings.fieldsConfig
+        datamodel = Settings.datamodel
+        self.masterConfig = datamodel.master
+        self.linkConfig = datamodel.link
+        self.fieldsConfig = datamodel.fields
         self.fieldObjects = AttrDict()
+
+    def getDetailRecords(self, masterTable, masterId):
+        """Retrieve the detail records of a master record.
+
+        It finds all records that have a field containing an id of the
+        given master record.
+
+        Details are not retrieved recursively, only the direct details
+        of a master are fetched.
+
+        Parameters
+        ----------
+        masterTable: string
+            The name of the table in which the master record lives.
+        masterId: ObjectId
+            The id of the master record.
+
+        Returns
+        -------
+        AttrDict
+            The list of detail records, categorized by detail table in which
+            they occur. The detail tables are the keys, the lists of records
+            in those tables are the values.
+            If the master record cannot be found or if there are no detail
+            records, the empty dict is returned.
+        """
+        Mongo = self.Mongo
+        masterConfig = self.masterConfig
+
+        detailTables = masterConfig.get(masterTable, [])
+
+        crit = {f"{masterTable.rstrip('s')}Id": masterId}
+
+        detailRecords = AttrDict()
+
+        for detailTable in detailTables:
+            details = Mongo.getList(detailTable, **crit)
+            if len(details):
+                detailRecords[detailTable] = details
+
+        return detailRecords
 
     def makeField(self, key):
         """Make a field object and registers it.
@@ -52,6 +103,7 @@ class Fields:
             The resulting Field object.
             It is also added to the `fieldObjects` member.
         """
+        Settings = self.Settings
 
         fieldObjects = self.fieldObjects
 
@@ -67,13 +119,13 @@ class Fields:
         if fieldsConfig is None:
             Messages.error(logmsg=f"Unknown field key '{key}'")
 
-        fieldObject = Field(Messages, Mongo, key, **fieldsConfig)
+        fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
 
 
 class Field:
-    def __init__(self, Messages, Mongo, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
         """Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -99,6 +151,7 @@ class Field:
             It will be checked that certain parts of the field configuration
             are present, such as `nameSpace`, `fieldPath` and `tp`.
         """
+        self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
@@ -197,20 +250,50 @@ class Field:
         logical = self.logical(record)
         return "" if logical is None else str(logical)
 
-    def formatted(self, record, level=None, button=""):
+    def formatted(
+        self,
+        table,
+        record,
+        level=None,
+        button="",
+        outerCls="fieldouter",
+        innerCls="fieldinner",
+    ):
         """Give the formatted value of the field in a record.
 
         Optionally also puts a caption and/or an edit control.
 
+        The value retrieved is (recursively) wrapped in HTML, steered by additional
+        argument, as in `control.html.HtmlElements.wrapValue`.
+        be applied.
+
+        If the type is 'text', multiple values will simply be concatenated
+        with newlines in between, and no extra classes will be applied.
+        Instead, a markdown formatter is applied to the result.
+
+        For other types:
+
+        If the value is an iterable, each individual value is wrapped in a span
+        to which an (other) extra CSS class may be applied.
+
         Parameters
         ----------
+        table: string
+            The table from which the record is taken
         record: AttrDict or dict
             The record in which the field  value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
+            If 0, the caption will be placed in a span.
         button: string, optional ""
             An optional edit button.
+        outerCls: string optional "fieldouter"
+            If given, an extra CSS class for the outer element that wraps the total
+            value. Only relevant if the type is not 'text'
+        innerCls: string optional "fieldinner"
+            If given, an extra CSS class for the inner elements that wrap parts of the
+            value. Only relevant if the type is not 'text'
 
         Returns
         -------
@@ -221,21 +304,36 @@ class Field:
         tp = self.tp
         caption = self.caption
 
-        bare = self.bare(record)
+        logical = self.logical(record)
 
-        content = markdown(bare) if tp == "text" else bare
-
+        if tp == "text":
+            content = markdown(H.content(logical), tight=False)
+        else:
+            content = H.wrapValue(
+                logical,
+                outerElem="span",
+                outerAtts=dict(cls=outerCls),
+                innerElem="span",
+                innerAtts=dict(cls=innerCls),
+            )
         sep = "&nbsp;" if button else ""
 
         content = f"{button}{sep}{content}"
 
         if level is not None:
-            if "{}" in caption:
-                heading = caption.format(content)
+            if "{value}" in caption:
+                kind = table.rstrip("s")
+                heading = caption.format(kind=kind, value=content)
                 content = ""
             else:
                 heading = caption
 
-            heading = f"""<h{level}>{heading}</h{level}>\n"""
+            if level == 0:
+                elem = "span"
+                lv = []
+            else:
+                elem = "h"
+                lv = [level]
+            heading = H.elem(elem, *lv, heading)
 
         return heading + content

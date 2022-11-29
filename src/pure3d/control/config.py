@@ -4,13 +4,11 @@ from subprocess import check_output
 from control.generic import AttrDict
 from control.files import dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
-
-
-VERSION_FILE = "version.txt"
+from control.html import HtmlElements as H
 
 
 class Config:
-    def __init__(self, Messages, flask=True):
+    def __init__(self, Messages):
         """All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -29,11 +27,6 @@ class Config:
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        flask: boolean, optional True
-            If False, only those settings are fetched that do not have relevance
-            for the actual web serving by flask application.
-            This is used for code that runs prior to web serving, e.g.
-            data collection in `control.collect.Collect`.
         """
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -43,40 +36,29 @@ class Config:
         """The actual configuration settings are stored here.
         """
 
-        self.checkEnv(flask)
+        self.checkEnv()
 
         if not self.good:
-            Messages.error(logmsg="Check environment ...")
+            Messages.error(logmsg="Check environment")
             quit()
 
-    def checkEnv(self, flask):
+    def checkEnv(self):
         """Collect the relevant information.
 
         If essential information is missing, processing stops.
         This is done by setting the `good` member of Config to False.
-
-        Parameters
-        ----------
-        flask: boolean
-            Whether to collect all, or a subset of variables that are not
-            used for actually serving pages.
         """
-        if not flask:
-            self.checkRepo(),
-            self.checkData()
-            self.checkMongo(),
-            self.checkSettings(),
-            return
 
         for method in (
             self.checkRepo,
+            self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
             self.checkData,
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
-            self.checkFields,
+            self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
@@ -110,8 +92,20 @@ class Config:
             return
 
         Settings.repoDir = repoDir
+        yamlDir = f"{repoDir}/src/pure3d/control/yaml"
+        Settings.yamlDir = yamlDir
 
-        # what is the version of the pure3d app?
+    def checkWebdav(self):
+        """Read the WEBDav methods from the webdav.yaml file.
+
+        The methods are associated with the `view` or `edit` keyword,
+        depending on whether they are `GET` like or `PUT` like.
+        """
+        Settings = self.Settings
+        yamlDir = Settings.yamlDir
+        webdavFile = "webdav.yml"
+        webdavInfo = readYaml(f"{yamlDir}/{webdavFile}")
+        Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
         """Get the current version of the pure3d app.
@@ -121,6 +115,7 @@ class Config:
         """
         Settings = self.Settings
         repoDir = Settings.repoDir
+
         (long, short) = tuple(
             check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
             .decode("ascii")
@@ -133,9 +128,7 @@ class Config:
         title = "visit the running code on GitHub"
         gitLocation = var("gitlocation").removesuffix(".git")
         href = f"{gitLocation}/tree/{long}"
-        Settings.versionInfo = (
-            f"""<a target="_blank" title="{title}" href="{href}">{short}</a>"""
-        )
+        Settings.versionInfo = H.a(short, href, target="_blank", title=title)
 
     def checkSecret(self):
         """Obtain a secret.
@@ -250,10 +243,7 @@ class Config:
         """Read the yaml file with application settings."""
         Messages = self.Messages
         Settings = self.Settings
-
-        repoDir = Settings.repoDir
-        yamlDir = f"{repoDir}/src/pure3d/control/yaml"
-        Settings.yamlDir = yamlDir
+        yamlDir = Settings.yamlDir
 
         settingsFile = "settings.yml"
         settings = readYaml(f"{yamlDir}/{settingsFile}")
@@ -265,25 +255,60 @@ class Config:
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkFields(self):
-        """Read the yaml file with field settings."""
+    def checkDatamodel(self):
+        """Read the yaml file with table and field settings.
+
+        It contains model `master` that contains the master tables
+        with the information which tables are details of it.
+
+        It also contains ``link` that contains the link tables
+        with the information which tables are being linked.
+
+        Both elements are needed when we delete records.
+
+        If a user deletes a master record, its detail records become invalid.
+        So either we must enforce that the user deletes the details first,
+        or the system must delete those records automatically.
+
+        When a user deletes a record that is linked to another record by means
+        of a coupling record, the coupling record must be deleted automatically.
+
+        Fields are bits of data that are stored in parts of documents
+        in MongoDb collections.
+
+        Fields have several properties which we summarize under a key.
+        So if we know the key of a field, we have access to all of its
+        properties.
+
+        The properties `nameSpave` and `fieldPath` determine how to drill
+        down in a document in order to find the value of that field.
+
+        The property `tp` is the data type of the field, default `string`.
+
+        The property `caption` is a label that may accompany a field value
+        on the interface.
+        """
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
-        fieldsFile = "fields.yml"
-        fields = readYaml(f"{yamlDir}/{fieldsFile}")
-        if fields is None:
-            Messages.error(logmsg=f"Cannot read {fieldsFile} in {yamlDir}")
+        datamodelFile = "datamodel.yml"
+        datamodel = readYaml(f"{yamlDir}/{datamodelFile}")
+        if datamodel is None:
+            Messages.error(logmsg=f"Cannot read {datamodelFile} in {yamlDir}")
             self.good = False
             return
 
-        fieldsConfig = AttrDict()
-        Settings.fieldsConfig = fieldsConfig
+        datamodelConfig = AttrDict()
+        Settings.datamodel = datamodelConfig
 
-        for (k, v) in fields.items():
-            fieldsConfig[k] = v
+        for (k, vDict) in datamodel.items():
+            v = AttrDict()
+            for (m, w) in vDict.items():
+                v[m] = AttrDict(w) if type(w) is dict else w
+
+            datamodelConfig[k] = v
 
     def checkAuth(self):
         """Read the yaml file with the authorisation rules."""
@@ -346,6 +371,12 @@ class Config:
                 )
                 continue
             viewerConfig = AttrDict(viewerSettings[viewerName])
+            viewerConfig.modes = AttrDict(
+                {
+                    action: AttrDict(actionInfo)
+                    for (action, actionInfo) in viewerConfig.modes.items()
+                }
+            )
             viewerPath = f"{viewerDir}/{viewerName}"
             versions = []
 
@@ -401,15 +432,22 @@ class Config:
         banner = ""
 
         if wip == "wip":
-            banner = dedent(
-                """
-                <div id="statusbanner">
-                This site is Work in Progress.
-                Use it only for testing.
-                All work you commit to this site can be erased
-                without warning.
-                </div>
-                """
+            content = H.span(
+                dedent(
+                    """
+                    This site is Work in Progress.
+                    Use it only for testing.
+                    All work you commit to this site can be erased
+                    without warning.
+                    """
+                )
             )
+            resetLink = H.a(
+                "reset data",
+                "/collect",
+                title="reset data to initial state",
+                cls="small",
+            )
+            banner = H.div([content, resetLink], id="statusbanner")
 
         Settings.banner = banner

@@ -7,9 +7,8 @@ from control.flask import (
     getReferrer,
     redirectStatus,
 )
+from control.html import HtmlElements as H
 
-
-USERIDFIELD = "user"
 
 PROVIDER_ATTS = tuple(
     """
@@ -124,7 +123,7 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         return (
-            self.__loginTest(referrer, arg(USERIDFIELD))
+            self.__loginTest(referrer, arg("user"))
             if isTestUser
             else self.__loginOidc(referrer)
         )
@@ -162,6 +161,7 @@ class Users:
         oidc = self.oidc
 
         user = None
+        referrer = referrer.removeprefix("/")
 
         if oidc.user_loggedin:
             user = oidc.user_getfield("sub")
@@ -179,7 +179,7 @@ class Users:
             logmsg=f"LOGIN successful: user {name} {user}",
             msg=f"LOGIN successful: user {name}",
         )
-        return redirectStatus(f"{referrer}", True)
+        return redirectStatus(f"/{referrer}", True)
 
     def logout(self):
         """Logs off the current user.
@@ -201,7 +201,7 @@ class Users:
 
         if user is None:
             if testMode:
-                sessionPop(USERIDFIELD)
+                sessionPop("user")
             else:
                 oidc.logout()
             self.__User.clear()
@@ -209,7 +209,7 @@ class Users:
             return redirectStatus("/", False)
 
         if isTestUser:
-            sessionPop(USERIDFIELD)
+            sessionPop("user")
         else:
             oidc.logout()
 
@@ -246,7 +246,7 @@ class Users:
             if isTestUser:
                 if not self.__findTestUser(user):
                     self.__User.clear()
-                    sessionPop(USERIDFIELD)
+                    sessionPop("user")
             else:
                 if not self.__findUser(user, update=False):
                     self.__User.clear()
@@ -295,7 +295,7 @@ class Users:
         isTestUser = None
 
         if testMode:
-            user = arg(USERIDFIELD) if fromArg else sessionGet(USERIDFIELD)
+            user = arg("user") if fromArg else sessionGet("user")
             if user:
                 isTestUser = True
 
@@ -329,38 +329,47 @@ class Users:
 
         (testMode, isTestUser, userActive) = self.getUser()
 
-        html = []
+        testContent = []
+        content = []
 
         def wrap(label, text, title, href, active, enabled):
-            labelRep = f"""<span class="label">{label}</span>""" if label else ""
-            cls = "active" if active else ""
-            elem = "span" if active else "a"
-            hrefAtt = "" if active else f'href="{href}"'
+            if label:
+                content.append(H.span(label, cls="label"))
+
+            if active:
+                cls = "active"
+                elem = "span"
+                href = []
+            else:
+                cls = ""
+                elem = "a"
+                href = [href]
+
             if not enabled:
                 cls = "disabled"
                 elem = "span"
-                hrefAtt = ""
-            html.append(
-                f"{labelRep}"
-                f'<{elem} title="{title}" {hrefAtt} class="button small {cls}">'
-                f"{text}</{elem}>"
-            )
+                href = []
+
+            fullCls = f"button small {cls}"
+
+            return H.elem(elem, text, *href, cls=fullCls, title=title)
 
         if testMode:
             # row of test users
 
             enabled = not userActive or isTestUser
-            for row in sorted(
-                Mongo.execute("users", "find", dict(isTest=True)),
-                key=lambda r: r["nickname"],
+            for record in sorted(
+                Mongo.getList("users", isTest=True),
+                key=lambda r: r.nickname,
             ):
-                User = AttrDict(row)
-                user = User.sub
-                name = User.nickname
-                role = self.presentRole(User.role)
+                user = record.sub
+                name = record.nickname
+                role = self.presentRole(record.role)
 
                 active = user == userActive
-                wrap(None, name, role, f"/login?user={user}", active, enabled)
+                testContent.append(
+                    wrap(None, name, role, f"/login?user={user}", active, enabled)
+                )
 
         if userActive:
             # details of logged in user
@@ -370,16 +379,18 @@ class Users:
             email = details.email
             userRep = f"{name} - {email}" if email else name
             role = self.presentRole(details.role)
-            wrap("Logged in as", userRep, role, None, True, True)
+            content.append(wrap("Logged in as", userRep, role, None, True, True))
 
             # logout button
-            wrap(None, "log out", f"log out {name}", "/logout", False, True)
+            content.append(
+                wrap(None, "log out", f"log out {name}", "/logout", False, True)
+            )
 
         else:
             # login button
-            wrap(None, "log in", "log in", "/login", False, True)
+            content.append(wrap(None, "log in", "log in", "/login", False, True))
 
-        return "\n".join(html)
+        return (H.content(*testContent), H.content(*content))
 
     def presentRole(self, role):
         """Finds the interface representation of a role.
@@ -425,7 +436,7 @@ class Users:
         if user is None or not self.__findTestUser(user):
             return redirectStatus(f"/{referrer}", False)
 
-        sessionSet(USERIDFIELD, user)
+        sessionSet("user", user)
         name = self.__User.nickname
         Messages.plain(
             logmsg=f"LOGIN successful: test user {name} {user}",

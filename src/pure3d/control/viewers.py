@@ -1,5 +1,8 @@
 from textwrap import dedent
 
+from control.generic import AttrDict
+from control.html import HtmlElements as H
+
 
 class Viewers:
     def __init__(self, Settings, Messages):
@@ -77,7 +80,7 @@ class Viewers:
             The scene in question.
         actions: iterable of string
             The actions for which we have to create buttons.
-            Typically `view` and possibly also `edit`.
+            Typically `read` and possibly also `update`.
         viewerActive: string or None
             The viewer in which the scene is currently loaded,
             if any, otherwise None
@@ -86,7 +89,7 @@ class Viewers:
             if any, otherwise None
         actionActive: string or None
             The mode in which the scene is currently loaded in the viewer
-            (`view` or `edit`),
+            (`read` or `update`),
             if any, otherwise None
 
         Returns
@@ -97,126 +100,102 @@ class Viewers:
         actionInfo = self.Settings.auth.actions
         viewers = self.viewers
 
-        frame = dedent(
-            f"""
-            <div class="model">
-                <div class="surround">
-                <iframe
-                  class="previewer"
-                  src="/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"/></iframe>
-                </div>
-            </div>
-            """
+        src = f"/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"
+        frame = H.div(
+            H.div(H.iframe(src, cls="previewer"), cls="surround"), cls="model"
         )
-
-        buttons = []
 
         def getViewerButtons(viewer, active):
             activeCls = "active" if active else ""
-            buttons = []
-            buttons.append(
-                dedent(
-                    f"""<span class="vw"><span class="vwl {activeCls}">{viewer}</span>
-                        <span class="vwv">
-                    """
-                )
+            return H.span(
+                [
+                    H.span(viewer, cls=f"vwl {activeCls}"),
+                    H.span(
+                        [
+                            getVersionButtons(
+                                viewer, version, active and version == versionActive
+                            )
+                            for version in viewers[viewer].versions
+                        ],
+                        cls="vwv",
+                    ),
+                ],
+                cls="vw",
             )
-            for version in viewers[viewer].versions:
-                isVersionActive = active and version == versionActive
-                buttons.append(getVersionButtons(viewer, version, isVersionActive))
-
-            buttons.append("""</span></span> """)
-            return "\n".join(buttons)
 
         def getVersionButtons(viewer, version, active):
             nonlocal activeButtons
 
             activeCls = "active" if active else ""
-            buttons = []
-            buttons.append(
-                f"""<span class="vv"><span class="vvl {activeCls}">{version}</span>"""
-            )
-            for action in actions:
-                if action == "delete":
-                    continue
-                isActionActive = active and action == actionActive
-                buttons.append(getActionButton(viewer, version, action, isActionActive))
 
-            buttons.append("""</span> """)
-            versionButtons = "\n".join(buttons)
+            versionButtons = H.span(
+                [H.span(version, cls=f"vvl {activeCls}")]
+                + [
+                    getActionButton(
+                        viewer, version, action, active and action == actionActive
+                    )
+                    for action in actions
+                    if action != "delete"
+                ],
+                cls="vv",
+            )
+
             if active:
                 activeButtons = versionButtons
             return versionButtons
 
         def getActionButton(viewer, version, action, active):
             activeCls = "active" if active else ""
+            thisActionInfo = AttrDict(actionInfo.get(action, {}))
+            acro = thisActionInfo.acro
+            name = thisActionInfo.name
+
+            atts = {}
 
             if active:
-                attStr = ""
                 elem = "span"
+                href = []
             else:
                 elem = "a"
-                href = f"/scenes/{sceneId}/{viewer}/{version}/{action}"
-                attStr = f""" href="{href}" """
+                href = [f"/scenes/{sceneId}/{viewer}/{version}/{action}"]
 
-                if action == "edit":
+                if action == "update":
                     viewerHref = f"/viewer/{viewer}/{version}/{action}/{sceneId}"
-                    viewerAttStr = dedent(
+                    atts["onclick"] = dedent(
                         f"""
-                        onclick="
-                            window.open(
-                                '{viewerHref}',
-                                'newwindow',
-                                width=window.innerWidth,
-                                height=window.innerHeight
-                            );
-                            return false;
-                        "
+                        window.open(
+                            '{viewerHref}',
+                            'newwindow',
+                            width=window.innerWidth,
+                            height=window.innerHeight
+                        );
+                        return false;
                         """
                     )
-                    attStr += viewerAttStr
+
+            titleFragment = "a new window" if action == "update" else "place"
+            atts["title"] = f"{name} this scene in {titleFragment}"
 
             cls = f"button {activeCls} vwb"
-            begin = f"""<{elem} class="{cls}" {attStr}>"""
-            actionRep = actionInfo.get(action, action)
-            end = f"</{elem}>"
-            return f"{begin}{actionRep}{end}"
 
-        for viewer in viewers:
-            isViewerActive = viewer == viewerActive
-            buttons.append(getViewerButtons(viewer, isViewerActive))
+            return H.elem(elem, acro, *href, cls=cls, **atts)
 
-        allButtons = "\n".join(buttons)
+        allButtons = [
+            getViewerButtons(viewer, viewer == viewerActive) for viewer in viewers
+        ]
 
-        activeButtons = []
-        for action in actions:
-            if action == "delete":
-                continue
-            activeButtons.append(
-                getActionButton(
-                    viewerActive, versionActive, action, action == actionActive
-                )
-            )
-        activeButtons = "\n".join(activeButtons)
+        activeButtons = [
+            H.span(viewerActive, cls="vwla"),
+            H.span(versionActive, cls="vvla"),
+        ] + [
+            getActionButton(viewerActive, versionActive, action, action == actionActive)
+            for action in actions
+            if action != "delete"
+        ]
 
-        activeButtons = dedent(
-            f"""
-            <span class="vwla">{viewerActive}</span>
-            <span class="vvla">{versionActive}</span>
-            {activeButtons}
-            """
-        )
+        buttons = H.details(activeButtons, allButtons, f"vwbuttons-{sceneId}")
 
-        buttonsHtml = dedent(
-            f"""
-            <details>
-                <summary>{activeButtons}</summary>
-                {allButtons}
-            </details>
-            """
-        )
-
-        return (frame, buttonsHtml)
+        return (frame, buttons)
 
     def genHtml(self, urlBase, sceneName, viewer, version, action):
         """Generates the HTML for the viewer page that is loaded in an iframe.
@@ -238,13 +217,14 @@ class Viewers:
         version: string
             The chosen version of the viewer.
         action: string
-            The chosen mode in which the viewer is launched (`view` or `edit`).
+            The chosen mode in which the viewer is launched (`read` or `update`).
 
         Returns
         -------
         string
             The HTML for the iframe.
         """
+        viewers = self.viewers
         Settings = self.Settings
         debugMode = Settings.debugMode
         viewerUrlBase = Settings.viewerUrlBase
@@ -256,47 +236,43 @@ class Viewers:
         viewerRoot = self.getRoot(urlBase, action, viewer)
 
         if viewer == "voyager":
-            element = "explorer" if action == "view" else "story"
-            return dedent(
-                f"""
-                <head>
-                <meta charset="utf-8">
-                <!--<link
-                  rel="stylesheet"
-                  href="{viewerStaticRoot}/fonts/fonts.css"
-                >
-                <link
-                  rel="shortcut icon"
-                  type="image/png"
-                  href="{viewerStaticRoot}/favicon.png"
-                >-->
-                <link
-                  rel="stylesheet"
-                  href="{viewerStaticRoot}/css/voyager-{element}.{ext}.css"
-                >
-                <script
-                  defer
-                  src="{viewerStaticRoot}/js/voyager-{element}.{ext}.js"></script>
-                </head>
-                <body>
-                <voyager-{element}
-                  root="{viewerRoot}"
-                  document="{sceneName}.json"
-                  resourceroot="{viewerStaticRoot}/">
-                </voyager-{element}>
-                </body>
-                """
+            modes = viewers[viewer].modes
+            element = modes[action].element
+            fileBase = modes[action].fileBase
+            return H.content(
+                H.head(
+                    [
+                        H.meta(charset="utf-8"),
+                        H.link(
+                            "shortcut icon",
+                            f"{viewerStaticRoot}/favicon.png",
+                            tp="image/png",
+                        ),
+                        H.link("stylesheet", f"{viewerStaticRoot}/fonts/fonts.css"),
+                        H.link(
+                            "stylesheet", f"{viewerStaticRoot}/css/{fileBase}.{ext}.css"
+                        ),
+                        H.script(
+                            "",
+                            defer=True,
+                            src=f"{viewerStaticRoot}/js/{fileBase}.{ext}.js",
+                        ),
+                    ]
+                ),
+                H.body(
+                    H.elem(
+                        element,
+                        "XXXXXXXXXX",
+                        root=viewerRoot,
+                        document=f"{sceneName}.json",
+                        resourceroot=f"{viewerStaticRoot}/",
+                    )
+                ),
             )
         else:
-            return dedent(
-                f"""
-                <head>
-                <meta charset="utf-8">
-                </head>
-                <body>
-                <p>Unsupported viewer: {viewer}</p>
-                </body>
-                """.strip()
+            return H.content(
+                H.head(H.meta(charset="utf-8")),
+                H.body(H.p(f"Unsupported viewer: {viewer}")),
             )
 
     def getRoot(self, urlBase, action, viewer):
@@ -320,8 +296,8 @@ class Viewers:
             Depending on the mode, the viewer code may communicate with the server
             with different urls.
             For example, for the voyager,
-            the `view` mode (voyager-explorer) uses ordinary HTTP requests,
-            but the `edit` mode (voyager-story) uses WebDAV requests.
+            the `read` mode (voyager-explorer) uses ordinary HTTP requests,
+            but the `update` mode (voyager-story) uses WebDAV requests.
 
             So this app points voyager-explorer to a root url starting with `/data`,
             and voyager-story to a root url starting with `/webdav`.
@@ -336,7 +312,8 @@ class Viewers:
 
         modes = viewers[viewer].modes
 
-        prefix = modes[action] or modes.view
+        thisMode = modes[action] or modes.read
+        prefix = thisMode.prefix
 
         return f"{prefix}/{urlBase}"
 
@@ -360,8 +337,8 @@ class Viewers:
             Depending on the mode, the viewer code may communicate with the server
             with different urls.
             For example, for the voyager,
-            the `view` mode (voyager-explorer) uses ordinary HTTP requests,
-            but the `edit` mode (voyager-story) uses WebDAV requests.
+            the `read` mode (voyager-explorer) uses ordinary HTTP requests,
+            but the `update` mode (voyager-story) uses WebDAV requests.
 
             So this app points voyager-explorer to a root url starting with `/data`,
             and voyager-story to a root url starting with `/webdav`.

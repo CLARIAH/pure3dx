@@ -194,8 +194,6 @@ def getReferrer():
     string
     """
     rootUrl = request.root_url
-    n = len(rootUrl)
     referrer = request.referrer
-    if referrer.startswith(rootUrl):
-        referrer = referrer[n:]
+    referrer = referrer.removeprefix(rootUrl)
     return referrer

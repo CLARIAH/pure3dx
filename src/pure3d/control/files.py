@@ -7,7 +7,7 @@ from control.generic import AttrDict
 
 
 IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
-THREED_RE = re.compile(r"""^.*\.(gltf|glb|obj|mtl)$""", re.I)
+THREED_RE = re.compile(r"""^.*\.(gltf|glb)$""", re.I)
 
 
 def readPath(filePath):
@@ -179,7 +179,7 @@ def list3d(path):
 
     If the directory does not exist, the empty list is returned.
 
-    An image is a file with extension .gltf, .glb, .obj, mtl or any of its
+    An image is a file with extension .gltf, .glb or any of its
     case variants.
     """
     if not dirExists(path):

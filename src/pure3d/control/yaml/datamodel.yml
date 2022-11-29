@@ -1,0 +1,46 @@
+master:
+  projects:
+    - editions
+    - scenes
+
+  editions:
+    - scenes
+
+link:
+  projectUser:
+    - project
+    - user
+
+fields:
+  siteTitle:
+    nameSpace: dc
+    fieldPath: title
+    caption: "{value}"
+  title:
+    nameSpace: dc
+    caption: "{kind}: {value}"
+  abstract:
+    nameSpace: dc
+    fieldPath: description.abstract
+    tp: text
+    caption: Intro
+  description:
+    nameSpace: dc
+    fieldPath: description.description
+    tp: text
+    caption: Description
+  provenance:
+    nameSpace: dc
+    tp: text
+    caption: About
+  instructionalMethod:
+    nameSpace: dc
+    tp: text
+    caption: How to use
+  creator:
+    nameSpace: dc
+    caption: "by {value}"
+  model:
+    namespace: ""
+    fieldPath: model
+    caption: "3D model file: {value}"

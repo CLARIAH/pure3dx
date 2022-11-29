@@ -1,16 +1,5 @@
-from textwrap import dedent
-
 from control.flask import redirectStatus, template, send, stop, getReferrer
-
-
-TABS = (
-    ("home", "Home", True),
-    ("about", "About", True),
-    ("projects", "3D Projects", True),
-    ("directory", "3D Directory", False),
-    ("surpriseme", "Surprise Me", True),
-    ("advancedsearch", "Advanced Search", False),
-)
+from control.html import HtmlElements as H
 
 
 class Pages:
@@ -52,55 +41,14 @@ class Pages:
         self.Content = Content
         self.Auth = Auth
 
-    def remaining(self, path):
-        """When the url of the request is not recognized.
-
-        Parameters
-        ----------
-        path: string
-            The url (without leading /) that is not recognized.
-
-        Returns
-        -------
-        response
-            Either a redirect to the referred, for some
-            recognized urls that correspond to not-yet
-            implemented one. Or a 404 abort for all other
-            cases.
-        """
-        Messages = self.Messages
-
-        def splitUrl(url):
-            url = url.strip("/")
-            parts = url.rsplit("/", 1)
-            lastPart = parts[-1]
-            firstPart = parts[0] if len(parts) > 1 else ""
-            firstPart = f"/{firstPart}"
-            return (firstPart, lastPart)
-
-        (firstPath, lastPath) = splitUrl(path)
-
-        if lastPath in {"delete", "edit", "view"}:
-            Messages.warning(
-                logmsg=f"Not yet implemented /{lastPath}: /{path}",
-                msg=f"Not yet implemented: /{lastPath}",
-            )
-            ref = getReferrer()
-            (firstRef, lastRef) = splitUrl(ref)
-            back = firstRef if lastRef in {"delete", "edit", "view"} else f"/{ref}"
-            return redirectStatus(back, True)
-
-        Messages.warning(logmsg=f"Not found: /{path}")
-        stop()
-
     def home(self):
         """The site-wide home page."""
-        left = self.putValues("title@1 + abstract@2")
+        left = self.putValues("siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
         """The site-wide about page."""
-        left = self.putValues("title@1 + abstract@2")
+        left = self.putValues("siteTitle@1 + abstract@2")
         right = self.putValues("description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
@@ -108,7 +56,7 @@ class Pages:
         """The "surprise me!" page."""
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putValues("title@1")
+        left = self.putValues("siteTitle@1")
         right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
@@ -116,7 +64,7 @@ class Pages:
         """The page with the list of projects."""
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putValues("title@2") + projects
+        left = self.putValues("siteTitle@2") + projects
         return self.page("projects", left=left)
 
     def projectInsert(self):
@@ -147,7 +95,7 @@ class Pages:
         """
         Content = self.Content
         editions = Content.getEditions(projectId)
-        left = self.putValues("title@3 + creator@4", projectId=projectId) + editions
+        left = self.putValues("title@3 + creator@0", projectId=projectId) + editions
         right = self.putValues(
             "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
             projectId=projectId,
@@ -192,7 +140,7 @@ class Pages:
             From the edition record we can find the project too.
         """
         Content = self.Content
-        editionInfo = Content.getRecord("editions", _id=editionId)
+        editionInfo = Content.getItem("editions", _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
 
@@ -242,7 +190,7 @@ class Pages:
             The mode in which the viewer is to be used (`view` or `edit`).
         """
         Content = self.Content
-        sceneInfo = Content.getRecord("scenes", _id=sceneId)
+        sceneInfo = Content.getItem("scenes", _id=sceneId)
         projectId = sceneInfo.projectId
         editionId = sceneInfo.editionId
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
@@ -255,8 +203,7 @@ class Pages:
         Content = self.Content
         Auth = self.Auth
 
-        back = self.backLink(projectId)
-        self.debug(f"SCENES: {editionId=}")
+        breadCrumb = self.breadCrumb(projectId)
         action = Auth.makeSafe("editions", editionId, action)
         sceneMaterial = (
             ""
@@ -271,8 +218,10 @@ class Pages:
             )
         )
         left = (
-            back
-            + self.putValues("title@4", projectId=projectId, editionId=editionId)
+            breadCrumb
+            + self.putValues(
+                "title@4 + model@0", projectId=projectId, editionId=editionId
+            )
             + sceneMaterial
         )
         right = self.putValues(
@@ -300,7 +249,7 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneInfo = Content.getRecord("scenes", _id=sceneId)
+        sceneInfo = Content.getItem("scenes", _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
@@ -373,6 +322,47 @@ class Pages:
         dataPath = Content.getData(path, projectId, editionId=editionId)
         return send(dataPath)
 
+    def remaining(self, path):
+        """When the url of the request is not recognized.
+
+        Parameters
+        ----------
+        path: string
+            The url (without leading /) that is not recognized.
+
+        Returns
+        -------
+        response
+            Either a redirect to the referred, for some
+            recognized urls that correspond to not-yet
+            implemented one. Or a 404 abort for all other
+            cases.
+        """
+        Messages = self.Messages
+
+        def splitUrl(url):
+            url = url.strip("/")
+            parts = url.rsplit("/", 1)
+            lastPart = parts[-1]
+            firstPart = parts[0] if len(parts) > 1 else ""
+            firstPart = f"/{firstPart}"
+            return (firstPart, lastPart)
+
+        (firstPath, lastPath) = splitUrl(path)
+
+        if lastPath in {"read", "update", "delete"}:
+            Messages.warning(
+                logmsg=f"Not yet implemented /{lastPath}: /{path}",
+                msg=f"Not yet implemented: /{lastPath}",
+            )
+            ref = getReferrer()
+            (firstRef, lastRef) = splitUrl(ref)
+            back = firstRef if lastRef in {"read", "update", "delete"} else f"/{ref}"
+            return redirectStatus(back, True)
+
+        Messages.warning(logmsg=f"Not found: /{path}")
+        stop()
+
     def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
 
@@ -391,7 +381,7 @@ class Pages:
         Auth = self.Auth
 
         navigation = self.navigation(url)
-        loginWidget = Auth.wrapLogin()
+        (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return template(
             "index",
@@ -401,6 +391,7 @@ class Pages:
             materialLeft=left or "",
             materialRight=right or "",
             messages=Messages.generateMessages(),
+            testLoginWidget=testLoginWidget,
             loginWidget=loginWidget,
         )
 
@@ -438,7 +429,7 @@ class Pages:
             user = User.sub
             name = User.nickname
             Messages.info(
-                logmsg=f"WEBDAV unauthorised by user {name} ({user})"
+                logmsg=f"WEBDav unauthorised by user {name} ({user})"
                 f" on project {projectId} edition {editionId} path {path}"
             )
         return permitted
@@ -459,41 +450,50 @@ class Pages:
         string
             The HTML of the navigation.
         """
-        search = dedent(
-            """
-            <span class="search-bar">
-                <input
-                    type="search"
-                    name="search"
-                    placeholder="search item"
-                    class="button disabled"
-                >
-                <input type="submit" value="Search" class="button disabled">
-            </span>
-            """
+
+        TABS = (
+            ("home", "Home", True),
+            ("about", "About", True),
+            ("projects", "3D Projects", True),
+            ("directory", "3D Directory", False),
+            ("surpriseme", "Surprise Me", True),
+            ("advancedsearch", "Advanced Search", False),
         )
-        html = ["""<div class="tabs">"""]
+
+        search = H.span(
+            [
+                H.input(
+                    "",
+                    tp="search",
+                    name="search",
+                    placeholder="search item",
+                    cls="button disabled",
+                ),
+                H.input("Search", tp="submit", cls="button disabled"),
+            ],
+            cls="search-bar",
+        )
+
+        divContent = []
 
         for (tab, label, enabled) in TABS:
             active = "active" if url == tab else ""
-            elem = "a" if enabled else "span"
-            href = f""" href="/{tab}" """ if enabled else ""
-            cls = active if enabled else "disabled"
-            html.append(
-                dedent(
-                    f"""
-                    <{elem}
-                        {href}
-                        class="button large {cls}"
-                    >{label}</{elem}>
-                    """
-                )
-            )
-        html.append(search)
-        html.append("</div>")
-        return "\n".join(html)
+            if enabled:
+                elem = "a"
+                cls = active
+                href = [f"/{tab}"]
+            else:
+                elem = "span"
+                cls = "disabled"
+                href = []
+            fullCls = f"button large {cls}"
+            divContent.append(H.elem(elem, label, *href, cls=fullCls))
 
-    def backLink(self, projectId):
+        divContent.append(search)
+
+        return H.div(divContent, cls="tabs")
+
+    def breadCrumb(self, projectId):
         """Makes a link to the landing page of a project.
 
         Parameters
@@ -501,11 +501,20 @@ class Pages:
         projectId: ObjectId
             The project in question.
         """
+        Content = self.Content
         projectUrl = f"/projects/{projectId}"
-        cls = """ class="button" """
-        href = f""" href="{projectUrl}" """
-        text = """back to the project page"""
-        return f"""<p><a {cls} {href}>{text}</a></p>"""
+        text = Content.getValue("title", projectId=projectId, bare=True)
+        return H.p(
+            [
+                "Project: ",
+                H.a(
+                    [text, H.gt()],
+                    projectUrl,
+                    cls="button",
+                    title="back to the project page",
+                ),
+            ]
+        )
 
     def putValues(self, fieldSpecs, projectId=None, editionId=None):
         """Puts several pieces of metadata on the web page.
@@ -522,7 +531,7 @@ class Pages:
         """
         Content = self.Content
 
-        return "\n".join(
+        return H.content(
             Content.getValue(
                 key,
                 projectId=projectId,

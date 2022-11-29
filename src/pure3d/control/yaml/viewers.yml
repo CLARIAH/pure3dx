@@ -1,6 +1,12 @@
 voyager:
   modes:
-    view: "/data"
-    edit: "/webdav"
+    read:
+      prefix: "/data"
+      element: voyager-explorer
+      fileBase: voyager-explorer
+    update:
+      prefix: "/webdav"
+      element: voyager-story
+      fileBase: voyager-story
   default: true
   defaultVersion: "0.21.1p"
