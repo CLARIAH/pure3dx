@@ -7,8 +7,6 @@ volumes:
 services:
   pure3dapp:
     image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
-    env_file:
-      - .acc.env
     restart: unless-stopped
     container_name: pure3dapp
     hostname: pure3dapp
@@ -35,8 +33,6 @@ services:
 
   mongodb:
     image: mongo:5.0.6
-    env_file:
-      - .acc.env
     hostname: mongodb
     container_name: mongodb
     volumes:
