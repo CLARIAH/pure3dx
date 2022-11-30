@@ -190,6 +190,18 @@ def arg(name):
     return request.args.get(name, None)
 
 
+def data():
+    """Get the request data.
+
+    Returns
+    -------
+    bytes
+
+    Useful for uploaded files.
+    """
+    return request.data
+
+
 def values():
     return request.values
 
