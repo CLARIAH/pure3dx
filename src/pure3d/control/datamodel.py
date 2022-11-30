@@ -19,6 +19,9 @@ class Datamodel:
         It has a method which is a factory for `control.fields.Field` objects,
         which deal with individual fields.
 
+        Likewise it has a factory function for `control.fields.Upload` objects,
+        which deal with file uploads.
+
         Parameters
         ----------
         Settings: `control.helpers.generic.AttrDict`
@@ -39,6 +42,7 @@ class Datamodel:
         self.linkConfig = datamodel.link
         self.fieldsConfig = datamodel.fields
         self.fieldObjects = AttrDict()
+        self.uploadObjects = AttrDict()
 
     def getDetailRecords(self, masterTable, masterId):
         """Retrieve the detail records of a master record.
@@ -107,7 +111,7 @@ class Datamodel:
 
         fieldObjects = self.fieldObjects
 
-        fieldObject = fieldObjects.key
+        fieldObject = fieldObjects[key]
         if fieldObject:
             return fieldObject
 
@@ -122,6 +126,46 @@ class Datamodel:
         fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
+
+    def makeUpload(self, projectId, editionId):
+        """Make a file upload object and registers it.
+
+        An instance of class `control.fields.Upload` is created,
+        geared to this particular field.
+
+        !!! note "Idempotent"
+            If the Upload object is already registered, nothing is done.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+            outside all of the projects.
+        editionId: ObjectId
+            The edition in question
+
+        Returns
+        -------
+        object
+            The resulting Upload object.
+            It is also added to the `uploadObjects` member.
+        """
+        Settings = self.Settings
+
+        uploadObjects = self.uploadObjects
+
+        fid = f"/projects/{projectId}/editions/{editionId}"
+
+        uploadObject = uploadObjects[fid]
+        if uploadObject:
+            return uploadObject
+
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        uploadObject = Upload(Settings, Messages, Mongo, fid)
+        uploadObjects[fid] = uploadObject
+        return uploadObject
 
 
 class Field:
@@ -337,3 +381,7 @@ class Field:
             heading = H.elem(elem, *lv, heading)
 
         return heading + content
+
+
+class Upload:
+    pass

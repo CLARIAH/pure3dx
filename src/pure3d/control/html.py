@@ -252,6 +252,72 @@ class HtmlElements:
         return asString(material, tight=tight)
 
     @classmethod
+    def upload(
+        thisCls,
+        text,
+        accept,
+        fid,
+        urlpre="",
+        urlpost="",
+        cls="",
+        title="click to upload a file",
+    ):
+        """Upload.
+
+        A control to upload a file.
+        it consists of a button that receives a click and
+        an input element of type file, wrapped in a div.
+
+        Parameters
+        ----------
+        title: string
+            material on the button
+        accept: string
+            MIME type of uploaded file
+        fid: string
+            base for identifiers used in the button, input and div elements.
+        urlpre, urlpost, fid: strings
+            Together they will be the url to which the resulting file should be
+            posted. fid should be an identifying part of that url.
+        cls: string, optional ""
+            CSS class for the button
+        title: string, optional ""
+            tooltip for button
+
+        Returns
+        -------
+        tuple of string
+            Two members: the button and the div
+        """
+
+        control = thisCls.button(
+            "button", fid=fid, cls=f"fileuploadc {cls}", title=title
+        )
+        finput = thisCls.finput(fid, accept, url=f"{urlpre}{fid}{urlpost}")
+        wrapper = thisCls.elem("div", finput, fid=fid, cls="fileuploadw")
+
+        return (control, wrapper)
+
+    def finput(fid, accept, **atts):
+        """INPUT type="file".
+
+        The element for uploading files.
+
+        Parameters
+        ----------
+        fid: string
+            fid of this element: a unique value that is present as fid attribute
+            on the button, input and div elements of a file input control;
+            other file input controls must use different values for fid.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("input").wrap(E, tp="file", id=fid, accept=accept, **atts)
+
+    @classmethod
     def wrapValue(
         thisCls,
         value,
@@ -410,6 +476,26 @@ class HtmlElements:
         """
 
         return HtmlElement("br").wrap(E)
+
+    @staticmethod
+    def button(material, tp, **atts):
+        """BUTTON.
+
+        A clickable butto
+
+        Parameters
+        ----------
+        material: string | iterable
+            What is displayed on the button.
+        tp:
+            The type of the button, e.g. `submit` or `button`
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("button").wrap(material, tp=tp, **atts)
 
     @staticmethod
     def checkbox(var, **atts):
@@ -760,6 +846,10 @@ class HtmlElements:
         !!! caution
             Do not use this for checkboxes. Use
             `control.html.HtmlElements.checkbox` instead.
+
+        !!! caution
+            Do not use this for file inputs. Use
+            `control.html.HtmlElements.finput` instead.
 
         Parameters
         ----------
