@@ -2,6 +2,7 @@ from control.generic import AttrDict
 from control.files import fileExists
 from control.datamodel import Datamodel
 from control.html import HtmlElements as H
+from control.flask import data
 
 
 class Content(Datamodel):
@@ -705,19 +706,41 @@ class Content(Datamodel):
         return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
 
     def save(self, table, recordId, field, path, fileName):
-        Auth = self.Auth
+        Settings = self.Settings
         Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        dataDir = Settings.dataDir
 
         permitted = Auth.autorise(table, recordId=recordId, action="update")
 
         if not permitted:
             Messages.warning(
-                logmsg=f"Upload not permitted: {table}-{field}: {path}/{fileName}"
+                logmsg=f"Upload not permitted: {table}-{field}: {path}/{fileName}",
+                msg=f"Upload not permitted: {fileName}",
             )
             return False
 
-        # extract the blob from the request and save it to the file system
-        # if that does not succeed: warning and quit
-        # update the record: put the new file name in the field
+        try:
+            with open(f"{dataDir}/{path}/{fileName}", "wb") as fh:
+                fh.write(data())
+        except Exception:
+            Messages.warning(
+                logmsg=(
+                    "Could not save uploaded file: "
+                    f"{table}-{field}: {path}/{fileName}"
+                ),
+                msg=f"Uploaded file not saved: {fileName}",
+            )
+            return False
+
+        if not Mongo.updateRecord(table, dict(field=fileName), warn=False, _id=recordId):
+            Messages.warning(
+                logmsg=(
+                    "Could not store uploaded file name in MongoDB: "
+                    f"{table}-{field}: {path}/{fileName}"
+                ),
+                msg=f"Uploaded file name not stored: {fileName}",
+            )
 
         return True
