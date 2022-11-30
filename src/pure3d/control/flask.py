@@ -1,3 +1,5 @@
+import re
+
 from flask import (
     Flask,
     request,
@@ -10,6 +12,11 @@ from flask import (
 )
 
 from control.environment import var
+
+
+PROTOCOL_RE = re.compile(
+    r"""^https?:\/\/""", re.I
+)
 
 
 def initializing():
@@ -189,11 +196,14 @@ def values():
 
 def getReferrer():
     """Get the referrer from the request.
+
     Returns
     -------
     string
     """
     rootUrl = request.root_url
+    rootUrl = PROTOCOL_RE.sub("", rootUrl)
     referrer = request.referrer
+    referrer = PROTOCOL_RE.sub("", referrer)
     referrer = referrer.removeprefix(rootUrl)
     return referrer
