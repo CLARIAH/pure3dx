@@ -106,6 +106,61 @@ class Content(Datamodel):
 
         return F.formatted(table, record, level=level, button=button)
 
+    def getUpload(self, projectId, editionId, tp, path):
+        """Display the name of an uploaded file.
+
+        The user needs to upload model files and scene files to an edition.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation for the edition, an
+        upload widget will be returned.
+
+        Parameters
+        ----------
+        key: an identifier for the meta data field.
+        projectId: ObjectId
+            The project in question
+        editionId: ObjectId
+            The edition in question
+        tp: string
+            Indication of what file we need to upload.
+            Valid values:
+
+            * `model` (the 3D model file that is central to the edition)
+            * `scene` (for any of the several scene files in the edition)
+
+        path: string
+            The path relative the the edition directory where the file exists/is to
+            be saved. This does *not* contain the file name.
+
+        Returns
+        -------
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
+
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete existing files.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        record = Mongo.getRecord("editions", _id=editionId)
+        if not record:
+            return None
+
+        permissions = Auth.authorise("editions", _id=editionId, projectId=projectId)
+
+        if "read" not in permissions:
+            return None
+
+        F = self.makeUpload(projectId, editionId, tp, path)
+
+        if tp == "model":
+            modelFile = record.model
+
+        return F.widget(table, record, level=level, button=button)
+
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
         return H.h(2, "You will be surprised!")
@@ -349,7 +404,7 @@ class Content(Datamodel):
             else:
                 sceneUrl = f"/scenes/{record._id}"
                 iconUrlBase = (
-                    f"/data/projects/{projectId}/editions/{editionId}" f"/candy"
+                    f"/data/projects/{projectId}/editions/{editionId}/candy"
                 )
                 caption = self.getCaption(
                     titleText, candy, button, sceneUrl, iconUrlBase

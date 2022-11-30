@@ -42,5 +42,20 @@ fields:
     caption: "by {value}"
   model:
     namespace: ""
+    tp: file
     fieldPath: model
     caption: "3D model file: {value}"
+
+uploads:
+  model:
+    table: editions
+    field: model
+    path: "/"
+    extension: ""
+  scene:
+    table: scenes
+    field: name
+    path: "/"
+    extension: ".json"
+  candy:
+

@@ -222,6 +222,7 @@ class Pages:
             + self.putValues(
                 "title@4 + model@0", projectId=projectId, editionId=editionId
             )
+            + self.putUpload(projectId, editionId, "model", "/")
             + sceneMaterial
         )
         right = self.putValues(
@@ -523,6 +524,10 @@ class Pages:
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
 
         Returns
         -------
@@ -543,3 +548,28 @@ class Pages:
                 fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
             )
         )
+
+    def putUpload(self, projectId, editionId, tp, path):
+        """Puts a file upload control on a page.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        editionId: ObjectId
+            The edition in question.
+        tp: string
+            The kind of file for upload: `model` or `scene`
+        path: string
+            The path relative the the edition directory where the file exists/is to
+            be saved. This does *not* contain the file name.
+
+        Returns
+        -------
+        string
+            A control that shows the file and possibly provides an upload
+            control for it.
+        """
+        Content = self.Content
+
+        return Content.getUpload(projectId, editionId, tp, path) or ""
