@@ -112,7 +112,7 @@ def dirCopy(pathSrc, pathDst):
 def dirMake(path):
     """Creates a directory if it does not already exist as directory.
     """
-    if dirExists(path):
+    if not dirExists(path):
         os.makedirs(path, exist_ok=True)
 
 
@@ -228,6 +228,6 @@ def get3d(path, name=None):
         if name is not None and name != thisName:
             continue
 
-        matchingFiles.setdefault(thisName, set()).add(ext)
+        matchingFiles.setdefault(thisName, []).append(ext)
 
     return matchingFiles

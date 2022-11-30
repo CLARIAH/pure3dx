@@ -223,3 +223,13 @@ span.fieldinner {
   padding: 0.2rem 1rem;
   margin: 0.2rem 1rem;
 }
+.fieldupload {
+  border-radius: 0.1em;
+  border-style: solid;
+  border-width: 0.1em;
+  border-color: var(--upload-inner-border);
+  color: var(--upload-inner-fore);
+  background-color: var(--upload-inner-back);
+  padding: 0.2rem 1rem;
+  margin: 0.2rem 1rem;
+}
