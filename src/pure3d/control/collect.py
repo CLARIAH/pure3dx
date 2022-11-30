@@ -1,8 +1,7 @@
 from control.files import (
     listDirs,
     listFiles,
-    listImages,
-    list3d,
+    get3d,
     readYaml,
     dirMake,
     dirRemove,
@@ -11,6 +10,8 @@ from control.files import (
 )
 from control.environment import var
 from control.flask import initializing
+
+ICON_FILE = "icon.png"
 
 
 class Collect:
@@ -58,6 +59,11 @@ class Collect:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
+        importSubdir = var("initdata") or "exampledata"
+        dataDir = Settings.dataDir
+        self.importDir = f"{dataDir}/{importSubdir}"
+        self.workingDir = f"{dataDir}/working"
+
     def trigger(self):
         """Determines whether data collection should be done.
 
@@ -78,11 +84,7 @@ class Collect:
         return initializing() and doCollect
 
     def fetch(self):
-        """Performs a data collection.
-        """
-        importSubdir = var("initdata") or "exampledata"
-        self.importSubdir = importSubdir
-
+        """Performs a data collection."""
         Messages = self.Messages
         Messages.info(logmsg="Collecting data before starting the app")
 
@@ -119,15 +121,15 @@ class Collect:
 
     def doOuter(self):
         """Collects data not belonging to specific projects."""
-        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
 
-        importSubdir = self.importSubdir
-        dataDir = Settings.dataDir
-        Messages.plain(logmsg=f"Import metadata from {importSubdir}")
+        importDir = self.importDir
+        workingDir = self.workingDir
 
-        metaDir = f"{dataDir}/{importSubdir}/meta"
+        Messages.plain(logmsg=f"Import metadata from {importDir} to {workingDir}")
+
+        metaDir = f"{importDir}/meta"
         metaFiles = listFiles(metaDir, ".yml")
         meta = {}
 
@@ -136,19 +138,21 @@ class Collect:
 
         Mongo.insertRecord("meta", name="site", **meta)
 
+        fileCopy(f"{importDir}/{ICON_FILE}", f"{workingDir}/{ICON_FILE}")
+
     def doProjects(self):
         """Collects data belonging to projects."""
-        Settings = self.Settings
-        importSubdir = self.importSubdir
+        importDir = self.importDir
+        workingDir = self.workingDir
 
-        dataDir = Settings.dataDir
-        projectsInPath = f"{dataDir}/{importSubdir}/projects"
-        projectsOutPath = f"{dataDir}/projects"
+        projectsInPath = f"{importDir}/projects"
+        projectsOutPath = f"{workingDir}/projects"
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
 
         projectNames = listDirs(projectsInPath)
+
         for projectName in projectNames:
             self.doProject(projectsInPath, projectsOutPath, projectName)
 
@@ -179,28 +183,19 @@ class Collect:
 
         title = meta.get("dc", {}).get("title", projectName)
 
-        candy = {}
-        candyInPath = f"{projectInPath}/candy"
-
-        for image in listImages(candyInPath):
-            candy[image] = True if image == "icon.png" else False
-
         projectInfo = dict(
             title=title,
-            candy=candy,
             **meta,
         )
 
         projectId = Mongo.insertRecord("projects", **projectInfo)
         projectIdByName[projectName] = projectId
+
         Messages.plain(logmsg=f"PROJECT {projectName} => {projectId}")
+
         projectOutPath = f"{projectsOutPath}/{projectId}"
         dirMake(projectOutPath)
-        candyOutPath = f"{projectOutPath}/candy"
-        dirCopy(candyInPath, candyOutPath)
-
-        if not candy:
-            Messages.plain(logmsg="No project icon")
+        fileCopy(f"{projectInPath}/{ICON_FILE}", f"{projectOutPath}/{ICON_FILE}")
 
         self.doEditions(projectInPath, projectOutPath, projectId)
 
@@ -244,35 +239,23 @@ class Collect:
         Mongo = self.Mongo
 
         editionInPath = f"{editionsInPath}/{editionName}"
-        model = None
+        modelExt = None
 
-        modelFiles = list3d(editionInPath)
-        models = {}
-        for modelFile in modelFiles:
-            (base, ext) = modelFile.rsplit(".", 1)
-            models.setdefault(ext, []).append(base)
+        modelFiles = get3d(editionInPath, "model")
 
-        none = False
-        multiple = False
-
-        if len(models) == 0:
-            none = True
-        elif len(models) > 1:
-            multiple = True
-        else:
-            ext = list(models)[0]
-            theseModels = models[ext]
-            if len(theseModels) == 0:
-                none = True
-            else:
-                if len(theseModels) > 1:
-                    multiple = True
-                model = f"{theseModels[0]}.{ext}"
-
-        if none:
+        if len(modelFiles) == 0:
             Messages.plain(logmsg="\t\tNo model")
-        if multiple:
-            Messages.plain(logmsg=f"\t\tMultiple models: {', '.join(modelFiles)}")
+        else:
+            extensions = modelFiles["model"]
+            if len(extensions) > 1:
+                Messages.plain(
+                    logmsg=f"\t\tMultiple extensions for model: {', '.join(extensions)}"
+                )
+            else:
+                modelExt = extensions[0]
+                modelFileIn = f"{editionsInPath}/model.{modelExt}"
+                modelFileOut = f"{editionsOutPath}/model.{modelExt.lower()}"
+                fileCopy(modelFileIn, modelFileOut)
 
         meta = {}
         metaDir = f"{editionInPath}/meta"
@@ -283,71 +266,68 @@ class Collect:
 
         title = meta.get("dc", {}).get("title", editionName)
 
-        scenes = listFiles(editionInPath, ".json")
-        sceneSet = set(scenes)
-        sceneCandy = {scene: {} for scene in scenes}
-
-        candy = {}
-        candyInPath = f"{editionInPath}/candy"
-        candyFiles = []
-
-        for image in listImages(candyInPath):
-            candyFiles.append(image)
-            (baseName, extension) = image.rsplit(".", 1)
-            if baseName in sceneSet:
-                sceneCandy[baseName][image] = extension == "png"
-            else:
-                candy[image] = True if image == "icon.png" else False
-
         editionInfo = dict(
             title=title,
             projectId=projectId,
-            model=model,
-            candy=candy,
+            modelExt=modelExt,
             **meta,
         )
         editionId = Mongo.insertRecord("editions", **editionInfo)
-        Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
-        editionOutPath = f"{editionsOutPath}/{editionId}"
-        candyOutPath = f"{editionOutPath}/candy"
-        dirMake(editionOutPath)
-        dirCopy(candyInPath, candyOutPath)
 
-        if "icon.png" not in candy:
-            Messages.plain(logmsg="\t\tNo edition icon")
+        Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
+
+        editionOutPath = f"{editionsOutPath}/{editionId}"
+        dirMake(editionOutPath)
+        fileCopy(f"{editionInPath}/{ICON_FILE}", f"{editionOutPath}/{ICON_FILE}")
+
+        self.doScenes(editionInPath, editionOutPath, projectId, editionId)
+
+    def doScenes(self, editionInPath, editionOutPath, projectId, editionId):
+        """Collects data belonging to the scenes of an edition.
+
+        Parameters
+        ----------
+        editionInPath: string
+            Path on the filesystem to the input directory of this edition
+        editionOutPath: string
+            Path on the filesystem to the destination directory of this edition
+        projectId: ObjectId
+            MongoId of the project to collect.
+        editionId: ObjectId
+            MongoId of the edition to collect.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        scenes = listFiles(editionInPath, ".json")
 
         sceneDefault = None
 
         for scene in scenes:
             Messages.plain(logmsg=f"\t\tSCENE {scene}")
+
             default = sceneDefault is None and scene == "intro"
             if default:
                 sceneDefault = scene
+
             sceneInfo = dict(
                 name=scene,
                 editionId=editionId,
                 projectId=projectId,
-                candy=sceneCandy[scene],
                 default=default,
             )
             Mongo.insertRecord("scenes", **sceneInfo)
             sceneInPath = f"{editionInPath}/{scene}.json"
             sceneOutPath = f"{editionOutPath}/{scene}.json"
             fileCopy(sceneInPath, sceneOutPath)
-
-            if scene not in sceneCandy:
-                Messages.plain(logmsg=f"\t\tNo scene icon for {scene}")
+            iconInPath = f"{editionInPath}/{scene}.png"
+            iconOutPath = f"{editionOutPath}/{scene}.png"
+            fileCopy(iconInPath, iconOutPath)
 
         articlesInPath = f"{editionInPath}/articles"
         articlesOutPath = f"{editionOutPath}/articles"
         Messages.plain(logmsg="\t\tARTICLES")
         dirCopy(articlesInPath, articlesOutPath)
-
-        for threed in list3d(editionInPath):
-            threedInPath = f"{editionInPath}/{threed}"
-            threedOutPath = f"{editionOutPath}/{threed}"
-            Messages.plain(logmsg=f"\t\t3D {threed}")
-            fileCopy(threedInPath, threedOutPath)
 
     def doWorkflow(self):
         """Collects workflow information from yaml files.
@@ -355,15 +335,13 @@ class Collect:
         !!! note "Test users"
             This includes test users when in test mode.
         """
-        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
-        importSubdir = self.importSubdir
+        importDir = self.importDir
 
-        dataDir = Settings.dataDir
         projectIdByName = self.projectIdByName
 
-        workflowDir = f"{dataDir}/{importSubdir}/workflow"
+        workflowDir = f"{importDir}/workflow"
         workflowPath = f"{workflowDir}/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
         users = workflow["users"]
