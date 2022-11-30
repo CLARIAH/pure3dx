@@ -257,8 +257,7 @@ class HtmlElements:
         text,
         accept,
         fid,
-        urlpre="",
-        urlpost="",
+        saveUrl,
         cls="",
         title="click to upload a file",
     ):
@@ -270,15 +269,14 @@ class HtmlElements:
 
         Parameters
         ----------
-        title: string
+        text: string
             material on the button
         accept: string
             MIME type of uploaded file
         fid: string
             base for identifiers used in the button, input and div elements.
-        urlpre, urlpost, fid: strings
-            Together they will be the url to which the resulting file should be
-            posted. fid should be an identifying part of that url.
+        saveUrl: string
+            The url to which the resulting file should be posted.
         cls: string, optional ""
             CSS class for the button
         title: string, optional ""
@@ -293,7 +291,7 @@ class HtmlElements:
         control = thisCls.button(
             "button", fid=fid, cls=f"fileuploadc {cls}", title=title
         )
-        finput = thisCls.finput(fid, accept, url=f"{urlpre}{fid}{urlpost}")
+        finput = thisCls.finput(fid, accept, url=saveUrl)
         wrapper = thisCls.elem("div", finput, fid=fid, cls="fileuploadw")
 
         return (control, wrapper)

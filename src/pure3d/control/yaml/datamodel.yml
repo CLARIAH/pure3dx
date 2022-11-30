@@ -21,12 +21,12 @@ fields:
     caption: "{kind}: {value}"
   abstract:
     nameSpace: dc
-    fieldPath: description.abstract
+    fieldPath: abstract
     tp: text
     caption: Intro
   description:
     nameSpace: dc
-    fieldPath: description.description
+    fieldPath: description
     tp: text
     caption: Description
   provenance:
@@ -40,22 +40,38 @@ fields:
   creator:
     nameSpace: dc
     caption: "by {value}"
-  model:
-    namespace: ""
-    tp: file
-    fieldPath: model
-    caption: "3D model file: {value}"
 
 uploads:
   model:
     table: editions
     field: model
-    path: "/"
-    extension: ""
+    accept: ".glb, .gltf"
+    caption: model file (glb, gltf)
   scene:
     table: scenes
-    field: name
-    path: "/"
-    extension: ".json"
-  candy:
-
+    field: scene
+    relative: edition
+    accept: ".json"
+    caption: scene file (json)
+  iconSite:
+    table: meta
+    field: icon
+    relative: site
+    accept: ".png"
+    caption: pure3d logo
+  iconProject:
+    table: projects
+    field: icon
+    accept: ".png"
+    caption: project logo
+  iconEdition:
+    table: editions
+    field: icon
+    accept: ".png"
+    caption: edition logo
+  iconScene:
+    table: scenes
+    field: icon
+    relative: edition
+    accept: ".png"
+    caption: scene logo

@@ -120,9 +120,7 @@ def appFactory(objects):
     def scene(sceneId, viewer, version, action):
         return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
-    @app.route(
-        "/projects/<string:projectId>/editions/<string:editionId>/scenes/create"
-    )
+    @app.route("/projects/<string:projectId>/editions/<string:editionId>/scenes/create")
     def sceneInsert(projectId, editionId):
         return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
 
@@ -155,6 +153,13 @@ def appFactory(objects):
         return Pages.dataProjects(
             path, Mongo.cast(projectId), editionId=Mongo.cast(editionId)
         )
+
+    @app.route(
+        "/upload/<string:table>/<string:recordId>/<string:field>/<path:path>",
+        methods=["POST"],
+    )
+    def upload(table, recordId, field, path):
+        return Pages.upload(table, recordId, field, path)
 
     @app.route(
         "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",

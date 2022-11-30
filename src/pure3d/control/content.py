@@ -55,8 +55,7 @@ class Content(Datamodel):
         ----------
         key: an identifier for the meta data field.
         projectId: ObjectId, optional None
-            The project whose metadata we need. If it is None, we need metadata
-            outside all of the projects.
+            The project whose metadata we need. If it is None, we are at the site level.
         editionId: ObjectId, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
@@ -106,32 +105,22 @@ class Content(Datamodel):
 
         return F.formatted(table, record, level=level, button=button)
 
-    def getUpload(self, projectId, editionId, tp, path):
-        """Display the name of an uploaded file.
+    def getUpload(self, key, projectId=None, editionId=None):
+        """Display the name and/or upload controls of an uploaded file.
 
-        The user needs to upload model files and scene files to an edition.
+        The user may to upload model files and scene files to an edition,
+        and various png files as icons for projects, edtions, and scenes.
         Here we produce the control to do so.
 
-        Only if the user has `update` authorisation for the edition, an
-        upload widget will be returned.
+        Only if the user has `update` authorisation, an upload/delete widget will be returned.
 
         Parameters
         ----------
-        key: an identifier for the meta data field.
-        projectId: ObjectId
-            The project in question
-        editionId: ObjectId
-            The edition in question
-        tp: string
-            Indication of what file we need to upload.
-            Valid values:
-
-            * `model` (the 3D model file that is central to the edition)
-            * `scene` (for any of the several scene files in the edition)
-
-        path: string
-            The path relative the the edition directory where the file exists/is to
-            be saved. This does *not* contain the file name.
+        key: an identifier for the upload field.
+        projectId: ObjectId, optional None
+            The project in question. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition in question. If it is None, we are at the project level or site level.
 
         Returns
         -------
@@ -140,26 +129,32 @@ class Content(Datamodel):
             that no file is present.
 
             If the user has edit permission for the edition, we display
-            widgets to upload a new file or to delete existing files.
+            widgets to upload a new file or to delete the existing file.
         """
         Mongo = self.Mongo
         Auth = self.Auth
 
-        record = Mongo.getRecord("editions", _id=editionId)
-        if not record:
-            return None
+        if editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
 
-        permissions = Auth.authorise("editions", _id=editionId, projectId=projectId)
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
 
         if "read" not in permissions:
             return None
 
-        F = self.makeUpload(projectId, editionId, tp, path)
+        F = self.makeUpload(key)
 
-        if tp == "model":
-            modelFile = record.model
-
-        return F.widget(table, record, level=level, button=button)
+        return F.formatted(table, record, "update" in permissions)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -403,9 +398,7 @@ class Content(Datamodel):
                 caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{record._id}"
-                iconUrlBase = (
-                    f"/data/projects/{projectId}/editions/{editionId}/candy"
-                )
+                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
                 caption = self.getCaption(
                     titleText, candy, button, sceneUrl, iconUrlBase
                 )
@@ -710,3 +703,21 @@ class Content(Datamodel):
         )
 
         return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
+
+    def save(self, table, recordId, field, path, fileName):
+        Auth = self.Auth
+        Messages = self.Messages
+
+        permitted = Auth.autorise(table, recordId=recordId, action="update")
+
+        if not permitted:
+            Messages.warning(
+                logmsg=f"Upload not permitted: {table}-{field}: {path}/{fileName}"
+            )
+            return False
+
+        # extract the blob from the request and save it to the file system
+        # if that does not succeed: warning and quit
+        # update the record: put the new file name in the field
+
+        return True

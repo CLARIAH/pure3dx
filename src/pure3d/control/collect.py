@@ -129,6 +129,8 @@ class Collect:
 
         Messages.plain(logmsg=f"Import metadata from {importDir} to {workingDir}")
 
+        dirMake(workingDir)
+
         metaDir = f"{importDir}/meta"
         metaFiles = listFiles(metaDir, ".yml")
         meta = {}
@@ -136,7 +138,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertRecord("meta", name="site", **meta)
+        Mongo.insertRecord("meta", name="site", icon=ICON_FILE, **meta)
 
         fileCopy(f"{importDir}/{ICON_FILE}", f"{workingDir}/{ICON_FILE}")
 
@@ -183,10 +185,7 @@ class Collect:
 
         title = meta.get("dc", {}).get("title", projectName)
 
-        projectInfo = dict(
-            title=title,
-            **meta,
-        )
+        projectInfo = dict(title=title, icon=ICON_FILE, **meta)
 
         projectId = Mongo.insertRecord("projects", **projectInfo)
         projectIdByName[projectName] = projectId
@@ -239,7 +238,7 @@ class Collect:
         Mongo = self.Mongo
 
         editionInPath = f"{editionsInPath}/{editionName}"
-        modelExt = None
+        modelFile = None
 
         modelFiles = get3d(editionInPath, "model")
 
@@ -254,7 +253,8 @@ class Collect:
             else:
                 modelExt = extensions[0]
                 modelFileIn = f"{editionsInPath}/model.{modelExt}"
-                modelFileOut = f"{editionsOutPath}/model.{modelExt.lower()}"
+                modelFile = f"model.{modelExt.lower()}"
+                modelFileOut = f"{editionsOutPath}/{modelFile}"
                 fileCopy(modelFileIn, modelFileOut)
 
         meta = {}
@@ -267,10 +267,7 @@ class Collect:
         title = meta.get("dc", {}).get("title", editionName)
 
         editionInfo = dict(
-            title=title,
-            projectId=projectId,
-            modelExt=modelExt,
-            **meta,
+            title=title, projectId=projectId, modele=modelFile, icon=ICON_FILE, **meta
         )
         editionId = Mongo.insertRecord("editions", **editionInfo)
 
@@ -310,18 +307,23 @@ class Collect:
             if default:
                 sceneDefault = scene
 
+            sceneFile = f"{scene}.json"
+            sceneIcon = f"{scene}.png"
+
             sceneInfo = dict(
                 name=scene,
+                scene=sceneFile,
+                icon=sceneIcon,
                 editionId=editionId,
                 projectId=projectId,
                 default=default,
             )
             Mongo.insertRecord("scenes", **sceneInfo)
-            sceneInPath = f"{editionInPath}/{scene}.json"
-            sceneOutPath = f"{editionOutPath}/{scene}.json"
+            sceneInPath = f"{editionInPath}/{sceneFile}"
+            sceneOutPath = f"{editionOutPath}/{sceneFile}"
             fileCopy(sceneInPath, sceneOutPath)
-            iconInPath = f"{editionInPath}/{scene}.png"
-            iconOutPath = f"{editionOutPath}/{scene}.png"
+            iconInPath = f"{editionInPath}/{sceneIcon}"
+            iconOutPath = f"{editionOutPath}/{sceneIcon}"
             fileCopy(iconInPath, iconOutPath)
 
         articlesInPath = f"{editionInPath}/articles"
