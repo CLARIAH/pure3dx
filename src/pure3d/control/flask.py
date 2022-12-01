@@ -199,7 +199,7 @@ def data():
 
     Useful for uploaded files.
     """
-    return request.data
+    return request.get_data(cache=False)
 
 
 def values():
@@ -209,6 +209,18 @@ def values():
 def getReferrer():
     """Get the referrer from the request.
 
+    We strip the root url from the referrer.
+
+    If that is not possible, the referrer is an other site,
+    in that case we substitute the home page.
+
+    !!! caution "protocol mismatch"
+        It has been observed that in some cases the referrer, as taken from the request,
+        and the root url as taken from the request, differ in their protocol part:
+        `http:` versus `https:`.
+        Therefore we first strip the protocol part from both referrer and root url
+        before we remove the prefix.
+
     Returns
     -------
     string
@@ -217,5 +229,7 @@ def getReferrer():
     rootUrl = PROTOCOL_RE.sub("", rootUrl)
     referrer = request.referrer
     referrer = PROTOCOL_RE.sub("", referrer)
-    referrer = referrer.removeprefix(rootUrl)
-    return referrer
+
+    path = referrer.removeprefix(rootUrl)
+
+    return "/" if path == referrer else path

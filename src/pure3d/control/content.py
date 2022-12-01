@@ -1,8 +1,8 @@
 from control.generic import AttrDict
-from control.files import fileExists
+from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.html import HtmlElements as H
-from control.flask import data
+from control.flask import data, response
 
 
 class Content(Datamodel):
@@ -155,7 +155,7 @@ class Content(Datamodel):
 
         F = self.makeUpload(key)
 
-        return F.formatted(table, record, "update" in permissions)
+        return F.formatted(record, "update" in permissions)
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -189,16 +189,16 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            candy = record.candy
+            icon = record.icon
 
             projectUrl = f"/projects/{projectId}"
-            iconUrlBase = f"/data/projects/{projectId}/candy"
+            iconUrlBase = f"/data/projects/{projectId}"
             button = self.actionButton(
                 "delete",
                 "projects",
                 recordId=projectId,
             )
-            caption = self.getCaption(title, candy, button, projectUrl, iconUrlBase)
+            caption = self.getCaption(title, icon, button, projectUrl, iconUrlBase)
 
             wrapped.append(caption)
 
@@ -264,16 +264,16 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            candy = record.candy
+            icon = record.icon
 
             editionUrl = f"/editions/{editionId}"
-            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
+            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}"
             button = self.actionButton(
                 "delete",
                 "editions",
                 recordId=editionId,
             )
-            caption = self.getCaption(title, candy, button, editionUrl, iconUrlBase)
+            caption = self.getCaption(title, icon, button, editionUrl, iconUrlBase)
             wrapped.append(caption)
 
         wrapped.append(self.actionButton("create", "editions", projectId=projectId))
@@ -380,7 +380,7 @@ class Content(Datamodel):
 
         for record in Mongo.getList("scenes", editionId=editionId):
             thisSceneId = record._id
-            candy = record.candy
+            icon = record.icon
 
             isSceneActive = sceneId is None and record.default or record._id == sceneId
             titleText = H.span(record.name, cls="entrytitle")
@@ -399,9 +399,9 @@ class Content(Datamodel):
                 caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{record._id}"
-                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
+                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}"
                 caption = self.getCaption(
-                    titleText, candy, button, sceneUrl, iconUrlBase
+                    titleText, icon, button, sceneUrl, iconUrlBase
                 )
 
             wrapped.append(caption)
@@ -443,41 +443,12 @@ class Content(Datamodel):
         activeCls = "active" if active else ""
         return H.div(H.div(content, cls=f"caption {activeCls}"), cls="captioncontent")
 
-    def getCaption(self, titleText, candy, button, url, iconUrlBase):
-        icon = self.getIcon(candy)
+    def getCaption(self, titleText, icon, button, url, iconUrlBase):
         title = H.span(titleText, cls="entrytitle")
 
-        visual = (
-            H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
-            if icon
-            else ""
-        )
+        visual = H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
-
-    def getIcon(self, candy):
-        """Select an icon from a set of candidates.
-
-        Parameters
-        ----------
-        candy: dict
-            A set of candidates, given as a dict, keyed by file names
-            (without directory information) and valued by a boolean that
-            indicates whether the image may act as an icon.
-
-        Returns
-        -------
-        string or None
-            The first candidate in candy that is an icon.
-            If there are no candidates that qualify, None is returned.
-        """
-
-        if candy is None:
-            return None
-        first = [image for (image, isIcon) in candy.items() if isIcon]
-        if first:
-            return first[0]
-        return None
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -501,21 +472,21 @@ class Content(Datamodel):
         Settings = self.Settings
         Messages = self.Messages
 
-        dataDir = Settings.dataDir
+        viewerDir = Settings.viewerDir
 
-        dataPath = f"{dataDir}/viewers/{path}"
+        viewerPath = f"{viewerDir}/{path}"
 
-        if not fileExists(dataPath):
-            logmsg = f"Accessing {dataPath}: "
+        if not fileExists(viewerPath):
+            logmsg = f"Accessing {viewerPath}: "
             logmsg += "does not exist. "
             Messages.error(
                 msg="Accessing a file",
                 logmsg=logmsg,
             )
 
-        return dataPath
+        return viewerPath
 
-    def getData(self, path, projectId, editionId=None):
+    def getData(self, path, projectId=None, editionId=None):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
@@ -527,7 +498,7 @@ class Content(Datamodel):
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectId: ObjectId
+        projectId: ObjectId, optional None
             The id of the project in question.
         editionId: ObjectId, optional None
             The id of the edition in question.
@@ -542,19 +513,26 @@ class Content(Datamodel):
         Messages = self.Messages
         Auth = self.Auth
 
-        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
 
         urlBase = (
-            f"projects/{projectId}"
+            ""
+            if projectId is None
+            else f"projects/{projectId}"
             if editionId is None
             else f"projects/{projectId}/editions/{editionId}"
         )
+        sep = "/" if urlBase else ""
+        base = f"{workingDir}{sep}{urlBase}"
 
-        dataPath = (
-            f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
-        )
+        dataPath = base if path is None else f"{base}/{path}"
 
-        if editionId is None:
+        if projectId is None:
+            table = "meta"
+            recordId = (
+                True  # dummy value for authorise, which only tests whether it is falsy
+            )
+        elif editionId is None:
             table = "projects"
             recordId = projectId
         else:
@@ -570,7 +548,7 @@ class Content(Datamodel):
             if not fexists:
                 logmsg += "does not exist. "
             Messages.error(
-                msg="Accessing a file",
+                msg=f"Accessing file {path}",
                 logmsg=logmsg,
             )
 
@@ -710,37 +688,51 @@ class Content(Datamodel):
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
 
-        permitted = Auth.autorise(table, recordId=recordId, action="update")
+        permitted = Auth.authorise(table, recordId=recordId, action="update")
+        previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+
+        sep = "/" if path else ""
+        filePath = f"{path}{sep}{fileName}"
+        fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
+            logmsg = f"Upload not permitted: {table}-{field}: {fileFullPath}"
             Messages.warning(
-                logmsg=f"Upload not permitted: {table}-{field}: {path}/{fileName}",
-                msg=f"Upload not permitted: {fileName}",
+                logmsg=logmsg,
+                msg=f"Upload not permitted: {filePath}",
             )
-            return False
+            return response(logmsg)
 
         try:
-            with open(f"{dataDir}/{path}/{fileName}", "wb") as fh:
+            with open(fileFullPath, "wb") as fh:
                 fh.write(data())
         except Exception:
+            logmsg = "Could not save uploaded file: {table}-{field}: {fileFullPath}"
             Messages.warning(
-                logmsg=(
-                    "Could not save uploaded file: "
-                    f"{table}-{field}: {path}/{fileName}"
-                ),
-                msg=f"Uploaded file not saved: {fileName}",
+                logmsg=logmsg,
+                msg=f"Uploaded file not saved: {filePath}",
             )
-            return False
+            return response(logmsg)
 
-        if not Mongo.updateRecord(table, dict(field=fileName), warn=False, _id=recordId):
+        if not Mongo.updateRecord(
+            table, dict(field=fileName), warn=False, _id=recordId
+        ):
+            logmsg = (
+                "Could not store uploaded file name in MongoDB: "
+                f"{table}-{field}: {filePath}"
+            )
             Messages.warning(
-                logmsg=(
-                    "Could not store uploaded file name in MongoDB: "
-                    f"{table}-{field}: {path}/{fileName}"
-                ),
+                logmsg=logmsg,
                 msg=f"Uploaded file name not stored: {fileName}",
             )
+            return response(logmsg)
 
-        return True
+        previousFilePath = f"{path}{sep}{previousFileName}"
+        previousFileFullPath = f"{workingDir}/{previousFilePath}"
+
+        if previousFileFullPath != fileFullPath:
+            fileRemove(previousFileFullPath)
+
+        return response("OK")

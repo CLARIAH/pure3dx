@@ -254,13 +254,16 @@ class Pages:
         dataPath = Content.getViewerFile(path)
         return send(dataPath)
 
-    def dataProjects(self, path, projectId, editionId=None):
-        """Data content requested by viewers.
+    def dataProjects(self, path, projectId=None, editionId=None):
+        """Data content requested directly from the file repository.
 
-        This is the material belonging to the scene,
-        the scene json itself and additional resources,
-        that are part of the user contributed content that is under
-        control of the viewer: annotations, media, etc.
+        This is
+
+        * the material requested by the viewers:
+          the scene json itself and additional resources,
+          that are part of the user contributed content that is under
+          control of the viewer: annotations, media, etc.
+        * icons for the site, projects, and editions
 
         Parameters
         ----------
@@ -268,8 +271,9 @@ class Pages:
             Path on the file system under the data directory
             where the resource resides.
             The path is relative to the project, and, if given, the edition.
-        projectId: ObjectId
+        projectId: ObjectId, optional None
             The id of a project under which the resource is to be found.
+            If None, it is site-wide material.
         editionId: ObjectId, optional None
             If not None, the name of an edition under which the resource
             is to be found.
@@ -283,7 +287,7 @@ class Pages:
         """
         Content = self.Content
 
-        dataPath = Content.getData(path, projectId, editionId=editionId)
+        dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
         return send(dataPath)
 
     def upload(self, table, recordId, field, path):
@@ -395,6 +399,7 @@ class Pages:
         Auth = self.Auth
 
         navigation = self.navigation(url)
+        iconSite = self.putUpload("iconSite")
         (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return template(
@@ -407,6 +412,7 @@ class Pages:
             messages=Messages.generateMessages(),
             testLoginWidget=testLoginWidget,
             loginWidget=loginWidget,
+            iconSite=iconSite
         )
 
     def scenes(self, projectId, editionId, sceneId, viewer, version, action):

@@ -12,6 +12,7 @@ from control.environment import var
 from control.flask import initializing
 
 ICON_FILE = "icon.png"
+FAVICON_FILE = "favicon.ico"
 
 
 class Collect:
@@ -61,8 +62,8 @@ class Collect:
 
         importSubdir = var("initdata") or "exampledata"
         dataDir = Settings.dataDir
+        self.workingDir = Settings.workingDir
         self.importDir = f"{dataDir}/{importSubdir}"
-        self.workingDir = f"{dataDir}/working"
 
     def trigger(self):
         """Determines whether data collection should be done.
@@ -141,6 +142,7 @@ class Collect:
         Mongo.insertRecord("meta", name="site", icon=ICON_FILE, **meta)
 
         fileCopy(f"{importDir}/{ICON_FILE}", f"{workingDir}/{ICON_FILE}")
+        fileCopy(f"{importDir}/{FAVICON_FILE}", f"{workingDir}/{FAVICON_FILE}")
 
     def doProjects(self):
         """Collects data belonging to projects."""
@@ -238,6 +240,16 @@ class Collect:
         Mongo = self.Mongo
 
         editionInPath = f"{editionsInPath}/{editionName}"
+
+        meta = {}
+        metaDir = f"{editionInPath}/meta"
+        metaFiles = listFiles(metaDir, ".yml")
+
+        for metaFile in metaFiles:
+            meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
+
+        title = meta.get("dc", {}).get("title", editionName)
+
         modelFile = None
 
         modelFiles = get3d(editionInPath, "model")
@@ -252,22 +264,10 @@ class Collect:
                 )
             else:
                 modelExt = extensions[0]
-                modelFileIn = f"{editionsInPath}/model.{modelExt}"
                 modelFile = f"model.{modelExt.lower()}"
-                modelFileOut = f"{editionsOutPath}/{modelFile}"
-                fileCopy(modelFileIn, modelFileOut)
-
-        meta = {}
-        metaDir = f"{editionInPath}/meta"
-        metaFiles = listFiles(metaDir, ".yml")
-
-        for metaFile in metaFiles:
-            meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
-
-        title = meta.get("dc", {}).get("title", editionName)
 
         editionInfo = dict(
-            title=title, projectId=projectId, modele=modelFile, icon=ICON_FILE, **meta
+            title=title, projectId=projectId, model=modelFile, icon=ICON_FILE, **meta
         )
         editionId = Mongo.insertRecord("editions", **editionInfo)
 
@@ -276,6 +276,11 @@ class Collect:
         editionOutPath = f"{editionsOutPath}/{editionId}"
         dirMake(editionOutPath)
         fileCopy(f"{editionInPath}/{ICON_FILE}", f"{editionOutPath}/{ICON_FILE}")
+
+        if modelFile is not None:
+            modelFileIn = f"{editionInPath}/model.{modelExt}"
+            modelFileOut = f"{editionOutPath}/{modelFile}"
+            fileCopy(modelFileIn, modelFileOut)
 
         self.doScenes(editionInPath, editionOutPath, projectId, editionId)
 
