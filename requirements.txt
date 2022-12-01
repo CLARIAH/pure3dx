@@ -7,3 +7,4 @@ pyyaml
 gunicorn
 pymongo
 itsdangerous==2.0.1
+Flask-Mail
