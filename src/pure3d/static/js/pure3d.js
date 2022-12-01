@@ -1,29 +1,18 @@
 /*eslint-env jquery*/
 
 const uploadControls = () => {
-  const controls = $(".fileuploadc")
-  const wrappers = $(".fileuploadw")
+  const finputs = $(".fileupload")
 
-  wrappers.each((i, el) => {
-    el.hide()
-  })
+  finputs.each((i, elem) => {
+    const el = $(elem)
+    const saveUrl = el.attr("url")
+    console.warn({ elem, el, saveUrl })
 
-  controls.each((i, el) => {
-    const elem = $(el)
-    const fid = elem.attr("fid")
-    const saveUrl = elem.attr("url")
-    const wrapper = $(`div[fid="${fid}"]`)
-    const finput = $(`input[fid="${fid}"]`)
+    el.change(() => {
+      const theFile = el.prop("files")[0]
+      console.warn("CHANGED", { theFile })
 
-    el.off("click").click(() => {
-      wrapper.show()
-    })
-
-    finput.change(() => {
-      const theFile = finput.prop("files")[0]
-      const reader = new FileReader()
-
-      const throbber = createThrobber(finput)
+      const throbber = createThrobber(elem)
       const xhr = new XMLHttpRequest()
 
       xhr.upload.addEventListener(
@@ -37,13 +26,7 @@ const uploadControls = () => {
         false
       )
       xhr.open("POST", `${saveUrl}/${theFile.name}`)
-      xhr.overrideMimeType("text/plain; charset=x-user-defined-binary")
-
-      reader.onload = e => {
-        const fileContent = e.target.result
-        xhr.send(fileContent)
-      }
-      reader.readAsBinaryString(theFile)
+      xhr.send(theFile)
     })
   })
 }

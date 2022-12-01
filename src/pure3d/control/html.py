@@ -252,70 +252,6 @@ class HtmlElements:
         return asString(material, tight=tight)
 
     @classmethod
-    def upload(
-        thisCls,
-        text,
-        accept,
-        fid,
-        saveUrl,
-        cls="",
-        title="click to upload a file",
-    ):
-        """Upload.
-
-        A control to upload a file.
-        it consists of a button that receives a click and
-        an input element of type file, wrapped in a div.
-
-        Parameters
-        ----------
-        text: string
-            material on the button
-        accept: string
-            MIME type of uploaded file
-        fid: string
-            base for identifiers used in the button, input and div elements.
-        saveUrl: string
-            The url to which the resulting file should be posted.
-        cls: string, optional ""
-            CSS class for the button
-        title: string, optional ""
-            tooltip for button
-
-        Returns
-        -------
-        tuple of string
-            Two members: the button and the div
-        """
-
-        control = thisCls.button(
-            "button", fid=fid, cls=f"fileuploadc {cls}", title=title
-        )
-        finput = thisCls.finput(fid, accept, url=saveUrl)
-        wrapper = thisCls.elem("div", finput, fid=fid, cls="fileuploadw")
-
-        return (control, wrapper)
-
-    def finput(fid, accept, **atts):
-        """INPUT type="file".
-
-        The element for uploading files.
-
-        Parameters
-        ----------
-        fid: string
-            fid of this element: a unique value that is present as fid attribute
-            on the button, input and div elements of a file input control;
-            other file input controls must use different values for fid.
-
-        Returns
-        -------
-        string(html)
-        """
-
-        return HtmlElement("input").wrap(E, tp="file", id=fid, accept=accept, **atts)
-
-    @classmethod
     def wrapValue(
         thisCls,
         value,
@@ -861,6 +797,48 @@ class HtmlElements:
 
         content = asString(material)
         return HtmlElement("input").wrap(E, value=HtmlElements.he(content), **atts)
+
+    @staticmethod
+    def finput(
+        fileName,
+        accept,
+        saveUrl,
+        title="Click to upload a file",
+        cls="",
+        **atts,
+    ):
+        """INPUT type="file".
+
+        The input element for uploading files.
+
+        Parameters
+        ----------
+        fileName: string
+            The name of the currently existing file. If there is not yet a file
+            pass the empty string.
+        accept: string
+            MIME type of uploaded file
+        saveUrl: string
+            The url to which the resulting file should be posted.
+        cls: string, optional ""
+            CSS class for the button
+        title: string, optional ""
+            tooltip for the button
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("input").wrap(
+            fileName,
+            tp="file",
+            accept=accept,
+            url=saveUrl,
+            title=title,
+            cls=f"fileupload {cls}",
+            **atts,
+        )
 
     @staticmethod
     def link(rel, href, **atts):

@@ -449,18 +449,39 @@ class Upload:
         """The file types that the field accepts.
         """
 
+        self.caption = None
+        """The text to display on the upload button.
+        """
+
+        self.show = None
+        """Whether to show the contents of the file.
+
+        This is typically the case when the file is an image to be presented
+        as a logo.
+        """
+
+        # let attributes be filled in from the function **kwargs
+
         for (arg, value) in kwargs.items():
             if value is not None:
                 setattr(self, arg, value)
 
+        # try to fill in defaults for attributes that are still None
+
         good = True
 
         table = getattr(self, "table", None)
+        field = getattr(self, "field", None)
+        accept = getattr(self, "accept", None)
 
-        for arg in ("table", "field", "relative", "accept"):
+        for arg in ("table", "field", "relative", "accept", "caption", "show"):
             if getattr(self, arg, None) is None:
                 if arg == "relative" and table is not None:
                     setattr(self, arg, table.removesuffix("s"))
+                elif arg == "caption":
+                    setattr(self, arg, f"{table}-{field}-{accept}")
+                elif arg == "show":
+                    setattr(self, arg, False)
                 else:
                     Messages.error(logmsg=f"Missing info in Upload spec: {arg}")
                     good = False
@@ -486,6 +507,33 @@ class Upload:
 
         return record[field]
 
+    def getPath(self, record):
+        """Give the path to the file in question.
+
+        The path can be used to build the static url and the save url.
+
+        It does not contain the file name.
+        If the path is non-empty, a "/" will be appended.
+        """
+        table = self.table
+        relative = self.relative
+
+        recordId = record._id
+        projectId = recordId if table == "projects" else record.projectId
+        editionId = recordId if table == "editions" else record.editionId
+
+        path = (
+            ""
+            if relative == "site"
+            else f"projects/{projectId}"
+            if relative == "project"
+            else f"projects/{projectId}/editions/{editionId}"
+            if relative == "edition"
+            else None
+        )
+        sep = "/" if path else ""
+        return f"{path}{sep}"
+
     def formatted(
         self,
         record,
@@ -509,11 +557,8 @@ class Upload:
             Whatever the value is that we find for that field, converted to HTML.
             If the field is not present, returns the empty string, without warning.
         """
-        fileName = self.bare(record)
-        readOnly = H.span(fileName, cls="fieldinner")
 
-        if not mayChange:
-            return readOnly
+        fileName = self.bare(record)
 
         Messages = self.Messages
 
@@ -523,29 +568,32 @@ class Upload:
         relative = self.relative
         accept = self.accept
         caption = self.caption
+        show = self.show
 
         title = f"click to upload a {caption}"
 
         recordId = record._id
-        projectId = recordId if table == "projects" else record.projectId
-        editionId = recordId if table == "editions" else record.editionId
 
-        path = (
-            ""
-            if relative == "site"
-            else f"projects/{projectId}"
-            if relative == "project"
-            else f"projects/{projectId}/editions/{editionId}"
-            if relative == "edition"
-            else None
-        )
+        path = self.getPath(record)
         if path is None:
             Messages.warning(
                 logmsg=f"Wrong file path for upload {key} based on relative {relative}",
                 msg="The location for this file cannot be determined",
             )
 
-        fid = f"{table}/{recordId}/{field}"
-        saveUrl = f"/upload/{fid}/{path}{fileName}"
+        if show:
+            staticUrl = f"/data/{path}{fileName}"
+            img = H.img(staticUrl)
+        else:
+            img = ""
 
-        return H.upload(caption, accept, fid, saveUrl, cls="fieldupload", title=title)
+        if not mayChange:
+            return img or H.span(fileName, cls="fieldinner")
+
+        fid = f"{table}/{recordId}/{field}"
+        sep = "/" if path else ""
+        saveUrl = f"/upload/{fid}{sep}{path}"
+
+        return H.content(
+            img, H.finput(fileName, accept, saveUrl, title=title)
+        )
