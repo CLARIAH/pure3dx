@@ -18,11 +18,11 @@ services:
       flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
+      devstatus: ${devstatus}
+      gitlocation: ${gitlocation}
     entrypoint: ["./start.sh", "test"]
     depends_on:
       - mongodb
-    volumes:
-      - "./:/app"
     networks:
       - traefik-public
     labels:
