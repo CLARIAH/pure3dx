@@ -104,6 +104,7 @@ class HtmlElement:
         !!! hint
             Attributes with value `True` are represented as bare attributes, without
             value. For example: `{open=True}` translates into `open`.
+            Attributes with value `False` are omitted.
 
         !!! caution
             Use the name `cls` to get a `class` attribute inside an HTML element.
@@ -136,7 +137,7 @@ class HtmlElement:
             f""" {thisCls.atNormal(k)}"""
             + (E if v is True else f'''="{thisCls.atEscape(v)}"''')
             for (k, v) in atts.items()
-            if v is not None
+            if v is not None and v is not False
         )
 
     def wrap(self, material, addClass=None, **atts):

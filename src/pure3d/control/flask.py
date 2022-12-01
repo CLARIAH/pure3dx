@@ -9,6 +9,7 @@ from flask import (
     render_template,
     make_response,
     send_file,
+    flash,
 )
 
 from control.environment import var
@@ -49,6 +50,10 @@ def template(template, **kwargs):
         The response with as content the filled template.
     """
     return render_template(f"{template}.html", **kwargs)
+
+
+def flashMsg(*args, **kwargs):
+    flash(*args, **kwargs)
 
 
 def response(data):

@@ -574,6 +574,8 @@ class Upload:
 
         recordId = record._id
 
+        fid = f"{table}/{recordId}/{field}"
+
         path = self.getPath(record)
         if path is None:
             Messages.warning(
@@ -583,17 +585,17 @@ class Upload:
 
         if show:
             staticUrl = f"/data/{path}{fileName}"
-            img = H.img(staticUrl)
+            img = H.img(staticUrl, fid=fid)
         else:
             img = ""
 
         if not mayChange:
             return img or H.span(fileName, cls="fieldinner")
 
-        fid = f"{table}/{recordId}/{field}"
         sep = "/" if path else ""
         saveUrl = f"/upload/{fid}{sep}{path}"
 
-        return H.content(
-            img, H.finput(fileName, accept, saveUrl, title=title)
+        result = H.content(
+            img, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
         )
+        return result

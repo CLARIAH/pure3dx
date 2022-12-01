@@ -1,8 +1,9 @@
+from flask import jsonify
 from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.html import HtmlElements as H
-from control.flask import data, response
+from control.flask import data
 
 
 class Content(Datamodel):
@@ -703,7 +704,7 @@ class Content(Datamodel):
                 logmsg=logmsg,
                 msg=f"Upload not permitted: {filePath}",
             )
-            return response(logmsg)
+            return jsonify(status=False, msg=logmsg)
 
         try:
             with open(fileFullPath, "wb") as fh:
@@ -714,7 +715,7 @@ class Content(Datamodel):
                 logmsg=logmsg,
                 msg=f"Uploaded file not saved: {filePath}",
             )
-            return response(logmsg)
+            return jsonify(status=False, msg=logmsg)
 
         if not Mongo.updateRecord(
             table, dict(field=fileName), warn=False, _id=recordId
@@ -727,7 +728,7 @@ class Content(Datamodel):
                 logmsg=logmsg,
                 msg=f"Uploaded file name not stored: {fileName}",
             )
-            return response(logmsg)
+            return jsonify(status=False, msg=logmsg)
 
         previousFilePath = f"{path}{sep}{previousFileName}"
         previousFileFullPath = f"{workingDir}/{previousFilePath}"
@@ -735,4 +736,7 @@ class Content(Datamodel):
         if previousFileFullPath != fileFullPath:
             fileRemove(previousFileFullPath)
 
-        return response("OK")
+        fid = f"{table}/{recordId}/{field}"
+        staticUrl = f"/data/{filePath}"
+
+        return jsonify(status=True, fid=fid, staticUrl=staticUrl)

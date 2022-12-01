@@ -16,7 +16,15 @@
 
   <body>
     <header id="header">
-      <div id="msgbar">{{ messages | safe }}</div>
+      <div id="msgbar">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <span class="msgitem {{ category }}">{{ message }}</span>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
       <div id="topbar">
         {% block logo %} {% endblock %}
         <span class="fill5">&nbsp;</span>

@@ -297,9 +297,7 @@ class Pages:
         fileName = parts[-1]
         path = parts[0] if len(parts) == 2 else ""
 
-        good = Content.save(table, recordId, field, path, fileName)
-
-        return good
+        return Content.save(table, recordId, field, path, fileName)
 
     def authWebdav(self, projectId, editionId, path, action):
         """Authorises a webdav request.
@@ -395,7 +393,7 @@ class Pages:
             Content for the right column of the page.
         """
         Settings = self.Settings
-        Messages = self.Messages
+        # Messages = self.Messages
         Auth = self.Auth
 
         navigation = self.navigation(url)
@@ -409,10 +407,9 @@ class Pages:
             navigation=navigation,
             materialLeft=left or "",
             materialRight=right or "",
-            messages=Messages.generateMessages(),
             testLoginWidget=testLoginWidget,
             loginWidget=loginWidget,
-            iconSite=iconSite
+            iconSite=iconSite,
         )
 
     def scenes(self, projectId, editionId, sceneId, viewer, version, action):
@@ -439,9 +436,7 @@ class Pages:
         )
         left = (
             breadCrumb
-            + self.putValues(
-                "title@4", projectId=projectId, editionId=editionId
-            )
+            + self.putValues("title@4", projectId=projectId, editionId=editionId)
             + self.putUpload("model", projectId=projectId, editionId=editionId)
             + sceneMaterial
         )
