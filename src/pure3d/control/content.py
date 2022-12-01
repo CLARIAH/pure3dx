@@ -39,125 +39,6 @@ class Content(Datamodel):
         """
         self.Auth = Auth
 
-    def addFieldHandler(self, key):
-        pass
-
-    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
-        """Retrieve a metadata value.
-
-        Metadata sits in a big, potentially deeply nested dictionary of keys
-        and values.
-        These locations are known to the system (based on `fields.yml`).
-        This function retrieves the information from those known locations.
-
-        If a value is in fact composed of multiple values, it will be
-        handled accordingly.
-
-        Parameters
-        ----------
-        key: an identifier for the meta data field.
-        projectId: ObjectId, optional None
-            The project whose metadata we need. If it is None, we are at the site level.
-        editionId: ObjectId, optional None
-            The edition whose metadata we need. If it is None, we need metadata of
-            a project or outer metadata.
-        bare: boolean, optional None
-            Get the bare value, without HTML wrapping and without buttons.
-
-        Returns
-        -------
-        string
-            It is assumed that the metadata value that is addressed exists.
-            If not, we return the empty string.
-        """
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        if editionId is not None:
-            table = "editions"
-            crit = dict(_id=editionId)
-        elif projectId is not None:
-            table = "projects"
-            crit = dict(_id=projectId)
-        else:
-            table = "meta"
-            crit = dict(name="site")
-
-        record = Mongo.getRecord(table, **crit) or AttrDict()
-        recordId = record._id
-
-        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
-
-        if "read" not in permissions:
-            return None
-
-        F = self.makeField(key)
-
-        if bare:
-            return F.bare(record)
-
-        button = self.actionButton(
-            "update",
-            table,
-            recordId=recordId,
-            key=key,
-            projectId=projectId,
-            editionId=editionId,
-        )
-
-        return F.formatted(table, record, level=level, button=button)
-
-    def getUpload(self, key, projectId=None, editionId=None):
-        """Display the name and/or upload controls of an uploaded file.
-
-        The user may to upload model files and scene files to an edition,
-        and various png files as icons for projects, edtions, and scenes.
-        Here we produce the control to do so.
-
-        Only if the user has `update` authorisation, an upload/delete widget will be returned.
-
-        Parameters
-        ----------
-        key: an identifier for the upload field.
-        projectId: ObjectId, optional None
-            The project in question. If it is None, we are at the site level.
-        editionId: ObjectId, optional None
-            The edition in question. If it is None, we are at the project level or site level.
-
-        Returns
-        -------
-        string
-            The name of the file that is currently present, or the indication
-            that no file is present.
-
-            If the user has edit permission for the edition, we display
-            widgets to upload a new file or to delete the existing file.
-        """
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        if editionId is not None:
-            table = "editions"
-            crit = dict(_id=editionId)
-        elif projectId is not None:
-            table = "projects"
-            crit = dict(_id=projectId)
-        else:
-            table = "meta"
-            crit = dict(name="site")
-
-        record = Mongo.getRecord(table, **crit) or AttrDict()
-        recordId = record._id
-
-        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
-
-        if "read" not in permissions:
-            return None
-
-        F = self.makeUpload(key)
-
-        return F.formatted(record, "update" in permissions)
-
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
         return H.h(2, "You will be surprised!")
@@ -190,16 +71,15 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            icon = record.icon
 
             projectUrl = f"/projects/{projectId}"
-            iconUrlBase = f"/data/projects/{projectId}"
             button = self.actionButton(
                 "delete",
                 "projects",
                 recordId=projectId,
             )
-            caption = self.getCaption(title, icon, button, projectUrl, iconUrlBase)
+            visual = self.getUpload("iconProject", projectId=projectId)
+            caption = self.getCaption(visual, title, button, projectUrl)
 
             wrapped.append(caption)
 
@@ -265,16 +145,17 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            icon = record.icon
 
             editionUrl = f"/editions/{editionId}"
-            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}"
             button = self.actionButton(
                 "delete",
                 "editions",
                 recordId=editionId,
             )
-            caption = self.getCaption(title, icon, button, editionUrl, iconUrlBase)
+            visual = self.getUpload(
+                "iconEdition", projectId=projectId, editionId=editionId
+            )
+            caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
         wrapped.append(self.actionButton("create", "editions", projectId=projectId))
@@ -381,7 +262,6 @@ class Content(Datamodel):
 
         for record in Mongo.getList("scenes", editionId=editionId):
             thisSceneId = record._id
-            icon = record.icon
 
             isSceneActive = sceneId is None and record.default or record._id == sceneId
             titleText = H.span(record.name, cls="entrytitle")
@@ -400,10 +280,13 @@ class Content(Datamodel):
                 caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{record._id}"
-                iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}"
-                caption = self.getCaption(
-                    titleText, icon, button, sceneUrl, iconUrlBase
+                visual = self.getUpload(
+                    "iconScene",
+                    projectId=projectId,
+                    editionId=editionId,
+                    sceneId=thisSceneId,
                 )
+                caption = self.getCaption(visual, titleText, button, sceneUrl)
 
             wrapped.append(caption)
 
@@ -444,12 +327,135 @@ class Content(Datamodel):
         activeCls = "active" if active else ""
         return H.div(H.div(content, cls=f"caption {activeCls}"), cls="captioncontent")
 
-    def getCaption(self, titleText, icon, button, url, iconUrlBase):
+    def getCaption(self, visual, titleText, button, url):
         title = H.span(titleText, cls="entrytitle")
 
-        visual = H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
+        # visual = H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
+
+    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+        """Retrieve a metadata value.
+
+        Metadata sits in a big, potentially deeply nested dictionary of keys
+        and values.
+        These locations are known to the system (based on `fields.yml`).
+        This function retrieves the information from those known locations.
+
+        If a value is in fact composed of multiple values, it will be
+        handled accordingly.
+
+        Parameters
+        ----------
+        key: an identifier for the meta data field.
+        projectId: ObjectId, optional None
+            The project whose metadata we need. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition whose metadata we need. If it is None, we need metadata of
+            a project or outer metadata.
+        bare: boolean, optional None
+            Get the bare value, without HTML wrapping and without buttons.
+
+        Returns
+        -------
+        string
+            It is assumed that the metadata value that is addressed exists.
+            If not, we return the empty string.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        if editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "read" not in permissions:
+            return None
+
+        F = self.makeField(key)
+
+        if bare:
+            return F.bare(record)
+
+        button = self.actionButton(
+            "update",
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+        return F.formatted(table, record, level=level, button=button)
+
+    def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+        """Display the name and/or upload controls of an uploaded file.
+
+        The user may to upload model files and scene files to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget will be returned.
+
+        Parameters
+        ----------
+        key: an identifier for the upload field.
+        projectId: ObjectId, optional None
+            The project in question. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition in question. If it is None, we are at the project level
+            or site level.
+        sceneId: ObjectId, optional None
+            The scene in question. If it is None, we are at the edition,
+            project, or site level.
+
+        Returns
+        -------
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
+
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        if sceneId is not None:
+            table = "scenes"
+            crit = dict(_id=sceneId)
+        elif editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "read" not in permissions:
+            return None
+
+        F = self.makeUpload(key)
+
+        return F.formatted(record, "update" in permissions)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.

@@ -773,7 +773,7 @@ class HtmlElements:
         )
 
     @staticmethod
-    def input(material, **atts):
+    def input(material, tp, **atts):
         """INPUT.
 
         The element to receive types user input.
@@ -788,6 +788,8 @@ class HtmlElements:
 
         Parameters
         ----------
+        tp: string
+            The type of input
         material: string | iterable
             This goes into the `value` attribute of the element, after HTML escaping.
 
@@ -797,7 +799,9 @@ class HtmlElements:
         """
 
         content = asString(material)
-        return HtmlElement("input").wrap(E, value=HtmlElements.he(content), **atts)
+        return HtmlElement("input").wrap(
+            E, tp=tp, value=HtmlElements.he(content), **atts
+        )
 
     @staticmethod
     def finput(
@@ -832,8 +836,9 @@ class HtmlElements:
         """
 
         return HtmlElement("input").wrap(
-            fileName,
+            E,
             tp="file",
+            value=HtmlElements.he(fileName),
             accept=accept,
             url=saveUrl,
             title=title,

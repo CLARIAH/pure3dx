@@ -41,6 +41,7 @@
   border-width: 0.1em;
   border-color: var(--model-border);
   padding: 0.2rem 1rem;
+  margin: 1rem 0.2rem;
 }
 .modelfile.none {
   font-family: sans-serif;

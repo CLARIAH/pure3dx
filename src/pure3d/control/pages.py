@@ -437,7 +437,11 @@ class Pages:
         left = (
             breadCrumb
             + self.putValues("title@4", projectId=projectId, editionId=editionId)
-            + self.putUpload("model", projectId=projectId, editionId=editionId)
+            + H.div(
+                self.putUpload("model", projectId=projectId, editionId=editionId),
+                cls="modelfile",
+            )
+            + H.h(4, "Scenes")
             + sceneMaterial
         )
         right = self.putValues(
@@ -476,13 +480,13 @@ class Pages:
         search = H.span(
             [
                 H.input(
+                    "search",
                     "",
-                    tp="search",
                     name="search",
                     placeholder="search item",
                     cls="button disabled",
                 ),
-                H.input("Search", tp="submit", cls="button disabled"),
+                H.input("submit", "Search", cls="button disabled"),
             ],
             cls="search-bar",
         )
@@ -561,7 +565,7 @@ class Pages:
             )
         )
 
-    def putUpload(self, key, projectId=None, editionId=None):
+    def putUpload(self, key, projectId=None, editionId=None, cls=None):
         """Puts a file upload control on a page.
 
         Parameters
@@ -572,6 +576,8 @@ class Pages:
             The project in question.
         editionId: ObjectId, optional None
             The edition in question.
+        cls: string, optional None
+            An extra CSS class for the control
 
         Returns
         -------

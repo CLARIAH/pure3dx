@@ -534,11 +534,7 @@ class Upload:
         sep = "/" if path else ""
         return f"{path}{sep}"
 
-    def formatted(
-        self,
-        record,
-        mayChange=False,
-    ):
+    def formatted(self, record, mayChange=False):
         """Give the formatted value of a file field in a record.
 
         Optionally also puts an upload control.
@@ -589,13 +585,17 @@ class Upload:
         else:
             img = ""
 
+        visual = img or H.span(fileName, cls="fieldinner")
+
         if not mayChange:
-            return img or H.span(fileName, cls="fieldinner")
+            return visual
 
         sep = "/" if path else ""
         saveUrl = f"/upload/{fid}{sep}{path}"
 
-        result = H.content(
-            img, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+        if key == "model":
+            self.debug(f"XXXX {fileName=} {accept=} {title=}")
+
+        return H.content(
+            visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
         )
-        return result
