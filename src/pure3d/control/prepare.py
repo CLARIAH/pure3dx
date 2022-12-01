@@ -9,6 +9,7 @@ from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
 from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
+from control.sendmail import SendMail as SendMailCls
 
 
 def prepare(trivial=False):
@@ -67,6 +68,7 @@ def prepare(trivial=False):
         EditSessions = None
         Pages = None
         AuthOidc = None
+        SendMail = None
     else:
         Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
         Messages = MessagesCls(Settings)
@@ -81,6 +83,7 @@ def prepare(trivial=False):
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
+        SendMail = SendMailCls()
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
@@ -99,4 +102,5 @@ def prepare(trivial=False):
         EditSessions=EditSessions,
         Pages=Pages,
         AuthOidc=AuthOidc,
+        SendMail=SendMail,
     )
