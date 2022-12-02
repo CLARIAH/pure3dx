@@ -51,7 +51,7 @@ def appFactory(objects):
     send_mail = SendMail.prepare(app)
 
     # test sending
-    send_mail.send_test_email("qiqing.ding@di.huc.knaw.nl")
+    send_mail.send_test_mail("qiqing.ding@di.huc.knaw.nl")
     # email2 = EmailMessage(title="test title 2", message="test message 2", recipient="dingqiqing@gmail.com")
     # send_mail.send(email2)
 
