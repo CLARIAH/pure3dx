@@ -593,9 +593,6 @@ class Upload:
         sep = "/" if path else ""
         saveUrl = f"/upload/{fid}{sep}{path}"
 
-        if key == "model":
-            self.debug(f"XXXX {fileName=} {accept=} {title=}")
-
         return H.content(
             visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
         )

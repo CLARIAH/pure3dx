@@ -78,6 +78,7 @@ class Content(Datamodel):
                 "projects",
                 recordId=projectId,
             )
+            self.debug(f"deletebutton: {button}")
             visual = self.getUpload("iconProject", projectId=projectId)
             caption = self.getCaption(visual, title, button, projectUrl)
 
@@ -325,7 +326,9 @@ class Content(Datamodel):
 
     def wrapCaption(self, content, button, active=False):
         activeCls = "active" if active else ""
-        return H.div(H.div(content, cls=f"caption {activeCls}"), cls="captioncontent")
+        return H.div(
+            [H.div(content, cls=f"caption {activeCls}"), button], cls="captioncontent"
+        )
 
     def getCaption(self, visual, titleText, button, url):
         title = H.span(titleText, cls="entrytitle")
