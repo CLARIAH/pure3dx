@@ -1,4 +1,5 @@
 from control.flask import make, stop, method, initializing
+from control.sendmail import EmailMessage
 
 
 def appFactory(objects):
@@ -36,6 +37,7 @@ def appFactory(objects):
     Mongo = objects.Mongo
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
+    SendMail = objects.SendMail
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
@@ -44,6 +46,14 @@ def appFactory(objects):
 
     oidc = AuthOidc.prepare(app)
     Auth.addAuthenticator(oidc)
+
+    # getting mail client
+    send_mail = SendMail.prepare(app)
+
+    # test sending
+    send_mail.send_test_email("qiqing.ding@di.huc.knaw.nl")
+    # email2 = EmailMessage(title="test title 2", message="test message 2", recipient="dingqiqing@gmail.com")
+    # send_mail.send(email2)
 
     @app.before_request
     def identify():
