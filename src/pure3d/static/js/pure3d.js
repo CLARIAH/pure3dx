@@ -10,6 +10,8 @@ const addMsg = (tp, msg, replace = false) => {
   }
 }
 
+window.addMsg = addMsg
+
 const uploadControls = () => {
   const finputs = $(".fileupload")
 

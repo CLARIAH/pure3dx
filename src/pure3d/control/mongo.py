@@ -52,7 +52,7 @@ class Mongo:
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -162,9 +162,9 @@ class Mongo:
 
         Returns
         -------
-        `control.helpers.generic.AttrDict`
+        `control.generic.AttrDict`
             The single document found,
-            or an empty `control.helpers.generic.AttrDict` if no document
+            or an empty `control.generic.AttrDict` if no document
             satisfies the criteria.
         """
         Messages = self.Messages
@@ -188,7 +188,7 @@ class Mongo:
 
         Returns
         -------
-        list of `control.helpers.generic.AttrDict`
+        list of `control.generic.AttrDict`
             The list of documents found, empty if no documents are found.
             Each document is cast to an AttrDict.
         """

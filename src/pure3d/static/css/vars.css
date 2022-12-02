@@ -31,8 +31,8 @@
     --debug-fore-o:                    hsla(180,  00%,  30%, 1  );
     --debug-fore:                      hsla(180,  00%,  50%, 1  );
     --debug-back:                      hsla(180, 100%,  95%, 0.5);
-    --debug-fore-i:                    hsla(240, 100%,  60%, 1  );
-    --debug-back-i:                    hsla(180, 100%,  40%, 1  );
+    --debug-fore-i:                    hsla(  0,   0%,   0%, 1  );
+    --debug-back-i:                    hsla(240,  60%,  60%, 1  );
 
     --dim-fore-o:                      hsla(  0,   0%,  30%, 1  );
     --dim-fore:                        hsla(  0,   0%,  50%, 1  );
@@ -51,8 +51,8 @@
     --error-fore-o:                    hsla(  0, 100%,  30%, 1  );
     --error-fore:                      hsla(  0, 100%,  50%, 1  );
     --error-back:                      hsla(  0, 100%,  80%, 0.5);
-    --error-fore-i:                    hsla( 60, 100%,  60%, 1  );
-    --error-back-i:                    hsla(  0, 100%,  40%, 1  );
+    --error-fore-i:                    hsla(  0,   0%,   0%, 1  );
+    --error-back-i:                    hsla( 60,  80%,  60%, 1  );
 
     --field-outer-fore:                hsla(  0,   0%,  30%, 1  );
     --field-outer-back:                hsla(  0,   0%,  98%, 1  );
@@ -72,8 +72,8 @@
     --good-fore-o:                     hsla(120, 100%,  30%, 1  );
     --good-fore:                       hsla(120, 100%,  50%, 1  );
     --good-back:                       hsla(120, 100%,  80%, 0.5);
-    --good-fore-i:                     hsla(180, 100%,  60%, 1  );
-    --good-back-i:                     hsla(120, 100%,  40%, 1  );
+    --good-fore-i:                     hsla(  0,   0%,   0%, 1  );
+    --good-back-i:                     hsla(120,  80%,  60%, 1  );
 
     --help-fore:                       hsla( 90, 100%,   0%, 1  );
     --help-back:                       hsla( 90, 100%,  90%, 0.8);
@@ -87,8 +87,8 @@
     --info-fore-o:                     hsla(120,   0%,  30%, 1  );
     --info-fore:                       hsla(120,   0%,  50%, 1  );
     --info-back:                       hsla(120,   0%,  80%, 0.5);
-    --info-fore-i:                     hsla(180,  10%,  80%, 1  );
-    --info-back-i:                     hsla(120,  10%,  40%, 1  );
+    --info-fore-i:                     hsla(  0,   0%, 100%, 1  );
+    --info-back-i:                     hsla(  0,   0%,   0%, 1  );
 
     --model-border:                    hsla(  0,   0%,  30%, 1  );
     --model-fore:                      hsla(  0,   0%, 100%, 1  );
@@ -117,8 +117,8 @@
     --special-fore-o:                  hsla(120,  00%,  30%, 1  );
     --special-fore:                    hsla(120,  00%,  50%, 1  );
     --special-back:                    hsla(120, 100%,  95%, 0.5);
-    --special-fore-i:                  hsla(180, 100%,  60%, 1  );
-    --special-back-i:                  hsla(120, 100%,  40%, 1  );
+    --special-fore-i:                  hsla(  0,   0%,   0%, 1  );
+    --special-back-i:                  hsla(180,  80%,  60%, 1  );
 
     --tag-fore:                        hsla(  0,   0%,   0%, 1  );
     --tag-back:                        hsla(  0,   0%,  90%, 0.8);
@@ -140,8 +140,8 @@
     --warning-fore-o:                  hsla( 30, 100%,  30%, 1  );
     --warning-fore:                    hsla( 30, 100%,  50%, 1  );
     --warning-back:                    hsla( 30, 100%,  80%, 0.5);
-    --warning-fore-i:                  hsla( 90, 100%,  60%, 1  );
-    --warning-back-i:                  hsla( 30, 100%,  40%, 1  );
+    --warning-fore-i:                  hsla(  0,   0%,   0%, 1  );
+    --warning-back-i:                  hsla( 30,  80%,  60%, 1  );
 
     --msg-fore:                        hsla( 60, 100%,  90%, 1  );
     --msg-back:                        hsla(  0,   0%,  70%, 0.3);

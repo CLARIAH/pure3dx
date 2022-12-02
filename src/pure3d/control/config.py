@@ -432,6 +432,7 @@ class Config:
             `Settings` object.
         """
         Settings = self.Settings
+        Messages = self.Messages
         wip = var("devstatus")
 
         banner = ""
@@ -452,7 +453,17 @@ class Config:
                 "/collect",
                 title="reset data to initial state",
                 cls="small",
+                **Messages.client(
+                    "info", "wait for data reset to complete ...", replace=True
+                ),
             )
-            banner = H.div([content, resetLink], id="statusbanner")
+            issueLink = H.a(
+                "issues",
+                "https://github.com/CLARIAH/pure3dx/issues",
+                title="go to the issues on GitHub",
+                cls="large",
+                target="_blank",
+            )
+            banner = H.div([content, issueLink, resetLink], id="statusbanner")
 
         Settings.banner = banner

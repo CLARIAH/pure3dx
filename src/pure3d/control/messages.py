@@ -30,7 +30,7 @@ class Messages:
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         onFlask: boolean, optional True
@@ -172,3 +172,21 @@ class Messages:
 
             if tp == "error" and self.onFlask:
                 stop()
+
+    def client(self, tp, message, replace=False):
+        """Adds javascript code whose execution displays a message.
+
+        Parameters
+        ----------
+        tp, msg: string, string
+            As in `message()`
+        replace: boolean, optional False
+            If True, clears all previous messages.
+
+        Returns
+        -------
+        dict
+            an onclick attribute that can be added to a link element.
+        """
+        replace = "true" if replace else "false"
+        return dict(onclick=f"addMsg('{tp}', '{message}', {replace});")

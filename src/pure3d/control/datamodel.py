@@ -16,15 +16,15 @@ class Datamodel:
 
         It is instantiated by a singleton object.
 
-        It has a method which is a factory for `control.fields.Field` objects,
+        It has a method which is a factory for `control.datamodel.Field` objects,
         which deal with individual fields.
 
-        Likewise it has a factory function for `control.fields.Upload` objects,
+        Likewise it has a factory function for `control.datamodel.Upload` objects,
         which deal with file uploads.
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -89,7 +89,7 @@ class Datamodel:
     def makeField(self, key):
         """Make a field object and registers it.
 
-        An instance of class `control.fields.Field` is created,
+        An instance of class `control.datamodel.Field` is created,
         geared to this particular field.
 
         !!! note "Idempotent"
@@ -131,7 +131,7 @@ class Datamodel:
     def makeUpload(self, key):
         """Make a file upload object and registers it.
 
-        An instance of class `control.fields.Upload` is created,
+        An instance of class `control.datamodel.Upload` is created,
         geared to this particular field.
 
         !!! note "Idempotent"

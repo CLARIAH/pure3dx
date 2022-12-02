@@ -88,6 +88,7 @@ body {
   justify-content: flex-start;
   align-items: stretch;
   align-content: flex-start;
+  z-index: 100;
 }
 
 #statusbanner {
@@ -161,43 +162,49 @@ div.messages {
   background-color: #ffffee;
 }
 
-div.msgitem {
+.msgitem {
   padding: 0.2em;
   border-radius: 0.3em;
   font-size: medium;
   font-family: monospace;
 }
 
-div.msgitem.message {
+.msgitem.message {
   color: var(--msg-fore);
   background-color: var(--msg-back);
 }
 
-div.msgitem.error {
+.msgitem.error {
   color: var(--error-fore-i);
   font-weight: bold;
   background-color: var(--error-back-i);
 }
 
-div.msgitem.warning {
+.msgitem.warning {
   color: var(--warning-fore-i);
   font-weight: bold;
   background-color: var(--warning-back-i);
 }
 
-div.msgitem.special {
+.msgitem.good {
+  color: var(--good-fore-i);
+  font-weight: normal;
+  background-color: var(--good-back-i);
+}
+
+.msgitem.special {
   color: var(--special-fore-i);
   font-weight: bold;
   background-color: var(--special-back-i);
 }
 
-div.msgitem.debug {
+.msgitem.debug {
   color: var(--debug-fore-i);
   font-weight: bold;
   background-color: var(--debug-back-i);
 }
 
-div.msgitem.info {
+.msgitem.info {
   color: var(--info-fore-i);
   font-weight: normal;
   background-color: var(--info-back-i);

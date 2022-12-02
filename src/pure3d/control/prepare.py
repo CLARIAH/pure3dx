@@ -21,7 +21,7 @@ def prepare(trivial=False):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.fields.Fields`: factory for handling fields
+    * `control.datamodel.Datamodel`: factory for handling fields
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -51,7 +51,7 @@ def prepare(trivial=False):
 
     Returns
     -------
-    `control.helpers.generic.AttrDict`
+    `control.generic.AttrDict`
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 
@@ -86,7 +86,7 @@ def prepare(trivial=False):
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Collect, Content, Auth)
 
     return AttrDict(
         Settings=Settings,

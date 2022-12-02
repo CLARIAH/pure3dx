@@ -3,7 +3,7 @@ from control.html import HtmlElements as H
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Content, Auth):
+    def __init__(self, Settings, Viewers, Messages, Collect, Content, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -20,7 +20,7 @@ class Pages:
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -29,6 +29,8 @@ class Pages:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
+        Collect: object
+            Singleton instance of `control.collect.Collect`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
@@ -38,8 +40,19 @@ class Pages:
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
+        self.Collect = Collect
         self.Content = Content
         self.Auth = Auth
+
+    def collect(self):
+        """Data reset: collect the example data again."""
+        Collect = self.Collect
+        Messages = self.Messages
+
+        Collect.fetch()
+        Messages.info(msg="data reset done!")
+        ref = getReferrer()
+        return redirectStatus(ref, True)
 
     def home(self):
         """The site-wide home page."""

@@ -18,7 +18,7 @@ def appFactory(objects):
 
     Parameters
     ----------
-    objects: `control.helpers.generic.AttrDict`
+    objects: `control.generic.AttrDict`
         a slew of objects that set up the toolkit with which the app works:
         settings, messaging and logging, MongoDb connection, 3d viewer support,
         higher level objects that can fetch chunks of content and distribute
@@ -72,8 +72,7 @@ def appFactory(objects):
 
     @app.route("/collect")
     def collect():
-        objects.Collect.fetch()
-        return Pages.home()
+        return Pages.collect()
 
     @app.route("/")
     @app.route("/home")
