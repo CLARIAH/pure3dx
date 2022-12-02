@@ -52,7 +52,9 @@ def appFactory(objects):
 
     # test sending
     send_mail.send_test_mail("qiqing.ding@di.huc.knaw.nl")
-    # email2 = EmailMessage(title="test title 2", message="test message 2", recipient="dingqiqing@gmail.com")
+    ## how to send ##
+    # from control.sendmail import EmailMessage
+    # email2 = EmailMessage(title="test title 2", message="test message 2", recipient="qiqing.ding@di.huc.knaw.nl")
     # send_mail.send(email2)
 
     @app.before_request

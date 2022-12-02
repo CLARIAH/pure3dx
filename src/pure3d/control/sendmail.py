@@ -65,7 +65,8 @@ class SendMail:
         email = EmailMessage(
             title="Test message",
             recipient=email_address,
-            message="This is a test message", is_html=False)
+            message="This is a test message",
+            is_html=False)
         try:
             self.send(email)
             print(f"Test email sent to {email_address}")
@@ -75,7 +76,7 @@ class SendMail:
     def _send(self, email: EmailMessage):
         with self.app.app_context():
             print(f"sending to {email=}")
-            msg = self.create_email_message(email, True)
+            msg = self.create_email_message(email)
             sys.stdout.flush()
 
             try:
