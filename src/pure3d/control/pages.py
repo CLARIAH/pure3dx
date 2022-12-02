@@ -144,30 +144,6 @@ class Pages:
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
 
-    def sceneInsert(self, projectId, editionId):
-        """Inserts a scene into an edition and shows the new scene.
-
-        Parameters
-        ----------
-        projectId: ObjectId
-            The project to which the scene belongs.
-        editionId: ObjectId
-            The edition to which the scene belongs.
-        """
-        Messages = self.Messages
-        Content = self.Content
-        sceneId = Content.insertScene(projectId, editionId)
-        if sceneId is None:
-            Messages.warning(
-                logmsg="Could not create new scene",
-                msg="failed to create new scene",
-            )
-            newUrl = f"/editions/{editionId}"
-        else:
-            Messages.info(logmsg=f"Created scene {sceneId}", msg="new scene created")
-            newUrl = f"/scenes/{sceneId}"
-        return redirectStatus(newUrl, sceneId is not None)
-
     def scene(self, sceneId, viewer, version, action):
         """The landing page of an edition, but with a scene marked as active.
 
@@ -195,41 +171,29 @@ class Pages:
         editionId = sceneInfo.editionId
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
-    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
-        """Workhorse for `Pages.edition()` and `Pages.scene()`.
+    def sceneInsert(self, projectId, editionId):
+        """Inserts a scene into an edition and shows the new scene.
 
-        The common part between the two functions mentioned.
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the scene belongs.
+        editionId: ObjectId
+            The edition to which the scene belongs.
         """
+        Messages = self.Messages
         Content = self.Content
-        Auth = self.Auth
-
-        breadCrumb = self.breadCrumb(projectId)
-        action = Auth.makeSafe("editions", editionId, action)
-        sceneMaterial = (
-            ""
-            if action is None
-            else Content.getScenes(
-                projectId,
-                editionId,
-                sceneId=sceneId,
-                viewer=viewer,
-                version=version,
-                action=action,
+        sceneId = Content.insertScene(projectId, editionId)
+        if sceneId is None:
+            Messages.warning(
+                logmsg="Could not create new scene",
+                msg="failed to create new scene",
             )
-        )
-        left = (
-            breadCrumb
-            + self.putValues(
-                "title@4 + model@0", projectId=projectId, editionId=editionId
-            )
-            + sceneMaterial
-        )
-        right = self.putValues(
-            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return self.page("projects", left=left, right=right)
+            newUrl = f"/editions/{editionId}"
+        else:
+            Messages.info(logmsg=f"Created scene {sceneId}", msg="new scene created")
+            newUrl = f"/scenes/{sceneId}"
+        return redirectStatus(newUrl, sceneId is not None)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
@@ -290,13 +254,16 @@ class Pages:
         dataPath = Content.getViewerFile(path)
         return send(dataPath)
 
-    def dataProjects(self, path, projectId, editionId=None):
-        """Data content requested by viewers.
+    def dataProjects(self, path, projectId=None, editionId=None):
+        """Data content requested directly from the file repository.
 
-        This is the material belonging to the scene,
-        the scene json itself and additional resources,
-        that are part of the user contributed content that is under
-        control of the viewer: annotations, media, etc.
+        This is
+
+        * the material requested by the viewers:
+          the scene json itself and additional resources,
+          that are part of the user contributed content that is under
+          control of the viewer: annotations, media, etc.
+        * icons for the site, projects, and editions
 
         Parameters
         ----------
@@ -304,8 +271,9 @@ class Pages:
             Path on the file system under the data directory
             where the resource resides.
             The path is relative to the project, and, if given, the edition.
-        projectId: ObjectId
+        projectId: ObjectId, optional None
             The id of a project under which the resource is to be found.
+            If None, it is site-wide material.
         editionId: ObjectId, optional None
             If not None, the name of an edition under which the resource
             is to be found.
@@ -319,8 +287,56 @@ class Pages:
         """
         Content = self.Content
 
-        dataPath = Content.getData(path, projectId, editionId=editionId)
+        dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
         return send(dataPath)
+
+    def upload(self, table, recordId, field, path):
+        Content = self.Content
+
+        parts = path.rstrip("/").rsplit("/", 1)
+        fileName = parts[-1]
+        path = parts[0] if len(parts) == 2 else ""
+
+        return Content.save(table, recordId, field, path, fileName)
+
+    def authWebdav(self, projectId, editionId, path, action):
+        """Authorises a webdav request.
+
+        When a viewer makes a WebDAV request to the server,
+        that request is first checked here for authorisation.
+
+        See `control.webdavapp.dispatchWebdav()`.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project in question.
+        editionId: ObjectId
+            The edition in question.
+        path: string
+            The path relative to the directory of the edition.
+        action: string
+            The operation that the WebDAV request wants to do on the data
+            (`view` or `edit`).
+
+        Returns
+        -------
+        boolean
+            Whether the action is permitted on ths data by the current user.
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        permitted = Auth.authorise("editions", recordId=editionId, action=action)
+        if not permitted:
+            User = Auth.myDetails()
+            user = User.sub
+            name = User.nickname
+            Messages.info(
+                logmsg=f"WEBDav unauthorised by user {name} ({user})"
+                f" on project {projectId} edition {editionId} path {path}"
+            )
+        return permitted
 
     def remaining(self, path):
         """When the url of the request is not recognized.
@@ -377,10 +393,11 @@ class Pages:
             Content for the right column of the page.
         """
         Settings = self.Settings
-        Messages = self.Messages
+        # Messages = self.Messages
         Auth = self.Auth
 
         navigation = self.navigation(url)
+        iconSite = self.putUpload("iconSite")
         (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return template(
@@ -390,49 +407,49 @@ class Pages:
             navigation=navigation,
             materialLeft=left or "",
             materialRight=right or "",
-            messages=Messages.generateMessages(),
             testLoginWidget=testLoginWidget,
             loginWidget=loginWidget,
+            iconSite=iconSite,
         )
 
-    def authWebdav(self, projectId, editionId, path, action):
-        """Authorises a webdav request.
+    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        """Workhorse for `Pages.edition()` and `Pages.scene()`.
 
-        When a viewer makes a WebDAV request to the server,
-        that request is first checked here for authorisation.
-
-        See `control.webdavapp.dispatchWebdav()`.
-
-        Parameters
-        ----------
-        projectId: ObjectId
-            The project in question.
-        editionId: ObjectId
-            The edition in question.
-        path: string
-            The path relative to the directory of the edition.
-        action: string
-            The operation that the WebDAV request wants to do on the data
-            (`view` or `edit`).
-
-        Returns
-        -------
-        boolean
-            Whether the action is permitted on ths data by the current user.
+        The common part between the two functions mentioned.
         """
-        Messages = self.Messages
+        Content = self.Content
         Auth = self.Auth
 
-        permitted = Auth.authorise("editions", recordId=editionId, action=action)
-        if not permitted:
-            User = Auth.myDetails()
-            user = User.sub
-            name = User.nickname
-            Messages.info(
-                logmsg=f"WEBDav unauthorised by user {name} ({user})"
-                f" on project {projectId} edition {editionId} path {path}"
+        breadCrumb = self.breadCrumb(projectId)
+        action = Auth.makeSafe("editions", editionId, action)
+        sceneMaterial = (
+            ""
+            if action is None
+            else Content.getScenes(
+                projectId,
+                editionId,
+                sceneId=sceneId,
+                viewer=viewer,
+                version=version,
+                action=action,
             )
-        return permitted
+        )
+        left = (
+            breadCrumb
+            + self.putValues("title@4", projectId=projectId, editionId=editionId)
+            + H.div(
+                self.putUpload("model", projectId=projectId, editionId=editionId),
+                cls="modelfile",
+            )
+            + H.h(4, "Scenes")
+            + sceneMaterial
+        )
+        right = self.putValues(
+            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page("projects", left=left, right=right)
 
     def navigation(self, url):
         """Generates the navigation controls.
@@ -463,13 +480,13 @@ class Pages:
         search = H.span(
             [
                 H.input(
+                    "search",
                     "",
-                    tp="search",
                     name="search",
                     placeholder="search item",
                     cls="button disabled",
                 ),
-                H.input("Search", tp="submit", cls="button disabled"),
+                H.input("submit", "Search", cls="button disabled"),
             ],
             cls="search-bar",
         )
@@ -523,6 +540,10 @@ class Pages:
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
 
         Returns
         -------
@@ -543,3 +564,27 @@ class Pages:
                 fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
             )
         )
+
+    def putUpload(self, key, projectId=None, editionId=None, cls=None):
+        """Puts a file upload control on a page.
+
+        Parameters
+        ----------
+        key: string
+            the key that identifies the kind of upload
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
+        cls: string, optional None
+            An extra CSS class for the control
+
+        Returns
+        -------
+        string
+            A control that shows the file and possibly provides an upload/delete
+            control for it.
+        """
+        Content = self.Content
+
+        return Content.getUpload(key, projectId=projectId, editionId=editionId) or ""

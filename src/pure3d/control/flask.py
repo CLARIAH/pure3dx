@@ -9,6 +9,7 @@ from flask import (
     render_template,
     make_response,
     send_file,
+    flash,
 )
 
 from control.environment import var
@@ -49,6 +50,10 @@ def template(template, **kwargs):
         The response with as content the filled template.
     """
     return render_template(f"{template}.html", **kwargs)
+
+
+def flashMsg(*args, **kwargs):
+    flash(*args, **kwargs)
 
 
 def response(data):
@@ -190,12 +195,36 @@ def arg(name):
     return request.args.get(name, None)
 
 
+def data():
+    """Get the request data.
+
+    Returns
+    -------
+    bytes
+
+    Useful for uploaded files.
+    """
+    return request.get_data(cache=False)
+
+
 def values():
     return request.values
 
 
 def getReferrer():
     """Get the referrer from the request.
+
+    We strip the root url from the referrer.
+
+    If that is not possible, the referrer is an other site,
+    in that case we substitute the home page.
+
+    !!! caution "protocol mismatch"
+        It has been observed that in some cases the referrer, as taken from the request,
+        and the root url as taken from the request, differ in their protocol part:
+        `http:` versus `https:`.
+        Therefore we first strip the protocol part from both referrer and root url
+        before we remove the prefix.
 
     Returns
     -------
@@ -205,5 +234,7 @@ def getReferrer():
     rootUrl = PROTOCOL_RE.sub("", rootUrl)
     referrer = request.referrer
     referrer = PROTOCOL_RE.sub("", referrer)
-    referrer = referrer.removeprefix(rootUrl)
-    return referrer
+
+    path = referrer.removeprefix(rootUrl)
+
+    return "/" if path == referrer else path

@@ -175,12 +175,17 @@ class Config:
             self.good = False
             return
 
+        dataDir = dataDir.rstrip("/")
+        sep = "/" if dataDir else ""
+        workingDir = f"{dataDir}{sep}working"
+
         if not dirExists(dataDir):
-            Messages.error(logmsg=f"Data directory does not exist: {dataDir}")
+            Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
             self.good = False
             return
 
-        Settings.dataDir = dataDir.rstrip("/")
+        Settings.dataDir = dataDir
+        Settings.workingDir = workingDir
 
         # are we in test mode?
 

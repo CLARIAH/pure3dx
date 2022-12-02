@@ -1,5 +1,4 @@
-from control.flask import make, stop, method, initializing
-from control.sendmail import EmailMessage
+from control.flask import make, stop, method, initializing, send
 
 
 def appFactory(objects):
@@ -39,6 +38,7 @@ def appFactory(objects):
     AuthOidc = objects.AuthOidc
     SendMail = objects.SendMail
     Pages = objects.Pages
+    Content = objects.Content
     webdavMethods = Settings.webdavMethods
 
     app = make(__name__, static_folder="../static")
@@ -59,6 +59,11 @@ def appFactory(objects):
     def identify():
         if not initializing():
             Auth.identify()
+
+    @app.route("/favicon.ico")
+    def favicon():
+        favicon = Content.getData("favicon.ico")
+        return send(favicon)
 
     @app.route("/login")
     def login():
@@ -130,9 +135,7 @@ def appFactory(objects):
     def scene(sceneId, viewer, version, action):
         return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
 
-    @app.route(
-        "/projects/<string:projectId>/editions/<string:editionId>/scenes/create"
-    )
+    @app.route("/projects/<string:projectId>/editions/<string:editionId>/scenes/create")
     def sceneInsert(projectId, editionId):
         return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
 
@@ -147,10 +150,6 @@ def appFactory(objects):
         return Pages.viewerResource(path)
 
     @app.route(
-        "/data/projects/<string:projectId>/",
-        defaults=dict(editionId=None, path=None),
-    )
-    @app.route(
         "/data/projects/<string:projectId>/editions/<string:editionId>/",
         defaults=dict(path=None),
     )
@@ -158,13 +157,32 @@ def appFactory(objects):
         "/data/projects/<string:projectId>/editions/<string:editionId>/<path:path>",
     )
     @app.route(
+        "/data/projects/<string:projectId>/",
+        defaults=dict(editionId=None, path=None),
+    )
+    @app.route(
         "/data/projects/<string:projectId>/<path:path>",
         defaults=dict(editionId=None),
     )
+    @app.route(
+        "/data/",
+        defaults=dict(projectId=None, editionId=None, path=None),
+    )
+    @app.route(
+        "/data/<path:path>",
+        defaults=dict(projectId=None, editionId=None),
+    )
     def dataProjects(projectId, editionId, path):
         return Pages.dataProjects(
-            path, Mongo.cast(projectId), editionId=Mongo.cast(editionId)
+            path, projectId=Mongo.cast(projectId), editionId=Mongo.cast(editionId)
         )
+
+    @app.route(
+        "/upload/<string:table>/<string:recordId>/<string:field>/<path:path>",
+        methods=["POST"],
+    )
+    def upload(table, recordId, field, path):
+        return Pages.upload(table, Mongo.cast(recordId), field, path)
 
     @app.route(
         "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",

@@ -17,7 +17,7 @@ def getWebdavApp(objects):
     webdavConfig = {
         "provider_mapping": {
             "/webdav/": {
-                "root": Settings.dataDir,
+                "root": Settings.workingDir,
                 "readonly": False,
             },
         },

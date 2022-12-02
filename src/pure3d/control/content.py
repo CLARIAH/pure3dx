@@ -1,7 +1,9 @@
+from flask import jsonify
 from control.generic import AttrDict
-from control.files import fileExists
+from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.html import HtmlElements as H
+from control.flask import data
 
 
 class Content(Datamodel):
@@ -37,75 +39,6 @@ class Content(Datamodel):
         """
         self.Auth = Auth
 
-    def addFieldHandler(self, key):
-        pass
-
-    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
-        """Retrieve a metadata value.
-
-        Metadata sits in a big, potentially deeply nested dictionary of keys
-        and values.
-        These locations are known to the system (based on `fields.yml`).
-        This function retrieves the information from those known locations.
-
-        If a value is in fact composed of multiple values, it will be
-        handled accordingly.
-
-        Parameters
-        ----------
-        key: an identifier for the meta data field.
-        projectId: ObjectId, optional None
-            The project whose metadata we need. If it is None, we need metadata
-            outside all of the projects.
-        editionId: ObjectId, optional None
-            The edition whose metadata we need. If it is None, we need metadata of
-            a project or outer metadata.
-        bare: boolean, optional None
-            Get the bare value, without HTML wrapping and without buttons.
-
-        Returns
-        -------
-        string
-            It is assumed that the metadata value that is addressed exists.
-            If not, we return the empty string.
-        """
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        if editionId is not None:
-            table = "editions"
-            crit = dict(_id=editionId)
-        elif projectId is not None:
-            table = "projects"
-            crit = dict(_id=projectId)
-        else:
-            table = "meta"
-            crit = dict(name="site")
-
-        record = Mongo.getRecord(table, **crit) or AttrDict()
-        recordId = record._id
-
-        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
-
-        if "read" not in permissions:
-            return None
-
-        F = self.makeField(key)
-
-        if bare:
-            return F.bare(record)
-
-        button = self.actionButton(
-            "update",
-            table,
-            recordId=recordId,
-            key=key,
-            projectId=projectId,
-            editionId=editionId,
-        )
-
-        return F.formatted(table, record, level=level, button=button)
-
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
         return H.h(2, "You will be surprised!")
@@ -138,16 +71,15 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            candy = record.candy
 
             projectUrl = f"/projects/{projectId}"
-            iconUrlBase = f"/data/projects/{projectId}/candy"
             button = self.actionButton(
                 "delete",
                 "projects",
                 recordId=projectId,
             )
-            caption = self.getCaption(title, candy, button, projectUrl, iconUrlBase)
+            visual = self.getUpload("iconProject", projectId=projectId)
+            caption = self.getCaption(visual, title, button, projectUrl)
 
             wrapped.append(caption)
 
@@ -213,16 +145,17 @@ class Content(Datamodel):
                 continue
 
             title = record.title
-            candy = record.candy
 
             editionUrl = f"/editions/{editionId}"
-            iconUrlBase = f"/data/projects/{projectId}/editions/{editionId}/candy"
             button = self.actionButton(
                 "delete",
                 "editions",
                 recordId=editionId,
             )
-            caption = self.getCaption(title, candy, button, editionUrl, iconUrlBase)
+            visual = self.getUpload(
+                "iconEdition", projectId=projectId, editionId=editionId
+            )
+            caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
         wrapped.append(self.actionButton("create", "editions", projectId=projectId))
@@ -329,7 +262,6 @@ class Content(Datamodel):
 
         for record in Mongo.getList("scenes", editionId=editionId):
             thisSceneId = record._id
-            candy = record.candy
 
             isSceneActive = sceneId is None and record.default or record._id == sceneId
             titleText = H.span(record.name, cls="entrytitle")
@@ -348,12 +280,13 @@ class Content(Datamodel):
                 caption = self.wrapCaption(content, button, active=True)
             else:
                 sceneUrl = f"/scenes/{record._id}"
-                iconUrlBase = (
-                    f"/data/projects/{projectId}/editions/{editionId}" f"/candy"
+                visual = self.getUpload(
+                    "iconScene",
+                    projectId=projectId,
+                    editionId=editionId,
+                    sceneId=thisSceneId,
                 )
-                caption = self.getCaption(
-                    titleText, candy, button, sceneUrl, iconUrlBase
-                )
+                caption = self.getCaption(visual, titleText, button, sceneUrl)
 
             wrapped.append(caption)
 
@@ -394,41 +327,135 @@ class Content(Datamodel):
         activeCls = "active" if active else ""
         return H.div(H.div(content, cls=f"caption {activeCls}"), cls="captioncontent")
 
-    def getCaption(self, titleText, candy, button, url, iconUrlBase):
-        icon = self.getIcon(candy)
+    def getCaption(self, visual, titleText, button, url):
         title = H.span(titleText, cls="entrytitle")
 
-        visual = (
-            H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
-            if icon
-            else ""
-        )
+        # visual = H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
 
-    def getIcon(self, candy):
-        """Select an icon from a set of candidates.
+    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+        """Retrieve a metadata value.
+
+        Metadata sits in a big, potentially deeply nested dictionary of keys
+        and values.
+        These locations are known to the system (based on `fields.yml`).
+        This function retrieves the information from those known locations.
+
+        If a value is in fact composed of multiple values, it will be
+        handled accordingly.
 
         Parameters
         ----------
-        candy: dict
-            A set of candidates, given as a dict, keyed by file names
-            (without directory information) and valued by a boolean that
-            indicates whether the image may act as an icon.
+        key: an identifier for the meta data field.
+        projectId: ObjectId, optional None
+            The project whose metadata we need. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition whose metadata we need. If it is None, we need metadata of
+            a project or outer metadata.
+        bare: boolean, optional None
+            Get the bare value, without HTML wrapping and without buttons.
 
         Returns
         -------
-        string or None
-            The first candidate in candy that is an icon.
-            If there are no candidates that qualify, None is returned.
+        string
+            It is assumed that the metadata value that is addressed exists.
+            If not, we return the empty string.
         """
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-        if candy is None:
+        if editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "read" not in permissions:
             return None
-        first = [image for (image, isIcon) in candy.items() if isIcon]
-        if first:
-            return first[0]
-        return None
+
+        F = self.makeField(key)
+
+        if bare:
+            return F.bare(record)
+
+        button = self.actionButton(
+            "update",
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+        return F.formatted(table, record, level=level, button=button)
+
+    def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+        """Display the name and/or upload controls of an uploaded file.
+
+        The user may to upload model files and scene files to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget will be returned.
+
+        Parameters
+        ----------
+        key: an identifier for the upload field.
+        projectId: ObjectId, optional None
+            The project in question. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition in question. If it is None, we are at the project level
+            or site level.
+        sceneId: ObjectId, optional None
+            The scene in question. If it is None, we are at the edition,
+            project, or site level.
+
+        Returns
+        -------
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
+
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        if sceneId is not None:
+            table = "scenes"
+            crit = dict(_id=sceneId)
+        elif editionId is not None:
+            table = "editions"
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = "projects"
+            crit = dict(_id=projectId)
+        else:
+            table = "meta"
+            crit = dict(name="site")
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if "read" not in permissions:
+            return None
+
+        F = self.makeUpload(key)
+
+        return F.formatted(record, "update" in permissions)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -452,21 +479,21 @@ class Content(Datamodel):
         Settings = self.Settings
         Messages = self.Messages
 
-        dataDir = Settings.dataDir
+        viewerDir = Settings.viewerDir
 
-        dataPath = f"{dataDir}/viewers/{path}"
+        viewerPath = f"{viewerDir}/{path}"
 
-        if not fileExists(dataPath):
-            logmsg = f"Accessing {dataPath}: "
+        if not fileExists(viewerPath):
+            logmsg = f"Accessing {viewerPath}: "
             logmsg += "does not exist. "
             Messages.error(
                 msg="Accessing a file",
                 logmsg=logmsg,
             )
 
-        return dataPath
+        return viewerPath
 
-    def getData(self, path, projectId, editionId=None):
+    def getData(self, path, projectId=None, editionId=None):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
@@ -478,7 +505,7 @@ class Content(Datamodel):
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectId: ObjectId
+        projectId: ObjectId, optional None
             The id of the project in question.
         editionId: ObjectId, optional None
             The id of the edition in question.
@@ -493,19 +520,26 @@ class Content(Datamodel):
         Messages = self.Messages
         Auth = self.Auth
 
-        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
 
         urlBase = (
-            f"projects/{projectId}"
+            ""
+            if projectId is None
+            else f"projects/{projectId}"
             if editionId is None
             else f"projects/{projectId}/editions/{editionId}"
         )
+        sep = "/" if urlBase else ""
+        base = f"{workingDir}{sep}{urlBase}"
 
-        dataPath = (
-            f"{dataDir}/{urlBase}" if path is None else f"{dataDir}/{urlBase}/{path}"
-        )
+        dataPath = base if path is None else f"{base}/{path}"
 
-        if editionId is None:
+        if projectId is None:
+            table = "meta"
+            recordId = (
+                True  # dummy value for authorise, which only tests whether it is falsy
+            )
+        elif editionId is None:
             table = "projects"
             recordId = projectId
         else:
@@ -521,7 +555,7 @@ class Content(Datamodel):
             if not fexists:
                 logmsg += "does not exist. "
             Messages.error(
-                msg="Accessing a file",
+                msg=f"Accessing file {path}",
                 logmsg=logmsg,
             )
 
@@ -655,3 +689,60 @@ class Content(Datamodel):
         )
 
         return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
+
+    def save(self, table, recordId, field, path, fileName):
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        workingDir = Settings.workingDir
+
+        permitted = Auth.authorise(table, recordId=recordId, action="update")
+        previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+
+        sep = "/" if path else ""
+        filePath = f"{path}{sep}{fileName}"
+        fileFullPath = f"{workingDir}/{filePath}"
+
+        if not permitted:
+            logmsg = f"Upload not permitted: {table}-{field}: {fileFullPath}"
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f"Upload not permitted: {filePath}",
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        try:
+            with open(fileFullPath, "wb") as fh:
+                fh.write(data())
+        except Exception:
+            logmsg = "Could not save uploaded file: {table}-{field}: {fileFullPath}"
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f"Uploaded file not saved: {filePath}",
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        if not Mongo.updateRecord(
+            table, dict(field=fileName), warn=False, _id=recordId
+        ):
+            logmsg = (
+                "Could not store uploaded file name in MongoDB: "
+                f"{table}-{field}: {filePath}"
+            )
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f"Uploaded file name not stored: {fileName}",
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        previousFilePath = f"{path}{sep}{previousFileName}"
+        previousFileFullPath = f"{workingDir}/{previousFilePath}"
+
+        if previousFileFullPath != fileFullPath:
+            fileRemove(previousFileFullPath)
+
+        fid = f"{table}/{recordId}/{field}"
+        staticUrl = f"/data/{filePath}"
+
+        return jsonify(status=True, fid=fid, staticUrl=staticUrl)

@@ -19,6 +19,9 @@ class Datamodel:
         It has a method which is a factory for `control.fields.Field` objects,
         which deal with individual fields.
 
+        Likewise it has a factory function for `control.fields.Upload` objects,
+        which deal with file uploads.
+
         Parameters
         ----------
         Settings: `control.helpers.generic.AttrDict`
@@ -38,7 +41,9 @@ class Datamodel:
         self.masterConfig = datamodel.master
         self.linkConfig = datamodel.link
         self.fieldsConfig = datamodel.fields
+        self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
+        self.uploadObjects = AttrDict()
 
     def getDetailRecords(self, masterTable, masterId):
         """Retrieve the detail records of a master record.
@@ -107,7 +112,7 @@ class Datamodel:
 
         fieldObjects = self.fieldObjects
 
-        fieldObject = fieldObjects.key
+        fieldObject = fieldObjects[key]
         if fieldObject:
             return fieldObject
 
@@ -122,6 +127,48 @@ class Datamodel:
         fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
+
+    def makeUpload(self, key):
+        """Make a file upload object and registers it.
+
+        An instance of class `control.fields.Upload` is created,
+        geared to this particular field.
+
+        !!! note "Idempotent"
+            If the Upload object is already registered, nothing is done.
+
+        Parameters
+        ----------
+        key: string
+            Identifier for the upload.
+            The configuration for this upload will be retrieved using this key.
+            The new upload object will be stored under this key.
+
+        Returns
+        -------
+        object
+            The resulting Upload object.
+            It is also added to the `uploadObjects` member.
+        """
+        Settings = self.Settings
+
+        uploadObjects = self.uploadObjects
+
+        uploadObject = uploadObjects[key]
+        if uploadObject:
+            return uploadObject
+
+        Messages = self.Messages
+        Mongo = self.Mongo
+        uploadsConfig = self.uploadsConfig
+
+        uploadsConfig = uploadsConfig[key]
+        if uploadsConfig is None:
+            Messages.error(logmsg=f"Unknown upload key '{key}'")
+
+        uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
+        uploadObjects[key] = uploadObject
+        return uploadObject
 
 
 class Field:
@@ -148,8 +195,8 @@ class Field:
         ----------
         kwargs: dict
             Field configuration arguments.
-            It will be checked that certain parts of the field configuration
-            are present, such as `nameSpace`, `fieldPath` and `tp`.
+            It certain parts of the field configuration
+            are not present, defaults will be provided.
         """
         self.Settings = Settings
         self.Messages = Messages
@@ -209,7 +256,7 @@ class Field:
         Parameters
         ----------
         record: AttrDict or dict
-            The record in which the field  value is stored.
+            The record in which the field value is stored.
 
         Returns
         -------
@@ -281,7 +328,7 @@ class Field:
         table: string
             The table from which the record is taken
         record: AttrDict or dict
-            The record in which the field  value is stored.
+            The record in which the field value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
@@ -337,3 +384,218 @@ class Field:
             heading = H.elem(elem, *lv, heading)
 
         return heading + content
+
+
+class Upload:
+    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
+        """Handle upload business.
+
+        An upload is like a field of type 'file'.
+        The name of the uploaded file is stored in a record in MongoDb.
+        The contents of the file is stored on the file system.
+
+        A Upload object does not correspond with an individual field in a record.
+        It represents a *column*, i.e. a set of fields with the same name in all
+        records of a collection.
+
+        First of all there is a method to retrieve the file name of an upload from
+        a specific record.
+
+        Then there are methods to deliver those values, either bare or formatted,
+        to produce widgets to upload or delete the corresponding files.
+
+        How to do this is steered by the specification of the upload by keys and
+        values that are stored in this object.
+
+        All upload access should be guarded by the authorisation rules.
+
+        Parameters
+        ----------
+        kwargs: dict
+            Field configuration arguments.
+            The following parts of the field configuration
+            should be present: `table`, `field` and `relative`.
+        """
+        self.Settings = Settings
+        self.Messages = Messages
+        Messages.debugAdd(self)
+        self.Mongo = Mongo
+
+        self.key = key
+        """The identifier of this upload within the app.
+        """
+
+        self.table = None
+        """The table in which the file name should be placed.
+        """
+
+        self.field = None
+        """The field in which the file name should be placed.
+        """
+
+        self.relative = None
+        """Indicates the directory where the actual file will be saved.
+
+        Possibe values:
+
+        * `site`: top level of the working data directory of the site
+        * `project`: project directory of the project in question
+        * `edition`: edition directory of the project in question
+
+        If left out, the value will be derived from `table`.
+        """
+
+        self.accept = None
+        """The file types that the field accepts.
+        """
+
+        self.caption = None
+        """The text to display on the upload button.
+        """
+
+        self.show = None
+        """Whether to show the contents of the file.
+
+        This is typically the case when the file is an image to be presented
+        as a logo.
+        """
+
+        # let attributes be filled in from the function **kwargs
+
+        for (arg, value) in kwargs.items():
+            if value is not None:
+                setattr(self, arg, value)
+
+        # try to fill in defaults for attributes that are still None
+
+        good = True
+
+        table = getattr(self, "table", None)
+        field = getattr(self, "field", None)
+        accept = getattr(self, "accept", None)
+
+        for arg in ("table", "field", "relative", "accept", "caption", "show"):
+            if getattr(self, arg, None) is None:
+                if arg == "relative" and table is not None:
+                    setattr(self, arg, table.removesuffix("s"))
+                elif arg == "caption":
+                    setattr(self, arg, f"{table}-{field}-{accept}")
+                elif arg == "show":
+                    setattr(self, arg, False)
+                else:
+                    Messages.error(logmsg=f"Missing info in Upload spec: {arg}")
+                    good = False
+
+        if not good:
+            quit()
+
+    def bare(self, record):
+        """Give the bare file name as stored in a record in MongoDb.
+
+        Parameters
+        ----------
+        record: AttrDict
+            The record in which the file name is stored.
+
+        Returns
+        -------
+        string:
+            Whatever the value is that we find.
+            If the field is not present, returns None, without warning.
+        """
+        field = self.field
+
+        return record[field]
+
+    def getPath(self, record):
+        """Give the path to the file in question.
+
+        The path can be used to build the static url and the save url.
+
+        It does not contain the file name.
+        If the path is non-empty, a "/" will be appended.
+        """
+        table = self.table
+        relative = self.relative
+
+        recordId = record._id
+        projectId = recordId if table == "projects" else record.projectId
+        editionId = recordId if table == "editions" else record.editionId
+
+        path = (
+            ""
+            if relative == "site"
+            else f"projects/{projectId}"
+            if relative == "project"
+            else f"projects/{projectId}/editions/{editionId}"
+            if relative == "edition"
+            else None
+        )
+        sep = "/" if path else ""
+        return f"{path}{sep}"
+
+    def formatted(self, record, mayChange=False):
+        """Give the formatted value of a file field in a record.
+
+        Optionally also puts an upload control.
+
+        Parameters
+        ----------
+        record: AttrDict or dict
+            The record in which the field value is stored.
+        mayChange: boolean, optional False
+            Whether the file may be changed.
+            If so, an upload widget is supplied, wich contains a a delete button.
+
+        Returns
+        -------
+        string:
+            Whatever the value is that we find for that field, converted to HTML.
+            If the field is not present, returns the empty string, without warning.
+        """
+
+        fileName = self.bare(record)
+
+        Messages = self.Messages
+
+        key = self.key
+        table = self.table
+        field = self.field
+        relative = self.relative
+        accept = self.accept
+        caption = self.caption
+        show = self.show
+
+        title = f"click to upload a {caption}"
+
+        recordId = record._id
+
+        fid = f"{table}/{recordId}/{field}"
+
+        path = self.getPath(record)
+        if path is None:
+            Messages.warning(
+                logmsg=f"Wrong file path for upload {key} based on relative {relative}",
+                msg="The location for this file cannot be determined",
+            )
+
+        if show:
+            staticUrl = f"/data/{path}{fileName}"
+            img = H.img(staticUrl, fid=fid)
+        else:
+            img = ""
+
+        visual = img or H.span(fileName, cls="fieldinner")
+
+        if not mayChange:
+            return visual
+
+        sep = "/" if path else ""
+        saveUrl = f"/upload/{fid}{sep}{path}"
+
+        if key == "model":
+            self.debug(f"XXXX {fileName=} {accept=} {title=}")
+
+        return H.content(
+            visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+        )

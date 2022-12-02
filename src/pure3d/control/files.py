@@ -6,8 +6,11 @@ from shutil import rmtree, copytree, copy
 from control.generic import AttrDict
 
 
+THREE_EXT = {"glb", "gltf"}
+THREE_EXT_PAT = "|".join(THREE_EXT)
+
 IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
-THREED_RE = re.compile(r"""^.*\.(gltf|glb)$""", re.I)
+THREED_RE = re.compile(fr"""^.*\.({THREE_EXT_PAT})$""", re.I)
 
 
 def readPath(filePath):
@@ -109,7 +112,7 @@ def dirCopy(pathSrc, pathDst):
 def dirMake(path):
     """Creates a directory if it does not already exist as directory.
     """
-    if dirExists(path):
+    if not dirExists(path):
         os.makedirs(path, exist_ok=True)
 
 
@@ -194,3 +197,37 @@ def list3d(path):
                 files.append(name)
 
     return files
+
+
+def get3d(path, name=None):
+    """Detect 3D files in a certain directory.
+
+    The directory is searched for files that have an extension that signals 3D data.
+    Optionally we restrict the search for files with a given base name.
+
+    Parameters
+    ----------
+    path: string
+        Directory in which the 3D files are looked up.
+    name: string, optionally None
+        If None, all files will be searched.
+        Otherwise this is the base name of the 3D files that we look for.
+
+    Returns
+    -------
+    dict
+        Keyed by base name, valued by extensions of existing 3D files in that directory.
+    """
+
+    files = list3d(path)
+
+    matchingFiles = {}
+
+    for file in files:
+        (thisName, ext) = file.rsplit(".", 1)
+        if name is not None and name != thisName:
+            continue
+
+        matchingFiles.setdefault(thisName, []).append(ext)
+
+    return matchingFiles

@@ -104,6 +104,7 @@ class HtmlElement:
         !!! hint
             Attributes with value `True` are represented as bare attributes, without
             value. For example: `{open=True}` translates into `open`.
+            Attributes with value `False` are omitted.
 
         !!! caution
             Use the name `cls` to get a `class` attribute inside an HTML element.
@@ -136,7 +137,7 @@ class HtmlElement:
             f""" {thisCls.atNormal(k)}"""
             + (E if v is True else f'''="{thisCls.atEscape(v)}"''')
             for (k, v) in atts.items()
-            if v is not None
+            if v is not None and v is not False
         )
 
     def wrap(self, material, addClass=None, **atts):
@@ -410,6 +411,26 @@ class HtmlElements:
         """
 
         return HtmlElement("br").wrap(E)
+
+    @staticmethod
+    def button(material, tp, **atts):
+        """BUTTON.
+
+        A clickable butto
+
+        Parameters
+        ----------
+        material: string | iterable
+            What is displayed on the button.
+        tp:
+            The type of the button, e.g. `submit` or `button`
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("button").wrap(material, tp=tp, **atts)
 
     @staticmethod
     def checkbox(var, **atts):
@@ -752,7 +773,7 @@ class HtmlElements:
         )
 
     @staticmethod
-    def input(material, **atts):
+    def input(material, tp, **atts):
         """INPUT.
 
         The element to receive types user input.
@@ -761,8 +782,14 @@ class HtmlElements:
             Do not use this for checkboxes. Use
             `control.html.HtmlElements.checkbox` instead.
 
+        !!! caution
+            Do not use this for file inputs. Use
+            `control.html.HtmlElements.finput` instead.
+
         Parameters
         ----------
+        tp: string
+            The type of input
         material: string | iterable
             This goes into the `value` attribute of the element, after HTML escaping.
 
@@ -772,7 +799,52 @@ class HtmlElements:
         """
 
         content = asString(material)
-        return HtmlElement("input").wrap(E, value=HtmlElements.he(content), **atts)
+        return HtmlElement("input").wrap(
+            E, tp=tp, value=HtmlElements.he(content), **atts
+        )
+
+    @staticmethod
+    def finput(
+        fileName,
+        accept,
+        saveUrl,
+        title="Click to upload a file",
+        cls="",
+        **atts,
+    ):
+        """INPUT type="file".
+
+        The input element for uploading files.
+
+        Parameters
+        ----------
+        fileName: string
+            The name of the currently existing file. If there is not yet a file
+            pass the empty string.
+        accept: string
+            MIME type of uploaded file
+        saveUrl: string
+            The url to which the resulting file should be posted.
+        cls: string, optional ""
+            CSS class for the button
+        title: string, optional ""
+            tooltip for the button
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("input").wrap(
+            E,
+            tp="file",
+            value=HtmlElements.he(fileName),
+            accept=accept,
+            url=saveUrl,
+            title=title,
+            cls=f"fileupload {cls}",
+            **atts,
+        )
 
     @staticmethod
     def link(rel, href, **atts):

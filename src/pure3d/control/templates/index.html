@@ -1,13 +1,7 @@
 {% extends 'layout.html' %}
 
 {% block logo %}
-<a id="logo" href="/"
-  ><img
-    src="/static/media/Pure3D_logo.png"
-    alt="The Pure3D logo"
-    width="200rem"
-  >
-</a>
+{{iconSite|safe}}
 {%endblock%}
 
 {% block navigation %}
