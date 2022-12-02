@@ -26,29 +26,17 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L1-L502" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L1-L751" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from markdown import markdown
-
-from control.helpers.files import fileExists
-from control.helpers.generic import AttrDict
-
-
-COMPONENT = dict(
-    me=(None, None, None, None),
-    home=(&#34;texts/intro&#34;, &#34;md&#34;, True, &#34;&#34;),
-    about=(&#34;texts/about&#34;, &#34;md&#34;, True, &#34;## About\n\n&#34;),
-    intro=(&#34;texts/intro&#34;, &#34;md&#34;, True, &#34;&#34;),
-    usage=(&#34;texts/usage&#34;, &#34;md&#34;, True, &#34;## Guide\n\n&#34;),
-    description=(&#34;texts/description&#34;, &#34;md&#34;, True, &#34;## Description\n\n&#34;),
-    sources=(&#34;texts/sources&#34;, &#34;md&#34;, True, &#34;## Sources\n\n&#34;),
-    title=(&#34;meta/dc&#34;, &#34;json&#34;, &#34;dc.title&#34;, None),
-    icon=(&#34;candy/icon&#34;, &#34;png&#34;, None, None),
-    list=(None, None, None, None),
-)
+<pre><code class="python">from flask import jsonify
+from control.generic import AttrDict
+from control.files import fileExists, fileRemove
+from control.datamodel import Datamodel
+from control.html import HtmlElements as H
+from control.flask import data
 
 
-class Content:
+class Content(Datamodel):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         &#34;&#34;&#34;Retrieving content from database and file system.
 
@@ -60,7 +48,7 @@ class Content:
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -70,11 +58,8 @@ class Content:
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
-        self.Settings = Settings
+        super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        self.Mongo = Mongo
 
     def addAuth(self, Auth):
         &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -84,59 +69,9 @@ class Content:
         &#34;&#34;&#34;
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
-        &#34;&#34;&#34;Retrieve a metadata string.
-
-        Metadata sits in a big, potentially deeply nested dictionary of keys
-        and values.
-        This function retrieves the information based on a path of keys.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The first selector in the metadata, e.g. `dc` for Dublin Core.
-        fieldPath: string
-            A `.`-separated list of keys. This is a selector in the nested
-            metadata dict selected by the `nameSpace` argument.
-        projectId: ObjectId, optional None
-            The project whose metadata we need. If it is None, we need metadata
-            outside all of the projects.
-        editionId: ObjectId, optional None
-            The edition whose metadata we need. If it is None, we need metadata of
-            a project or outer metadata.
-        asMd: boolean, optional False
-            If True, and the resulting metadata is a string, we assume that it is
-            a markdown string, and we convert it to HTML.
-
-        Returns
-        -------
-        string
-            It is assumed that the metadata that is addressed
-            by the `nameSpace` and `fieldPath` arguments exists and is a string.
-            If not, we return the empty string.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-
-        fields = fieldPath.split(&#34;.&#34;)
-
-        meta = (
-            Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-            if editionId is not None
-            else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-            if projectId is not None
-            else Mongo.getRecord(&#34;meta&#34;)
-        ).meta or {}
-        text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
-
-        for field in fields[1:]:
-            text = text.get(field, {})
-        if type(text) is not str:
-            text = &#34;&#34;
-        return markdown(text) if asMd else text
-
     def getSurprise(self):
         &#34;&#34;&#34;Get the data that belongs to the surprise-me functionality.&#34;&#34;&#34;
-        return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;
+        return H.h(2, &#34;You will be surprised!&#34;)
 
     def getProjects(self):
         &#34;&#34;&#34;Get the list of all projects.
@@ -157,24 +92,57 @@ class Content:
         Auth = self.Auth
 
         wrapped = []
+        wrapped.append(self.actionButton(&#34;create&#34;, &#34;projects&#34;))
 
-        for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
-            row = AttrDict(row)
-            projectId = row._id
-            permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+        for record in Mongo.getList(&#34;projects&#34;):
+            projectId = record._id
+            permitted = Auth.authorise(&#34;projects&#34;, recordId=projectId, action=&#34;read&#34;)
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
 
             projectUrl = f&#34;/projects/{projectId}&#34;
-            projectName = row.name
-            iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
-            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;projects&#34;,
+                recordId=projectId,
+            )
+            self.debug(f&#34;deletebutton: {button}&#34;)
+            visual = self.getUpload(&#34;iconProject&#34;, projectId=projectId)
+            caption = self.getCaption(visual, title, button, projectUrl)
+
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        return H.content(*wrapped)
+
+    def insertProject(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise(&#34;projects&#34;)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.sub
+        name = User.nickname
+
+        title = &#34;Project without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+            creator=name,
+        )
+        projectId = Mongo.insertRecord(&#34;projects&#34;, title=title, meta=dict(dc=dcMeta))
+        Mongo.insertRecord(
+            &#34;projectUsers&#34;,
+            projectId=projectId,
+            user=user,
+            role=&#34;creator&#34;,
+        )
+        return projectId
 
     def getEditions(self, projectId):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -199,37 +167,66 @@ class Content:
         Mongo = self.Mongo
         Auth = self.Auth
 
-        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-        projectName = projectInfo.name
-
         wrapped = []
 
-        for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
-            row = AttrDict(row)
-            editionId = row._id
-            permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+        for record in Mongo.getList(&#34;editions&#34;, projectId=projectId):
+            editionId = record._id
+            permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=&#34;read&#34;)
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
 
             editionUrl = f&#34;/editions/{editionId}&#34;
-            editionName = row.name
-            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;editions&#34;,
+                recordId=editionId,
+            )
+            visual = self.getUpload(
+                &#34;iconEdition&#34;, projectId=projectId, editionId=editionId
+            )
+            caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        wrapped.append(self.actionButton(&#34;create&#34;, &#34;editions&#34;, projectId=projectId))
+        return H.content(*wrapped)
+
+    def insertEdition(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise(&#34;editions&#34;, projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = &#34;Edition without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract=&#34;No intro&#34;,
+                description=&#34;No description&#34;,
+                provenance=&#34;No sources&#34;,
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            &#34;editions&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
+        )
+        return editionId
 
     def getScenes(
         self,
         projectId,
         editionId,
         sceneId=None,
-        viewer=&#34;&#34;,
-        version=&#34;&#34;,
-        action=&#34;view&#34;,
+        viewer=None,
+        version=None,
+        action=None,
     ):
         &#34;&#34;&#34;Get the list of the scenes of an edition of a project.
 
@@ -258,16 +255,16 @@ class Content:
             The active scene. If None the default scene is chosen.
             A scene record specifies whether that scene is the default scene for
             that edition.
-        viewer: string, optional &#34;&#34;
+        viewer: string, optional None
             The viewer to be used for the 3D viewing. It should be a supported viewer.
-            If &#34;&#34;, the default viewer is chosen.
+            If None, the default viewer is chosen.
             The list of those viewers is in the `yaml/viewers.yml` file,
             which also specifies what the default viewer is.
-        version: string, optional &#34;&#34;
+        version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `&#34;view&#34;`
+        action: string, optional `view`
             The mode in which the viewer should be opened.
             If the mode is `edit`, the viewer is opened in edit mode.
             All other modes lead to the viewer being opened in read-only
@@ -284,126 +281,214 @@ class Content:
         Auth = self.Auth
         Viewers = self.Viewers
 
-        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-        projectName = projectInfo.name
-        editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-        editionName = editionInfo.name
-
         wrapped = []
 
-        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
-        if not permitted:
-            return []
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        actions = [&#34;view&#34;]
-        if Auth.isModifiable(projectId, editionId):
-            actions.append(&#34;edit&#34;)
+        actions = Auth.authorise(&#34;editions&#34;, recordId=editionId)
+        if &#34;read&#34; not in actions:
+            return &#34;&#34;
 
         (viewer, version) = Viewers.check(viewer, version)
 
         wrapped = []
 
-        for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
-            row = AttrDict(row)
+        for record in Mongo.getList(&#34;scenes&#34;, editionId=editionId):
+            thisSceneId = record._id
 
-            isSceneActive = sceneId is None and row.default or row._id == sceneId
-            (frame, buttons) = Viewers.getButtons(
-                row._id, actions, isSceneActive, viewer, version, action
+            isSceneActive = sceneId is None and record.default or record._id == sceneId
+            titleText = H.span(record.name, cls=&#34;entrytitle&#34;)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;scenes&#34;,
+                recordId=thisSceneId,
             )
 
-            sceneUrl = f&#34;/scenes/{row._id}&#34;
-            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-            caption = self.getCaption(
-                row.name,
-                row.candy,
-                sceneUrl,
-                iconUrlBase,
-                active=isSceneActive,
-                frame=frame,
-                buttons=buttons,
-            )
+            if isSceneActive:
+                (frame, buttons) = Viewers.getFrame(
+                    thisSceneId, actions, viewer, version, action
+                )
+                title = H.span(titleText, cls=&#34;entrytitle&#34;)
+                content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
+                caption = self.wrapCaption(content, button, active=True)
+            else:
+                sceneUrl = f&#34;/scenes/{record._id}&#34;
+                visual = self.getUpload(
+                    &#34;iconScene&#34;,
+                    projectId=projectId,
+                    editionId=editionId,
+                    sceneId=thisSceneId,
+                )
+                caption = self.getCaption(visual, titleText, button, sceneUrl)
+
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        wrapped.append(
+            self.actionButton(
+                &#34;create&#34;, &#34;scenes&#34;, projectId=projectId, editionId=editionId
+            )
+        )
+        return H.content(*wrapped)
 
-    def getCaption(
-        self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
-    ):
-        &#34;&#34;&#34;Get a caption for a project, edition, or scene.
+    def insertScene(self, projectId, editionId):
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-        A caption consists of an icon, and a textual title, both with
-        a hyperlink to the full or active version of the item.
+        permitted = Auth.authorise(&#34;scenes&#34;, projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = &#34;Scene without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            creator=name,
+        )
+        sceneId = Mongo.insertRecord(
+            &#34;scenes&#34;,
+            name=title,
+            projectId=projectId,
+            editionId=editionId,
+            meta=dict(dc=dcMeta),
+        )
+        return sceneId
+
+    def wrapCaption(self, content, button, active=False):
+        activeCls = &#34;active&#34; if active else &#34;&#34;
+        return H.div(
+            [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
+        )
+
+    def getCaption(self, visual, titleText, button, url):
+        title = H.span(titleText, cls=&#34;entrytitle&#34;)
+
+        # visual = H.img(f&#34;{iconUrlBase}/{icon}&#34;, imgAtts=dict(cls=&#34;previewicon&#34;))
+        content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
+        return self.wrapCaption(content, button)
+
+    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+        &#34;&#34;&#34;Retrieve a metadata value.
+
+        Metadata sits in a big, potentially deeply nested dictionary of keys
+        and values.
+        These locations are known to the system (based on `fields.yml`).
+        This function retrieves the information from those known locations.
+
+        If a value is in fact composed of multiple values, it will be
+        handled accordingly.
 
         Parameters
         ----------
-        title: string
-            The textual bit of the caption.
-        candy: dict
-            A dictionary of visual elements to chose from.
-            If one of the elements is called `icon`, that will be chosen.
-        url: string
-            The url to link to.
-        iconUrlBase: string
-            The url that almost points to the icon image file,
-            only the selected name from `candy` needs to be appended to it.
-        active: boolean, optional False
-            Whether the caption should be displayed as being *active*.
-        buttons: string, optional &#34;&#34;
-            A set of buttons that should be displayed below the captions.
-            This applies to captions for *scenes*: there we want to display
-            buttons to open the scene in a variety of veiwers, versions and
-            modes.
-        frame: string, optional &#34;&#34;
-            An iframe to display instead of the visual element of the caption.
-            This applies to scene captions, for the case where we want to show
-            the scene loaded in a viewer. That will be done in an iframe,
-            and this is the HTML for that iframe.
+        key: an identifier for the meta data field.
+        projectId: ObjectId, optional None
+            The project whose metadata we need. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition whose metadata we need. If it is None, we need metadata of
+            a project or outer metadata.
+        bare: boolean, optional None
+            Get the bare value, without HTML wrapping and without buttons.
 
         Returns
         -------
         string
-            The HTML representing the caption.
+            It is assumed that the metadata value that is addressed exists.
+            If not, we return the empty string.
         &#34;&#34;&#34;
-        icon = self.getIcon(candy)
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-        start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
-        visual = (
-            f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
-        )
-        heading = (
-            f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
-            if frame
-            else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
-        )
-        end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
-        caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
-        return caption
+        if editionId is not None:
+            table = &#34;editions&#34;
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = &#34;projects&#34;
+            crit = dict(_id=projectId)
+        else:
+            table = &#34;meta&#34;
+            crit = dict(name=&#34;site&#34;)
 
-    def getIcon(self, candy):
-        &#34;&#34;&#34;Select an icon from a set of candidates.
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if &#34;read&#34; not in permissions:
+            return None
+
+        F = self.makeField(key)
+
+        if bare:
+            return F.bare(record)
+
+        button = self.actionButton(
+            &#34;update&#34;,
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+        return F.formatted(table, record, level=level, button=button)
+
+    def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+        &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
+
+        The user may to upload model files and scene files to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget will be returned.
 
         Parameters
         ----------
-        candy: dict
-            A set of candidates, given as a dict, keyed by file names
-            (without directory information) and valued by a boolean that
-            indicates whether the image may act as an icon.
+        key: an identifier for the upload field.
+        projectId: ObjectId, optional None
+            The project in question. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition in question. If it is None, we are at the project level
+            or site level.
+        sceneId: ObjectId, optional None
+            The scene in question. If it is None, we are at the edition,
+            project, or site level.
 
         Returns
         -------
-        string or None
-            The first candidate in candy that is an icon.
-            If there are no candidates that qualify, None is returned.
-        &#34;&#34;&#34;
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
 
-        if candy is None:
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        if sceneId is not None:
+            table = &#34;scenes&#34;
+            crit = dict(_id=sceneId)
+        elif editionId is not None:
+            table = &#34;editions&#34;
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = &#34;projects&#34;
+            crit = dict(_id=projectId)
+        else:
+            table = &#34;meta&#34;
+            crit = dict(name=&#34;site&#34;)
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if &#34;read&#34; not in permissions:
             return None
-        first = [image for (image, isIcon) in candy.items() if isIcon]
-        if first:
-            return first[0]
-        return None
+
+        F = self.makeUpload(key)
+
+        return F.formatted(record, &#34;update&#34; in permissions)
 
     def getViewerFile(self, path):
         &#34;&#34;&#34;Gets a viewer-related file from the file system.
@@ -421,115 +506,279 @@ class Content:
         Returns
         -------
         string
-            The contents of the viewer file, if it exists.
+            The full path to the viewer file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
 
-        dataDir = Settings.dataDir
+        viewerDir = Settings.viewerDir
 
-        dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+        viewerPath = f&#34;{viewerDir}/{path}&#34;
 
-        if not fileExists(dataPath):
-            logmsg = f&#34;Accessing {dataPath}: &#34;
+        if not fileExists(viewerPath):
+            logmsg = f&#34;Accessing {viewerPath}: &#34;
             logmsg += &#34;does not exist. &#34;
             Messages.error(
                 msg=&#34;Accessing a file&#34;,
                 logmsg=logmsg,
             )
 
-        with open(dataPath, &#34;rb&#34;) as fh:
-            textData = fh.read()
+        return viewerPath
 
-        return textData
-
-    def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+    def getData(self, path, projectId=None, editionId=None):
         &#34;&#34;&#34;Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
         This is the data directory.
         Below that the files are organized by projects and editions.
 
-        At least one of the parameters `projectName` and `editionName`
-        should be present. And if `editionName` is present,
-        `projectName` should also be present.
-
         Parameters
         ----------
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectName: string, optional &#34;&#34;
-            The name of the project in question.
-        editionName: string, optional &#34;&#34;
-            The name of the edition in question.
+        projectId: ObjectId, optional None
+            The id of the project in question.
+        editionId: ObjectId, optional None
+            The id of the edition in question.
 
         Returns
         -------
         string
-            The contents of the data file, if it exists.
+            The full path of the data file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
 
-        dataDir = Settings.dataDir
-
-        if (
-            projectName == &#34;&#34;
-            and editionName == &#34;&#34;
-            or projectName == &#34;&#34;
-            and editionName != &#34;&#34;
-        ):
-            logmsg = &#34;no project/edition specified&#34;
-            Messages.error(
-                msg=&#34;Accessing a file&#34;,
-                logmsg=logmsg,
-            )
+        workingDir = Settings.workingDir
 
         urlBase = (
-            f&#34;projects/{projectName}&#34;
-            if editionName == &#34;&#34;
-            else f&#34;projects/{projectName}/editions/{editionName}&#34;
+            &#34;&#34;
+            if projectId is None
+            else f&#34;projects/{projectId}&#34;
+            if editionId is None
+            else f&#34;projects/{projectId}/editions/{editionId}&#34;
         )
+        sep = &#34;/&#34; if urlBase else &#34;&#34;
+        base = f&#34;{workingDir}{sep}{urlBase}&#34;
 
-        dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+        dataPath = base if path is None else f&#34;{base}/{path}&#34;
 
-        permitted = Auth.authorise(
-            &#34;view&#34;, project=projectName, edition=editionName, byName=True
-        )
+        if projectId is None:
+            table = &#34;meta&#34;
+            recordId = (
+                True  # dummy value for authorise, which only tests whether it is falsy
+            )
+        elif editionId is None:
+            table = &#34;projects&#34;
+            recordId = projectId
+        else:
+            table = &#34;editions&#34;
+            recordId = editionId
+        permitted = Auth.authorise(table, recordId=recordId, action=&#34;read&#34;)
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
             logmsg = f&#34;Accessing {dataPath}: &#34;
             if not permitted:
-                logmsg = &#34;not allowed. &#34;
+                logmsg += &#34;not allowed. &#34;
             if not fexists:
                 logmsg += &#34;does not exist. &#34;
             Messages.error(
-                msg=&#34;Accessing a file&#34;,
+                msg=f&#34;Accessing file {path}&#34;,
                 logmsg=logmsg,
             )
 
-        with open(dataPath, &#34;rb&#34;) as fh:
-            textData = fh.read()
+        return dataPath
 
-        return textData
+    def getItem(self, table, *args, **kwargs):
+        &#34;&#34;&#34;Get a all information about an item.
 
-    def getRecord(self, *args, **kwargs):
-        &#34;&#34;&#34;Get a record from MongoDb.
+        The item can be a project, edition, or scene.
+        The information about that item is a record in MongoDb.
+        possibly additional files on the file system.
 
-        This is just a trivial wrapper around a method with the same
-        name `control.mongo.Mongo.getRecord`.
+        Parameters
+        ----------
+        table: string
+            The name of the table from which to fetch an item
+        *args, **kwargs: any
+            Additional arguments to select the item&#39;s record
+            from MongoDB
 
-        We have this for reasons of abstraction:
-        the `control.pages.Pages` object relies
-        on this Content object to retrieve content,
-        and does not want to know where the content comes from.
+        Returns
+        -------
+        AttrDict
+            the contents of the item&#39;s record in MongoDB
         &#34;&#34;&#34;
-        return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+        return self.Mongo.getRecord(table, *args, **kwargs)
+
+    def actionButton(
+        self, action, table, recordId=None, key=None, projectId=None, editionId=None
+    ):
+        &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        !!! note &#34;Delete buttons&#34;
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
+        Parameters
+        ----------
+        action: string, optional None
+            The type of action that will be performed if the button triggered.
+        table: string
+            the table to which the action applies;
+        recordId: ObjectId, optional None
+            the record in question
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a metadata field that is stored inside the
+            record. From the key, the value can be found.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Auth = self.Auth
+
+        urlInsert = &#34;/&#34;
+        if projectId is not None:
+            urlInsert += f&#34;projects/{projectId}/&#34;
+        if editionId is not None:
+            urlInsert += f&#34;editions/{editionId}/&#34;
+
+        permitted = Auth.authorise(
+            table, recordId=recordId, projectId=projectId, action=action
+        )
+
+        if not permitted:
+            return &#34;&#34;
+
+        Settings = self.Settings
+        actions = Settings.auth.actions
+
+        disable = False
+        report = &#34;&#34;
+
+        if action == &#34;delete&#34;:
+            details = self.getDetailRecords(table, recordId)
+            if len(details):
+                disable = True
+                detailContent = []
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                    detailRep = detailTable.rstrip(&#34;s&#34;) + plural
+                    detailContent.append(f&#34;&#34;&#34;{nDetails}&amp;nbsp;{detailRep}&#34;&#34;&#34;)
+
+                report = H.div(
+                    [
+                        H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
+
+        actionInfo = AttrDict(actions.get(action, {}))
+        text = actionInfo.acro
+        name = actionInfo.name
+        tableItem = table.rstrip(&#34;s&#34;)
+        keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+        recordIdRep = &#34;&#34; if recordId is None else f&#34;/{recordId}&#34;
+
+        if disable:
+            elem = &#34;span&#34;
+            href = []
+            cls = &#34;disabled&#34;
+            can = &#34;Cannot &#34;
+        else:
+            elem = &#34;a&#34;
+            href = [
+                f&#34;{urlInsert}{table}/create&#34;
+                if action == &#34;create&#34;
+                else f&#34;/{table}{recordIdRep}{keyRepUrl}/{action}&#34;
+            ]
+            cls = &#34;&#34;
+            can = &#34;&#34;
+
+        fullCls = f&#34;button large {cls}&#34;
+        tip = (
+            f&#34;{name} new {tableItem}&#34;
+            if action == &#34;create&#34;
+            else f&#34;{can}{name}{keyRepTip} this {tableItem}&#34;
+        )
+
+        return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
+
+    def save(self, table, recordId, field, path, fileName):
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        workingDir = Settings.workingDir
+
+        permitted = Auth.authorise(table, recordId=recordId, action=&#34;update&#34;)
+        previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+
+        sep = &#34;/&#34; if path else &#34;&#34;
+        filePath = f&#34;{path}{sep}{fileName}&#34;
+        fileFullPath = f&#34;{workingDir}/{filePath}&#34;
+
+        if not permitted:
+            logmsg = f&#34;Upload not permitted: {table}-{field}: {fileFullPath}&#34;
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Upload not permitted: {filePath}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        try:
+            with open(fileFullPath, &#34;wb&#34;) as fh:
+                fh.write(data())
+        except Exception:
+            logmsg = &#34;Could not save uploaded file: {table}-{field}: {fileFullPath}&#34;
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Uploaded file not saved: {filePath}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        if not Mongo.updateRecord(
+            table, dict(field=fileName), warn=False, _id=recordId
+        ):
+            logmsg = (
+                &#34;Could not store uploaded file name in MongoDB: &#34;
+                f&#34;{table}-{field}: {filePath}&#34;
+            )
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Uploaded file name not stored: {fileName}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        previousFilePath = f&#34;{path}{sep}{previousFileName}&#34;
+        previousFileFullPath = f&#34;{workingDir}/{previousFilePath}&#34;
+
+        if previousFileFullPath != fileFullPath:
+            fileRemove(previousFileFullPath)
+
+        fid = f&#34;{table}/{recordId}/{field}&#34;
+        staticUrl = f&#34;/data/{filePath}&#34;
+
+        return jsonify(status=True, fid=fid, staticUrl=staticUrl)</code></pre>
 </details>
 </section>
 <section>
@@ -553,7 +802,7 @@ class that will compose a response out of it.</p>
 <p>It is instantiated by a singleton object.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Viewers</code></strong> :&ensp;<code>object</code></dt>
@@ -566,9 +815,9 @@ class that will compose a response out of it.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L21-L502" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L9-L751" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class Content:
+<pre><code class="python">class Content(Datamodel):
     def __init__(self, Settings, Viewers, Messages, Mongo):
         &#34;&#34;&#34;Retrieving content from database and file system.
 
@@ -580,7 +829,7 @@ class that will compose a response out of it.</p>
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -590,11 +839,8 @@ class that will compose a response out of it.</p>
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
-        self.Settings = Settings
+        super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        self.Mongo = Mongo
 
     def addAuth(self, Auth):
         &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -604,59 +850,9 @@ class that will compose a response out of it.</p>
         &#34;&#34;&#34;
         self.Auth = Auth
 
-    def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
-        &#34;&#34;&#34;Retrieve a metadata string.
-
-        Metadata sits in a big, potentially deeply nested dictionary of keys
-        and values.
-        This function retrieves the information based on a path of keys.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The first selector in the metadata, e.g. `dc` for Dublin Core.
-        fieldPath: string
-            A `.`-separated list of keys. This is a selector in the nested
-            metadata dict selected by the `nameSpace` argument.
-        projectId: ObjectId, optional None
-            The project whose metadata we need. If it is None, we need metadata
-            outside all of the projects.
-        editionId: ObjectId, optional None
-            The edition whose metadata we need. If it is None, we need metadata of
-            a project or outer metadata.
-        asMd: boolean, optional False
-            If True, and the resulting metadata is a string, we assume that it is
-            a markdown string, and we convert it to HTML.
-
-        Returns
-        -------
-        string
-            It is assumed that the metadata that is addressed
-            by the `nameSpace` and `fieldPath` arguments exists and is a string.
-            If not, we return the empty string.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-
-        fields = fieldPath.split(&#34;.&#34;)
-
-        meta = (
-            Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-            if editionId is not None
-            else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-            if projectId is not None
-            else Mongo.getRecord(&#34;meta&#34;)
-        ).meta or {}
-        text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
-
-        for field in fields[1:]:
-            text = text.get(field, {})
-        if type(text) is not str:
-            text = &#34;&#34;
-        return markdown(text) if asMd else text
-
     def getSurprise(self):
         &#34;&#34;&#34;Get the data that belongs to the surprise-me functionality.&#34;&#34;&#34;
-        return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;
+        return H.h(2, &#34;You will be surprised!&#34;)
 
     def getProjects(self):
         &#34;&#34;&#34;Get the list of all projects.
@@ -677,24 +873,57 @@ class that will compose a response out of it.</p>
         Auth = self.Auth
 
         wrapped = []
+        wrapped.append(self.actionButton(&#34;create&#34;, &#34;projects&#34;))
 
-        for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
-            row = AttrDict(row)
-            projectId = row._id
-            permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+        for record in Mongo.getList(&#34;projects&#34;):
+            projectId = record._id
+            permitted = Auth.authorise(&#34;projects&#34;, recordId=projectId, action=&#34;read&#34;)
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
 
             projectUrl = f&#34;/projects/{projectId}&#34;
-            projectName = row.name
-            iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
-            caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;projects&#34;,
+                recordId=projectId,
+            )
+            self.debug(f&#34;deletebutton: {button}&#34;)
+            visual = self.getUpload(&#34;iconProject&#34;, projectId=projectId)
+            caption = self.getCaption(visual, title, button, projectUrl)
+
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        return H.content(*wrapped)
+
+    def insertProject(self):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise(&#34;projects&#34;)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.sub
+        name = User.nickname
+
+        title = &#34;Project without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+            creator=name,
+        )
+        projectId = Mongo.insertRecord(&#34;projects&#34;, title=title, meta=dict(dc=dcMeta))
+        Mongo.insertRecord(
+            &#34;projectUsers&#34;,
+            projectId=projectId,
+            user=user,
+            role=&#34;creator&#34;,
+        )
+        return projectId
 
     def getEditions(self, projectId):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -719,37 +948,66 @@ class that will compose a response out of it.</p>
         Mongo = self.Mongo
         Auth = self.Auth
 
-        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-        projectName = projectInfo.name
-
         wrapped = []
 
-        for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
-            row = AttrDict(row)
-            editionId = row._id
-            permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+        for record in Mongo.getList(&#34;editions&#34;, projectId=projectId):
+            editionId = record._id
+            permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=&#34;read&#34;)
             if not permitted:
                 continue
 
-            title = row.title
-            candy = row.candy
+            title = record.title
 
             editionUrl = f&#34;/editions/{editionId}&#34;
-            editionName = row.name
-            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-            caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;editions&#34;,
+                recordId=editionId,
+            )
+            visual = self.getUpload(
+                &#34;iconEdition&#34;, projectId=projectId, editionId=editionId
+            )
+            caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        wrapped.append(self.actionButton(&#34;create&#34;, &#34;editions&#34;, projectId=projectId))
+        return H.content(*wrapped)
+
+    def insertEdition(self, projectId):
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        permitted = Auth.authorise(&#34;editions&#34;, projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = &#34;Edition without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract=&#34;No intro&#34;,
+                description=&#34;No description&#34;,
+                provenance=&#34;No sources&#34;,
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            &#34;editions&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
+        )
+        return editionId
 
     def getScenes(
         self,
         projectId,
         editionId,
         sceneId=None,
-        viewer=&#34;&#34;,
-        version=&#34;&#34;,
-        action=&#34;view&#34;,
+        viewer=None,
+        version=None,
+        action=None,
     ):
         &#34;&#34;&#34;Get the list of the scenes of an edition of a project.
 
@@ -778,16 +1036,16 @@ class that will compose a response out of it.</p>
             The active scene. If None the default scene is chosen.
             A scene record specifies whether that scene is the default scene for
             that edition.
-        viewer: string, optional &#34;&#34;
+        viewer: string, optional None
             The viewer to be used for the 3D viewing. It should be a supported viewer.
-            If &#34;&#34;, the default viewer is chosen.
+            If None, the default viewer is chosen.
             The list of those viewers is in the `yaml/viewers.yml` file,
             which also specifies what the default viewer is.
-        version: string, optional &#34;&#34;
+        version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `&#34;view&#34;`
+        action: string, optional `view`
             The mode in which the viewer should be opened.
             If the mode is `edit`, the viewer is opened in edit mode.
             All other modes lead to the viewer being opened in read-only
@@ -804,126 +1062,214 @@ class that will compose a response out of it.</p>
         Auth = self.Auth
         Viewers = self.Viewers
 
-        projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-        projectName = projectInfo.name
-        editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-        editionName = editionInfo.name
-
         wrapped = []
 
-        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
-        if not permitted:
-            return []
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        actions = [&#34;view&#34;]
-        if Auth.isModifiable(projectId, editionId):
-            actions.append(&#34;edit&#34;)
+        actions = Auth.authorise(&#34;editions&#34;, recordId=editionId)
+        if &#34;read&#34; not in actions:
+            return &#34;&#34;
 
         (viewer, version) = Viewers.check(viewer, version)
 
         wrapped = []
 
-        for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
-            row = AttrDict(row)
+        for record in Mongo.getList(&#34;scenes&#34;, editionId=editionId):
+            thisSceneId = record._id
 
-            isSceneActive = sceneId is None and row.default or row._id == sceneId
-            (frame, buttons) = Viewers.getButtons(
-                row._id, actions, isSceneActive, viewer, version, action
+            isSceneActive = sceneId is None and record.default or record._id == sceneId
+            titleText = H.span(record.name, cls=&#34;entrytitle&#34;)
+            button = self.actionButton(
+                &#34;delete&#34;,
+                &#34;scenes&#34;,
+                recordId=thisSceneId,
             )
 
-            sceneUrl = f&#34;/scenes/{row._id}&#34;
-            iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-            caption = self.getCaption(
-                row.name,
-                row.candy,
-                sceneUrl,
-                iconUrlBase,
-                active=isSceneActive,
-                frame=frame,
-                buttons=buttons,
-            )
+            if isSceneActive:
+                (frame, buttons) = Viewers.getFrame(
+                    thisSceneId, actions, viewer, version, action
+                )
+                title = H.span(titleText, cls=&#34;entrytitle&#34;)
+                content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
+                caption = self.wrapCaption(content, button, active=True)
+            else:
+                sceneUrl = f&#34;/scenes/{record._id}&#34;
+                visual = self.getUpload(
+                    &#34;iconScene&#34;,
+                    projectId=projectId,
+                    editionId=editionId,
+                    sceneId=thisSceneId,
+                )
+                caption = self.getCaption(visual, titleText, button, sceneUrl)
+
             wrapped.append(caption)
 
-        return &#34;\n&#34;.join(wrapped)
+        wrapped.append(
+            self.actionButton(
+                &#34;create&#34;, &#34;scenes&#34;, projectId=projectId, editionId=editionId
+            )
+        )
+        return H.content(*wrapped)
 
-    def getCaption(
-        self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
-    ):
-        &#34;&#34;&#34;Get a caption for a project, edition, or scene.
+    def insertScene(self, projectId, editionId):
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-        A caption consists of an icon, and a textual title, both with
-        a hyperlink to the full or active version of the item.
+        permitted = Auth.authorise(&#34;scenes&#34;, projectId=projectId)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        name = User.nickname
+
+        title = &#34;Scene without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            creator=name,
+        )
+        sceneId = Mongo.insertRecord(
+            &#34;scenes&#34;,
+            name=title,
+            projectId=projectId,
+            editionId=editionId,
+            meta=dict(dc=dcMeta),
+        )
+        return sceneId
+
+    def wrapCaption(self, content, button, active=False):
+        activeCls = &#34;active&#34; if active else &#34;&#34;
+        return H.div(
+            [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
+        )
+
+    def getCaption(self, visual, titleText, button, url):
+        title = H.span(titleText, cls=&#34;entrytitle&#34;)
+
+        # visual = H.img(f&#34;{iconUrlBase}/{icon}&#34;, imgAtts=dict(cls=&#34;previewicon&#34;))
+        content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
+        return self.wrapCaption(content, button)
+
+    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+        &#34;&#34;&#34;Retrieve a metadata value.
+
+        Metadata sits in a big, potentially deeply nested dictionary of keys
+        and values.
+        These locations are known to the system (based on `fields.yml`).
+        This function retrieves the information from those known locations.
+
+        If a value is in fact composed of multiple values, it will be
+        handled accordingly.
 
         Parameters
         ----------
-        title: string
-            The textual bit of the caption.
-        candy: dict
-            A dictionary of visual elements to chose from.
-            If one of the elements is called `icon`, that will be chosen.
-        url: string
-            The url to link to.
-        iconUrlBase: string
-            The url that almost points to the icon image file,
-            only the selected name from `candy` needs to be appended to it.
-        active: boolean, optional False
-            Whether the caption should be displayed as being *active*.
-        buttons: string, optional &#34;&#34;
-            A set of buttons that should be displayed below the captions.
-            This applies to captions for *scenes*: there we want to display
-            buttons to open the scene in a variety of veiwers, versions and
-            modes.
-        frame: string, optional &#34;&#34;
-            An iframe to display instead of the visual element of the caption.
-            This applies to scene captions, for the case where we want to show
-            the scene loaded in a viewer. That will be done in an iframe,
-            and this is the HTML for that iframe.
+        key: an identifier for the meta data field.
+        projectId: ObjectId, optional None
+            The project whose metadata we need. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition whose metadata we need. If it is None, we need metadata of
+            a project or outer metadata.
+        bare: boolean, optional None
+            Get the bare value, without HTML wrapping and without buttons.
 
         Returns
         -------
         string
-            The HTML representing the caption.
+            It is assumed that the metadata value that is addressed exists.
+            If not, we return the empty string.
         &#34;&#34;&#34;
-        icon = self.getIcon(candy)
+        Mongo = self.Mongo
+        Auth = self.Auth
 
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-        start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
-        visual = (
-            f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
-        )
-        heading = (
-            f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
-            if frame
-            else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
-        )
-        end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
-        caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
-        return caption
+        if editionId is not None:
+            table = &#34;editions&#34;
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = &#34;projects&#34;
+            crit = dict(_id=projectId)
+        else:
+            table = &#34;meta&#34;
+            crit = dict(name=&#34;site&#34;)
 
-    def getIcon(self, candy):
-        &#34;&#34;&#34;Select an icon from a set of candidates.
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if &#34;read&#34; not in permissions:
+            return None
+
+        F = self.makeField(key)
+
+        if bare:
+            return F.bare(record)
+
+        button = self.actionButton(
+            &#34;update&#34;,
+            table,
+            recordId=recordId,
+            key=key,
+            projectId=projectId,
+            editionId=editionId,
+        )
+
+        return F.formatted(table, record, level=level, button=button)
+
+    def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+        &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
+
+        The user may to upload model files and scene files to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget will be returned.
 
         Parameters
         ----------
-        candy: dict
-            A set of candidates, given as a dict, keyed by file names
-            (without directory information) and valued by a boolean that
-            indicates whether the image may act as an icon.
+        key: an identifier for the upload field.
+        projectId: ObjectId, optional None
+            The project in question. If it is None, we are at the site level.
+        editionId: ObjectId, optional None
+            The edition in question. If it is None, we are at the project level
+            or site level.
+        sceneId: ObjectId, optional None
+            The scene in question. If it is None, we are at the edition,
+            project, or site level.
 
         Returns
         -------
-        string or None
-            The first candidate in candy that is an icon.
-            If there are no candidates that qualify, None is returned.
-        &#34;&#34;&#34;
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
 
-        if candy is None:
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        if sceneId is not None:
+            table = &#34;scenes&#34;
+            crit = dict(_id=sceneId)
+        elif editionId is not None:
+            table = &#34;editions&#34;
+            crit = dict(_id=editionId)
+        elif projectId is not None:
+            table = &#34;projects&#34;
+            crit = dict(_id=projectId)
+        else:
+            table = &#34;meta&#34;
+            crit = dict(name=&#34;site&#34;)
+
+        record = Mongo.getRecord(table, **crit) or AttrDict()
+        recordId = record._id
+
+        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+        if &#34;read&#34; not in permissions:
             return None
-        first = [image for (image, isIcon) in candy.items() if isIcon]
-        if first:
-            return first[0]
-        return None
+
+        F = self.makeUpload(key)
+
+        return F.formatted(record, &#34;update&#34; in permissions)
 
     def getViewerFile(self, path):
         &#34;&#34;&#34;Gets a viewer-related file from the file system.
@@ -941,118 +1287,433 @@ class that will compose a response out of it.</p>
         Returns
         -------
         string
-            The contents of the viewer file, if it exists.
+            The full path to the viewer file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
 
-        dataDir = Settings.dataDir
+        viewerDir = Settings.viewerDir
 
-        dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+        viewerPath = f&#34;{viewerDir}/{path}&#34;
 
-        if not fileExists(dataPath):
-            logmsg = f&#34;Accessing {dataPath}: &#34;
+        if not fileExists(viewerPath):
+            logmsg = f&#34;Accessing {viewerPath}: &#34;
             logmsg += &#34;does not exist. &#34;
             Messages.error(
                 msg=&#34;Accessing a file&#34;,
                 logmsg=logmsg,
             )
 
-        with open(dataPath, &#34;rb&#34;) as fh:
-            textData = fh.read()
+        return viewerPath
 
-        return textData
-
-    def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+    def getData(self, path, projectId=None, editionId=None):
         &#34;&#34;&#34;Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
         This is the data directory.
         Below that the files are organized by projects and editions.
 
-        At least one of the parameters `projectName` and `editionName`
-        should be present. And if `editionName` is present,
-        `projectName` should also be present.
-
         Parameters
         ----------
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectName: string, optional &#34;&#34;
-            The name of the project in question.
-        editionName: string, optional &#34;&#34;
-            The name of the edition in question.
+        projectId: ObjectId, optional None
+            The id of the project in question.
+        editionId: ObjectId, optional None
+            The id of the edition in question.
 
         Returns
         -------
         string
-            The contents of the data file, if it exists.
+            The full path of the data file, if it exists.
             Otherwise, we raise an error that will lead to a 404 response.
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
         Auth = self.Auth
 
-        dataDir = Settings.dataDir
-
-        if (
-            projectName == &#34;&#34;
-            and editionName == &#34;&#34;
-            or projectName == &#34;&#34;
-            and editionName != &#34;&#34;
-        ):
-            logmsg = &#34;no project/edition specified&#34;
-            Messages.error(
-                msg=&#34;Accessing a file&#34;,
-                logmsg=logmsg,
-            )
+        workingDir = Settings.workingDir
 
         urlBase = (
-            f&#34;projects/{projectName}&#34;
-            if editionName == &#34;&#34;
-            else f&#34;projects/{projectName}/editions/{editionName}&#34;
+            &#34;&#34;
+            if projectId is None
+            else f&#34;projects/{projectId}&#34;
+            if editionId is None
+            else f&#34;projects/{projectId}/editions/{editionId}&#34;
         )
+        sep = &#34;/&#34; if urlBase else &#34;&#34;
+        base = f&#34;{workingDir}{sep}{urlBase}&#34;
 
-        dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+        dataPath = base if path is None else f&#34;{base}/{path}&#34;
 
-        permitted = Auth.authorise(
-            &#34;view&#34;, project=projectName, edition=editionName, byName=True
-        )
+        if projectId is None:
+            table = &#34;meta&#34;
+            recordId = (
+                True  # dummy value for authorise, which only tests whether it is falsy
+            )
+        elif editionId is None:
+            table = &#34;projects&#34;
+            recordId = projectId
+        else:
+            table = &#34;editions&#34;
+            recordId = editionId
+        permitted = Auth.authorise(table, recordId=recordId, action=&#34;read&#34;)
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
             logmsg = f&#34;Accessing {dataPath}: &#34;
             if not permitted:
-                logmsg = &#34;not allowed. &#34;
+                logmsg += &#34;not allowed. &#34;
             if not fexists:
                 logmsg += &#34;does not exist. &#34;
             Messages.error(
-                msg=&#34;Accessing a file&#34;,
+                msg=f&#34;Accessing file {path}&#34;,
                 logmsg=logmsg,
             )
 
-        with open(dataPath, &#34;rb&#34;) as fh:
-            textData = fh.read()
+        return dataPath
 
-        return textData
+    def getItem(self, table, *args, **kwargs):
+        &#34;&#34;&#34;Get a all information about an item.
 
-    def getRecord(self, *args, **kwargs):
-        &#34;&#34;&#34;Get a record from MongoDb.
+        The item can be a project, edition, or scene.
+        The information about that item is a record in MongoDb.
+        possibly additional files on the file system.
 
-        This is just a trivial wrapper around a method with the same
-        name `control.mongo.Mongo.getRecord`.
+        Parameters
+        ----------
+        table: string
+            The name of the table from which to fetch an item
+        *args, **kwargs: any
+            Additional arguments to select the item&#39;s record
+            from MongoDB
 
-        We have this for reasons of abstraction:
-        the `control.pages.Pages` object relies
-        on this Content object to retrieve content,
-        and does not want to know where the content comes from.
+        Returns
+        -------
+        AttrDict
+            the contents of the item&#39;s record in MongoDB
         &#34;&#34;&#34;
-        return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+        return self.Mongo.getRecord(table, *args, **kwargs)
+
+    def actionButton(
+        self, action, table, recordId=None, key=None, projectId=None, editionId=None
+    ):
+        &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        !!! note &#34;Delete buttons&#34;
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
+        Parameters
+        ----------
+        action: string, optional None
+            The type of action that will be performed if the button triggered.
+        table: string
+            the table to which the action applies;
+        recordId: ObjectId, optional None
+            the record in question
+        projectId: ObjectId, optional None
+            The project in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        editionId: ObjectId, optional None
+            The edition in question, if any.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a metadata field that is stored inside the
+            record. From the key, the value can be found.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Auth = self.Auth
+
+        urlInsert = &#34;/&#34;
+        if projectId is not None:
+            urlInsert += f&#34;projects/{projectId}/&#34;
+        if editionId is not None:
+            urlInsert += f&#34;editions/{editionId}/&#34;
+
+        permitted = Auth.authorise(
+            table, recordId=recordId, projectId=projectId, action=action
+        )
+
+        if not permitted:
+            return &#34;&#34;
+
+        Settings = self.Settings
+        actions = Settings.auth.actions
+
+        disable = False
+        report = &#34;&#34;
+
+        if action == &#34;delete&#34;:
+            details = self.getDetailRecords(table, recordId)
+            if len(details):
+                disable = True
+                detailContent = []
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                    detailRep = detailTable.rstrip(&#34;s&#34;) + plural
+                    detailContent.append(f&#34;&#34;&#34;{nDetails}&amp;nbsp;{detailRep}&#34;&#34;&#34;)
+
+                report = H.div(
+                    [
+                        H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
+
+        actionInfo = AttrDict(actions.get(action, {}))
+        text = actionInfo.acro
+        name = actionInfo.name
+        tableItem = table.rstrip(&#34;s&#34;)
+        keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+        recordIdRep = &#34;&#34; if recordId is None else f&#34;/{recordId}&#34;
+
+        if disable:
+            elem = &#34;span&#34;
+            href = []
+            cls = &#34;disabled&#34;
+            can = &#34;Cannot &#34;
+        else:
+            elem = &#34;a&#34;
+            href = [
+                f&#34;{urlInsert}{table}/create&#34;
+                if action == &#34;create&#34;
+                else f&#34;/{table}{recordIdRep}{keyRepUrl}/{action}&#34;
+            ]
+            cls = &#34;&#34;
+            can = &#34;&#34;
+
+        fullCls = f&#34;button large {cls}&#34;
+        tip = (
+            f&#34;{name} new {tableItem}&#34;
+            if action == &#34;create&#34;
+            else f&#34;{can}{name}{keyRepTip} this {tableItem}&#34;
+        )
+
+        return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
+
+    def save(self, table, recordId, field, path, fileName):
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        workingDir = Settings.workingDir
+
+        permitted = Auth.authorise(table, recordId=recordId, action=&#34;update&#34;)
+        previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+
+        sep = &#34;/&#34; if path else &#34;&#34;
+        filePath = f&#34;{path}{sep}{fileName}&#34;
+        fileFullPath = f&#34;{workingDir}/{filePath}&#34;
+
+        if not permitted:
+            logmsg = f&#34;Upload not permitted: {table}-{field}: {fileFullPath}&#34;
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Upload not permitted: {filePath}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        try:
+            with open(fileFullPath, &#34;wb&#34;) as fh:
+                fh.write(data())
+        except Exception:
+            logmsg = &#34;Could not save uploaded file: {table}-{field}: {fileFullPath}&#34;
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Uploaded file not saved: {filePath}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        if not Mongo.updateRecord(
+            table, dict(field=fileName), warn=False, _id=recordId
+        ):
+            logmsg = (
+                &#34;Could not store uploaded file name in MongoDB: &#34;
+                f&#34;{table}-{field}: {filePath}&#34;
+            )
+            Messages.warning(
+                logmsg=logmsg,
+                msg=f&#34;Uploaded file name not stored: {fileName}&#34;,
+            )
+            return jsonify(status=False, msg=logmsg)
+
+        previousFilePath = f&#34;{path}{sep}{previousFileName}&#34;
+        previousFileFullPath = f&#34;{workingDir}/{previousFilePath}&#34;
+
+        if previousFileFullPath != fileFullPath:
+            fileRemove(previousFileFullPath)
+
+        fid = f&#34;{table}/{recordId}/{field}&#34;
+        staticUrl = f&#34;/data/{filePath}&#34;
+
+        return jsonify(status=True, fid=fid, staticUrl=staticUrl)</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></li>
+</ul>
 <h3>Methods</h3>
 <dl>
+<dt id="control.content.Content.actionButton"><code class="name flex">
+<span>def <span class="ident">actionButton</span></span>(<span>self, action, table, recordId=None, key=None, projectId=None, editionId=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Puts a button on the interface, if that makes sense.</p>
+<p>The button, when pressed, will lead to an action on certain content.
+It will be checked first if that action is allowed for the current user.
+If not the button will not be shown.</p>
+<div class="admonition note">
+<p class="admonition-title">Delete buttons</p>
+<p>Even if a user is authorised to delete a record,
+it is not allowed to delete master records if its detail records
+still exist.
+In that case, no delete button is displayed. Instead we display a count
+of detail records.</p>
+</div>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>The type of action that will be performed if the button triggered.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>the table to which the action applies;</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>the record in question</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project in question, if any.
+Needed to determine whether a press on the button is permitted.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition in question, if any.
+Needed to determine whether a press on the button is permitted.</dd>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If present, it identifies a metadata field that is stored inside the
+record. From the key, the value can be found.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L589-L694" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def actionButton(
+    self, action, table, recordId=None, key=None, projectId=None, editionId=None
+):
+    &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+    The button, when pressed, will lead to an action on certain content.
+    It will be checked first if that action is allowed for the current user.
+    If not the button will not be shown.
+
+    !!! note &#34;Delete buttons&#34;
+        Even if a user is authorised to delete a record,
+        it is not allowed to delete master records if its detail records
+        still exist.
+        In that case, no delete button is displayed. Instead we display a count
+        of detail records.
+
+    Parameters
+    ----------
+    action: string, optional None
+        The type of action that will be performed if the button triggered.
+    table: string
+        the table to which the action applies;
+    recordId: ObjectId, optional None
+        the record in question
+    projectId: ObjectId, optional None
+        The project in question, if any.
+        Needed to determine whether a press on the button is permitted.
+    editionId: ObjectId, optional None
+        The edition in question, if any.
+        Needed to determine whether a press on the button is permitted.
+    key: string, optional None
+        If present, it identifies a metadata field that is stored inside the
+        record. From the key, the value can be found.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Auth = self.Auth
+
+    urlInsert = &#34;/&#34;
+    if projectId is not None:
+        urlInsert += f&#34;projects/{projectId}/&#34;
+    if editionId is not None:
+        urlInsert += f&#34;editions/{editionId}/&#34;
+
+    permitted = Auth.authorise(
+        table, recordId=recordId, projectId=projectId, action=action
+    )
+
+    if not permitted:
+        return &#34;&#34;
+
+    Settings = self.Settings
+    actions = Settings.auth.actions
+
+    disable = False
+    report = &#34;&#34;
+
+    if action == &#34;delete&#34;:
+        details = self.getDetailRecords(table, recordId)
+        if len(details):
+            disable = True
+            detailContent = []
+            for (detailTable, detailRecords) in details.items():
+                nDetails = len(detailRecords)
+                plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                detailRep = detailTable.rstrip(&#34;s&#34;) + plural
+                detailContent.append(f&#34;&#34;&#34;{nDetails}&amp;nbsp;{detailRep}&#34;&#34;&#34;)
+
+            report = H.div(
+                [
+                    H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                    for thisContent in detailContent
+                ]
+            )
+            report = H.br() + report
+
+    actionInfo = AttrDict(actions.get(action, {}))
+    text = actionInfo.acro
+    name = actionInfo.name
+    tableItem = table.rstrip(&#34;s&#34;)
+    keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+    keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+    recordIdRep = &#34;&#34; if recordId is None else f&#34;/{recordId}&#34;
+
+    if disable:
+        elem = &#34;span&#34;
+        href = []
+        cls = &#34;disabled&#34;
+        can = &#34;Cannot &#34;
+    else:
+        elem = &#34;a&#34;
+        href = [
+            f&#34;{urlInsert}{table}/create&#34;
+            if action == &#34;create&#34;
+            else f&#34;/{table}{recordIdRep}{keyRepUrl}/{action}&#34;
+        ]
+        cls = &#34;&#34;
+        can = &#34;&#34;
+
+    fullCls = f&#34;button large {cls}&#34;
+    tip = (
+        f&#34;{name} new {tableItem}&#34;
+        if action == &#34;create&#34;
+        else f&#34;{can}{name}{keyRepTip} this {tableItem}&#34;
+    )
+
+    return H.elem(elem, text, *href, title=tip, cls=fullCls) + report</code></pre>
+</details>
+</dd>
 <dt id="control.content.Content.addAuth"><code class="name flex">
 <span>def <span class="ident">addAuth</span></span>(<span>self, Auth)</span>
 </code></dt>
@@ -1063,7 +1724,7 @@ a handle to Auth after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L49-L55" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L34-L40" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuth(self, Auth):
     &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -1075,207 +1736,119 @@ a handle to Auth after their initialization.</p></div>
 </details>
 </dd>
 <dt id="control.content.Content.getCaption"><code class="name flex">
-<span>def <span class="ident">getCaption</span></span>(<span>self, title, candy, url, iconUrlBase, active=False, buttons='', frame='')</span>
+<span>def <span class="ident">getCaption</span></span>(<span>self, visual, titleText, button, url)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a caption for a project, edition, or scene.</p>
-<p>A caption consists of an icon, and a textual title, both with
-a hyperlink to the full or active version of the item.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>title</code></strong> :&ensp;<code>string</code></dt>
-<dd>The textual bit of the caption.</dd>
-<dt><strong><code>candy</code></strong> :&ensp;<code>dict</code></dt>
-<dd>A dictionary of visual elements to chose from.
-If one of the elements is called <code>icon</code>, that will be chosen.</dd>
-<dt><strong><code>url</code></strong> :&ensp;<code>string</code></dt>
-<dd>The url to link to.</dd>
-<dt><strong><code>iconUrlBase</code></strong> :&ensp;<code>string</code></dt>
-<dd>The url that almost points to the icon image file,
-only the selected name from <code>candy</code> needs to be appended to it.</dd>
-<dt><strong><code>active</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>Whether the caption should be displayed as being <em>active</em>.</dd>
-<dt><strong><code>buttons</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
-<dd>A set of buttons that should be displayed below the captions.
-This applies to captions for <em>scenes</em>: there we want to display
-buttons to open the scene in a variety of veiwers, versions and
-modes.</dd>
-<dt><strong><code>frame</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
-<dd>An iframe to display instead of the visual element of the caption.
-This applies to scene captions, for the case where we want to show
-the scene loaded in a viewer. That will be done in an iframe,
-and this is the HTML for that iframe.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML representing the caption.</dd>
-</dl></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L300-L352" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L333-L338" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getCaption(
-    self, title, candy, url, iconUrlBase, active=False, buttons=&#34;&#34;, frame=&#34;&#34;
-):
-    &#34;&#34;&#34;Get a caption for a project, edition, or scene.
+<pre><code class="python">def getCaption(self, visual, titleText, button, url):
+    title = H.span(titleText, cls=&#34;entrytitle&#34;)
 
-    A caption consists of an icon, and a textual title, both with
-    a hyperlink to the full or active version of the item.
-
-    Parameters
-    ----------
-    title: string
-        The textual bit of the caption.
-    candy: dict
-        A dictionary of visual elements to chose from.
-        If one of the elements is called `icon`, that will be chosen.
-    url: string
-        The url to link to.
-    iconUrlBase: string
-        The url that almost points to the icon image file,
-        only the selected name from `candy` needs to be appended to it.
-    active: boolean, optional False
-        Whether the caption should be displayed as being *active*.
-    buttons: string, optional &#34;&#34;
-        A set of buttons that should be displayed below the captions.
-        This applies to captions for *scenes*: there we want to display
-        buttons to open the scene in a variety of veiwers, versions and
-        modes.
-    frame: string, optional &#34;&#34;
-        An iframe to display instead of the visual element of the caption.
-        This applies to scene captions, for the case where we want to show
-        the scene loaded in a viewer. That will be done in an iframe,
-        and this is the HTML for that iframe.
-
-    Returns
-    -------
-    string
-        The HTML representing the caption.
-    &#34;&#34;&#34;
-    icon = self.getIcon(candy)
-
-    activeCls = &#34;active&#34; if active else &#34;&#34;
-    start = f&#34;&#34;&#34;&lt;div class=&#34;caption {activeCls}&#34;&gt;&#34;&#34;&#34;
-    visual = (
-        f&#34;&#34;&#34;&lt;img class=&#34;previewicon&#34; src=&#34;{iconUrlBase}/{icon}&#34;&gt;&#34;&#34;&#34; if icon else &#34;&#34;
-    )
-    heading = (
-        f&#34;&#34;&#34;{frame}&lt;a href=&#34;{url}&#34;&gt;{title}&lt;/a&gt;&#34;&#34;&#34;
-        if frame
-        else f&#34;&#34;&#34;&lt;a href=&#34;{url}&#34;&gt;{visual}{title}&lt;/a&gt;&#34;&#34;&#34;
-    )
-    end = &#34;&#34;&#34;&lt;/div&gt;&#34;&#34;&#34;
-    caption = f&#34;&#34;&#34;{start}{heading}{buttons}{end}&#34;&#34;&#34;
-    return caption</code></pre>
+    # visual = H.img(f&#34;{iconUrlBase}/{icon}&#34;, imgAtts=dict(cls=&#34;previewicon&#34;))
+    content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
+    return self.wrapCaption(content, button)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getData"><code class="name flex">
-<span>def <span class="ident">getData</span></span>(<span>self, path, projectName='', editionName='')</span>
+<span>def <span class="ident">getData</span></span>(<span>self, path, projectId=None, editionId=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets a data file from the file system.</p>
 <p>All data files are located under a specific directory on the server.
 This is the data directory.
 Below that the files are organized by projects and editions.</p>
-<p>At least one of the parameters <code>projectName</code> and <code>editionName</code>
-should be present. And if <code>editionName</code> is present,
-<code>projectName</code> should also be present.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
 <dd>The path of the data file within project/edition directory
 within the data directory.</dd>
-<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
-<dd>The name of the project in question.</dd>
-<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
-<dd>The name of the edition in question.</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The id of the project in question.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The id of the edition in question.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>string</code></dt>
-<dd>The contents of the data file, if it exists.
+<dd>The full path of the data file, if it exists.
 Otherwise, we raise an error that will lead to a 404 response.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L417-L489" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L499-L565" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getData(self, path, projectName=&#34;&#34;, editionName=&#34;&#34;):
+<pre><code class="python">def getData(self, path, projectId=None, editionId=None):
     &#34;&#34;&#34;Gets a data file from the file system.
 
     All data files are located under a specific directory on the server.
     This is the data directory.
     Below that the files are organized by projects and editions.
 
-    At least one of the parameters `projectName` and `editionName`
-    should be present. And if `editionName` is present,
-    `projectName` should also be present.
-
     Parameters
     ----------
     path: string
         The path of the data file within project/edition directory
         within the data directory.
-    projectName: string, optional &#34;&#34;
-        The name of the project in question.
-    editionName: string, optional &#34;&#34;
-        The name of the edition in question.
+    projectId: ObjectId, optional None
+        The id of the project in question.
+    editionId: ObjectId, optional None
+        The id of the edition in question.
 
     Returns
     -------
     string
-        The contents of the data file, if it exists.
+        The full path of the data file, if it exists.
         Otherwise, we raise an error that will lead to a 404 response.
     &#34;&#34;&#34;
     Settings = self.Settings
     Messages = self.Messages
     Auth = self.Auth
 
-    dataDir = Settings.dataDir
-
-    if (
-        projectName == &#34;&#34;
-        and editionName == &#34;&#34;
-        or projectName == &#34;&#34;
-        and editionName != &#34;&#34;
-    ):
-        logmsg = &#34;no project/edition specified&#34;
-        Messages.error(
-            msg=&#34;Accessing a file&#34;,
-            logmsg=logmsg,
-        )
+    workingDir = Settings.workingDir
 
     urlBase = (
-        f&#34;projects/{projectName}&#34;
-        if editionName == &#34;&#34;
-        else f&#34;projects/{projectName}/editions/{editionName}&#34;
+        &#34;&#34;
+        if projectId is None
+        else f&#34;projects/{projectId}&#34;
+        if editionId is None
+        else f&#34;projects/{projectId}/editions/{editionId}&#34;
     )
+    sep = &#34;/&#34; if urlBase else &#34;&#34;
+    base = f&#34;{workingDir}{sep}{urlBase}&#34;
 
-    dataPath = f&#34;{dataDir}/{urlBase}/{path}&#34;
+    dataPath = base if path is None else f&#34;{base}/{path}&#34;
 
-    permitted = Auth.authorise(
-        &#34;view&#34;, project=projectName, edition=editionName, byName=True
-    )
+    if projectId is None:
+        table = &#34;meta&#34;
+        recordId = (
+            True  # dummy value for authorise, which only tests whether it is falsy
+        )
+    elif editionId is None:
+        table = &#34;projects&#34;
+        recordId = projectId
+    else:
+        table = &#34;editions&#34;
+        recordId = editionId
+    permitted = Auth.authorise(table, recordId=recordId, action=&#34;read&#34;)
 
     fexists = fileExists(dataPath)
     if not permitted or not fexists:
         logmsg = f&#34;Accessing {dataPath}: &#34;
         if not permitted:
-            logmsg = &#34;not allowed. &#34;
+            logmsg += &#34;not allowed. &#34;
         if not fexists:
             logmsg += &#34;does not exist. &#34;
         Messages.error(
-            msg=&#34;Accessing a file&#34;,
+            msg=f&#34;Accessing file {path}&#34;,
             logmsg=logmsg,
         )
 
-    with open(dataPath, &#34;rb&#34;) as fh:
-        textData = fh.read()
-
-    return textData</code></pre>
+    return dataPath</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getEditions"><code class="name flex">
@@ -1301,7 +1874,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L149-L193" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L117-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getEditions(self, projectId):
     &#34;&#34;&#34;Get the list of the editions of a project.
@@ -1326,164 +1899,79 @@ wrapped in a HTML string.</dd>
     Mongo = self.Mongo
     Auth = self.Auth
 
-    projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-    projectName = projectInfo.name
-
     wrapped = []
 
-    for row in Mongo.execute(&#34;editions&#34;, &#34;find&#34;, dict(projectId=projectId)):
-        row = AttrDict(row)
-        editionId = row._id
-        permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
+    for record in Mongo.getList(&#34;editions&#34;, projectId=projectId):
+        editionId = record._id
+        permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=&#34;read&#34;)
         if not permitted:
             continue
 
-        title = row.title
-        candy = row.candy
+        title = record.title
 
         editionUrl = f&#34;/editions/{editionId}&#34;
-        editionName = row.name
-        iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-        caption = self.getCaption(title, candy, editionUrl, iconUrlBase)
+        button = self.actionButton(
+            &#34;delete&#34;,
+            &#34;editions&#34;,
+            recordId=editionId,
+        )
+        visual = self.getUpload(
+            &#34;iconEdition&#34;, projectId=projectId, editionId=editionId
+        )
+        caption = self.getCaption(visual, title, button, editionUrl)
         wrapped.append(caption)
 
-    return &#34;\n&#34;.join(wrapped)</code></pre>
+    wrapped.append(self.actionButton(&#34;create&#34;, &#34;editions&#34;, projectId=projectId))
+    return H.content(*wrapped)</code></pre>
 </details>
 </dd>
-<dt id="control.content.Content.getIcon"><code class="name flex">
-<span>def <span class="ident">getIcon</span></span>(<span>self, candy)</span>
+<dt id="control.content.Content.getItem"><code class="name flex">
+<span>def <span class="ident">getItem</span></span>(<span>self, table, *args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Select an icon from a set of candidates.</p>
+<div class="desc"><p>Get a all information about an item.</p>
+<p>The item can be a project, edition, or scene.
+The information about that item is a record in MongoDb.
+possibly additional files on the file system.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>candy</code></strong> :&ensp;<code>dict</code></dt>
-<dd>A set of candidates, given as a dict, keyed by file names
-(without directory information) and valued by a boolean that
-indicates whether the image may act as an icon.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the table from which to fetch an item</dd>
+<dt><strong><code>*args</code></strong>, <strong><code>**kwargs</code></strong> :&ensp;<code>any</code></dt>
+<dd>Additional arguments to select the item's record
+from MongoDB</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>string</code> or <code>None</code></dt>
-<dd>The first candidate in candy that is an icon.
-If there are no candidates that qualify, None is returned.</dd>
+<dt><code>AttrDict</code></dt>
+<dd>the contents of the item's record in MongoDB</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L354-L376" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L567-L587" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getIcon(self, candy):
-    &#34;&#34;&#34;Select an icon from a set of candidates.
+<pre><code class="python">def getItem(self, table, *args, **kwargs):
+    &#34;&#34;&#34;Get a all information about an item.
+
+    The item can be a project, edition, or scene.
+    The information about that item is a record in MongoDb.
+    possibly additional files on the file system.
 
     Parameters
     ----------
-    candy: dict
-        A set of candidates, given as a dict, keyed by file names
-        (without directory information) and valued by a boolean that
-        indicates whether the image may act as an icon.
+    table: string
+        The name of the table from which to fetch an item
+    *args, **kwargs: any
+        Additional arguments to select the item&#39;s record
+        from MongoDB
 
     Returns
     -------
-    string or None
-        The first candidate in candy that is an icon.
-        If there are no candidates that qualify, None is returned.
+    AttrDict
+        the contents of the item&#39;s record in MongoDB
     &#34;&#34;&#34;
-
-    if candy is None:
-        return None
-    first = [image for (image, isIcon) in candy.items() if isIcon]
-    if first:
-        return first[0]
-    return None</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.getMeta"><code class="name flex">
-<span>def <span class="ident">getMeta</span></span>(<span>self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Retrieve a metadata string.</p>
-<p>Metadata sits in a big, potentially deeply nested dictionary of keys
-and values.
-This function retrieves the information based on a path of keys.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>nameSpace</code></strong> :&ensp;<code>string</code></dt>
-<dd>The first selector in the metadata, e.g. <code>dc</code> for Dublin Core.</dd>
-<dt><strong><code>fieldPath</code></strong> :&ensp;<code>string</code></dt>
-<dd>A <code>.</code>-separated list of keys. This is a selector in the nested
-metadata dict selected by the <code>nameSpace</code> argument.</dd>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
-<dd>The project whose metadata we need. If it is None, we need metadata
-outside all of the projects.</dd>
-<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
-<dd>The edition whose metadata we need. If it is None, we need metadata of
-a project or outer metadata.</dd>
-<dt><strong><code>asMd</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>If True, and the resulting metadata is a string, we assume that it is
-a markdown string, and we convert it to HTML.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>It is assumed that the metadata that is addressed
-by the <code>nameSpace</code> and <code>fieldPath</code> arguments exists and is a string.
-If not, we return the empty string.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L57-L105" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getMeta(self, nameSpace, fieldPath, projectId=None, editionId=None, asMd=False):
-    &#34;&#34;&#34;Retrieve a metadata string.
-
-    Metadata sits in a big, potentially deeply nested dictionary of keys
-    and values.
-    This function retrieves the information based on a path of keys.
-
-    Parameters
-    ----------
-    nameSpace: string
-        The first selector in the metadata, e.g. `dc` for Dublin Core.
-    fieldPath: string
-        A `.`-separated list of keys. This is a selector in the nested
-        metadata dict selected by the `nameSpace` argument.
-    projectId: ObjectId, optional None
-        The project whose metadata we need. If it is None, we need metadata
-        outside all of the projects.
-    editionId: ObjectId, optional None
-        The edition whose metadata we need. If it is None, we need metadata of
-        a project or outer metadata.
-    asMd: boolean, optional False
-        If True, and the resulting metadata is a string, we assume that it is
-        a markdown string, and we convert it to HTML.
-
-    Returns
-    -------
-    string
-        It is assumed that the metadata that is addressed
-        by the `nameSpace` and `fieldPath` arguments exists and is a string.
-        If not, we return the empty string.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-
-    fields = fieldPath.split(&#34;.&#34;)
-
-    meta = (
-        Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-        if editionId is not None
-        else Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-        if projectId is not None
-        else Mongo.getRecord(&#34;meta&#34;)
-    ).meta or {}
-    text = meta.get(nameSpace, {}).get(fields[0], &#34;&#34; if len(fields) == 0 else {})
-
-    for field in fields[1:]:
-        text = text.get(field, {})
-    if type(text) is not str:
-        text = &#34;&#34;
-    return markdown(text) if asMd else text</code></pre>
+    return self.Mongo.getRecord(table, *args, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getProjects"><code class="name flex">
@@ -1504,7 +1992,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L111-L147" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L46-L87" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getProjects(self):
     &#34;&#34;&#34;Get the list of all projects.
@@ -1525,58 +2013,33 @@ wrapped in a HTML string.</dd>
     Auth = self.Auth
 
     wrapped = []
+    wrapped.append(self.actionButton(&#34;create&#34;, &#34;projects&#34;))
 
-    for row in Mongo.execute(&#34;projects&#34;, &#34;find&#34;):
-        row = AttrDict(row)
-        projectId = row._id
-        permitted = Auth.authorise(&#34;view&#34;, project=projectId)
+    for record in Mongo.getList(&#34;projects&#34;):
+        projectId = record._id
+        permitted = Auth.authorise(&#34;projects&#34;, recordId=projectId, action=&#34;read&#34;)
         if not permitted:
             continue
 
-        title = row.title
-        candy = row.candy
+        title = record.title
 
         projectUrl = f&#34;/projects/{projectId}&#34;
-        projectName = row.name
-        iconUrlBase = f&#34;/data/projects/{projectName}/candy&#34;
-        caption = self.getCaption(title, candy, projectUrl, iconUrlBase)
+        button = self.actionButton(
+            &#34;delete&#34;,
+            &#34;projects&#34;,
+            recordId=projectId,
+        )
+        self.debug(f&#34;deletebutton: {button}&#34;)
+        visual = self.getUpload(&#34;iconProject&#34;, projectId=projectId)
+        caption = self.getCaption(visual, title, button, projectUrl)
+
         wrapped.append(caption)
 
-    return &#34;\n&#34;.join(wrapped)</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.getRecord"><code class="name flex">
-<span>def <span class="ident">getRecord</span></span>(<span>self, *args, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get a record from MongoDb.</p>
-<p>This is just a trivial wrapper around a method with the same
-name <code><a title="control.mongo.Mongo.getRecord" href="mongo.html#control.mongo.Mongo.getRecord">Mongo.getRecord()</a></code>.</p>
-<p>We have this for reasons of abstraction:
-the <code><a title="control.pages.Pages" href="pages.html#control.pages.Pages">Pages</a></code> object relies
-on this Content object to retrieve content,
-and does not want to know where the content comes from.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L491-L502" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getRecord(self, *args, **kwargs):
-    &#34;&#34;&#34;Get a record from MongoDb.
-
-    This is just a trivial wrapper around a method with the same
-    name `control.mongo.Mongo.getRecord`.
-
-    We have this for reasons of abstraction:
-    the `control.pages.Pages` object relies
-    on this Content object to retrieve content,
-    and does not want to know where the content comes from.
-    &#34;&#34;&#34;
-    return self.Mongo.getRecord(*args, **kwargs)</code></pre>
+    return H.content(*wrapped)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getScenes"><code class="name flex">
-<span>def <span class="ident">getScenes</span></span>(<span>self, projectId, editionId, sceneId=None, viewer='', version='', action='view')</span>
+<span>def <span class="ident">getScenes</span></span>(<span>self, projectId, editionId, sceneId=None, viewer=None, version=None, action=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get the list of the scenes of an edition of a project.</p>
@@ -1601,16 +2064,16 @@ If the parameters do not specify values, sensible defaults are chosen.</p>
 <dd>The active scene. If None the default scene is chosen.
 A scene record specifies whether that scene is the default scene for
 that edition.</dd>
-<dt><strong><code>viewer</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dt><strong><code>viewer</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>The viewer to be used for the 3D viewing. It should be a supported viewer.
-If "", the default viewer is chosen.
+If None, the default viewer is chosen.
 The list of those viewers is in the <code>yaml/viewers.yml</code> file,
 which also specifies what the default viewer is.</dd>
-<dt><strong><code>version</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dt><strong><code>version</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>The version of the chosen viewer that will be used.
 If no version or a non-existing version are specified,
 the latest existing version for that viewer will be chosen.</dd>
-<dt><strong><code>action</code></strong> :&ensp;<code>string</code>, optional <code>"view"</code></dt>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code>, optional <code>view</code></dt>
 <dd>The mode in which the viewer should be opened.
 If the mode is <code>edit</code>, the viewer is opened in edit mode.
 All other modes lead to the viewer being opened in read-only
@@ -1626,16 +2089,16 @@ The list is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L195-L298" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L192-L299" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getScenes(
     self,
     projectId,
     editionId,
     sceneId=None,
-    viewer=&#34;&#34;,
-    version=&#34;&#34;,
-    action=&#34;view&#34;,
+    viewer=None,
+    version=None,
+    action=None,
 ):
     &#34;&#34;&#34;Get the list of the scenes of an edition of a project.
 
@@ -1664,16 +2127,16 @@ The list is wrapped in a HTML string.</dd>
         The active scene. If None the default scene is chosen.
         A scene record specifies whether that scene is the default scene for
         that edition.
-    viewer: string, optional &#34;&#34;
+    viewer: string, optional None
         The viewer to be used for the 3D viewing. It should be a supported viewer.
-        If &#34;&#34;, the default viewer is chosen.
+        If None, the default viewer is chosen.
         The list of those viewers is in the `yaml/viewers.yml` file,
         which also specifies what the default viewer is.
-    version: string, optional &#34;&#34;
+    version: string, optional None
         The version of the chosen viewer that will be used.
         If no version or a non-existing version are specified,
         the latest existing version for that viewer will be chosen.
-    action: string, optional `&#34;view&#34;`
+    action: string, optional `view`
         The mode in which the viewer should be opened.
         If the mode is `edit`, the viewer is opened in edit mode.
         All other modes lead to the viewer being opened in read-only
@@ -1690,48 +2153,52 @@ The list is wrapped in a HTML string.</dd>
     Auth = self.Auth
     Viewers = self.Viewers
 
-    projectInfo = Mongo.getRecord(&#34;projects&#34;, _id=projectId)
-    projectName = projectInfo.name
-    editionInfo = Mongo.getRecord(&#34;editions&#34;, _id=editionId)
-    editionName = editionInfo.name
-
     wrapped = []
 
-    permitted = Auth.authorise(&#34;view&#34;, project=projectId, edition=editionId)
-    if not permitted:
-        return []
-
-    action = Auth.checkModifiable(projectId, editionId, action)
-    actions = [&#34;view&#34;]
-    if Auth.isModifiable(projectId, editionId):
-        actions.append(&#34;edit&#34;)
+    actions = Auth.authorise(&#34;editions&#34;, recordId=editionId)
+    if &#34;read&#34; not in actions:
+        return &#34;&#34;
 
     (viewer, version) = Viewers.check(viewer, version)
 
     wrapped = []
 
-    for row in Mongo.execute(&#34;scenes&#34;, &#34;find&#34;, dict(editionId=editionId)):
-        row = AttrDict(row)
+    for record in Mongo.getList(&#34;scenes&#34;, editionId=editionId):
+        thisSceneId = record._id
 
-        isSceneActive = sceneId is None and row.default or row._id == sceneId
-        (frame, buttons) = Viewers.getButtons(
-            row._id, actions, isSceneActive, viewer, version, action
+        isSceneActive = sceneId is None and record.default or record._id == sceneId
+        titleText = H.span(record.name, cls=&#34;entrytitle&#34;)
+        button = self.actionButton(
+            &#34;delete&#34;,
+            &#34;scenes&#34;,
+            recordId=thisSceneId,
         )
 
-        sceneUrl = f&#34;/scenes/{row._id}&#34;
-        iconUrlBase = f&#34;/data/projects/{projectName}/editions/{editionName}/candy&#34;
-        caption = self.getCaption(
-            row.name,
-            row.candy,
-            sceneUrl,
-            iconUrlBase,
-            active=isSceneActive,
-            frame=frame,
-            buttons=buttons,
-        )
+        if isSceneActive:
+            (frame, buttons) = Viewers.getFrame(
+                thisSceneId, actions, viewer, version, action
+            )
+            title = H.span(titleText, cls=&#34;entrytitle&#34;)
+            content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
+            caption = self.wrapCaption(content, button, active=True)
+        else:
+            sceneUrl = f&#34;/scenes/{record._id}&#34;
+            visual = self.getUpload(
+                &#34;iconScene&#34;,
+                projectId=projectId,
+                editionId=editionId,
+                sceneId=thisSceneId,
+            )
+            caption = self.getCaption(visual, titleText, button, sceneUrl)
+
         wrapped.append(caption)
 
-    return &#34;\n&#34;.join(wrapped)</code></pre>
+    wrapped.append(
+        self.actionButton(
+            &#34;create&#34;, &#34;scenes&#34;, projectId=projectId, editionId=editionId
+        )
+    )
+    return H.content(*wrapped)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getSurprise"><code class="name flex">
@@ -1742,11 +2209,205 @@ The list is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L107-L109" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L42-L44" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getSurprise(self):
     &#34;&#34;&#34;Get the data that belongs to the surprise-me functionality.&#34;&#34;&#34;
-    return &#34;&lt;h2&gt;You will be surprised!&lt;/h2&gt;&#34;</code></pre>
+    return H.h(2, &#34;You will be surprised!&#34;)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getUpload"><code class="name flex">
+<span>def <span class="ident">getUpload</span></span>(<span>self, key, projectId=None, editionId=None, sceneId=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Display the name and/or upload controls of an uploaded file.</p>
+<p>The user may to upload model files and scene files to an edition,
+and various png files as icons for projects, edtions, and scenes.
+Here we produce the control to do so.</p>
+<p>Only if the user has <code>update</code> authorisation, an upload/delete widget will be returned.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt>key: an identifier for the upload field.</dt>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project in question. If it is None, we are at the site level.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition in question. If it is None, we are at the project level
+or site level.</dd>
+<dt><strong><code>sceneId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The scene in question. If it is None, we are at the edition,
+project, or site level.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>
+<p>The name of the file that is currently present, or the indication
+that no file is present.</p>
+<p>If the user has edit permission for the edition, we display
+widgets to upload a new file or to delete the existing file.</p>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L405-L461" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+    &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
+
+    The user may to upload model files and scene files to an edition,
+    and various png files as icons for projects, edtions, and scenes.
+    Here we produce the control to do so.
+
+    Only if the user has `update` authorisation, an upload/delete widget will be returned.
+
+    Parameters
+    ----------
+    key: an identifier for the upload field.
+    projectId: ObjectId, optional None
+        The project in question. If it is None, we are at the site level.
+    editionId: ObjectId, optional None
+        The edition in question. If it is None, we are at the project level
+        or site level.
+    sceneId: ObjectId, optional None
+        The scene in question. If it is None, we are at the edition,
+        project, or site level.
+
+    Returns
+    -------
+    string
+        The name of the file that is currently present, or the indication
+        that no file is present.
+
+        If the user has edit permission for the edition, we display
+        widgets to upload a new file or to delete the existing file.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    if sceneId is not None:
+        table = &#34;scenes&#34;
+        crit = dict(_id=sceneId)
+    elif editionId is not None:
+        table = &#34;editions&#34;
+        crit = dict(_id=editionId)
+    elif projectId is not None:
+        table = &#34;projects&#34;
+        crit = dict(_id=projectId)
+    else:
+        table = &#34;meta&#34;
+        crit = dict(name=&#34;site&#34;)
+
+    record = Mongo.getRecord(table, **crit) or AttrDict()
+    recordId = record._id
+
+    permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+    if &#34;read&#34; not in permissions:
+        return None
+
+    F = self.makeUpload(key)
+
+    return F.formatted(record, &#34;update&#34; in permissions)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getValue"><code class="name flex">
+<span>def <span class="ident">getValue</span></span>(<span>self, key, projectId=None, editionId=None, level=None, bare=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Retrieve a metadata value.</p>
+<p>Metadata sits in a big, potentially deeply nested dictionary of keys
+and values.
+These locations are known to the system (based on <code>fields.yml</code>).
+This function retrieves the information from those known locations.</p>
+<p>If a value is in fact composed of multiple values, it will be
+handled accordingly.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt>key: an identifier for the meta data field.</dt>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project whose metadata we need. If it is None, we are at the site level.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition whose metadata we need. If it is None, we need metadata of
+a project or outer metadata.</dd>
+<dt><strong><code>bare</code></strong> :&ensp;<code>boolean</code>, optional <code>None</code></dt>
+<dd>Get the bare value, without HTML wrapping and without buttons.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>It is assumed that the metadata value that is addressed exists.
+If not, we return the empty string.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L340-L403" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+    &#34;&#34;&#34;Retrieve a metadata value.
+
+    Metadata sits in a big, potentially deeply nested dictionary of keys
+    and values.
+    These locations are known to the system (based on `fields.yml`).
+    This function retrieves the information from those known locations.
+
+    If a value is in fact composed of multiple values, it will be
+    handled accordingly.
+
+    Parameters
+    ----------
+    key: an identifier for the meta data field.
+    projectId: ObjectId, optional None
+        The project whose metadata we need. If it is None, we are at the site level.
+    editionId: ObjectId, optional None
+        The edition whose metadata we need. If it is None, we need metadata of
+        a project or outer metadata.
+    bare: boolean, optional None
+        Get the bare value, without HTML wrapping and without buttons.
+
+    Returns
+    -------
+    string
+        It is assumed that the metadata value that is addressed exists.
+        If not, we return the empty string.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    if editionId is not None:
+        table = &#34;editions&#34;
+        crit = dict(_id=editionId)
+    elif projectId is not None:
+        table = &#34;projects&#34;
+        crit = dict(_id=projectId)
+    else:
+        table = &#34;meta&#34;
+        crit = dict(name=&#34;site&#34;)
+
+    record = Mongo.getRecord(table, **crit) or AttrDict()
+    recordId = record._id
+
+    permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+
+    if &#34;read&#34; not in permissions:
+        return None
+
+    F = self.makeField(key)
+
+    if bare:
+        return F.bare(record)
+
+    button = self.actionButton(
+        &#34;update&#34;,
+        table,
+        recordId=recordId,
+        key=key,
+        projectId=projectId,
+        editionId=editionId,
+    )
+
+    return F.formatted(table, record, level=level, button=button)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getViewerFile"><code class="name flex">
@@ -1765,13 +2426,13 @@ This is the viewer base.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>string</code></dt>
-<dd>The contents of the viewer file, if it exists.
+<dd>The full path to the viewer file, if it exists.
 Otherwise, we raise an error that will lead to a 404 response.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/content.py#L378-L415" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L463-L497" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getViewerFile(self, path):
     &#34;&#34;&#34;Gets a viewer-related file from the file system.
@@ -1789,31 +2450,237 @@ Otherwise, we raise an error that will lead to a 404 response.</dd>
     Returns
     -------
     string
-        The contents of the viewer file, if it exists.
+        The full path to the viewer file, if it exists.
         Otherwise, we raise an error that will lead to a 404 response.
     &#34;&#34;&#34;
     Settings = self.Settings
     Messages = self.Messages
 
-    dataDir = Settings.dataDir
+    viewerDir = Settings.viewerDir
 
-    dataPath = f&#34;{dataDir}/viewers/{path}&#34;
+    viewerPath = f&#34;{viewerDir}/{path}&#34;
 
-    if not fileExists(dataPath):
-        logmsg = f&#34;Accessing {dataPath}: &#34;
+    if not fileExists(viewerPath):
+        logmsg = f&#34;Accessing {viewerPath}: &#34;
         logmsg += &#34;does not exist. &#34;
         Messages.error(
             msg=&#34;Accessing a file&#34;,
             logmsg=logmsg,
         )
 
-    with open(dataPath, &#34;rb&#34;) as fh:
-        textData = fh.read()
+    return viewerPath</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.insertEdition"><code class="name flex">
+<span>def <span class="ident">insertEdition</span></span>(<span>self, projectId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L165-L190" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def insertEdition(self, projectId):
+    Mongo = self.Mongo
+    Auth = self.Auth
 
-    return textData</code></pre>
+    permitted = Auth.authorise(&#34;editions&#34;, projectId=projectId)
+    if not permitted:
+        return None
+
+    User = Auth.myDetails()
+    name = User.nickname
+
+    title = &#34;Edition without title&#34;
+
+    dcMeta = dict(
+        title=title,
+        description=dict(
+            abstract=&#34;No intro&#34;,
+            description=&#34;No description&#34;,
+            provenance=&#34;No sources&#34;,
+        ),
+        creator=name,
+    )
+    editionId = Mongo.insertRecord(
+        &#34;editions&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
+    )
+    return editionId</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.insertProject"><code class="name flex">
+<span>def <span class="ident">insertProject</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L89-L115" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def insertProject(self):
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    permitted = Auth.authorise(&#34;projects&#34;)
+    if not permitted:
+        return None
+
+    User = Auth.myDetails()
+    user = User.sub
+    name = User.nickname
+
+    title = &#34;Project without title&#34;
+
+    dcMeta = dict(
+        title=title,
+        description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+        creator=name,
+    )
+    projectId = Mongo.insertRecord(&#34;projects&#34;, title=title, meta=dict(dc=dcMeta))
+    Mongo.insertRecord(
+        &#34;projectUsers&#34;,
+        projectId=projectId,
+        user=user,
+        role=&#34;creator&#34;,
+    )
+    return projectId</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.insertScene"><code class="name flex">
+<span>def <span class="ident">insertScene</span></span>(<span>self, projectId, editionId)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L301-L325" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def insertScene(self, projectId, editionId):
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    permitted = Auth.authorise(&#34;scenes&#34;, projectId=projectId)
+    if not permitted:
+        return None
+
+    User = Auth.myDetails()
+    name = User.nickname
+
+    title = &#34;Scene without title&#34;
+
+    dcMeta = dict(
+        title=title,
+        creator=name,
+    )
+    sceneId = Mongo.insertRecord(
+        &#34;scenes&#34;,
+        name=title,
+        projectId=projectId,
+        editionId=editionId,
+        meta=dict(dc=dcMeta),
+    )
+    return sceneId</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.save"><code class="name flex">
+<span>def <span class="ident">save</span></span>(<span>self, table, recordId, field, path, fileName)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L696-L751" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def save(self, table, recordId, field, path, fileName):
+    Settings = self.Settings
+    Messages = self.Messages
+    Mongo = self.Mongo
+    Auth = self.Auth
+    workingDir = Settings.workingDir
+
+    permitted = Auth.authorise(table, recordId=recordId, action=&#34;update&#34;)
+    previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+
+    sep = &#34;/&#34; if path else &#34;&#34;
+    filePath = f&#34;{path}{sep}{fileName}&#34;
+    fileFullPath = f&#34;{workingDir}/{filePath}&#34;
+
+    if not permitted:
+        logmsg = f&#34;Upload not permitted: {table}-{field}: {fileFullPath}&#34;
+        Messages.warning(
+            logmsg=logmsg,
+            msg=f&#34;Upload not permitted: {filePath}&#34;,
+        )
+        return jsonify(status=False, msg=logmsg)
+
+    try:
+        with open(fileFullPath, &#34;wb&#34;) as fh:
+            fh.write(data())
+    except Exception:
+        logmsg = &#34;Could not save uploaded file: {table}-{field}: {fileFullPath}&#34;
+        Messages.warning(
+            logmsg=logmsg,
+            msg=f&#34;Uploaded file not saved: {filePath}&#34;,
+        )
+        return jsonify(status=False, msg=logmsg)
+
+    if not Mongo.updateRecord(
+        table, dict(field=fileName), warn=False, _id=recordId
+    ):
+        logmsg = (
+            &#34;Could not store uploaded file name in MongoDB: &#34;
+            f&#34;{table}-{field}: {filePath}&#34;
+        )
+        Messages.warning(
+            logmsg=logmsg,
+            msg=f&#34;Uploaded file name not stored: {fileName}&#34;,
+        )
+        return jsonify(status=False, msg=logmsg)
+
+    previousFilePath = f&#34;{path}{sep}{previousFileName}&#34;
+    previousFileFullPath = f&#34;{workingDir}/{previousFilePath}&#34;
+
+    if previousFileFullPath != fileFullPath:
+        fileRemove(previousFileFullPath)
+
+    fid = f&#34;{table}/{recordId}/{field}&#34;
+    staticUrl = f&#34;/data/{filePath}&#34;
+
+    return jsonify(status=True, fid=fid, staticUrl=staticUrl)</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.wrapCaption"><code class="name flex">
+<span>def <span class="ident">wrapCaption</span></span>(<span>self, content, button, active=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/content.py#L327-L331" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def wrapCaption(self, content, button, active=False):
+    activeCls = &#34;active&#34; if active else &#34;&#34;
+    return H.div(
+        [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
+    )</code></pre>
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="control.datamodel.Datamodel.getDetailRecords" href="datamodel.html#control.datamodel.Datamodel.getDetailRecords">getDetailRecords</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.makeField" href="datamodel.html#control.datamodel.Datamodel.makeField">makeField</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.makeUpload" href="datamodel.html#control.datamodel.Datamodel.makeUpload">makeUpload</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -1881,17 +2748,23 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.content.Content" href="#control.content.Content">Content</a></code></h4>
 <ul class="two-column">
+<li><code><a title="control.content.Content.actionButton" href="#control.content.Content.actionButton">actionButton</a></code></li>
 <li><code><a title="control.content.Content.addAuth" href="#control.content.Content.addAuth">addAuth</a></code></li>
 <li><code><a title="control.content.Content.getCaption" href="#control.content.Content.getCaption">getCaption</a></code></li>
 <li><code><a title="control.content.Content.getData" href="#control.content.Content.getData">getData</a></code></li>
 <li><code><a title="control.content.Content.getEditions" href="#control.content.Content.getEditions">getEditions</a></code></li>
-<li><code><a title="control.content.Content.getIcon" href="#control.content.Content.getIcon">getIcon</a></code></li>
-<li><code><a title="control.content.Content.getMeta" href="#control.content.Content.getMeta">getMeta</a></code></li>
+<li><code><a title="control.content.Content.getItem" href="#control.content.Content.getItem">getItem</a></code></li>
 <li><code><a title="control.content.Content.getProjects" href="#control.content.Content.getProjects">getProjects</a></code></li>
-<li><code><a title="control.content.Content.getRecord" href="#control.content.Content.getRecord">getRecord</a></code></li>
 <li><code><a title="control.content.Content.getScenes" href="#control.content.Content.getScenes">getScenes</a></code></li>
 <li><code><a title="control.content.Content.getSurprise" href="#control.content.Content.getSurprise">getSurprise</a></code></li>
+<li><code><a title="control.content.Content.getUpload" href="#control.content.Content.getUpload">getUpload</a></code></li>
+<li><code><a title="control.content.Content.getValue" href="#control.content.Content.getValue">getValue</a></code></li>
 <li><code><a title="control.content.Content.getViewerFile" href="#control.content.Content.getViewerFile">getViewerFile</a></code></li>
+<li><code><a title="control.content.Content.insertEdition" href="#control.content.Content.insertEdition">insertEdition</a></code></li>
+<li><code><a title="control.content.Content.insertProject" href="#control.content.Content.insertProject">insertProject</a></code></li>
+<li><code><a title="control.content.Content.insertScene" href="#control.content.Content.insertScene">insertScene</a></code></li>
+<li><code><a title="control.content.Content.save" href="#control.content.Content.save">save</a></code></li>
+<li><code><a title="control.content.Content.wrapCaption" href="#control.content.Content.wrapCaption">wrapCaption</a></code></li>
 </ul>
 </li>
 </ul>

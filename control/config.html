@@ -26,21 +26,19 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L1-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L1-L458" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import os
-import sys
-from textwrap import dedent
+<pre><code class="python">from textwrap import dedent
+from subprocess import check_output
 
-from control.helpers.files import dirExists, fileExists, readYaml, readPath
-from control.helpers.generic import AttrDict
-
-
-VERSION_FILE = &#34;version.txt&#34;
+from control.generic import AttrDict
+from control.files import dirExists, fileExists, readYaml, readPath, listDirs
+from control.environment import var
+from control.html import HtmlElements as H
 
 
 class Config:
-    def __init__(self, Messages, flask=True):
+    def __init__(self, Messages):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -59,66 +57,51 @@ class Config:
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        flask: boolean, optional True
-            If False, only those settings are fetched that do not have relevance
-            for the actual web serving by flask application.
-            This is used for code that runs prior to web serving, e.g.
-            data collection in `control.collect.Collect`.
         &#34;&#34;&#34;
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.debug(&#34;CONFIG INIT&#34;)
+        Messages.info(logmsg=&#34;CONFIG INIT&#34;)
         self.good = True
         self.Settings = AttrDict()
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
-        self.checkEnv(flask)
+        self.checkEnv()
 
         if not self.good:
-            Messages.error(logmsg=&#34;Check environment ...&#34;)
-            sys.exit(1)
+            Messages.error(logmsg=&#34;Check environment&#34;)
+            quit()
 
-    def checkEnv(self, flask):
+    def checkEnv(self):
         &#34;&#34;&#34;Collect the relevant information.
 
         If essential information is missing, processing stops.
         This is done by setting the `good` member of Config to False.
-
-        Parameters
-        ----------
-        flask: boolean
-            Whether to collect all, or a subset of variables that are not
-            used for actually serving pages.
         &#34;&#34;&#34;
-        if not flask:
-            self.checkRepo(),
-            self.checkData()
-            self.checkMongo(),
-            self.checkSettings(),
-            return
 
         for method in (
             self.checkRepo,
+            self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
             self.checkData,
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
+            self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
+            self.checkBanner,
         ):
             if self.good:
                 method()
 
     def checkRepo(self):
-        &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        repoDir = os.environ.get(&#34;repodir&#34;, None)
+        repoDir = var(&#34;repodir&#34;)
         if repoDir is None:
             Messages.error(
                 logmsg=dedent(
@@ -139,25 +122,43 @@ class Config:
             return
 
         Settings.repoDir = repoDir
+        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+        Settings.yamlDir = yamlDir
 
-        # what is the version of the pure3d app?
+    def checkWebdav(self):
+        &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
+
+        The methods are associated with the `view` or `edit` keyword,
+        depending on whether they are `GET` like or `PUT` like.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        yamlDir = Settings.yamlDir
+        webdavFile = &#34;webdav.yml&#34;
+        webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+        Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
         &#34;&#34;&#34;Get the current version of the pure3d app.
+
+        We represent the version as the short hash of the current commit
+        of the git repo that the running code is in.
         &#34;&#34;&#34;
-        Messages = self.Messages
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        versionPath = f&#34;{repoDir}/src/{VERSION_FILE}&#34;
-        versionInfo = readPath(versionPath)
+        (long, short) = tuple(
+            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+            .decode(&#34;ascii&#34;)
+            .strip()
+            for args in ([], [&#34;--short&#34;])
+        )
+        Settings = self.Settings
+        repoDir = Settings.repoDir
 
-        if not versionInfo:
-            Messages.error(logmsg=f&#34;Cannot find version info in {versionPath}&#34;)
-            self.good = False
-            return
-
-        Settings.versionInfo = versionInfo
+        title = &#34;visit the running code on GitHub&#34;
+        gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
+        href = f&#34;{gitLocation}/tree/{long}&#34;
+        Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -168,7 +169,7 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = os.environ.get(&#34;SECRET_FILE&#34;, None)
+        secretFileLoc = var(&#34;SECRET_FILE&#34;)
 
         if secretFileLoc is None:
             Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
@@ -190,38 +191,40 @@ class Config:
             self.good = False
             return
 
-        with open(secretFileLoc) as fh:
-            Settings.secret_key = fh.read()
+        Settings.secret_key = readPath(secretFileLoc)
 
     def checkData(self):
-        &#34;&#34;&#34;Get the location of the project data on the file system.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        dataDir = os.environ.get(&#34;DATA_DIR&#34;, None)
+        dataDir = var(&#34;DATA_DIR&#34;)
 
         if dataDir is None:
             Messages.error(logmsg=&#34;Environment variable `DATA_DIR` not defined&#34;)
             self.good = False
             return
 
+        dataDir = dataDir.rstrip(&#34;/&#34;)
+        sep = &#34;/&#34; if dataDir else &#34;&#34;
+        workingDir = f&#34;{dataDir}{sep}working&#34;
+
         if not dirExists(dataDir):
-            Messages.error(logmsg=f&#34;Data directory does not exist: {dataDir}&#34;)
+            Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
             self.good = False
             return
 
-        Settings.dataDir = dataDir.rstrip(&#34;/&#34;)
+        Settings.dataDir = dataDir
+        Settings.workingDir = workingDir
 
         # are we in test mode?
 
     def checkModes(self):
-        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        testMode = os.environ.get(&#34;flasktest&#34;, None)
+        testMode = var(&#34;flasktest&#34;)
         if testMode is None:
             Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
             self.good = False
@@ -235,7 +238,7 @@ class Config:
         without any kind of authentication.
         &#34;&#34;&#34;
 
-        debugMode = os.environ.get(&#34;flaskdebug&#34;, None)
+        debugMode = var(&#34;flaskdebug&#34;)
         if debugMode is None:
             Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
             self.good = False
@@ -257,8 +260,8 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        mongoUser = os.environ.get(&#34;mongouser&#34;, None)
-        mongoPassword = os.environ.get(&#34;mongopassword&#34;, None)
+        mongoUser = var(&#34;mongouser&#34;)
+        mongoPassword = var(&#34;mongopassword&#34;)
 
         if mongoUser is None:
             Messages.error(logmsg=&#34;Environment variable `mongouser` not defined&#34;)
@@ -268,39 +271,91 @@ class Config:
             Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
             self.good = False
 
-        Settings.mongoUser = os.environ[&#34;mongouser&#34;]
-        Settings.mongoPassword = os.environ[&#34;mongopassword&#34;]
+        Settings.mongoUser = mongoUser
+        Settings.mongoPassword = mongoPassword
 
     def checkSettings(self):
-        &#34;&#34;&#34;Read the yaml file with application settings.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        yamlDir = Settings.yamlDir
 
-        repoDir = Settings.repoDir
-        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
-        Settings.yamlDir = yamlDir
-
-        settings = readYaml(f&#34;{yamlDir}/settings.yaml&#34;)
+        settingsFile = &#34;settings.yml&#34;
+        settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
         if settings is None:
-            Messages.error(logmsg=f&#34;Cannot read settings.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkAuth(self):
-        &#34;&#34;&#34;Read gthe yaml file with the authorisation rules.
+    def checkDatamodel(self):
+        &#34;&#34;&#34;Read the yaml file with table and field settings.
+
+        It contains model `master` that contains the master tables
+        with the information which tables are details of it.
+
+        It also contains ``link` that contains the link tables
+        with the information which tables are being linked.
+
+        Both elements are needed when we delete records.
+
+        If a user deletes a master record, its detail records become invalid.
+        So either we must enforce that the user deletes the details first,
+        or the system must delete those records automatically.
+
+        When a user deletes a record that is linked to another record by means
+        of a coupling record, the coupling record must be deleted automatically.
+
+        Fields are bits of data that are stored in parts of documents
+        in MongoDb collections.
+
+        Fields have several properties which we summarize under a key.
+        So if we know the key of a field, we have access to all of its
+        properties.
+
+        The properties `nameSpave` and `fieldPath` determine how to drill
+        down in a document in order to find the value of that field.
+
+        The property `tp` is the data type of the field, default `string`.
+
+        The property `caption` is a label that may accompany a field value
+        on the interface.
         &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
-        authData = readYaml(f&#34;{yamlDir}/authorise.yaml&#34;)
+        datamodelFile = &#34;datamodel.yml&#34;
+        datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+        if datamodel is None:
+            Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
+            self.good = False
+            return
+
+        datamodelConfig = AttrDict()
+        Settings.datamodel = datamodelConfig
+
+        for (k, vDict) in datamodel.items():
+            v = AttrDict()
+            for (m, w) in vDict.items():
+                v[m] = AttrDict(w) if type(w) is dict else w
+
+            datamodelConfig[k] = v
+
+    def checkAuth(self):
+        &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+
+        yamlDir = Settings.yamlDir
+
+        authFile = &#34;authorise.yml&#34;
+        authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
         if authData is None:
-            Messages.error(logmsg=&#34;Cannot read authorise.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -311,8 +366,7 @@ class Config:
             auth[k] = v
 
     def checkViewers(self):
-        &#34;&#34;&#34;Make an inventory of the supported 3D viewers.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
@@ -324,10 +378,11 @@ class Config:
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
-        viewerSettingsFile = f&#34;{yamlDir}/viewers.yaml&#34;
+        viewersFile = &#34;viewers.yml&#34;
+        viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
         viewerSettings = readYaml(viewerSettingsFile)
         if viewerSettings is None:
-            Messages.error(logmsg=&#34;Cannot read viewers.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -339,43 +394,48 @@ class Config:
         viewers = AttrDict()
         viewerDefault = None
 
-        with os.scandir(viewerDir) as vd:
-            for entry in vd:
-                if entry.is_dir():
-                    viewerName = entry.name
-                    if viewerName not in viewerSettings:
-                        Messages.warning(
-                            logmsg=(
-                                f&#34;Skipping viewer {viewerName}&#34;
-                                &#34;because not defined in viewers.yaml&#34;
-                            )
-                        )
-                        continue
-                    viewerConfig = AttrDict(viewerSettings[viewerName])
-                    viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-                    versions = []
+        viewerNames = listDirs(viewerDir)
 
-                    with os.scandir(viewerPath) as sd:
-                        for entry in sd:
-                            if entry.is_dir():
-                                version = entry.name
-                                versions.append(version)
-
-                    default = viewerConfig.default
-
-                    if default:
-                        if viewerDefault is not None:
-                            Messages.warning(
-                                logmsg=(
-                                    f&#34;default viewer declaration {viewerName} overrides&#34;
-                                    f&#34; previously declared default {viewerDefault}&#34;
-                                )
-                            )
-                        viewerDefault = viewerName
-
-                    viewers[viewerName] = AttrDict(
-                        versions=versions, modes=viewerConfig.modes
+        for viewerName in viewerNames:
+            if viewerName not in viewerSettings:
+                Messages.warning(
+                    logmsg=(
+                        f&#34;Skipping viewer {viewerName}&#34;
+                        &#34;because not defined in {viewersFile}&#34;
                     )
+                )
+                continue
+            viewerConfig = AttrDict(viewerSettings[viewerName])
+            viewerConfig.modes = AttrDict(
+                {
+                    action: AttrDict(actionInfo)
+                    for (action, actionInfo) in viewerConfig.modes.items()
+                }
+            )
+            viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
+            versions = []
+
+            versionNames = listDirs(viewerPath)
+
+            for versionName in versionNames:
+                versions.append(versionName)
+
+            viewerConfig.versions = versions
+
+            default = viewerConfig.default
+            del viewerConfig[&#34;default&#34;]
+
+            if default:
+                if viewerDefault is not None:
+                    Messages.warning(
+                        logmsg=(
+                            f&#34;default viewer declaration {viewerName} overrides&#34;
+                            f&#34; previously declared default {viewerDefault}&#34;
+                        )
+                    )
+                viewerDefault = viewerName
+
+            viewers[viewerName] = viewerConfig
         if viewerDefault is None:
             Messages.error(
                 logmsg=(
@@ -387,7 +447,45 @@ class Config:
             return
 
         Settings.viewerDefault = viewerDefault
-        Settings.viewers = viewers</code></pre>
+        Settings.viewers = viewers
+
+    def checkBanner(self):
+        &#34;&#34;&#34;Sets a banner for all pages.
+
+        This banner may include warnings that the site is still work
+        in progress.
+
+        Returns
+        -------
+        void
+            The banner is stored in the `banner` member of the
+            `Settings` object.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        wip = var(&#34;devstatus&#34;)
+
+        banner = &#34;&#34;
+
+        if wip == &#34;wip&#34;:
+            content = H.span(
+                dedent(
+                    &#34;&#34;&#34;
+                    This site is Work in Progress.
+                    Use it only for testing.
+                    All work you commit to this site can be erased
+                    without warning.
+                    &#34;&#34;&#34;
+                )
+            )
+            resetLink = H.a(
+                &#34;reset data&#34;,
+                &#34;/collect&#34;,
+                title=&#34;reset data to initial state&#34;,
+                cls=&#34;small&#34;,
+            )
+            banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+
+        Settings.banner = banner</code></pre>
 </details>
 </section>
 <section>
@@ -401,7 +499,7 @@ class Config:
 <dl>
 <dt id="control.config.Config"><code class="flex name class">
 <span>class <span class="ident">Config</span></span>
-<span>(</span><span>Messages, flask=True)</span>
+<span>(</span><span>Messages)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All configuration details of the app.</p>
@@ -421,19 +519,14 @@ and no webserving will take place.</p>
 <dl>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
-<dt><strong><code>flask</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
-<dd>If False, only those settings are fetched that do not have relevance
-for the actual web serving by flask application.
-This is used for code that runs prior to web serving, e.g.
-data collection in <code><a title="control.collect.Collect" href="collect.html#control.collect.Collect">Collect</a></code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L12-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L10-L458" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
-    def __init__(self, Messages, flask=True):
+    def __init__(self, Messages):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -452,66 +545,51 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        flask: boolean, optional True
-            If False, only those settings are fetched that do not have relevance
-            for the actual web serving by flask application.
-            This is used for code that runs prior to web serving, e.g.
-            data collection in `control.collect.Collect`.
         &#34;&#34;&#34;
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.debug(&#34;CONFIG INIT&#34;)
+        Messages.info(logmsg=&#34;CONFIG INIT&#34;)
         self.good = True
         self.Settings = AttrDict()
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
-        self.checkEnv(flask)
+        self.checkEnv()
 
         if not self.good:
-            Messages.error(logmsg=&#34;Check environment ...&#34;)
-            sys.exit(1)
+            Messages.error(logmsg=&#34;Check environment&#34;)
+            quit()
 
-    def checkEnv(self, flask):
+    def checkEnv(self):
         &#34;&#34;&#34;Collect the relevant information.
 
         If essential information is missing, processing stops.
         This is done by setting the `good` member of Config to False.
-
-        Parameters
-        ----------
-        flask: boolean
-            Whether to collect all, or a subset of variables that are not
-            used for actually serving pages.
         &#34;&#34;&#34;
-        if not flask:
-            self.checkRepo(),
-            self.checkData()
-            self.checkMongo(),
-            self.checkSettings(),
-            return
 
         for method in (
             self.checkRepo,
+            self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
             self.checkData,
             self.checkModes,
             self.checkMongo,
             self.checkSettings,
+            self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
+            self.checkBanner,
         ):
             if self.good:
                 method()
 
     def checkRepo(self):
-        &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        repoDir = os.environ.get(&#34;repodir&#34;, None)
+        repoDir = var(&#34;repodir&#34;)
         if repoDir is None:
             Messages.error(
                 logmsg=dedent(
@@ -532,25 +610,43 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
             return
 
         Settings.repoDir = repoDir
+        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+        Settings.yamlDir = yamlDir
 
-        # what is the version of the pure3d app?
+    def checkWebdav(self):
+        &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
+
+        The methods are associated with the `view` or `edit` keyword,
+        depending on whether they are `GET` like or `PUT` like.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        yamlDir = Settings.yamlDir
+        webdavFile = &#34;webdav.yml&#34;
+        webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+        Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
         &#34;&#34;&#34;Get the current version of the pure3d app.
+
+        We represent the version as the short hash of the current commit
+        of the git repo that the running code is in.
         &#34;&#34;&#34;
-        Messages = self.Messages
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        versionPath = f&#34;{repoDir}/src/{VERSION_FILE}&#34;
-        versionInfo = readPath(versionPath)
+        (long, short) = tuple(
+            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+            .decode(&#34;ascii&#34;)
+            .strip()
+            for args in ([], [&#34;--short&#34;])
+        )
+        Settings = self.Settings
+        repoDir = Settings.repoDir
 
-        if not versionInfo:
-            Messages.error(logmsg=f&#34;Cannot find version info in {versionPath}&#34;)
-            self.good = False
-            return
-
-        Settings.versionInfo = versionInfo
+        title = &#34;visit the running code on GitHub&#34;
+        gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
+        href = f&#34;{gitLocation}/tree/{long}&#34;
+        Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -561,7 +657,7 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = os.environ.get(&#34;SECRET_FILE&#34;, None)
+        secretFileLoc = var(&#34;SECRET_FILE&#34;)
 
         if secretFileLoc is None:
             Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
@@ -583,38 +679,40 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
             self.good = False
             return
 
-        with open(secretFileLoc) as fh:
-            Settings.secret_key = fh.read()
+        Settings.secret_key = readPath(secretFileLoc)
 
     def checkData(self):
-        &#34;&#34;&#34;Get the location of the project data on the file system.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        dataDir = os.environ.get(&#34;DATA_DIR&#34;, None)
+        dataDir = var(&#34;DATA_DIR&#34;)
 
         if dataDir is None:
             Messages.error(logmsg=&#34;Environment variable `DATA_DIR` not defined&#34;)
             self.good = False
             return
 
+        dataDir = dataDir.rstrip(&#34;/&#34;)
+        sep = &#34;/&#34; if dataDir else &#34;&#34;
+        workingDir = f&#34;{dataDir}{sep}working&#34;
+
         if not dirExists(dataDir):
-            Messages.error(logmsg=f&#34;Data directory does not exist: {dataDir}&#34;)
+            Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
             self.good = False
             return
 
-        Settings.dataDir = dataDir.rstrip(&#34;/&#34;)
+        Settings.dataDir = dataDir
+        Settings.workingDir = workingDir
 
         # are we in test mode?
 
     def checkModes(self):
-        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
-        testMode = os.environ.get(&#34;flasktest&#34;, None)
+        testMode = var(&#34;flasktest&#34;)
         if testMode is None:
             Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
             self.good = False
@@ -628,7 +726,7 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         without any kind of authentication.
         &#34;&#34;&#34;
 
-        debugMode = os.environ.get(&#34;flaskdebug&#34;, None)
+        debugMode = var(&#34;flaskdebug&#34;)
         if debugMode is None:
             Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
             self.good = False
@@ -650,8 +748,8 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         Messages = self.Messages
         Settings = self.Settings
 
-        mongoUser = os.environ.get(&#34;mongouser&#34;, None)
-        mongoPassword = os.environ.get(&#34;mongopassword&#34;, None)
+        mongoUser = var(&#34;mongouser&#34;)
+        mongoPassword = var(&#34;mongopassword&#34;)
 
         if mongoUser is None:
             Messages.error(logmsg=&#34;Environment variable `mongouser` not defined&#34;)
@@ -661,39 +759,91 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
             Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
             self.good = False
 
-        Settings.mongoUser = os.environ[&#34;mongouser&#34;]
-        Settings.mongoPassword = os.environ[&#34;mongopassword&#34;]
+        Settings.mongoUser = mongoUser
+        Settings.mongoPassword = mongoPassword
 
     def checkSettings(self):
-        &#34;&#34;&#34;Read the yaml file with application settings.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        yamlDir = Settings.yamlDir
 
-        repoDir = Settings.repoDir
-        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
-        Settings.yamlDir = yamlDir
-
-        settings = readYaml(f&#34;{yamlDir}/settings.yaml&#34;)
+        settingsFile = &#34;settings.yml&#34;
+        settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
         if settings is None:
-            Messages.error(logmsg=f&#34;Cannot read settings.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         for (k, v) in settings.items():
             Settings[k] = v
 
-    def checkAuth(self):
-        &#34;&#34;&#34;Read gthe yaml file with the authorisation rules.
+    def checkDatamodel(self):
+        &#34;&#34;&#34;Read the yaml file with table and field settings.
+
+        It contains model `master` that contains the master tables
+        with the information which tables are details of it.
+
+        It also contains ``link` that contains the link tables
+        with the information which tables are being linked.
+
+        Both elements are needed when we delete records.
+
+        If a user deletes a master record, its detail records become invalid.
+        So either we must enforce that the user deletes the details first,
+        or the system must delete those records automatically.
+
+        When a user deletes a record that is linked to another record by means
+        of a coupling record, the coupling record must be deleted automatically.
+
+        Fields are bits of data that are stored in parts of documents
+        in MongoDb collections.
+
+        Fields have several properties which we summarize under a key.
+        So if we know the key of a field, we have access to all of its
+        properties.
+
+        The properties `nameSpave` and `fieldPath` determine how to drill
+        down in a document in order to find the value of that field.
+
+        The property `tp` is the data type of the field, default `string`.
+
+        The property `caption` is a label that may accompany a field value
+        on the interface.
         &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
-        authData = readYaml(f&#34;{yamlDir}/authorise.yaml&#34;)
+        datamodelFile = &#34;datamodel.yml&#34;
+        datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+        if datamodel is None:
+            Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
+            self.good = False
+            return
+
+        datamodelConfig = AttrDict()
+        Settings.datamodel = datamodelConfig
+
+        for (k, vDict) in datamodel.items():
+            v = AttrDict()
+            for (m, w) in vDict.items():
+                v[m] = AttrDict(w) if type(w) is dict else w
+
+            datamodelConfig[k] = v
+
+    def checkAuth(self):
+        &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+
+        yamlDir = Settings.yamlDir
+
+        authFile = &#34;authorise.yml&#34;
+        authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
         if authData is None:
-            Messages.error(logmsg=&#34;Cannot read authorise.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -704,8 +854,7 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
             auth[k] = v
 
     def checkViewers(self):
-        &#34;&#34;&#34;Make an inventory of the supported 3D viewers.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
 
@@ -717,10 +866,11 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
-        viewerSettingsFile = f&#34;{yamlDir}/viewers.yaml&#34;
+        viewersFile = &#34;viewers.yml&#34;
+        viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
         viewerSettings = readYaml(viewerSettingsFile)
         if viewerSettings is None:
-            Messages.error(logmsg=&#34;Cannot read viewers.yaml in {yamlDir}&#34;)
+            Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -732,43 +882,48 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         viewers = AttrDict()
         viewerDefault = None
 
-        with os.scandir(viewerDir) as vd:
-            for entry in vd:
-                if entry.is_dir():
-                    viewerName = entry.name
-                    if viewerName not in viewerSettings:
-                        Messages.warning(
-                            logmsg=(
-                                f&#34;Skipping viewer {viewerName}&#34;
-                                &#34;because not defined in viewers.yaml&#34;
-                            )
-                        )
-                        continue
-                    viewerConfig = AttrDict(viewerSettings[viewerName])
-                    viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-                    versions = []
+        viewerNames = listDirs(viewerDir)
 
-                    with os.scandir(viewerPath) as sd:
-                        for entry in sd:
-                            if entry.is_dir():
-                                version = entry.name
-                                versions.append(version)
-
-                    default = viewerConfig.default
-
-                    if default:
-                        if viewerDefault is not None:
-                            Messages.warning(
-                                logmsg=(
-                                    f&#34;default viewer declaration {viewerName} overrides&#34;
-                                    f&#34; previously declared default {viewerDefault}&#34;
-                                )
-                            )
-                        viewerDefault = viewerName
-
-                    viewers[viewerName] = AttrDict(
-                        versions=versions, modes=viewerConfig.modes
+        for viewerName in viewerNames:
+            if viewerName not in viewerSettings:
+                Messages.warning(
+                    logmsg=(
+                        f&#34;Skipping viewer {viewerName}&#34;
+                        &#34;because not defined in {viewersFile}&#34;
                     )
+                )
+                continue
+            viewerConfig = AttrDict(viewerSettings[viewerName])
+            viewerConfig.modes = AttrDict(
+                {
+                    action: AttrDict(actionInfo)
+                    for (action, actionInfo) in viewerConfig.modes.items()
+                }
+            )
+            viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
+            versions = []
+
+            versionNames = listDirs(viewerPath)
+
+            for versionName in versionNames:
+                versions.append(versionName)
+
+            viewerConfig.versions = versions
+
+            default = viewerConfig.default
+            del viewerConfig[&#34;default&#34;]
+
+            if default:
+                if viewerDefault is not None:
+                    Messages.warning(
+                        logmsg=(
+                            f&#34;default viewer declaration {viewerName} overrides&#34;
+                            f&#34; previously declared default {viewerDefault}&#34;
+                        )
+                    )
+                viewerDefault = viewerName
+
+            viewers[viewerName] = viewerConfig
         if viewerDefault is None:
             Messages.error(
                 logmsg=(
@@ -780,7 +935,45 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
             return
 
         Settings.viewerDefault = viewerDefault
-        Settings.viewers = viewers</code></pre>
+        Settings.viewers = viewers
+
+    def checkBanner(self):
+        &#34;&#34;&#34;Sets a banner for all pages.
+
+        This banner may include warnings that the site is still work
+        in progress.
+
+        Returns
+        -------
+        void
+            The banner is stored in the `banner` member of the
+            `Settings` object.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        wip = var(&#34;devstatus&#34;)
+
+        banner = &#34;&#34;
+
+        if wip == &#34;wip&#34;:
+            content = H.span(
+                dedent(
+                    &#34;&#34;&#34;
+                    This site is Work in Progress.
+                    Use it only for testing.
+                    All work you commit to this site can be erased
+                    without warning.
+                    &#34;&#34;&#34;
+                )
+            )
+            resetLink = H.a(
+                &#34;reset data&#34;,
+                &#34;/collect&#34;,
+                title=&#34;reset data to initial state&#34;,
+                cls=&#34;small&#34;,
+            )
+            banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+
+        Settings.banner = banner</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -795,23 +988,23 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
 <span>def <span class="ident">checkAuth</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Read gthe yaml file with the authorisation rules.</p></div>
+<div class="desc"><p>Read the yaml file with the authorisation rules.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L263-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L318-L336" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
-    &#34;&#34;&#34;Read gthe yaml file with the authorisation rules.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
     yamlDir = Settings.yamlDir
 
-    authData = readYaml(f&#34;{yamlDir}/authorise.yaml&#34;)
+    authFile = &#34;authorise.yml&#34;
+    authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
     if authData is None:
-        Messages.error(logmsg=&#34;Cannot read authorise.yaml in {yamlDir}&#34;)
+        Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
         self.good = False
         return
 
@@ -822,6 +1015,63 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
         auth[k] = v</code></pre>
 </details>
 </dd>
+<dt id="control.config.Config.checkBanner"><code class="name flex">
+<span>def <span class="ident">checkBanner</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets a banner for all pages.</p>
+<p>This banner may include warnings that the site is still work
+in progress.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>void</code></dt>
+<dd>The banner is stored in the <code>banner</code> member of the
+<code>Settings</code> object.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L422-L458" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkBanner(self):
+    &#34;&#34;&#34;Sets a banner for all pages.
+
+    This banner may include warnings that the site is still work
+    in progress.
+
+    Returns
+    -------
+    void
+        The banner is stored in the `banner` member of the
+        `Settings` object.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    wip = var(&#34;devstatus&#34;)
+
+    banner = &#34;&#34;
+
+    if wip == &#34;wip&#34;:
+        content = H.span(
+            dedent(
+                &#34;&#34;&#34;
+                This site is Work in Progress.
+                Use it only for testing.
+                All work you commit to this site can be erased
+                without warning.
+                &#34;&#34;&#34;
+            )
+        )
+        resetLink = H.a(
+            &#34;reset data&#34;,
+            &#34;/collect&#34;,
+            title=&#34;reset data to initial state&#34;,
+            cls=&#34;small&#34;,
+        )
+        banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+
+    Settings.banner = banner</code></pre>
+</details>
+</dd>
 <dt id="control.config.Config.checkData"><code class="name flex">
 <span>def <span class="ident">checkData</span></span>(<span>self)</span>
 </code></dt>
@@ -830,78 +1080,153 @@ data collection in <code><a title="control.collect.Collect" href="collect.html#c
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L166-L186" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L166-L190" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
-    &#34;&#34;&#34;Get the location of the project data on the file system.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
-    dataDir = os.environ.get(&#34;DATA_DIR&#34;, None)
+    dataDir = var(&#34;DATA_DIR&#34;)
 
     if dataDir is None:
         Messages.error(logmsg=&#34;Environment variable `DATA_DIR` not defined&#34;)
         self.good = False
         return
 
+    dataDir = dataDir.rstrip(&#34;/&#34;)
+    sep = &#34;/&#34; if dataDir else &#34;&#34;
+    workingDir = f&#34;{dataDir}{sep}working&#34;
+
     if not dirExists(dataDir):
-        Messages.error(logmsg=f&#34;Data directory does not exist: {dataDir}&#34;)
+        Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
         self.good = False
         return
 
-    Settings.dataDir = dataDir.rstrip(&#34;/&#34;)
+    Settings.dataDir = dataDir
+    Settings.workingDir = workingDir
 
     # are we in test mode?</code></pre>
 </details>
 </dd>
+<dt id="control.config.Config.checkDatamodel"><code class="name flex">
+<span>def <span class="ident">checkDatamodel</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Read the yaml file with table and field settings.</p>
+<p>It contains model <code>master</code> that contains the master tables
+with the information which tables are details of it.</p>
+<p>It also contains <code>`link</code> that contains the link tables
+with the information which tables are being linked.</p>
+<p>Both elements are needed when we delete records.</p>
+<p>If a user deletes a master record, its detail records become invalid.
+So either we must enforce that the user deletes the details first,
+or the system must delete those records automatically.</p>
+<p>When a user deletes a record that is linked to another record by means
+of a coupling record, the coupling record must be deleted automatically.</p>
+<p>Fields are bits of data that are stored in parts of documents
+in MongoDb collections.</p>
+<p>Fields have several properties which we summarize under a key.
+So if we know the key of a field, we have access to all of its
+properties.</p>
+<p>The properties <code>nameSpave</code> and <code>fieldPath</code> determine how to drill
+down in a document in order to find the value of that field.</p>
+<p>The property <code>tp</code> is the data type of the field, default <code>string</code>.</p>
+<p>The property <code>caption</code> is a label that may accompany a field value
+on the interface.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L263-L316" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkDatamodel(self):
+    &#34;&#34;&#34;Read the yaml file with table and field settings.
+
+    It contains model `master` that contains the master tables
+    with the information which tables are details of it.
+
+    It also contains ``link` that contains the link tables
+    with the information which tables are being linked.
+
+    Both elements are needed when we delete records.
+
+    If a user deletes a master record, its detail records become invalid.
+    So either we must enforce that the user deletes the details first,
+    or the system must delete those records automatically.
+
+    When a user deletes a record that is linked to another record by means
+    of a coupling record, the coupling record must be deleted automatically.
+
+    Fields are bits of data that are stored in parts of documents
+    in MongoDb collections.
+
+    Fields have several properties which we summarize under a key.
+    So if we know the key of a field, we have access to all of its
+    properties.
+
+    The properties `nameSpave` and `fieldPath` determine how to drill
+    down in a document in order to find the value of that field.
+
+    The property `tp` is the data type of the field, default `string`.
+
+    The property `caption` is a label that may accompany a field value
+    on the interface.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+
+    yamlDir = Settings.yamlDir
+
+    datamodelFile = &#34;datamodel.yml&#34;
+    datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+    if datamodel is None:
+        Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    datamodelConfig = AttrDict()
+    Settings.datamodel = datamodelConfig
+
+    for (k, vDict) in datamodel.items():
+        v = AttrDict()
+        for (m, w) in vDict.items():
+            v[m] = AttrDict(w) if type(w) is dict else w
+
+        datamodelConfig[k] = v</code></pre>
+</details>
+</dd>
 <dt id="control.config.Config.checkEnv"><code class="name flex">
-<span>def <span class="ident">checkEnv</span></span>(<span>self, flask)</span>
+<span>def <span class="ident">checkEnv</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Collect the relevant information.</p>
 <p>If essential information is missing, processing stops.
-This is done by setting the <code>good</code> member of Config to False.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>flask</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Whether to collect all, or a subset of variables that are not
-used for actually serving pages.</dd>
-</dl></div>
+This is done by setting the <code>good</code> member of Config to False.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L52-L83" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L45-L67" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def checkEnv(self, flask):
+<pre><code class="python">def checkEnv(self):
     &#34;&#34;&#34;Collect the relevant information.
 
     If essential information is missing, processing stops.
     This is done by setting the `good` member of Config to False.
-
-    Parameters
-    ----------
-    flask: boolean
-        Whether to collect all, or a subset of variables that are not
-        used for actually serving pages.
     &#34;&#34;&#34;
-    if not flask:
-        self.checkRepo(),
-        self.checkData()
-        self.checkMongo(),
-        self.checkSettings(),
-        return
 
     for method in (
         self.checkRepo,
+        self.checkWebdav,
         self.checkVersion,
         self.checkSecret,
         self.checkData,
         self.checkModes,
         self.checkMongo,
         self.checkSettings,
+        self.checkDatamodel,
         self.checkAuth,
         self.checkViewers,
+        self.checkBanner,
     ):
         if self.good:
             method()</code></pre>
@@ -915,15 +1240,14 @@ used for actually serving pages.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L188-L219" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L192-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
-    &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
-    testMode = os.environ.get(&#34;flasktest&#34;, None)
+    testMode = var(&#34;flasktest&#34;)
     if testMode is None:
         Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
         self.good = False
@@ -937,7 +1261,7 @@ used for actually serving pages.</dd>
     without any kind of authentication.
     &#34;&#34;&#34;
 
-    debugMode = os.environ.get(&#34;flaskdebug&#34;, None)
+    debugMode = var(&#34;flaskdebug&#34;)
     if debugMode is None:
         Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
         self.good = False
@@ -961,7 +1285,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L221-L242" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L224-L245" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -972,8 +1296,8 @@ with these credentials.</p></div>
     Messages = self.Messages
     Settings = self.Settings
 
-    mongoUser = os.environ.get(&#34;mongouser&#34;, None)
-    mongoPassword = os.environ.get(&#34;mongopassword&#34;, None)
+    mongoUser = var(&#34;mongouser&#34;)
+    mongoPassword = var(&#34;mongopassword&#34;)
 
     if mongoUser is None:
         Messages.error(logmsg=&#34;Environment variable `mongouser` not defined&#34;)
@@ -983,8 +1307,8 @@ with these credentials.</p></div>
         Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
         self.good = False
 
-    Settings.mongoUser = os.environ[&#34;mongouser&#34;]
-    Settings.mongoPassword = os.environ[&#34;mongopassword&#34;]</code></pre>
+    Settings.mongoUser = mongoUser
+    Settings.mongoPassword = mongoPassword</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkRepo"><code class="name flex">
@@ -995,15 +1319,14 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L85-L113" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L69-L96" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
-    &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
-    repoDir = os.environ.get(&#34;repodir&#34;, None)
+    repoDir = var(&#34;repodir&#34;)
     if repoDir is None:
         Messages.error(
             logmsg=dedent(
@@ -1024,8 +1347,8 @@ with these credentials.</p></div>
         return
 
     Settings.repoDir = repoDir
-
-    # what is the version of the pure3d app?</code></pre>
+    yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+    Settings.yamlDir = yamlDir</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkSecret"><code class="name flex">
@@ -1038,7 +1361,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L132-L164" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L133-L164" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     &#34;&#34;&#34;Obtain a secret.
@@ -1049,7 +1372,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
     Messages = self.Messages
     Settings = self.Settings
 
-    secretFileLoc = os.environ.get(&#34;SECRET_FILE&#34;, None)
+    secretFileLoc = var(&#34;SECRET_FILE&#34;)
 
     if secretFileLoc is None:
         Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
@@ -1071,8 +1394,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
         self.good = False
         return
 
-    with open(secretFileLoc) as fh:
-        Settings.secret_key = fh.read()</code></pre>
+    Settings.secret_key = readPath(secretFileLoc)</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkSettings"><code class="name flex">
@@ -1083,21 +1405,18 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L244-L261" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L247-L261" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
-    &#34;&#34;&#34;Read the yaml file with application settings.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
+    yamlDir = Settings.yamlDir
 
-    repoDir = Settings.repoDir
-    yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
-    Settings.yamlDir = yamlDir
-
-    settings = readYaml(f&#34;{yamlDir}/settings.yaml&#34;)
+    settingsFile = &#34;settings.yml&#34;
+    settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
     if settings is None:
-        Messages.error(logmsg=f&#34;Cannot read settings.yaml in {yamlDir}&#34;)
+        Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
         self.good = False
         return
 
@@ -1109,28 +1428,36 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <span>def <span class="ident">checkVersion</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get the current version of the pure3d app.</p></div>
+<div class="desc"><p>Get the current version of the pure3d app.</p>
+<p>We represent the version as the short hash of the current commit
+of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L115-L130" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L110-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     &#34;&#34;&#34;Get the current version of the pure3d app.
+
+    We represent the version as the short hash of the current commit
+    of the git repo that the running code is in.
     &#34;&#34;&#34;
-    Messages = self.Messages
     Settings = self.Settings
     repoDir = Settings.repoDir
 
-    versionPath = f&#34;{repoDir}/src/{VERSION_FILE}&#34;
-    versionInfo = readPath(versionPath)
+    (long, short) = tuple(
+        check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+        .decode(&#34;ascii&#34;)
+        .strip()
+        for args in ([], [&#34;--short&#34;])
+    )
+    Settings = self.Settings
+    repoDir = Settings.repoDir
 
-    if not versionInfo:
-        Messages.error(logmsg=f&#34;Cannot find version info in {versionPath}&#34;)
-        self.good = False
-        return
-
-    Settings.versionInfo = versionInfo</code></pre>
+    title = &#34;visit the running code on GitHub&#34;
+    gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
+    href = f&#34;{gitLocation}/tree/{long}&#34;
+    Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkViewers"><code class="name flex">
@@ -1141,11 +1468,10 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/config.py#L283-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L338-L420" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
-    &#34;&#34;&#34;Make an inventory of the supported 3D viewers.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
@@ -1157,10 +1483,11 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
     Settings.viewerDir = viewerDir
     Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
-    viewerSettingsFile = f&#34;{yamlDir}/viewers.yaml&#34;
+    viewersFile = &#34;viewers.yml&#34;
+    viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
     viewerSettings = readYaml(viewerSettingsFile)
     if viewerSettings is None:
-        Messages.error(logmsg=&#34;Cannot read viewers.yaml in {yamlDir}&#34;)
+        Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
         self.good = False
         return
 
@@ -1172,43 +1499,48 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
     viewers = AttrDict()
     viewerDefault = None
 
-    with os.scandir(viewerDir) as vd:
-        for entry in vd:
-            if entry.is_dir():
-                viewerName = entry.name
-                if viewerName not in viewerSettings:
-                    Messages.warning(
-                        logmsg=(
-                            f&#34;Skipping viewer {viewerName}&#34;
-                            &#34;because not defined in viewers.yaml&#34;
-                        )
-                    )
-                    continue
-                viewerConfig = AttrDict(viewerSettings[viewerName])
-                viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-                versions = []
+    viewerNames = listDirs(viewerDir)
 
-                with os.scandir(viewerPath) as sd:
-                    for entry in sd:
-                        if entry.is_dir():
-                            version = entry.name
-                            versions.append(version)
-
-                default = viewerConfig.default
-
-                if default:
-                    if viewerDefault is not None:
-                        Messages.warning(
-                            logmsg=(
-                                f&#34;default viewer declaration {viewerName} overrides&#34;
-                                f&#34; previously declared default {viewerDefault}&#34;
-                            )
-                        )
-                    viewerDefault = viewerName
-
-                viewers[viewerName] = AttrDict(
-                    versions=versions, modes=viewerConfig.modes
+    for viewerName in viewerNames:
+        if viewerName not in viewerSettings:
+            Messages.warning(
+                logmsg=(
+                    f&#34;Skipping viewer {viewerName}&#34;
+                    &#34;because not defined in {viewersFile}&#34;
                 )
+            )
+            continue
+        viewerConfig = AttrDict(viewerSettings[viewerName])
+        viewerConfig.modes = AttrDict(
+            {
+                action: AttrDict(actionInfo)
+                for (action, actionInfo) in viewerConfig.modes.items()
+            }
+        )
+        viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
+        versions = []
+
+        versionNames = listDirs(viewerPath)
+
+        for versionName in versionNames:
+            versions.append(versionName)
+
+        viewerConfig.versions = versions
+
+        default = viewerConfig.default
+        del viewerConfig[&#34;default&#34;]
+
+        if default:
+            if viewerDefault is not None:
+                Messages.warning(
+                    logmsg=(
+                        f&#34;default viewer declaration {viewerName} overrides&#34;
+                        f&#34; previously declared default {viewerDefault}&#34;
+                    )
+                )
+            viewerDefault = viewerName
+
+        viewers[viewerName] = viewerConfig
     if viewerDefault is None:
         Messages.error(
             logmsg=(
@@ -1221,6 +1553,31 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 
     Settings.viewerDefault = viewerDefault
     Settings.viewers = viewers</code></pre>
+</details>
+</dd>
+<dt id="control.config.Config.checkWebdav"><code class="name flex">
+<span>def <span class="ident">checkWebdav</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Read the WEBDav methods from the webdav.yaml file.</p>
+<p>The methods are associated with the <code>view</code> or <code>edit</code> keyword,
+depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L98-L108" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkWebdav(self):
+    &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
+
+    The methods are associated with the `view` or `edit` keyword,
+    depending on whether they are `GET` like or `PUT` like.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    yamlDir = Settings.yamlDir
+    webdavFile = &#34;webdav.yml&#34;
+    webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+    Settings.webdavMethods = webdavInfo.methods</code></pre>
 </details>
 </dd>
 </dl>
@@ -1293,7 +1650,9 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.config.Config.Settings" href="#control.config.Config.Settings">Settings</a></code></li>
 <li><code><a title="control.config.Config.checkAuth" href="#control.config.Config.checkAuth">checkAuth</a></code></li>
+<li><code><a title="control.config.Config.checkBanner" href="#control.config.Config.checkBanner">checkBanner</a></code></li>
 <li><code><a title="control.config.Config.checkData" href="#control.config.Config.checkData">checkData</a></code></li>
+<li><code><a title="control.config.Config.checkDatamodel" href="#control.config.Config.checkDatamodel">checkDatamodel</a></code></li>
 <li><code><a title="control.config.Config.checkEnv" href="#control.config.Config.checkEnv">checkEnv</a></code></li>
 <li><code><a title="control.config.Config.checkModes" href="#control.config.Config.checkModes">checkModes</a></code></li>
 <li><code><a title="control.config.Config.checkMongo" href="#control.config.Config.checkMongo">checkMongo</a></code></li>
@@ -1302,6 +1661,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.config.Config.checkSettings" href="#control.config.Config.checkSettings">checkSettings</a></code></li>
 <li><code><a title="control.config.Config.checkVersion" href="#control.config.Config.checkVersion">checkVersion</a></code></li>
 <li><code><a title="control.config.Config.checkViewers" href="#control.config.Config.checkViewers">checkViewers</a></code></li>
+<li><code><a title="control.config.Config.checkWebdav" href="#control.config.Config.checkWebdav">checkWebdav</a></code></li>
 </ul>
 </li>
 </ul>

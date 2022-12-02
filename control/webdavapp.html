@@ -26,34 +26,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L1-L136" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L1-L129" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import os
-
-from wsgidav.wsgidav_app import WsgiDAVApp
+<pre><code class="python">from wsgidav.wsgidav_app import WsgiDAVApp
 
 from control.prepare import prepare
 from control.app import appFactory as appFactoryMain
-
-
-BASE = os.path.dirname(os.path.dirname(__file__))
-
-WEBDAV_METHODS = dict(
-    HEAD=&#34;view&#34;,
-    GET=&#34;view&#34;,
-    PUT=&#34;edit&#34;,
-    POST=&#34;edit&#34;,
-    OPTIONS=&#34;view&#34;,
-    TRACE=&#34;view&#34;,
-    DELETE=&#34;edit&#34;,
-    PROPFIND=&#34;view&#34;,
-    PROPPATCH=&#34;edit&#34;,
-    MKCOL=&#34;edit&#34;,
-    COPY=&#34;edit&#34;,
-    MOVE=&#34;edit&#34;,
-    LOCK=&#34;edit&#34;,
-    UNLOCK=&#34;edit&#34;,
-)
+from control.flask import make
 
 
 def getWebdavApp(objects):
@@ -68,7 +47,7 @@ def getWebdavApp(objects):
     webdavConfig = {
         &#34;provider_mapping&#34;: {
             &#34;/webdav/&#34;: {
-                &#34;root&#34;: Settings.dataDir,
+                &#34;root&#34;: Settings.workingDir,
                 &#34;readonly&#34;: False,
             },
         },
@@ -110,9 +89,18 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     The dispatcher interprets this boolean as telling whether the
     request is authorized.
     If so, it sends the original request to the webdav app.
-    If not, it prepends `/no` to the original url and sends
+    If not, it prepends `/cannot` to the original url and sends
     the request to the main app, which is programmed to
     respond with a 404 to such requests.
+
+    Parameters
+    ----------
+    app: object
+        The original flask app.
+    webdavPrefix: string
+        Initial part of the url that is used as trigger to divert to the WEBDav app.
+    webdavApp:
+        A WEBDav server.
     &#34;&#34;&#34;
 
     def wsgi_function(environ, start_response):
@@ -130,13 +118,18 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
                 environ[&#34;PATH_INFO&#34;] = url
                 theApp = webdavApp
             else:
-                environ[&#34;PATH_INFO&#34;] = f&#34;/no{url}&#34;
+                environ[&#34;PATH_INFO&#34;] = f&#34;/cannot{url}&#34;
                 theApp = app.wsgi_app
         else:
             theApp = app.wsgi_app
         return theApp(environ, start_response)
 
     return wsgi_function
+
+
+def appFactoryMaster():
+    app = make(__name__)
+    return app
 
 
 def appFactory():
@@ -156,10 +149,10 @@ def appFactory():
         See `dispatchWebdav()`.
     &#34;&#34;&#34;
 
-    objects = prepare(webdavMethods=WEBDAV_METHODS)
+    objects = prepare()
 
     origApp = appFactoryMain(objects)
-    app = appFactoryMain(objects)
+    app = appFactoryMaster()
 
     app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
 
@@ -194,7 +187,7 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L112-L136" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L105-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory():
     &#34;&#34;&#34;Make a WebDAV enabled app.
@@ -213,13 +206,28 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
         See `dispatchWebdav()`.
     &#34;&#34;&#34;
 
-    objects = prepare(webdavMethods=WEBDAV_METHODS)
+    objects = prepare()
 
     origApp = appFactoryMain(objects)
-    app = appFactoryMain(objects)
+    app = appFactoryMaster()
 
     app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
 
+    return app</code></pre>
+</details>
+</dd>
+<dt id="control.webdavapp.appFactoryMaster"><code class="name flex">
+<span>def <span class="ident">appFactoryMaster</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L100-L102" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def appFactoryMaster():
+    app = make(__name__)
     return app</code></pre>
 </details>
 </dd>
@@ -251,13 +259,22 @@ See <code><a title="control.pages.Pages.authWebdav" href="pages.html#control.pag
 The dispatcher interprets this boolean as telling whether the
 request is authorized.
 If so, it sends the original request to the webdav app.
-If not, it prepends <code>/no</code> to the original url and sends
+If not, it prepends <code>/cannot</code> to the original url and sends
 the request to the main app, which is programmed to
-respond with a 404 to such requests.</p></div>
+respond with a 404 to such requests.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>app</code></strong> :&ensp;<code>object</code></dt>
+<dd>The original flask app.</dd>
+<dt><strong><code>webdavPrefix</code></strong> :&ensp;<code>string</code></dt>
+<dd>Initial part of the url that is used as trigger to divert to the WEBDav app.</dd>
+</dl>
+<p>webdavApp:
+A WEBDav server.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L52-L109" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L31-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
     &#34;&#34;&#34;Combines the main app with the webdavapp.
@@ -290,9 +307,18 @@ respond with a 404 to such requests.</p></div>
     The dispatcher interprets this boolean as telling whether the
     request is authorized.
     If so, it sends the original request to the webdav app.
-    If not, it prepends `/no` to the original url and sends
+    If not, it prepends `/cannot` to the original url and sends
     the request to the main app, which is programmed to
     respond with a 404 to such requests.
+
+    Parameters
+    ----------
+    app: object
+        The original flask app.
+    webdavPrefix: string
+        Initial part of the url that is used as trigger to divert to the WEBDav app.
+    webdavApp:
+        A WEBDav server.
     &#34;&#34;&#34;
 
     def wsgi_function(environ, start_response):
@@ -310,7 +336,7 @@ respond with a 404 to such requests.</p></div>
                 environ[&#34;PATH_INFO&#34;] = url
                 theApp = webdavApp
             else:
-                environ[&#34;PATH_INFO&#34;] = f&#34;/no{url}&#34;
+                environ[&#34;PATH_INFO&#34;] = f&#34;/cannot{url}&#34;
                 theApp = app.wsgi_app
         else:
             theApp = app.wsgi_app
@@ -330,7 +356,7 @@ and configure it here.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/webdavapp.py#L29-L49" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getWebdavApp(objects):
     &#34;&#34;&#34;Configure a webapp that provides WebDAV.
@@ -344,7 +370,7 @@ and configure it here.</p></div>
     webdavConfig = {
         &#34;provider_mapping&#34;: {
             &#34;/webdav/&#34;: {
-                &#34;root&#34;: Settings.dataDir,
+                &#34;root&#34;: Settings.workingDir,
                 &#34;readonly&#34;: False,
             },
         },
@@ -421,6 +447,7 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="control.webdavapp.appFactory" href="#control.webdavapp.appFactory">appFactory</a></code></li>
+<li><code><a title="control.webdavapp.appFactoryMaster" href="#control.webdavapp.appFactoryMaster">appFactoryMaster</a></code></li>
 <li><code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.dispatchWebdav">dispatchWebdav</a></code></li>
 <li><code><a title="control.webdavapp.getWebdavApp" href="#control.webdavapp.getWebdavApp">getWebdavApp</a></code></li>
 </ul>

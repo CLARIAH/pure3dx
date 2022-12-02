@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/prepare.py#L1-L113" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/prepare.py#L1-L102" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
@@ -34,14 +34,14 @@ from control.mongo import Mongo as MongoCls
 from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
 from control.content import Content as ContentCls
-from control.users import Users as UsersCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
+from control.authoidc import AuthOidc as AuthOidcCls
 
 
-def prepare(webdavMethods=None, trivial=False, flask=True):
+def prepare(trivial=False):
     &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
 
     Several classes are instantiated with a singleton object;
@@ -51,7 +51,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.users.Users`: manage the user data that the app needs
+    * `control.datamodel.Datamodel`: factory for handling fields
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -79,20 +79,9 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         inside it, for example after a complicated refactoring when the flask app has
         too many bugs.
 
-    flask: boolean, optional True
-        If False, skips several configuration steps.
-        Useful if you need configuration details of the app before
-        flask is running. Cases are:
-
-        * when setting up the webdav app (`control.webdavapp`) you need some
-          configuration details, and this happens before the flask app is set up
-        * when importing data into MongoDb, we need only non-flask parts of the app.
-          This kind of import happens manually in a running container
-          on the command line.
-
     Returns
     -------
-    `control.helpers.generic.AttrDict`
+    `control.generic.AttrDict`
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 
@@ -103,31 +92,31 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Mongo = None
         Collect = None
         Viewers = None
-        Users = None
         Content = None
         Auth = None
         EditSessions = None
         Pages = None
+        AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, flask=flask), flask=flask).Settings
-        Settings.webdavMethods = webdavMethods
-        Messages = MessagesCls(Settings, flask=flask)
+        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
         Collect = CollectCls(Settings, Messages, Mongo)
-        Collect.fetch()
+        if Collect.trigger():
+            Collect.fetch()
 
-        Viewers = ViewersCls(Settings)
+        Viewers = ViewersCls(Settings, Messages)
 
-        Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
-        Auth = AuthCls(Settings, Messages, Mongo, Users, Content)
+        Auth = AuthCls(Settings, Messages, Mongo, Content)
+        AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth, Users)
+        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
 
     return AttrDict(
         Settings=Settings,
@@ -135,11 +124,11 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
-        Users=Users,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,
         Pages=Pages,
+        AuthOidc=AuthOidc,
     )</code></pre>
 </details>
 </section>
@@ -151,7 +140,7 @@ def prepare(webdavMethods=None, trivial=False, flask=True):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="control.prepare.prepare"><code class="name flex">
-<span>def <span class="ident">prepare</span></span>(<span>webdavMethods=None, trivial=False, flask=True)</span>
+<span>def <span class="ident">prepare</span></span>(<span>trivial=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Prepares the way for setting up the Flask webapp.</p>
@@ -162,7 +151,7 @@ each of these objects has a dedicated task in the app:</p>
 <li><code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>: handle all messaging to user and sysadmin</li>
 <li><code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>: higher-level commands to the MongoDb</li>
 <li><code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>: support the third party 3D viewers</li>
-<li><code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>: manage the user data that the app needs</li>
+<li><code><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></code>: factory for handling fields</li>
 <li><code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>: retrieve all data that needs to be displayed</li>
 <li><code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>: compute the permission of the current user
 to access content</li>
@@ -189,30 +178,17 @@ Useful if the pure3d app container should run without doing anything.
 This happens when we just want to start the container and run shell commands
 inside it, for example after a complicated refactoring when the flask app has
 too many bugs.</dd>
-<dt><strong><code>flask</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
-<dd>
-<p>If False, skips several configuration steps.
-Useful if you need configuration details of the app before
-flask is running. Cases are:</p>
-<ul>
-<li>when setting up the webdav app (<code><a title="control.webdavapp" href="webdavapp.html">control.webdavapp</a></code>) you need some
-configuration details, and this happens before the flask app is set up</li>
-<li>when importing data into MongoDb, we need only non-flask parts of the app.
-This kind of import happens manually in a running container
-on the command line.</li>
-</ul>
-</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code>
+<p><code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code>
 A dictionary keyed by the names of the singleton objects and valued
 by the singleton objects themselves.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/prepare.py#L14-L113" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/prepare.py#L14-L102" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def prepare(webdavMethods=None, trivial=False, flask=True):
+<pre><code class="python">def prepare(trivial=False):
     &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
 
     Several classes are instantiated with a singleton object;
@@ -222,7 +198,7 @@ by the singleton objects themselves.</p></div>
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.users.Users`: manage the user data that the app needs
+    * `control.datamodel.Datamodel`: factory for handling fields
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -250,20 +226,9 @@ by the singleton objects themselves.</p></div>
         inside it, for example after a complicated refactoring when the flask app has
         too many bugs.
 
-    flask: boolean, optional True
-        If False, skips several configuration steps.
-        Useful if you need configuration details of the app before
-        flask is running. Cases are:
-
-        * when setting up the webdav app (`control.webdavapp`) you need some
-          configuration details, and this happens before the flask app is set up
-        * when importing data into MongoDb, we need only non-flask parts of the app.
-          This kind of import happens manually in a running container
-          on the command line.
-
     Returns
     -------
-    `control.helpers.generic.AttrDict`
+    `control.generic.AttrDict`
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 
@@ -274,31 +239,31 @@ by the singleton objects themselves.</p></div>
         Mongo = None
         Collect = None
         Viewers = None
-        Users = None
         Content = None
         Auth = None
         EditSessions = None
         Pages = None
+        AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, flask=flask), flask=flask).Settings
-        Settings.webdavMethods = webdavMethods
-        Messages = MessagesCls(Settings, flask=flask)
+        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
         Collect = CollectCls(Settings, Messages, Mongo)
-        Collect.fetch()
+        if Collect.trigger():
+            Collect.fetch()
 
-        Viewers = ViewersCls(Settings)
+        Viewers = ViewersCls(Settings, Messages)
 
-        Users = UsersCls(Settings, Messages, Mongo)
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
-        Auth = AuthCls(Settings, Messages, Mongo, Users, Content)
+        Auth = AuthCls(Settings, Messages, Mongo, Content)
+        AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth, Users)
+        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
 
     return AttrDict(
         Settings=Settings,
@@ -306,11 +271,11 @@ by the singleton objects themselves.</p></div>
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
-        Users=Users,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,
         Pages=Pages,
+        AuthOidc=AuthOidc,
     )</code></pre>
 </details>
 </dd>

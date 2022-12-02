@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>control.helpers.files API documentation</title>
+<title>control.files API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -20,22 +20,27 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>control.helpers.files</code></h1>
+<h1 class="title">Module <code>control.files</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L1-L112" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L1-L233" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import yaml
 import re
+from shutil import rmtree, copytree, copy
 
-from control.helpers.generic import AttrDict
+from control.generic import AttrDict
 
+
+THREE_EXT = {&#34;glb&#34;, &#34;gltf&#34;}
+THREE_EXT_PAT = &#34;|&#34;.join(THREE_EXT)
 
 IMAGE_RE = re.compile(r&#34;&#34;&#34;^.*\.(png|jpg|jpeg)$&#34;&#34;&#34;, re.I)
+THREED_RE = re.compile(fr&#34;&#34;&#34;^.*\.({THREE_EXT_PAT})$&#34;&#34;&#34;, re.I)
 
 
 def readPath(filePath):
@@ -73,12 +78,12 @@ def readYaml(path, defaultEmpty=False):
         The path of the file on the file system.
     defaultEmpty: boolean, optional False
         What to do if the file does not exist.
-        If True, it returns an empty `control.helpers.generic.AttrDict`
+        If True, it returns an empty `control.generic.AttrDict`
         otherwise False.
 
     Returns
     -------
-    `control.helpers.generic.AttrDict` or None
+    `control.generic.AttrDict` or None
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
     if not os.path.isfile(path):
@@ -94,10 +99,70 @@ def fileExists(path):
     return os.path.isfile(path)
 
 
+def fileRemove(path):
+    &#34;&#34;&#34;Removes a file if it exists as file.
+    &#34;&#34;&#34;
+    if fileExists(path):
+        os.remove(path)
+
+
+def fileCopy(pathSrc, pathDst):
+    &#34;&#34;&#34;Copies a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    &#34;&#34;&#34;
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+        copy(pathSrc, pathDst)
+
+
 def dirExists(path):
     &#34;&#34;&#34;Whether a path exists as directory on the file system.
     &#34;&#34;&#34;
     return os.path.isdir(path)
+
+
+def dirRemove(path):
+    &#34;&#34;&#34;Removes a directory if it exists as directory.
+    &#34;&#34;&#34;
+    if dirExists(path):
+        rmtree(path)
+
+
+def dirCopy(pathSrc, pathDst):
+    &#34;&#34;&#34;Copies a directory if it exists as directory.
+
+    Wipes the destination directory, if it exists.
+    &#34;&#34;&#34;
+    if dirExists(pathSrc):
+        dirRemove(pathDst)
+        copytree(pathSrc, pathDst)
+
+
+def dirMake(path):
+    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        os.makedirs(path, exist_ok=True)
+
+
+def listDirs(path):
+    &#34;&#34;&#34;The list of all subdirectories in a directory.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    subdirs = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            if entry.is_dir():
+                name = entry.name
+                subdirs.append(name)
+
+    return subdirs
 
 
 def listFiles(path, ext):
@@ -105,7 +170,7 @@ def listFiles(path, ext):
 
     If the directory does not exist, the empty list is returned.
     &#34;&#34;&#34;
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -128,7 +193,7 @@ def listImages(path):
     An image is a file with extension .png, .jpg, .jpeg or any of its
     case variants.
     &#34;&#34;&#34;
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -139,7 +204,63 @@ def listImages(path):
             if IMAGE_RE.match(name) and entry.is_file():
                 files.append(name)
 
-    return files</code></pre>
+    return files
+
+
+def list3d(path):
+    &#34;&#34;&#34;The list of all 3D files in a directory.
+
+    If the directory does not exist, the empty list is returned.
+
+    An image is a file with extension .gltf, .glb or any of its
+    case variants.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            if THREED_RE.match(name) and entry.is_file():
+                files.append(name)
+
+    return files
+
+
+def get3d(path, name=None):
+    &#34;&#34;&#34;Detect 3D files in a certain directory.
+
+    The directory is searched for files that have an extension that signals 3D data.
+    Optionally we restrict the search for files with a given base name.
+
+    Parameters
+    ----------
+    path: string
+        Directory in which the 3D files are looked up.
+    name: string, optionally None
+        If None, all files will be searched.
+        Otherwise this is the base name of the 3D files that we look for.
+
+    Returns
+    -------
+    dict
+        Keyed by base name, valued by extensions of existing 3D files in that directory.
+    &#34;&#34;&#34;
+
+    files = list3d(path)
+
+    matchingFiles = {}
+
+    for file in files:
+        (thisName, ext) = file.rsplit(&#34;.&#34;, 1)
+        if name is not None and name != thisName:
+            continue
+
+        matchingFiles.setdefault(thisName, []).append(ext)
+
+    return matchingFiles</code></pre>
 </details>
 </section>
 <section>
@@ -149,7 +270,28 @@ def listImages(path):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="control.helpers.files.dirExists"><code class="name flex">
+<dt id="control.files.dirCopy"><code class="name flex">
+<span>def <span class="ident">dirCopy</span></span>(<span>pathSrc, pathDst)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copies a directory if it exists as directory.</p>
+<p>Wipes the destination directory, if it exists.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L102-L109" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirCopy(pathSrc, pathDst):
+    &#34;&#34;&#34;Copies a directory if it exists as directory.
+
+    Wipes the destination directory, if it exists.
+    &#34;&#34;&#34;
+    if dirExists(pathSrc):
+        dirRemove(pathDst)
+        copytree(pathSrc, pathDst)</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirExists"><code class="name flex">
 <span>def <span class="ident">dirExists</span></span>(<span>path)</span>
 </code></dt>
 <dd>
@@ -157,7 +299,7 @@ def listImages(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L67-L70" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L89-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirExists(path):
     &#34;&#34;&#34;Whether a path exists as directory on the file system.
@@ -165,7 +307,62 @@ def listImages(path):
     return os.path.isdir(path)</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.fileExists"><code class="name flex">
+<dt id="control.files.dirMake"><code class="name flex">
+<span>def <span class="ident">dirMake</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a directory if it does not already exist as directory.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L112-L116" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirMake(path):
+    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        os.makedirs(path, exist_ok=True)</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirRemove"><code class="name flex">
+<span>def <span class="ident">dirRemove</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Removes a directory if it exists as directory.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L95-L99" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirRemove(path):
+    &#34;&#34;&#34;Removes a directory if it exists as directory.
+    &#34;&#34;&#34;
+    if dirExists(path):
+        rmtree(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.fileCopy"><code class="name flex">
+<span>def <span class="ident">fileCopy</span></span>(<span>pathSrc, pathDst)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copies a file if it exists as file.</p>
+<p>Wipes the destination file, if it exists.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L79-L86" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fileCopy(pathSrc, pathDst):
+    &#34;&#34;&#34;Copies a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    &#34;&#34;&#34;
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+        copy(pathSrc, pathDst)</code></pre>
+</details>
+</dd>
+<dt id="control.files.fileExists"><code class="name flex">
 <span>def <span class="ident">fileExists</span></span>(<span>path)</span>
 </code></dt>
 <dd>
@@ -173,7 +370,7 @@ def listImages(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L61-L64" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L66-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileExists(path):
     &#34;&#34;&#34;Whether a path exists as file on the file system.
@@ -181,7 +378,148 @@ def listImages(path):
     return os.path.isfile(path)</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.listFiles"><code class="name flex">
+<dt id="control.files.fileRemove"><code class="name flex">
+<span>def <span class="ident">fileRemove</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Removes a file if it exists as file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L72-L76" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fileRemove(path):
+    &#34;&#34;&#34;Removes a file if it exists as file.
+    &#34;&#34;&#34;
+    if fileExists(path):
+        os.remove(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.get3d"><code class="name flex">
+<span>def <span class="ident">get3d</span></span>(<span>path, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Detect 3D files in a certain directory.</p>
+<p>The directory is searched for files that have an extension that signals 3D data.
+Optionally we restrict the search for files with a given base name.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>Directory in which the 3D files are looked up.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>string, optionally None</code></dt>
+<dd>If None, all files will be searched.
+Otherwise this is the base name of the 3D files that we look for.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>Keyed by base name, valued by extensions of existing 3D files in that directory.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L202-L233" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get3d(path, name=None):
+    &#34;&#34;&#34;Detect 3D files in a certain directory.
+
+    The directory is searched for files that have an extension that signals 3D data.
+    Optionally we restrict the search for files with a given base name.
+
+    Parameters
+    ----------
+    path: string
+        Directory in which the 3D files are looked up.
+    name: string, optionally None
+        If None, all files will be searched.
+        Otherwise this is the base name of the 3D files that we look for.
+
+    Returns
+    -------
+    dict
+        Keyed by base name, valued by extensions of existing 3D files in that directory.
+    &#34;&#34;&#34;
+
+    files = list3d(path)
+
+    matchingFiles = {}
+
+    for file in files:
+        (thisName, ext) = file.rsplit(&#34;.&#34;, 1)
+        if name is not None and name != thisName:
+            continue
+
+        matchingFiles.setdefault(thisName, []).append(ext)
+
+    return matchingFiles</code></pre>
+</details>
+</dd>
+<dt id="control.files.list3d"><code class="name flex">
+<span>def <span class="ident">list3d</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The list of all 3D files in a directory.</p>
+<p>If the directory does not exist, the empty list is returned.</p>
+<p>An image is a file with extension .gltf, .glb or any of its
+case variants.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L180-L199" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def list3d(path):
+    &#34;&#34;&#34;The list of all 3D files in a directory.
+
+    If the directory does not exist, the empty list is returned.
+
+    An image is a file with extension .gltf, .glb or any of its
+    case variants.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            if THREED_RE.match(name) and entry.is_file():
+                files.append(name)
+
+    return files</code></pre>
+</details>
+</dd>
+<dt id="control.files.listDirs"><code class="name flex">
+<span>def <span class="ident">listDirs</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The list of all subdirectories in a directory.</p>
+<p>If the directory does not exist, the empty list is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L119-L135" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def listDirs(path):
+    &#34;&#34;&#34;The list of all subdirectories in a directory.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    subdirs = []
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            if entry.is_dir():
+                name = entry.name
+                subdirs.append(name)
+
+    return subdirs</code></pre>
+</details>
+</dd>
+<dt id="control.files.listFiles"><code class="name flex">
 <span>def <span class="ident">listFiles</span></span>(<span>path, ext)</span>
 </code></dt>
 <dd>
@@ -190,14 +528,14 @@ def listImages(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L73-L90" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L138-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFiles(path, ext):
     &#34;&#34;&#34;The list of all files in a directory with a certain extension.
 
     If the directory does not exist, the empty list is returned.
     &#34;&#34;&#34;
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -212,7 +550,7 @@ def listImages(path):
     return files</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.listImages"><code class="name flex">
+<dt id="control.files.listImages"><code class="name flex">
 <span>def <span class="ident">listImages</span></span>(<span>path)</span>
 </code></dt>
 <dd>
@@ -223,7 +561,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L93-L112" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L158-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listImages(path):
     &#34;&#34;&#34;The list of all image files in a directory.
@@ -233,7 +571,7 @@ case variants.</p></div>
     An image is a file with extension .png, .jpg, .jpeg or any of its
     case variants.
     &#34;&#34;&#34;
-    if not os.path.isdir(path):
+    if not dirExists(path):
         return []
 
     files = []
@@ -247,7 +585,7 @@ case variants.</p></div>
     return files</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.readPath"><code class="name flex">
+<dt id="control.files.readPath"><code class="name flex">
 <span>def <span class="ident">readPath</span></span>(<span>filePath)</span>
 </code></dt>
 <dd>
@@ -271,7 +609,7 @@ If the file does not exist, the empty string is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L11-L34" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L16-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readPath(filePath):
     &#34;&#34;&#34;Reads the (textual) contents of a file.
@@ -299,7 +637,7 @@ If the file does not exist, the empty string is returned.</dd>
     return &#34;&#34;</code></pre>
 </details>
 </dd>
-<dt id="control.helpers.files.readYaml"><code class="name flex">
+<dt id="control.files.readYaml"><code class="name flex">
 <span>def <span class="ident">readYaml</span></span>(<span>path, defaultEmpty=False)</span>
 </code></dt>
 <dd>
@@ -310,16 +648,16 @@ If the file does not exist, the empty string is returned.</dd>
 <dd>The path of the file on the file system.</dd>
 <dt><strong><code>defaultEmpty</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>What to do if the file does not exist.
-If True, it returns an empty <code><a title="control.helpers.generic.AttrDict" href="generic.html#control.helpers.generic.AttrDict">AttrDict</a></code>
+If True, it returns an empty <code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code>
 otherwise False.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="control.helpers.generic.AttrDict" href="generic.html#control.helpers.generic.AttrDict">AttrDict</a></code> or None
+<p><code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code> or None
 The data content of the yaml file if it exists.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/helpers/files.py#L37-L58" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L42-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readYaml(path, defaultEmpty=False):
     &#34;&#34;&#34;Reads a yaml file.
@@ -330,12 +668,12 @@ The data content of the yaml file if it exists.</p></div>
         The path of the file on the file system.
     defaultEmpty: boolean, optional False
         What to do if the file does not exist.
-        If True, it returns an empty `control.helpers.generic.AttrDict`
+        If True, it returns an empty `control.generic.AttrDict`
         otherwise False.
 
     Returns
     -------
-    `control.helpers.generic.AttrDict` or None
+    `control.generic.AttrDict` or None
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
     if not os.path.isfile(path):
@@ -386,7 +724,7 @@ const query = new URL(window.location).searchParams.get('q');
 if (query)
 search(query);
 function search(query) {
-const url = '../../doc-search.html#' + encodeURIComponent(query);
+const url = '../doc-search.html#' + encodeURIComponent(query);
 new tingle.modal({
 cssClass: ['modal-dialog'],
 onClose: () => {
@@ -405,17 +743,25 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="control.helpers" href="index.html">control.helpers</a></code></li>
+<li><code><a title="control" href="index.html">control</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="control.helpers.files.dirExists" href="#control.helpers.files.dirExists">dirExists</a></code></li>
-<li><code><a title="control.helpers.files.fileExists" href="#control.helpers.files.fileExists">fileExists</a></code></li>
-<li><code><a title="control.helpers.files.listFiles" href="#control.helpers.files.listFiles">listFiles</a></code></li>
-<li><code><a title="control.helpers.files.listImages" href="#control.helpers.files.listImages">listImages</a></code></li>
-<li><code><a title="control.helpers.files.readPath" href="#control.helpers.files.readPath">readPath</a></code></li>
-<li><code><a title="control.helpers.files.readYaml" href="#control.helpers.files.readYaml">readYaml</a></code></li>
+<li><code><a title="control.files.dirCopy" href="#control.files.dirCopy">dirCopy</a></code></li>
+<li><code><a title="control.files.dirExists" href="#control.files.dirExists">dirExists</a></code></li>
+<li><code><a title="control.files.dirMake" href="#control.files.dirMake">dirMake</a></code></li>
+<li><code><a title="control.files.dirRemove" href="#control.files.dirRemove">dirRemove</a></code></li>
+<li><code><a title="control.files.fileCopy" href="#control.files.fileCopy">fileCopy</a></code></li>
+<li><code><a title="control.files.fileExists" href="#control.files.fileExists">fileExists</a></code></li>
+<li><code><a title="control.files.fileRemove" href="#control.files.fileRemove">fileRemove</a></code></li>
+<li><code><a title="control.files.get3d" href="#control.files.get3d">get3d</a></code></li>
+<li><code><a title="control.files.list3d" href="#control.files.list3d">list3d</a></code></li>
+<li><code><a title="control.files.listDirs" href="#control.files.listDirs">listDirs</a></code></li>
+<li><code><a title="control.files.listFiles" href="#control.files.listFiles">listFiles</a></code></li>
+<li><code><a title="control.files.listImages" href="#control.files.listImages">listImages</a></code></li>
+<li><code><a title="control.files.readPath" href="#control.files.readPath">readPath</a></code></li>
+<li><code><a title="control.files.readYaml" href="#control.files.readYaml">readYaml</a></code></li>
 </ul>
 </li>
 </ul>

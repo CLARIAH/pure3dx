@@ -26,33 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L1-L499" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L1-L590" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from textwrap import dedent
-from flask import render_template, make_response
-from control.mongo import castObjectId
-from markdown import markdown
-
-TABS = (
-    (&#34;home&#34;, &#34;Home&#34;, True),
-    (&#34;about&#34;, &#34;About&#34;, True),
-    (&#34;projects&#34;, &#34;3D Projects&#34;, True),
-    (&#34;directory&#34;, &#34;3D Directory&#34;, False),
-    (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True),
-    (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False),
-)
-
-CAPTIONS = {
-    &#34;title&#34;: (&#34;{}&#34;, True),
-    &#34;description.abstract&#34;: (&#34;Intro&#34;, True),
-    &#34;description.description&#34;: (&#34;Description&#34;, True),
-    &#34;provenance&#34;: (&#34;About&#34;, True),
-    &#34;instructionalMethod&#34;: (&#34;How to use&#34;, True),
-}
+<pre><code class="python">from control.flask import redirectStatus, template, send, stop, getReferrer
+from control.html import HtmlElements as H
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth):
         &#34;&#34;&#34;Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -69,7 +50,7 @@ class Pages:
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -78,14 +59,10 @@ class Pages:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
             Singleton instance of `control.auth.Auth`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Viewers = Viewers
@@ -93,24 +70,23 @@ class Pages:
         Messages.debugAdd(self)
         self.Content = Content
         self.Auth = Auth
-        self.Users = Users
 
     def home(self):
         &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
-        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
         &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
-        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-        right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
+        left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
+        right = self.putValues(&#34;description@2 + provenance@2&#34;)
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
         &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putTexts(&#34;title@1&#34;)
+        left = self.putValues(&#34;siteTitle@1&#34;)
         right = surpriseMe
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
@@ -118,8 +94,26 @@ class Pages:
         &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putTexts(&#34;title@2&#34;) + projects
+        left = self.putValues(&#34;siteTitle@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
+
+    def projectInsert(self):
+        &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
+        Messages = self.Messages
+        Content = self.Content
+        projectId = Content.insertProject()
+        if projectId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new project&#34;,
+                msg=&#34;failed to create new project&#34;,
+            )
+            newUrl = &#34;/projects&#34;
+        else:
+            Messages.info(
+                logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
+            )
+            newUrl = f&#34;/projects/{projectId}&#34;
+        return redirectStatus(newUrl, projectId is not None)
 
     def project(self, projectId):
         &#34;&#34;&#34;The landing page of a project.
@@ -130,15 +124,37 @@ class Pages:
             The project in question.
         &#34;&#34;&#34;
         Content = self.Content
-        projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
-        left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
-        right = self.putTexts(
-            &#34;description.abstract@4 + description.description@4 + &#34;
-            &#34;provenance@4 + instructionalMethod@4&#34;,
+        left = self.putValues(&#34;title@3 + creator@0&#34;, projectId=projectId) + editions
+        right = self.putValues(
+            &#34;abstract@4 + description@4 + provenance@4 + instructionalMethod@4&#34;,
             projectId=projectId,
         )
-        return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
+        return self.page(&#34;projects&#34;, left=left, right=right)
+
+    def editionInsert(self, projectId):
+        &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the edition belongs.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Content = self.Content
+        editionId = Content.insertEdition(projectId)
+        if editionId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new edition&#34;,
+                msg=&#34;failed to create new edition&#34;,
+            )
+            newUrl = f&#34;/projects/{projectId}&#34;
+        else:
+            Messages.info(
+                logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
+            )
+            newUrl = f&#34;/editions/{editionId}&#34;
+        return redirectStatus(newUrl, editionId is not None)
 
     def edition(self, editionId):
         &#34;&#34;&#34;The landing page of an edition.
@@ -154,8 +170,7 @@ class Pages:
             From the edition record we can find the project too.
         &#34;&#34;&#34;
         Content = self.Content
-        editionId = castObjectId(editionId)
-        editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+        editionInfo = Content.getItem(&#34;editions&#34;, _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
 
@@ -181,48 +196,34 @@ class Pages:
             The mode in which the viewer is to be used (`view` or `edit`).
         &#34;&#34;&#34;
         Content = self.Content
-        sceneId = castObjectId(sceneId)
-        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
         projectId = sceneInfo.projectId
         editionId = sceneInfo.editionId
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
-    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
-        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+    def sceneInsert(self, projectId, editionId):
+        &#34;&#34;&#34;Inserts a scene into an edition and shows the new scene.
 
-        The common part between the two functions mentioned.
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the scene belongs.
+        editionId: ObjectId
+            The edition to which the scene belongs.
         &#34;&#34;&#34;
+        Messages = self.Messages
         Content = self.Content
-        Auth = self.Auth
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        back = self.backLink(projectId)
-        scenes = Content.getScenes(
-            projectId,
-            editionId,
-            sceneId=sceneId,
-            viewer=viewer,
-            version=version,
-            action=action,
-        )
-        left = (
-            back
-            + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
-            + scenes
-        )
-        right = self.putTexts(
-            &#34;description.abstract@5 + description.description@5 + &#34;
-            &#34;provenance@5 + instructionalMethod@5&#34;,
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return self.page(
-            &#34;projects&#34;,
-            left=left,
-            right=right,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        sceneId = Content.insertScene(projectId, editionId)
+        if sceneId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new scene&#34;,
+                msg=&#34;failed to create new scene&#34;,
+            )
+            newUrl = f&#34;/editions/{editionId}&#34;
+        else:
+            Messages.info(logmsg=f&#34;Created scene {sceneId}&#34;, msg=&#34;new scene created&#34;)
+            newUrl = f&#34;/scenes/{sceneId}&#34;
+        return redirectStatus(newUrl, sceneId is not None)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
@@ -242,22 +243,22 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneId = castObjectId(sceneId)
-        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
-        projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
-
         editionId = sceneInfo.editionId
-        editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
 
-        urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+        urlBase = f&#34;projects/{projectId}/editions/{editionId}/&#34;
 
-        action = Auth.checkModifiable(projectId, editionId, action)
+        action = Auth.makeSafe(&#34;scenes&#34;, sceneId, action)
 
-        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
-        return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
+        viewerCode = (
+            &#34;&#34;
+            if action is None
+            else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        )
+        return template(&#34;viewer&#34;, viewerCode=viewerCode)
 
     def viewerResource(self, path):
         &#34;&#34;&#34;Components requested by viewers.
@@ -270,86 +271,65 @@ class Pages:
         path: string
             Path on the file system under the viewers base directory
             where the resource resides.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         &#34;&#34;&#34;
         Content = self.Content
 
-        data = Content.getViewerFile(path)
-        return make_response(data)
+        dataPath = Content.getViewerFile(path)
+        return send(dataPath)
 
-    def dataProjects(self, projectName, editionName, path):
-        &#34;&#34;&#34;Data content requested by viewers.
+    def dataProjects(self, path, projectId=None, editionId=None):
+        &#34;&#34;&#34;Data content requested directly from the file repository.
 
-        This is the material belonging to the scene,
-        the scene json itself and additional resources,
-        that are part of the user contributed content that is under
-        control of the viewer: annotations, media, etc.
+        This is
+
+        * the material requested by the viewers:
+          the scene json itself and additional resources,
+          that are part of the user contributed content that is under
+          control of the viewer: annotations, media, etc.
+        * icons for the site, projects, and editions
 
         Parameters
         ----------
-        projectName: string or None
-            If not None, the name of a project under which the resource
-            is to be found.
-        editionName: string or None
-            If not None, the name of an edition under which the resource
-            is to be found.
         path: string
             Path on the file system under the data directory
             where the resource resides.
-            If there is a project and or edition given,
-            the path is relative to those.
+            The path is relative to the project, and, if given, the edition.
+        projectId: ObjectId, optional None
+            The id of a project under which the resource is to be found.
+            If None, it is site-wide material.
+        editionId: ObjectId, optional None
+            If not None, the name of an edition under which the resource
+            is to be found.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         &#34;&#34;&#34;
         Content = self.Content
 
-        data = Content.getData(path, projectName=projectName, editionName=editionName)
-        return make_response(data)
+        dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
+        return send(dataPath)
 
-    def page(
-        self,
-        url,
-        projectId=None,
-        editionId=None,
-        left=&#34;&#34;,
-        right=&#34;&#34;,
-    ):
-        &#34;&#34;&#34;Workhorse function to get content on the page.
+    def upload(self, table, recordId, field, path):
+        Content = self.Content
 
-        Parameters
-        ----------
-        url: string
-            Initial part of the url that triggered the page function.
-            This part is used to make one of the tabs on the web page active.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Maybe needed for back links to the project.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Maybe needed for back links to the edition.
-        left: string, optional &#34;&#34;
-            Content for the left column of the page.
-        right: string, optional &#34;&#34;
-            Content for the right column of the page.
-        &#34;&#34;&#34;
-        Settings = self.Settings
-        Messages = self.Messages
-        Auth = self.Auth
-        Users = self.Users
+        parts = path.rstrip(&#34;/&#34;).rsplit(&#34;/&#34;, 1)
+        fileName = parts[-1]
+        path = parts[0] if len(parts) == 2 else &#34;&#34;
 
-        userActive = Auth.user._id
+        return Content.save(table, recordId, field, path, fileName)
 
-        navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
-
-        return render_template(
-            &#34;index.html&#34;,
-            versionInfo=Settings.versionInfo,
-            navigation=navigation,
-            materialLeft=left,
-            materialRight=right,
-            messages=Messages.generateMessages(),
-            testUsers=testUsers,
-        )
-
-    def authWebdav(self, projectName, editionName, path, action):
+    def authWebdav(self, projectId, editionId, path, action):
         &#34;&#34;&#34;Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -359,9 +339,9 @@ class Pages:
 
         Parameters
         ----------
-        projectName: string
+        projectId: ObjectId
             The project in question.
-        editionName: string
+        editionId: ObjectId
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -377,18 +357,129 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        permitted = Auth.authorise(
-            action,
-            project=projectName,
-            edition=editionName,
-            byName=True,
-        )
+        permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=action)
         if not permitted:
+            User = Auth.myDetails()
+            user = User.sub
+            name = User.nickname
             Messages.info(
-                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
-                f&#34; on {projectName=} {editionName=} {path=}&#34;
+                logmsg=f&#34;WEBDav unauthorised by user {name} ({user})&#34;
+                f&#34; on project {projectId} edition {editionId} path {path}&#34;
             )
         return permitted
+
+    def remaining(self, path):
+        &#34;&#34;&#34;When the url of the request is not recognized.
+
+        Parameters
+        ----------
+        path: string
+            The url (without leading /) that is not recognized.
+
+        Returns
+        -------
+        response
+            Either a redirect to the referred, for some
+            recognized urls that correspond to not-yet
+            implemented one. Or a 404 abort for all other
+            cases.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+
+        def splitUrl(url):
+            url = url.strip(&#34;/&#34;)
+            parts = url.rsplit(&#34;/&#34;, 1)
+            lastPart = parts[-1]
+            firstPart = parts[0] if len(parts) &gt; 1 else &#34;&#34;
+            firstPart = f&#34;/{firstPart}&#34;
+            return (firstPart, lastPart)
+
+        (firstPath, lastPath) = splitUrl(path)
+
+        if lastPath in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;}:
+            Messages.warning(
+                logmsg=f&#34;Not yet implemented /{lastPath}: /{path}&#34;,
+                msg=f&#34;Not yet implemented: /{lastPath}&#34;,
+            )
+            ref = getReferrer()
+            (firstRef, lastRef) = splitUrl(ref)
+            back = firstRef if lastRef in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;} else f&#34;/{ref}&#34;
+            return redirectStatus(back, True)
+
+        Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
+        stop()
+
+    def page(self, url, left=None, right=None):
+        &#34;&#34;&#34;Workhorse function to get content on the page.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url that triggered the page function.
+            This part is used to make one of the tabs on the web page active.
+        left: string, optional None
+            Content for the left column of the page.
+        right: string, optional None
+            Content for the right column of the page.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        # Messages = self.Messages
+        Auth = self.Auth
+
+        navigation = self.navigation(url)
+        iconSite = self.putUpload(&#34;iconSite&#34;)
+        (testLoginWidget, loginWidget) = Auth.wrapLogin()
+
+        return template(
+            &#34;index&#34;,
+            banner=Settings.banner,
+            versionInfo=Settings.versionInfo,
+            navigation=navigation,
+            materialLeft=left or &#34;&#34;,
+            materialRight=right or &#34;&#34;,
+            testLoginWidget=testLoginWidget,
+            loginWidget=loginWidget,
+            iconSite=iconSite,
+        )
+
+    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+        The common part between the two functions mentioned.
+        &#34;&#34;&#34;
+        Content = self.Content
+        Auth = self.Auth
+
+        breadCrumb = self.breadCrumb(projectId)
+        action = Auth.makeSafe(&#34;editions&#34;, editionId, action)
+        sceneMaterial = (
+            &#34;&#34;
+            if action is None
+            else Content.getScenes(
+                projectId,
+                editionId,
+                sceneId=sceneId,
+                viewer=viewer,
+                version=version,
+                action=action,
+            )
+        )
+        left = (
+            breadCrumb
+            + self.putValues(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+            + H.div(
+                self.putUpload(&#34;model&#34;, projectId=projectId, editionId=editionId),
+                cls=&#34;modelfile&#34;,
+            )
+            + H.h(4, &#34;Scenes&#34;)
+            + sceneMaterial
+        )
+        right = self.putValues(
+            &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page(&#34;projects&#34;, left=left, right=right)
 
     def navigation(self, url):
         &#34;&#34;&#34;Generates the navigation controls.
@@ -406,41 +497,50 @@ class Pages:
         string
             The HTML of the navigation.
         &#34;&#34;&#34;
-        search = dedent(
-            &#34;&#34;&#34;
-            &lt;span class=&#34;search-bar&#34;&gt;
-                &lt;input
-                    type=&#34;search&#34;
-                    name=&#34;search&#34;
-                    placeholder=&#34;search item&#34;
-                    class=&#34;button disabled&#34;
-                &gt;
-                &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
-            &lt;/span&gt;
-            &#34;&#34;&#34;
+
+        TABS = (
+            (&#34;home&#34;, &#34;Home&#34;, True),
+            (&#34;about&#34;, &#34;About&#34;, True),
+            (&#34;projects&#34;, &#34;3D Projects&#34;, True),
+            (&#34;directory&#34;, &#34;3D Directory&#34;, False),
+            (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True),
+            (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False),
         )
-        html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+        search = H.span(
+            [
+                H.input(
+                    &#34;search&#34;,
+                    &#34;&#34;,
+                    name=&#34;search&#34;,
+                    placeholder=&#34;search item&#34;,
+                    cls=&#34;button disabled&#34;,
+                ),
+                H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
+            ],
+            cls=&#34;search-bar&#34;,
+        )
+
+        divContent = []
 
         for (tab, label, enabled) in TABS:
             active = &#34;active&#34; if url == tab else &#34;&#34;
-            elem = &#34;a&#34; if enabled else &#34;span&#34;
-            href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
-            cls = active if enabled else &#34;disabled&#34;
-            html.append(
-                dedent(
-                    f&#34;&#34;&#34;
-                    &lt;{elem}
-                        {href}
-                        class=&#34;button large {cls}&#34;
-                    &gt;{label}&lt;/{elem}&gt;
-                    &#34;&#34;&#34;
-                )
-            )
-        html.append(search)
-        html.append(&#34;&lt;/div&gt;&#34;)
-        return &#34;\n&#34;.join(html)
+            if enabled:
+                elem = &#34;a&#34;
+                cls = active
+                href = [f&#34;/{tab}&#34;]
+            else:
+                elem = &#34;span&#34;
+                cls = &#34;disabled&#34;
+                href = []
+            fullCls = f&#34;button large {cls}&#34;
+            divContent.append(H.elem(elem, label, *href, cls=fullCls))
 
-    def backLink(self, projectId):
+        divContent.append(search)
+
+        return H.div(divContent, cls=&#34;tabs&#34;)
+
+    def breadCrumb(self, projectId):
         &#34;&#34;&#34;Makes a link to the landing page of a project.
 
         Parameters
@@ -448,85 +548,76 @@ class Pages:
         projectId: ObjectId
             The project in question.
         &#34;&#34;&#34;
-        projectUrl = f&#34;/projects/{projectId}&#34;
-        cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
-        href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
-        text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
-        return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
-
-    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
-        &#34;&#34;&#34;Puts a piece of metadata on the web page.
-
-        The meta data is retrieved and then wrapped accordingly.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The namespace of the metadata, e.g. `dc` (Dublin Core)
-        fieldPath: string
-            `.`-separated list of fields into a metadata structure.
-        level: integer 1-6
-            The heading level in which the text must be wrapped.
-        projectId: ObjectId or None
-            The project in question
-        editionId: ObjectId or None
-            The edition in question
-
-        Returns
-        -------
-        string
-            The HTML of the formatted text.
-        &#34;&#34;&#34;
         Content = self.Content
-
-        content = Content.getMeta(
-            nameSpace, fieldPath, projectId=projectId, editionId=editionId
-        )
-        info = CAPTIONS.get(fieldPath, None)
-
-        if info is None:
-            return content
-
-        (heading, asMd) = info
-        skip = &#34;{}&#34; in heading
-
-        if asMd:
-            heading = markdown(heading)
-            content = markdown(content)
-
-        return dedent(
-            f&#34;&#34;&#34;
-            &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
-            {&#34;&#34; if skip else content}
-            &#34;&#34;&#34;
+        projectUrl = f&#34;/projects/{projectId}&#34;
+        text = Content.getValue(&#34;title&#34;, projectId=projectId, bare=True)
+        return H.p(
+            [
+                &#34;Project: &#34;,
+                H.a(
+                    [text, H.gt()],
+                    projectUrl,
+                    cls=&#34;button&#34;,
+                    title=&#34;back to the project page&#34;,
+                ),
+            ]
         )
 
-    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
-        &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
-
-        See `Pages.putText()` for the parameter specifications.
-
-        One difference:
+    def putValues(self, fieldSpecs, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts several pieces of metadata on the web page.
 
         Parameters
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
 
         Returns
         -------
         string
-            The join of the individual results of `Pages.putText`.
+            The join of the individual results of retrieving metadata value.
         &#34;&#34;&#34;
-        return &#34;\n&#34;.join(
-            self.putText(
-                nameSpace,
-                *fieldSpec.strip().split(&#34;@&#34;, 1),
+        Content = self.Content
+
+        return H.content(
+            Content.getValue(
+                key,
                 projectId=projectId,
                 editionId=editionId,
+                level=level,
             )
-            for fieldSpec in fieldSpecs.split(&#34;+&#34;)
-        )</code></pre>
+            or &#34;&#34;
+            for (key, level) in (
+                fieldSpec.strip().split(&#34;@&#34;, 1) for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+            )
+        )
+
+    def putUpload(self, key, projectId=None, editionId=None, cls=None):
+        &#34;&#34;&#34;Puts a file upload control on a page.
+
+        Parameters
+        ----------
+        key: string
+            the key that identifies the kind of upload
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
+        cls: string, optional None
+            An extra CSS class for the control
+
+        Returns
+        -------
+        string
+            A control that shows the file and possibly provides an upload/delete
+            control for it.
+        &#34;&#34;&#34;
+        Content = self.Content
+
+        return Content.getUpload(key, projectId=projectId, editionId=editionId) or &#34;&#34;</code></pre>
 </details>
 </section>
 <section>
@@ -540,7 +631,7 @@ class Pages:
 <dl>
 <dt id="control.pages.Pages"><code class="flex name class">
 <span>class <span class="ident">Pages</span></span>
-<span>(</span><span>Settings, Viewers, Messages, Content, Auth, Users)</span>
+<span>(</span><span>Settings, Viewers, Messages, Content, Auth)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Making responses that can be displayed as web pages.</p>
@@ -554,7 +645,7 @@ page. For those methods we do not document the return value.</p>
 If so, it the return value will be documented.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.helpers.generic.AttrDict" href="helpers/generic.html#control.helpers.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Viewers</code></strong> :&ensp;<code>object</code></dt>
@@ -563,22 +654,18 @@ If so, it the return value will be documented.</p>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
 <dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
-<dt><strong><code>Users</code></strong> :&ensp;<code>object</code></dt>
-<dd>Singleton instance of <code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>.</dd>
 <dt><strong><code>Content</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>.</dd>
 <dt><strong><code>Auth</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>.</dd>
-<dt><strong><code>Users</code></strong> :&ensp;<code>object</code></dt>
-<dd>Singleton instance of <code><a title="control.users.Users" href="users.html#control.users.Users">Users</a></code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L24-L499" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L5-L590" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Pages:
-    def __init__(self, Settings, Viewers, Messages, Content, Auth, Users):
+    def __init__(self, Settings, Viewers, Messages, Content, Auth):
         &#34;&#34;&#34;Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -595,7 +682,7 @@ If so, it the return value will be documented.</p>
 
         Parameters
         ----------
-        Settings: `control.helpers.generic.AttrDict`
+        Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -604,14 +691,10 @@ If so, it the return value will be documented.</p>
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
             Singleton instance of `control.auth.Auth`.
-        Users: object
-            Singleton instance of `control.users.Users`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Viewers = Viewers
@@ -619,24 +702,23 @@ If so, it the return value will be documented.</p>
         Messages.debugAdd(self)
         self.Content = Content
         self.Auth = Auth
-        self.Users = Users
 
     def home(self):
         &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
-        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+        left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
         &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
-        left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-        right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
+        left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
+        right = self.putValues(&#34;description@2 + provenance@2&#34;)
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
         &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
         Content = self.Content
         surpriseMe = Content.getSurprise()
-        left = self.putTexts(&#34;title@1&#34;)
+        left = self.putValues(&#34;siteTitle@1&#34;)
         right = surpriseMe
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
@@ -644,8 +726,26 @@ If so, it the return value will be documented.</p>
         &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
         Content = self.Content
         projects = Content.getProjects()
-        left = self.putTexts(&#34;title@2&#34;) + projects
+        left = self.putValues(&#34;siteTitle@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
+
+    def projectInsert(self):
+        &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
+        Messages = self.Messages
+        Content = self.Content
+        projectId = Content.insertProject()
+        if projectId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new project&#34;,
+                msg=&#34;failed to create new project&#34;,
+            )
+            newUrl = &#34;/projects&#34;
+        else:
+            Messages.info(
+                logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
+            )
+            newUrl = f&#34;/projects/{projectId}&#34;
+        return redirectStatus(newUrl, projectId is not None)
 
     def project(self, projectId):
         &#34;&#34;&#34;The landing page of a project.
@@ -656,15 +756,37 @@ If so, it the return value will be documented.</p>
             The project in question.
         &#34;&#34;&#34;
         Content = self.Content
-        projectId = castObjectId(projectId)
         editions = Content.getEditions(projectId)
-        left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
-        right = self.putTexts(
-            &#34;description.abstract@4 + description.description@4 + &#34;
-            &#34;provenance@4 + instructionalMethod@4&#34;,
+        left = self.putValues(&#34;title@3 + creator@0&#34;, projectId=projectId) + editions
+        right = self.putValues(
+            &#34;abstract@4 + description@4 + provenance@4 + instructionalMethod@4&#34;,
             projectId=projectId,
         )
-        return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)
+        return self.page(&#34;projects&#34;, left=left, right=right)
+
+    def editionInsert(self, projectId):
+        &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the edition belongs.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Content = self.Content
+        editionId = Content.insertEdition(projectId)
+        if editionId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new edition&#34;,
+                msg=&#34;failed to create new edition&#34;,
+            )
+            newUrl = f&#34;/projects/{projectId}&#34;
+        else:
+            Messages.info(
+                logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
+            )
+            newUrl = f&#34;/editions/{editionId}&#34;
+        return redirectStatus(newUrl, editionId is not None)
 
     def edition(self, editionId):
         &#34;&#34;&#34;The landing page of an edition.
@@ -680,8 +802,7 @@ If so, it the return value will be documented.</p>
             From the edition record we can find the project too.
         &#34;&#34;&#34;
         Content = self.Content
-        editionId = castObjectId(editionId)
-        editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+        editionInfo = Content.getItem(&#34;editions&#34;, _id=editionId)
         projectId = editionInfo.projectId
         return self.scenes(projectId, editionId, None, None, None, None)
 
@@ -707,48 +828,34 @@ If so, it the return value will be documented.</p>
             The mode in which the viewer is to be used (`view` or `edit`).
         &#34;&#34;&#34;
         Content = self.Content
-        sceneId = castObjectId(sceneId)
-        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
         projectId = sceneInfo.projectId
         editionId = sceneInfo.editionId
         return self.scenes(projectId, editionId, sceneId, viewer, version, action)
 
-    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
-        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+    def sceneInsert(self, projectId, editionId):
+        &#34;&#34;&#34;Inserts a scene into an edition and shows the new scene.
 
-        The common part between the two functions mentioned.
+        Parameters
+        ----------
+        projectId: ObjectId
+            The project to which the scene belongs.
+        editionId: ObjectId
+            The edition to which the scene belongs.
         &#34;&#34;&#34;
+        Messages = self.Messages
         Content = self.Content
-        Auth = self.Auth
-
-        action = Auth.checkModifiable(projectId, editionId, action)
-        back = self.backLink(projectId)
-        scenes = Content.getScenes(
-            projectId,
-            editionId,
-            sceneId=sceneId,
-            viewer=viewer,
-            version=version,
-            action=action,
-        )
-        left = (
-            back
-            + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
-            + scenes
-        )
-        right = self.putTexts(
-            &#34;description.abstract@5 + description.description@5 + &#34;
-            &#34;provenance@5 + instructionalMethod@5&#34;,
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return self.page(
-            &#34;projects&#34;,
-            left=left,
-            right=right,
-            projectId=projectId,
-            editionId=editionId,
-        )
+        sceneId = Content.insertScene(projectId, editionId)
+        if sceneId is None:
+            Messages.warning(
+                logmsg=&#34;Could not create new scene&#34;,
+                msg=&#34;failed to create new scene&#34;,
+            )
+            newUrl = f&#34;/editions/{editionId}&#34;
+        else:
+            Messages.info(logmsg=f&#34;Created scene {sceneId}&#34;, msg=&#34;new scene created&#34;)
+            newUrl = f&#34;/scenes/{sceneId}&#34;
+        return redirectStatus(newUrl, sceneId is not None)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
@@ -768,22 +875,22 @@ If so, it the return value will be documented.</p>
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneId = castObjectId(sceneId)
-        sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+        sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
-        projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
-
         editionId = sceneInfo.editionId
-        editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
 
-        urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+        urlBase = f&#34;projects/{projectId}/editions/{editionId}/&#34;
 
-        action = Auth.checkModifiable(projectId, editionId, action)
+        action = Auth.makeSafe(&#34;scenes&#34;, sceneId, action)
 
-        viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
-        return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)
+        viewerCode = (
+            &#34;&#34;
+            if action is None
+            else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+        )
+        return template(&#34;viewer&#34;, viewerCode=viewerCode)
 
     def viewerResource(self, path):
         &#34;&#34;&#34;Components requested by viewers.
@@ -796,86 +903,65 @@ If so, it the return value will be documented.</p>
         path: string
             Path on the file system under the viewers base directory
             where the resource resides.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         &#34;&#34;&#34;
         Content = self.Content
 
-        data = Content.getViewerFile(path)
-        return make_response(data)
+        dataPath = Content.getViewerFile(path)
+        return send(dataPath)
 
-    def dataProjects(self, projectName, editionName, path):
-        &#34;&#34;&#34;Data content requested by viewers.
+    def dataProjects(self, path, projectId=None, editionId=None):
+        &#34;&#34;&#34;Data content requested directly from the file repository.
 
-        This is the material belonging to the scene,
-        the scene json itself and additional resources,
-        that are part of the user contributed content that is under
-        control of the viewer: annotations, media, etc.
+        This is
+
+        * the material requested by the viewers:
+          the scene json itself and additional resources,
+          that are part of the user contributed content that is under
+          control of the viewer: annotations, media, etc.
+        * icons for the site, projects, and editions
 
         Parameters
         ----------
-        projectName: string or None
-            If not None, the name of a project under which the resource
-            is to be found.
-        editionName: string or None
-            If not None, the name of an edition under which the resource
-            is to be found.
         path: string
             Path on the file system under the data directory
             where the resource resides.
-            If there is a project and or edition given,
-            the path is relative to those.
+            The path is relative to the project, and, if given, the edition.
+        projectId: ObjectId, optional None
+            The id of a project under which the resource is to be found.
+            If None, it is site-wide material.
+        editionId: ObjectId, optional None
+            If not None, the name of an edition under which the resource
+            is to be found.
+
+        Returns
+        -------
+        response
+            The response consists of the contents of the
+            file plus headers derived from the path.
+            If the file does not exists, a 404 is returned.
         &#34;&#34;&#34;
         Content = self.Content
 
-        data = Content.getData(path, projectName=projectName, editionName=editionName)
-        return make_response(data)
+        dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
+        return send(dataPath)
 
-    def page(
-        self,
-        url,
-        projectId=None,
-        editionId=None,
-        left=&#34;&#34;,
-        right=&#34;&#34;,
-    ):
-        &#34;&#34;&#34;Workhorse function to get content on the page.
+    def upload(self, table, recordId, field, path):
+        Content = self.Content
 
-        Parameters
-        ----------
-        url: string
-            Initial part of the url that triggered the page function.
-            This part is used to make one of the tabs on the web page active.
-        projectId: ObjectId, optional None
-            The project in question, if any.
-            Maybe needed for back links to the project.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
-            Maybe needed for back links to the edition.
-        left: string, optional &#34;&#34;
-            Content for the left column of the page.
-        right: string, optional &#34;&#34;
-            Content for the right column of the page.
-        &#34;&#34;&#34;
-        Settings = self.Settings
-        Messages = self.Messages
-        Auth = self.Auth
-        Users = self.Users
+        parts = path.rstrip(&#34;/&#34;).rsplit(&#34;/&#34;, 1)
+        fileName = parts[-1]
+        path = parts[0] if len(parts) == 2 else &#34;&#34;
 
-        userActive = Auth.user._id
+        return Content.save(table, recordId, field, path, fileName)
 
-        navigation = self.navigation(url)
-        testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
-
-        return render_template(
-            &#34;index.html&#34;,
-            versionInfo=Settings.versionInfo,
-            navigation=navigation,
-            materialLeft=left,
-            materialRight=right,
-            messages=Messages.generateMessages(),
-            testUsers=testUsers,
-        )
-
-    def authWebdav(self, projectName, editionName, path, action):
+    def authWebdav(self, projectId, editionId, path, action):
         &#34;&#34;&#34;Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -885,9 +971,9 @@ If so, it the return value will be documented.</p>
 
         Parameters
         ----------
-        projectName: string
+        projectId: ObjectId
             The project in question.
-        editionName: string
+        editionId: ObjectId
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -903,18 +989,129 @@ If so, it the return value will be documented.</p>
         Messages = self.Messages
         Auth = self.Auth
 
-        permitted = Auth.authorise(
-            action,
-            project=projectName,
-            edition=editionName,
-            byName=True,
-        )
+        permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=action)
         if not permitted:
+            User = Auth.myDetails()
+            user = User.sub
+            name = User.nickname
             Messages.info(
-                logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
-                f&#34; on {projectName=} {editionName=} {path=}&#34;
+                logmsg=f&#34;WEBDav unauthorised by user {name} ({user})&#34;
+                f&#34; on project {projectId} edition {editionId} path {path}&#34;
             )
         return permitted
+
+    def remaining(self, path):
+        &#34;&#34;&#34;When the url of the request is not recognized.
+
+        Parameters
+        ----------
+        path: string
+            The url (without leading /) that is not recognized.
+
+        Returns
+        -------
+        response
+            Either a redirect to the referred, for some
+            recognized urls that correspond to not-yet
+            implemented one. Or a 404 abort for all other
+            cases.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+
+        def splitUrl(url):
+            url = url.strip(&#34;/&#34;)
+            parts = url.rsplit(&#34;/&#34;, 1)
+            lastPart = parts[-1]
+            firstPart = parts[0] if len(parts) &gt; 1 else &#34;&#34;
+            firstPart = f&#34;/{firstPart}&#34;
+            return (firstPart, lastPart)
+
+        (firstPath, lastPath) = splitUrl(path)
+
+        if lastPath in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;}:
+            Messages.warning(
+                logmsg=f&#34;Not yet implemented /{lastPath}: /{path}&#34;,
+                msg=f&#34;Not yet implemented: /{lastPath}&#34;,
+            )
+            ref = getReferrer()
+            (firstRef, lastRef) = splitUrl(ref)
+            back = firstRef if lastRef in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;} else f&#34;/{ref}&#34;
+            return redirectStatus(back, True)
+
+        Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
+        stop()
+
+    def page(self, url, left=None, right=None):
+        &#34;&#34;&#34;Workhorse function to get content on the page.
+
+        Parameters
+        ----------
+        url: string
+            Initial part of the url that triggered the page function.
+            This part is used to make one of the tabs on the web page active.
+        left: string, optional None
+            Content for the left column of the page.
+        right: string, optional None
+            Content for the right column of the page.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        # Messages = self.Messages
+        Auth = self.Auth
+
+        navigation = self.navigation(url)
+        iconSite = self.putUpload(&#34;iconSite&#34;)
+        (testLoginWidget, loginWidget) = Auth.wrapLogin()
+
+        return template(
+            &#34;index&#34;,
+            banner=Settings.banner,
+            versionInfo=Settings.versionInfo,
+            navigation=navigation,
+            materialLeft=left or &#34;&#34;,
+            materialRight=right or &#34;&#34;,
+            testLoginWidget=testLoginWidget,
+            loginWidget=loginWidget,
+            iconSite=iconSite,
+        )
+
+    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
+        &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
+
+        The common part between the two functions mentioned.
+        &#34;&#34;&#34;
+        Content = self.Content
+        Auth = self.Auth
+
+        breadCrumb = self.breadCrumb(projectId)
+        action = Auth.makeSafe(&#34;editions&#34;, editionId, action)
+        sceneMaterial = (
+            &#34;&#34;
+            if action is None
+            else Content.getScenes(
+                projectId,
+                editionId,
+                sceneId=sceneId,
+                viewer=viewer,
+                version=version,
+                action=action,
+            )
+        )
+        left = (
+            breadCrumb
+            + self.putValues(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+            + H.div(
+                self.putUpload(&#34;model&#34;, projectId=projectId, editionId=editionId),
+                cls=&#34;modelfile&#34;,
+            )
+            + H.h(4, &#34;Scenes&#34;)
+            + sceneMaterial
+        )
+        right = self.putValues(
+            &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page(&#34;projects&#34;, left=left, right=right)
 
     def navigation(self, url):
         &#34;&#34;&#34;Generates the navigation controls.
@@ -932,41 +1129,50 @@ If so, it the return value will be documented.</p>
         string
             The HTML of the navigation.
         &#34;&#34;&#34;
-        search = dedent(
-            &#34;&#34;&#34;
-            &lt;span class=&#34;search-bar&#34;&gt;
-                &lt;input
-                    type=&#34;search&#34;
-                    name=&#34;search&#34;
-                    placeholder=&#34;search item&#34;
-                    class=&#34;button disabled&#34;
-                &gt;
-                &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
-            &lt;/span&gt;
-            &#34;&#34;&#34;
+
+        TABS = (
+            (&#34;home&#34;, &#34;Home&#34;, True),
+            (&#34;about&#34;, &#34;About&#34;, True),
+            (&#34;projects&#34;, &#34;3D Projects&#34;, True),
+            (&#34;directory&#34;, &#34;3D Directory&#34;, False),
+            (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True),
+            (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False),
         )
-        html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+        search = H.span(
+            [
+                H.input(
+                    &#34;search&#34;,
+                    &#34;&#34;,
+                    name=&#34;search&#34;,
+                    placeholder=&#34;search item&#34;,
+                    cls=&#34;button disabled&#34;,
+                ),
+                H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
+            ],
+            cls=&#34;search-bar&#34;,
+        )
+
+        divContent = []
 
         for (tab, label, enabled) in TABS:
             active = &#34;active&#34; if url == tab else &#34;&#34;
-            elem = &#34;a&#34; if enabled else &#34;span&#34;
-            href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
-            cls = active if enabled else &#34;disabled&#34;
-            html.append(
-                dedent(
-                    f&#34;&#34;&#34;
-                    &lt;{elem}
-                        {href}
-                        class=&#34;button large {cls}&#34;
-                    &gt;{label}&lt;/{elem}&gt;
-                    &#34;&#34;&#34;
-                )
-            )
-        html.append(search)
-        html.append(&#34;&lt;/div&gt;&#34;)
-        return &#34;\n&#34;.join(html)
+            if enabled:
+                elem = &#34;a&#34;
+                cls = active
+                href = [f&#34;/{tab}&#34;]
+            else:
+                elem = &#34;span&#34;
+                cls = &#34;disabled&#34;
+                href = []
+            fullCls = f&#34;button large {cls}&#34;
+            divContent.append(H.elem(elem, label, *href, cls=fullCls))
 
-    def backLink(self, projectId):
+        divContent.append(search)
+
+        return H.div(divContent, cls=&#34;tabs&#34;)
+
+    def breadCrumb(self, projectId):
         &#34;&#34;&#34;Makes a link to the landing page of a project.
 
         Parameters
@@ -974,85 +1180,76 @@ If so, it the return value will be documented.</p>
         projectId: ObjectId
             The project in question.
         &#34;&#34;&#34;
-        projectUrl = f&#34;/projects/{projectId}&#34;
-        cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
-        href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
-        text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
-        return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;
-
-    def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
-        &#34;&#34;&#34;Puts a piece of metadata on the web page.
-
-        The meta data is retrieved and then wrapped accordingly.
-
-        Parameters
-        ----------
-        nameSpace: string
-            The namespace of the metadata, e.g. `dc` (Dublin Core)
-        fieldPath: string
-            `.`-separated list of fields into a metadata structure.
-        level: integer 1-6
-            The heading level in which the text must be wrapped.
-        projectId: ObjectId or None
-            The project in question
-        editionId: ObjectId or None
-            The edition in question
-
-        Returns
-        -------
-        string
-            The HTML of the formatted text.
-        &#34;&#34;&#34;
         Content = self.Content
-
-        content = Content.getMeta(
-            nameSpace, fieldPath, projectId=projectId, editionId=editionId
-        )
-        info = CAPTIONS.get(fieldPath, None)
-
-        if info is None:
-            return content
-
-        (heading, asMd) = info
-        skip = &#34;{}&#34; in heading
-
-        if asMd:
-            heading = markdown(heading)
-            content = markdown(content)
-
-        return dedent(
-            f&#34;&#34;&#34;
-            &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
-            {&#34;&#34; if skip else content}
-            &#34;&#34;&#34;
+        projectUrl = f&#34;/projects/{projectId}&#34;
+        text = Content.getValue(&#34;title&#34;, projectId=projectId, bare=True)
+        return H.p(
+            [
+                &#34;Project: &#34;,
+                H.a(
+                    [text, H.gt()],
+                    projectUrl,
+                    cls=&#34;button&#34;,
+                    title=&#34;back to the project page&#34;,
+                ),
+            ]
         )
 
-    def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
-        &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
-
-        See `Pages.putText()` for the parameter specifications.
-
-        One difference:
+    def putValues(self, fieldSpecs, projectId=None, editionId=None):
+        &#34;&#34;&#34;Puts several pieces of metadata on the web page.
 
         Parameters
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
 
         Returns
         -------
         string
-            The join of the individual results of `Pages.putText`.
+            The join of the individual results of retrieving metadata value.
         &#34;&#34;&#34;
-        return &#34;\n&#34;.join(
-            self.putText(
-                nameSpace,
-                *fieldSpec.strip().split(&#34;@&#34;, 1),
+        Content = self.Content
+
+        return H.content(
+            Content.getValue(
+                key,
                 projectId=projectId,
                 editionId=editionId,
+                level=level,
             )
-            for fieldSpec in fieldSpecs.split(&#34;+&#34;)
-        )</code></pre>
+            or &#34;&#34;
+            for (key, level) in (
+                fieldSpec.strip().split(&#34;@&#34;, 1) for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+            )
+        )
+
+    def putUpload(self, key, projectId=None, editionId=None, cls=None):
+        &#34;&#34;&#34;Puts a file upload control on a page.
+
+        Parameters
+        ----------
+        key: string
+            the key that identifies the kind of upload
+        projectId: ObjectId, optional None
+            The project in question.
+        editionId: ObjectId, optional None
+            The edition in question.
+        cls: string, optional None
+            An extra CSS class for the control
+
+        Returns
+        -------
+        string
+            A control that shows the file and possibly provides an upload/delete
+            control for it.
+        &#34;&#34;&#34;
+        Content = self.Content
+
+        return Content.getUpload(key, projectId=projectId, editionId=editionId) or &#34;&#34;</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -1064,17 +1261,17 @@ If so, it the return value will be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L73-L77" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L49-L53" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def about(self):
     &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
-    left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
-    right = self.putTexts(&#34;description.description@2 + provenance@2&#34;)
+    left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
+    right = self.putValues(&#34;description@2 + provenance@2&#34;)
     return self.page(&#34;about&#34;, left=left, right=right)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.authWebdav"><code class="name flex">
-<span>def <span class="ident">authWebdav</span></span>(<span>self, projectName, editionName, path, action)</span>
+<span>def <span class="ident">authWebdav</span></span>(<span>self, projectId, editionId, path, action)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Authorises a webdav request.</p>
@@ -1083,9 +1280,9 @@ that request is first checked here for authorisation.</p>
 <p>See <code><a title="control.webdavapp.dispatchWebdav" href="webdavapp.html#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code>.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
 <dd>The project in question.</dd>
-<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code></dt>
 <dd>The edition in question.</dd>
 <dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
 <dd>The path relative to the directory of the edition.</dd>
@@ -1101,9 +1298,9 @@ that request is first checked here for authorisation.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L322-L361" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L302-L339" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def authWebdav(self, projectName, editionName, path, action):
+<pre><code class="python">def authWebdav(self, projectId, editionId, path, action):
     &#34;&#34;&#34;Authorises a webdav request.
 
     When a viewer makes a WebDAV request to the server,
@@ -1113,9 +1310,9 @@ that request is first checked here for authorisation.</p>
 
     Parameters
     ----------
-    projectName: string
+    projectId: ObjectId
         The project in question.
-    editionName: string
+    editionId: ObjectId
         The edition in question.
     path: string
         The path relative to the directory of the edition.
@@ -1131,22 +1328,20 @@ that request is first checked here for authorisation.</p>
     Messages = self.Messages
     Auth = self.Auth
 
-    permitted = Auth.authorise(
-        action,
-        project=projectName,
-        edition=editionName,
-        byName=True,
-    )
+    permitted = Auth.authorise(&#34;editions&#34;, recordId=editionId, action=action)
     if not permitted:
+        User = Auth.myDetails()
+        user = User.sub
+        name = User.nickname
         Messages.info(
-            logmsg=f&#34;WEBDAV unauthorised by user {Auth.user}&#34;
-            f&#34; on {projectName=} {editionName=} {path=}&#34;
+            logmsg=f&#34;WEBDav unauthorised by user {name} ({user})&#34;
+            f&#34; on project {projectId} edition {editionId} path {path}&#34;
         )
     return permitted</code></pre>
 </details>
 </dd>
-<dt id="control.pages.Pages.backLink"><code class="name flex">
-<span>def <span class="ident">backLink</span></span>(<span>self, projectId)</span>
+<dt id="control.pages.Pages.breadCrumb"><code class="name flex">
+<span>def <span class="ident">breadCrumb</span></span>(<span>self, projectId)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Makes a link to the landing page of a project.</p>
@@ -1158,9 +1353,9 @@ that request is first checked here for authorisation.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L413-L425" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L513-L534" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def backLink(self, projectId):
+<pre><code class="python">def breadCrumb(self, projectId):
     &#34;&#34;&#34;Makes a link to the landing page of a project.
 
     Parameters
@@ -1168,67 +1363,95 @@ that request is first checked here for authorisation.</p>
     projectId: ObjectId
         The project in question.
     &#34;&#34;&#34;
+    Content = self.Content
     projectUrl = f&#34;/projects/{projectId}&#34;
-    cls = &#34;&#34;&#34; class=&#34;button&#34; &#34;&#34;&#34;
-    href = f&#34;&#34;&#34; href=&#34;{projectUrl}&#34; &#34;&#34;&#34;
-    text = &#34;&#34;&#34;back to the project page&#34;&#34;&#34;
-    return f&#34;&#34;&#34;&lt;p&gt;&lt;a {cls} {href}&gt;{text}&lt;/a&gt;&lt;/p&gt;&#34;&#34;&#34;</code></pre>
+    text = Content.getValue(&#34;title&#34;, projectId=projectId, bare=True)
+    return H.p(
+        [
+            &#34;Project: &#34;,
+            H.a(
+                [text, H.gt()],
+                projectUrl,
+                cls=&#34;button&#34;,
+                title=&#34;back to the project page&#34;,
+            ),
+        ]
+    )</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.dataProjects"><code class="name flex">
-<span>def <span class="ident">dataProjects</span></span>(<span>self, projectName, editionName, path)</span>
+<span>def <span class="ident">dataProjects</span></span>(<span>self, path, projectId=None, editionId=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Data content requested by viewers.</p>
-<p>This is the material belonging to the scene,
+<div class="desc"><p>Data content requested directly from the file repository.</p>
+<p>This is</p>
+<ul>
+<li>the material requested by the viewers:
 the scene json itself and additional resources,
 that are part of the user contributed content that is under
-control of the viewer: annotations, media, etc.</p>
+control of the viewer: annotations, media, etc.</li>
+<li>icons for the site, projects, and editions</li>
+</ul>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>projectName</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
-<dd>If not None, the name of a project under which the resource
-is to be found.</dd>
-<dt><strong><code>editionName</code></strong> :&ensp;<code>string</code> or <code>None</code></dt>
-<dd>If not None, the name of an edition under which the resource
-is to be found.</dd>
 <dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
 <dd>Path on the file system under the data directory
 where the resource resides.
-If there is a project and or edition given,
-the path is relative to those.</dd>
+The path is relative to the project, and, if given, the edition.</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The id of a project under which the resource is to be found.
+If None, it is site-wide material.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>If not None, the name of an edition under which the resource
+is to be found.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>response</code></dt>
+<dd>The response consists of the contents of the
+file plus headers derived from the path.
+If the file does not exists, a 404 is returned.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L249-L274" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L257-L291" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def dataProjects(self, projectName, editionName, path):
-    &#34;&#34;&#34;Data content requested by viewers.
+<pre><code class="python">def dataProjects(self, path, projectId=None, editionId=None):
+    &#34;&#34;&#34;Data content requested directly from the file repository.
 
-    This is the material belonging to the scene,
-    the scene json itself and additional resources,
-    that are part of the user contributed content that is under
-    control of the viewer: annotations, media, etc.
+    This is
+
+    * the material requested by the viewers:
+      the scene json itself and additional resources,
+      that are part of the user contributed content that is under
+      control of the viewer: annotations, media, etc.
+    * icons for the site, projects, and editions
 
     Parameters
     ----------
-    projectName: string or None
-        If not None, the name of a project under which the resource
-        is to be found.
-    editionName: string or None
-        If not None, the name of an edition under which the resource
-        is to be found.
     path: string
         Path on the file system under the data directory
         where the resource resides.
-        If there is a project and or edition given,
-        the path is relative to those.
+        The path is relative to the project, and, if given, the edition.
+    projectId: ObjectId, optional None
+        The id of a project under which the resource is to be found.
+        If None, it is site-wide material.
+    editionId: ObjectId, optional None
+        If not None, the name of an edition under which the resource
+        is to be found.
+
+    Returns
+    -------
+    response
+        The response consists of the contents of the
+        file plus headers derived from the path.
+        If the file does not exists, a 404 is returned.
     &#34;&#34;&#34;
     Content = self.Content
 
-    data = Content.getData(path, projectName=projectName, editionName=editionName)
-    return make_response(data)</code></pre>
+    dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
+    return send(dataPath)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.edition"><code class="name flex">
@@ -1248,7 +1471,7 @@ From the edition record we can find the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L113-L130" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L129-L145" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def edition(self, editionId):
     &#34;&#34;&#34;The landing page of an edition.
@@ -1264,10 +1487,49 @@ From the edition record we can find the project too.</dd>
         From the edition record we can find the project too.
     &#34;&#34;&#34;
     Content = self.Content
-    editionId = castObjectId(editionId)
-    editionInfo = Content.getRecord(&#34;editions&#34;, _id=editionId)
+    editionInfo = Content.getItem(&#34;editions&#34;, _id=editionId)
     projectId = editionInfo.projectId
     return self.scenes(projectId, editionId, None, None, None, None)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.editionInsert"><code class="name flex">
+<span>def <span class="ident">editionInsert</span></span>(<span>self, projectId)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inserts an edition into a project and shows the new edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The project to which the edition belongs.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L105-L127" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def editionInsert(self, projectId):
+    &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        The project to which the edition belongs.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Content = self.Content
+    editionId = Content.insertEdition(projectId)
+    if editionId is None:
+        Messages.warning(
+            logmsg=&#34;Could not create new edition&#34;,
+            msg=&#34;failed to create new edition&#34;,
+        )
+        newUrl = f&#34;/projects/{projectId}&#34;
+    else:
+        Messages.info(
+            logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
+        )
+        newUrl = f&#34;/editions/{editionId}&#34;
+    return redirectStatus(newUrl, editionId is not None)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.home"><code class="name flex">
@@ -1278,11 +1540,11 @@ From the edition record we can find the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L68-L71" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L44-L47" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def home(self):
     &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
-    left = self.putTexts(&#34;title@1 + description.abstract@2&#34;)
+    left = self.putValues(&#34;siteTitle@1 + abstract@2&#34;)
     return self.page(&#34;home&#34;, left=left)</code></pre>
 </details>
 </dd>
@@ -1306,7 +1568,7 @@ tabs can be made active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L363-L411" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L454-L511" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def navigation(self, url):
     &#34;&#34;&#34;Generates the navigation controls.
@@ -1324,43 +1586,52 @@ tabs can be made active.</dd>
     string
         The HTML of the navigation.
     &#34;&#34;&#34;
-    search = dedent(
-        &#34;&#34;&#34;
-        &lt;span class=&#34;search-bar&#34;&gt;
-            &lt;input
-                type=&#34;search&#34;
-                name=&#34;search&#34;
-                placeholder=&#34;search item&#34;
-                class=&#34;button disabled&#34;
-            &gt;
-            &lt;input type=&#34;submit&#34; value=&#34;Search&#34; class=&#34;button disabled&#34;&gt;
-        &lt;/span&gt;
-        &#34;&#34;&#34;
+
+    TABS = (
+        (&#34;home&#34;, &#34;Home&#34;, True),
+        (&#34;about&#34;, &#34;About&#34;, True),
+        (&#34;projects&#34;, &#34;3D Projects&#34;, True),
+        (&#34;directory&#34;, &#34;3D Directory&#34;, False),
+        (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True),
+        (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False),
     )
-    html = [&#34;&#34;&#34;&lt;div class=&#34;tabs&#34;&gt;&#34;&#34;&#34;]
+
+    search = H.span(
+        [
+            H.input(
+                &#34;search&#34;,
+                &#34;&#34;,
+                name=&#34;search&#34;,
+                placeholder=&#34;search item&#34;,
+                cls=&#34;button disabled&#34;,
+            ),
+            H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
+        ],
+        cls=&#34;search-bar&#34;,
+    )
+
+    divContent = []
 
     for (tab, label, enabled) in TABS:
         active = &#34;active&#34; if url == tab else &#34;&#34;
-        elem = &#34;a&#34; if enabled else &#34;span&#34;
-        href = f&#34;&#34;&#34; href=&#34;/{tab}&#34; &#34;&#34;&#34; if enabled else &#34;&#34;
-        cls = active if enabled else &#34;disabled&#34;
-        html.append(
-            dedent(
-                f&#34;&#34;&#34;
-                &lt;{elem}
-                    {href}
-                    class=&#34;button large {cls}&#34;
-                &gt;{label}&lt;/{elem}&gt;
-                &#34;&#34;&#34;
-            )
-        )
-    html.append(search)
-    html.append(&#34;&lt;/div&gt;&#34;)
-    return &#34;\n&#34;.join(html)</code></pre>
+        if enabled:
+            elem = &#34;a&#34;
+            cls = active
+            href = [f&#34;/{tab}&#34;]
+        else:
+            elem = &#34;span&#34;
+            cls = &#34;disabled&#34;
+            href = []
+        fullCls = f&#34;button large {cls}&#34;
+        divContent.append(H.elem(elem, label, *href, cls=fullCls))
+
+    divContent.append(search)
+
+    return H.div(divContent, cls=&#34;tabs&#34;)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.page"><code class="name flex">
-<span>def <span class="ident">page</span></span>(<span>self, url, projectId=None, editionId=None, left='', right='')</span>
+<span>def <span class="ident">page</span></span>(<span>self, url, left=None, right=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Workhorse function to get content on the page.</p>
@@ -1369,30 +1640,17 @@ tabs can be made active.</dd>
 <dt><strong><code>url</code></strong> :&ensp;<code>string</code></dt>
 <dd>Initial part of the url that triggered the page function.
 This part is used to make one of the tabs on the web page active.</dd>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
-<dd>The project in question, if any.
-Maybe needed for back links to the project.</dd>
-<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
-<dd>The edition in question, if any.
-Maybe needed for back links to the edition.</dd>
-<dt><strong><code>left</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dt><strong><code>left</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>Content for the left column of the page.</dd>
-<dt><strong><code>right</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
+<dt><strong><code>right</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>Content for the right column of the page.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L276-L320" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L382-L413" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def page(
-    self,
-    url,
-    projectId=None,
-    editionId=None,
-    left=&#34;&#34;,
-    right=&#34;&#34;,
-):
+<pre><code class="python">def page(self, url, left=None, right=None):
     &#34;&#34;&#34;Workhorse function to get content on the page.
 
     Parameters
@@ -1400,35 +1658,29 @@ Maybe needed for back links to the edition.</dd>
     url: string
         Initial part of the url that triggered the page function.
         This part is used to make one of the tabs on the web page active.
-    projectId: ObjectId, optional None
-        The project in question, if any.
-        Maybe needed for back links to the project.
-    editionId: ObjectId, optional None
-        The edition in question, if any.
-        Maybe needed for back links to the edition.
-    left: string, optional &#34;&#34;
+    left: string, optional None
         Content for the left column of the page.
-    right: string, optional &#34;&#34;
+    right: string, optional None
         Content for the right column of the page.
     &#34;&#34;&#34;
     Settings = self.Settings
-    Messages = self.Messages
+    # Messages = self.Messages
     Auth = self.Auth
-    Users = self.Users
-
-    userActive = Auth.user._id
 
     navigation = self.navigation(url)
-    testUsers = Users.wrapTestUsers(userActive) if Settings.testMode else &#34;&#34;
+    iconSite = self.putUpload(&#34;iconSite&#34;)
+    (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
-    return render_template(
-        &#34;index.html&#34;,
+    return template(
+        &#34;index&#34;,
+        banner=Settings.banner,
         versionInfo=Settings.versionInfo,
         navigation=navigation,
-        materialLeft=left,
-        materialRight=right,
-        messages=Messages.generateMessages(),
-        testUsers=testUsers,
+        materialLeft=left or &#34;&#34;,
+        materialRight=right or &#34;&#34;,
+        testLoginWidget=testLoginWidget,
+        loginWidget=loginWidget,
+        iconSite=iconSite,
     )</code></pre>
 </details>
 </dd>
@@ -1445,7 +1697,7 @@ Maybe needed for back links to the edition.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L94-L111" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L88-L103" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def project(self, projectId):
     &#34;&#34;&#34;The landing page of a project.
@@ -1456,15 +1708,42 @@ Maybe needed for back links to the edition.</dd>
         The project in question.
     &#34;&#34;&#34;
     Content = self.Content
-    projectId = castObjectId(projectId)
     editions = Content.getEditions(projectId)
-    left = self.putTexts(&#34;title@3&#34;, projectId=projectId) + editions
-    right = self.putTexts(
-        &#34;description.abstract@4 + description.description@4 + &#34;
-        &#34;provenance@4 + instructionalMethod@4&#34;,
+    left = self.putValues(&#34;title@3 + creator@0&#34;, projectId=projectId) + editions
+    right = self.putValues(
+        &#34;abstract@4 + description@4 + provenance@4 + instructionalMethod@4&#34;,
         projectId=projectId,
     )
-    return self.page(&#34;projects&#34;, left=left, right=right, projectId=projectId)</code></pre>
+    return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.projectInsert"><code class="name flex">
+<span>def <span class="ident">projectInsert</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inserts a project and shows the new project.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L70-L86" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def projectInsert(self):
+    &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
+    Messages = self.Messages
+    Content = self.Content
+    projectId = Content.insertProject()
+    if projectId is None:
+        Messages.warning(
+            logmsg=&#34;Could not create new project&#34;,
+            msg=&#34;failed to create new project&#34;,
+        )
+        newUrl = &#34;/projects&#34;
+    else:
+        Messages.info(
+            logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
+        )
+        newUrl = f&#34;/projects/{projectId}&#34;
+    return redirectStatus(newUrl, projectId is not None)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.projects"><code class="name flex">
@@ -1475,141 +1754,188 @@ Maybe needed for back links to the edition.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L87-L92" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L63-L68" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def projects(self):
     &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
     Content = self.Content
     projects = Content.getProjects()
-    left = self.putTexts(&#34;title@2&#34;) + projects
+    left = self.putValues(&#34;siteTitle@2&#34;) + projects
     return self.page(&#34;projects&#34;, left=left)</code></pre>
 </details>
 </dd>
-<dt id="control.pages.Pages.putText"><code class="name flex">
-<span>def <span class="ident">putText</span></span>(<span>self, nameSpace, fieldPath, level, projectId=None, editionId=None)</span>
+<dt id="control.pages.Pages.putUpload"><code class="name flex">
+<span>def <span class="ident">putUpload</span></span>(<span>self, key, projectId=None, editionId=None, cls=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Puts a piece of metadata on the web page.</p>
-<p>The meta data is retrieved and then wrapped accordingly.</p>
+<div class="desc"><p>Puts a file upload control on a page.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>nameSpace</code></strong> :&ensp;<code>string</code></dt>
-<dd>The namespace of the metadata, e.g. <code>dc</code> (Dublin Core)</dd>
-<dt><strong><code>fieldPath</code></strong> :&ensp;<code>string</code></dt>
-<dd><code>.</code>-separated list of fields into a metadata structure.</dd>
-<dt><strong><code>level</code></strong> :&ensp;<code>integer 1-6</code></dt>
-<dd>The heading level in which the text must be wrapped.</dd>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
-<dd>The project in question</dd>
-<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
-<dd>The edition in question</dd>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dd>the key that identifies the kind of upload</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project in question.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition in question.</dd>
+<dt><strong><code>cls</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>An extra CSS class for the control</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>string</code></dt>
-<dd>The HTML of the formatted text.</dd>
+<dd>A control that shows the file and possibly provides an upload/delete
+control for it.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L427-L472" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L568-L590" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def putText(self, nameSpace, fieldPath, level, projectId=None, editionId=None):
-    &#34;&#34;&#34;Puts a piece of metadata on the web page.
-
-    The meta data is retrieved and then wrapped accordingly.
+<pre><code class="python">def putUpload(self, key, projectId=None, editionId=None, cls=None):
+    &#34;&#34;&#34;Puts a file upload control on a page.
 
     Parameters
     ----------
-    nameSpace: string
-        The namespace of the metadata, e.g. `dc` (Dublin Core)
-    fieldPath: string
-        `.`-separated list of fields into a metadata structure.
-    level: integer 1-6
-        The heading level in which the text must be wrapped.
-    projectId: ObjectId or None
-        The project in question
-    editionId: ObjectId or None
-        The edition in question
+    key: string
+        the key that identifies the kind of upload
+    projectId: ObjectId, optional None
+        The project in question.
+    editionId: ObjectId, optional None
+        The edition in question.
+    cls: string, optional None
+        An extra CSS class for the control
 
     Returns
     -------
     string
-        The HTML of the formatted text.
+        A control that shows the file and possibly provides an upload/delete
+        control for it.
     &#34;&#34;&#34;
     Content = self.Content
 
-    content = Content.getMeta(
-        nameSpace, fieldPath, projectId=projectId, editionId=editionId
-    )
-    info = CAPTIONS.get(fieldPath, None)
-
-    if info is None:
-        return content
-
-    (heading, asMd) = info
-    skip = &#34;{}&#34; in heading
-
-    if asMd:
-        heading = markdown(heading)
-        content = markdown(content)
-
-    return dedent(
-        f&#34;&#34;&#34;
-        &lt;h{level}&gt;{heading.format(content)}&lt;/h{level}&gt;
-        {&#34;&#34; if skip else content}
-        &#34;&#34;&#34;
-    )</code></pre>
+    return Content.getUpload(key, projectId=projectId, editionId=editionId) or &#34;&#34;</code></pre>
 </details>
 </dd>
-<dt id="control.pages.Pages.putTexts"><code class="name flex">
-<span>def <span class="ident">putTexts</span></span>(<span>self, nameSpace, fieldSpecs, projectId=None, editionId=None)</span>
+<dt id="control.pages.Pages.putValues"><code class="name flex">
+<span>def <span class="ident">putValues</span></span>(<span>self, fieldSpecs, projectId=None, editionId=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Puts a several pieces of metadata on the web page.</p>
-<p>See <code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">Pages.putText()</a></code> for the parameter specifications.</p>
-<p>One difference:</p>
+<div class="desc"><p>Puts several pieces of metadata on the web page.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>fieldSpecs</code></strong> :&ensp;<code>string</code></dt>
 <dd><code>,</code>-separated list of fieldSpecs</dd>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The project in question.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code>, optional <code>None</code></dt>
+<dd>The edition in question.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>string</code></dt>
-<dd>The join of the individual results of <code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">Pages.putText()</a></code>.</dd>
+<dd>The join of the individual results of retrieving metadata value.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L474-L499" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L536-L566" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def putTexts(self, nameSpace, fieldSpecs, projectId=None, editionId=None):
-    &#34;&#34;&#34;Puts a several pieces of metadata on the web page.
-
-    See `Pages.putText()` for the parameter specifications.
-
-    One difference:
+<pre><code class="python">def putValues(self, fieldSpecs, projectId=None, editionId=None):
+    &#34;&#34;&#34;Puts several pieces of metadata on the web page.
 
     Parameters
     ----------
     fieldSpecs: string
         `,`-separated list of fieldSpecs
+    projectId: ObjectId, optional None
+        The project in question.
+    editionId: ObjectId, optional None
+        The edition in question.
 
     Returns
     -------
     string
-        The join of the individual results of `Pages.putText`.
+        The join of the individual results of retrieving metadata value.
     &#34;&#34;&#34;
-    return &#34;\n&#34;.join(
-        self.putText(
-            nameSpace,
-            *fieldSpec.strip().split(&#34;@&#34;, 1),
+    Content = self.Content
+
+    return H.content(
+        Content.getValue(
+            key,
             projectId=projectId,
             editionId=editionId,
+            level=level,
         )
-        for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+        or &#34;&#34;
+        for (key, level) in (
+            fieldSpec.strip().split(&#34;@&#34;, 1) for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+        )
     )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.remaining"><code class="name flex">
+<span>def <span class="ident">remaining</span></span>(<span>self, path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>When the url of the request is not recognized.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The url (without leading /) that is not recognized.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>response</code></dt>
+<dd>Either a redirect to the referred, for some
+recognized urls that correspond to not-yet
+implemented one. Or a 404 abort for all other
+cases.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L341-L380" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def remaining(self, path):
+    &#34;&#34;&#34;When the url of the request is not recognized.
+
+    Parameters
+    ----------
+    path: string
+        The url (without leading /) that is not recognized.
+
+    Returns
+    -------
+    response
+        Either a redirect to the referred, for some
+        recognized urls that correspond to not-yet
+        implemented one. Or a 404 abort for all other
+        cases.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+
+    def splitUrl(url):
+        url = url.strip(&#34;/&#34;)
+        parts = url.rsplit(&#34;/&#34;, 1)
+        lastPart = parts[-1]
+        firstPart = parts[0] if len(parts) &gt; 1 else &#34;&#34;
+        firstPart = f&#34;/{firstPart}&#34;
+        return (firstPart, lastPart)
+
+    (firstPath, lastPath) = splitUrl(path)
+
+    if lastPath in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;}:
+        Messages.warning(
+            logmsg=f&#34;Not yet implemented /{lastPath}: /{path}&#34;,
+            msg=f&#34;Not yet implemented: /{lastPath}&#34;,
+        )
+        ref = getReferrer()
+        (firstRef, lastRef) = splitUrl(ref)
+        back = firstRef if lastRef in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;} else f&#34;/{ref}&#34;
+        return redirectStatus(back, True)
+
+    Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
+    stop()</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.scene"><code class="name flex">
@@ -1637,7 +1963,7 @@ From the scene record we can find the edition and the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L132-L158" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L147-L172" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def scene(self, sceneId, viewer, version, action):
     &#34;&#34;&#34;The landing page of an edition, but with a scene marked as active.
@@ -1661,11 +1987,52 @@ From the scene record we can find the edition and the project too.</dd>
         The mode in which the viewer is to be used (`view` or `edit`).
     &#34;&#34;&#34;
     Content = self.Content
-    sceneId = castObjectId(sceneId)
-    sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+    sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
     projectId = sceneInfo.projectId
     editionId = sceneInfo.editionId
     return self.scenes(projectId, editionId, sceneId, viewer, version, action)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.sceneInsert"><code class="name flex">
+<span>def <span class="ident">sceneInsert</span></span>(<span>self, projectId, editionId)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inserts a scene into an edition and shows the new scene.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The project to which the scene belongs.</dd>
+<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code></dt>
+<dd>The edition to which the scene belongs.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L174-L196" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def sceneInsert(self, projectId, editionId):
+    &#34;&#34;&#34;Inserts a scene into an edition and shows the new scene.
+
+    Parameters
+    ----------
+    projectId: ObjectId
+        The project to which the scene belongs.
+    editionId: ObjectId
+        The edition to which the scene belongs.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Content = self.Content
+    sceneId = Content.insertScene(projectId, editionId)
+    if sceneId is None:
+        Messages.warning(
+            logmsg=&#34;Could not create new scene&#34;,
+            msg=&#34;failed to create new scene&#34;,
+        )
+        newUrl = f&#34;/editions/{editionId}&#34;
+    else:
+        Messages.info(logmsg=f&#34;Created scene {sceneId}&#34;, msg=&#34;new scene created&#34;)
+        newUrl = f&#34;/scenes/{sceneId}&#34;
+    return redirectStatus(newUrl, sceneId is not None)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.scenes"><code class="name flex">
@@ -1677,7 +2044,7 @@ From the scene record we can find the edition and the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L160-L195" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L415-L452" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def scenes(self, projectId, editionId, sceneId, viewer, version, action):
     &#34;&#34;&#34;Workhorse for `Pages.edition()` and `Pages.scene()`.
@@ -1687,34 +2054,36 @@ From the scene record we can find the edition and the project too.</dd>
     Content = self.Content
     Auth = self.Auth
 
-    action = Auth.checkModifiable(projectId, editionId, action)
-    back = self.backLink(projectId)
-    scenes = Content.getScenes(
-        projectId,
-        editionId,
-        sceneId=sceneId,
-        viewer=viewer,
-        version=version,
-        action=action,
+    breadCrumb = self.breadCrumb(projectId)
+    action = Auth.makeSafe(&#34;editions&#34;, editionId, action)
+    sceneMaterial = (
+        &#34;&#34;
+        if action is None
+        else Content.getScenes(
+            projectId,
+            editionId,
+            sceneId=sceneId,
+            viewer=viewer,
+            version=version,
+            action=action,
+        )
     )
     left = (
-        back
-        + self.putTexts(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
-        + scenes
+        breadCrumb
+        + self.putValues(&#34;title@4&#34;, projectId=projectId, editionId=editionId)
+        + H.div(
+            self.putUpload(&#34;model&#34;, projectId=projectId, editionId=editionId),
+            cls=&#34;modelfile&#34;,
+        )
+        + H.h(4, &#34;Scenes&#34;)
+        + sceneMaterial
     )
-    right = self.putTexts(
-        &#34;description.abstract@5 + description.description@5 + &#34;
-        &#34;provenance@5 + instructionalMethod@5&#34;,
+    right = self.putValues(
+        &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
         projectId=projectId,
         editionId=editionId,
     )
-    return self.page(
-        &#34;projects&#34;,
-        left=left,
-        right=right,
-        projectId=projectId,
-        editionId=editionId,
-    )</code></pre>
+    return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.surprise"><code class="name flex">
@@ -1725,15 +2094,35 @@ From the scene record we can find the edition and the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L79-L85" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L55-L61" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def surprise(self):
     &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
     Content = self.Content
     surpriseMe = Content.getSurprise()
-    left = self.putTexts(&#34;title@1&#34;)
+    left = self.putValues(&#34;siteTitle@1&#34;)
     right = surpriseMe
     return self.page(&#34;surpriseme&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.upload"><code class="name flex">
+<span>def <span class="ident">upload</span></span>(<span>self, table, recordId, field, path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L293-L300" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def upload(self, table, recordId, field, path):
+    Content = self.Content
+
+    parts = path.rstrip(&#34;/&#34;).rsplit(&#34;/&#34;, 1)
+    fileName = parts[-1]
+    path = parts[0] if len(parts) == 2 else &#34;&#34;
+
+    return Content.save(table, recordId, field, path, fileName)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.viewerFrame"><code class="name flex">
@@ -1755,7 +2144,7 @@ From the scene record we can find the edition and the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L197-L230" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L198-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerFrame(self, sceneId, viewer, version, action):
     &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
@@ -1775,22 +2164,22 @@ From the scene record we can find the edition and the project too.</dd>
     Viewers = self.Viewers
     Auth = self.Auth
 
-    sceneId = castObjectId(sceneId)
-    sceneInfo = Content.getRecord(&#34;scenes&#34;, _id=sceneId)
+    sceneInfo = Content.getItem(&#34;scenes&#34;, _id=sceneId)
     sceneName = sceneInfo.name
 
     projectId = sceneInfo.projectId
-    projectName = Content.getRecord(&#34;projects&#34;, _id=projectId).name
-
     editionId = sceneInfo.editionId
-    editionName = Content.getRecord(&#34;editions&#34;, _id=editionId).name
 
-    urlBase = f&#34;projects/{projectName}/editions/{editionName}/&#34;
+    urlBase = f&#34;projects/{projectId}/editions/{editionId}/&#34;
 
-    action = Auth.checkModifiable(projectId, editionId, action)
+    action = Auth.makeSafe(&#34;scenes&#34;, sceneId, action)
 
-    viewerCode = Viewers.genHtml(urlBase, sceneName, viewer, version, action)
-    return render_template(&#34;viewer.html&#34;, viewerCode=viewerCode)</code></pre>
+    viewerCode = (
+        &#34;&#34;
+        if action is None
+        else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+    )
+    return template(&#34;viewer&#34;, viewerCode=viewerCode)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.viewerResource"><code class="name flex">
@@ -1805,11 +2194,18 @@ that are part of the 3D viewer software.</p>
 <dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
 <dd>Path on the file system under the viewers base directory
 where the resource resides.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>response</code></dt>
+<dd>The response consists of the contents of the
+file plus headers derived from the path.
+If the file does not exists, a 404 is returned.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/5948f0757efdfdd0b019d9d5582f265e8b31e9f2/src/pure3d/control/pages.py#L232-L247" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/pages.py#L233-L255" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerResource(self, path):
     &#34;&#34;&#34;Components requested by viewers.
@@ -1822,11 +2218,18 @@ where the resource resides.</dd>
     path: string
         Path on the file system under the viewers base directory
         where the resource resides.
+
+    Returns
+    -------
+    response
+        The response consists of the contents of the
+        file plus headers derived from the path.
+        If the file does not exists, a 404 is returned.
     &#34;&#34;&#34;
     Content = self.Content
 
-    data = Content.getViewerFile(path)
-    return make_response(data)</code></pre>
+    dataPath = Content.getViewerFile(path)
+    return send(dataPath)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1899,19 +2302,24 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.pages.Pages.about" href="#control.pages.Pages.about">about</a></code></li>
 <li><code><a title="control.pages.Pages.authWebdav" href="#control.pages.Pages.authWebdav">authWebdav</a></code></li>
-<li><code><a title="control.pages.Pages.backLink" href="#control.pages.Pages.backLink">backLink</a></code></li>
+<li><code><a title="control.pages.Pages.breadCrumb" href="#control.pages.Pages.breadCrumb">breadCrumb</a></code></li>
 <li><code><a title="control.pages.Pages.dataProjects" href="#control.pages.Pages.dataProjects">dataProjects</a></code></li>
 <li><code><a title="control.pages.Pages.edition" href="#control.pages.Pages.edition">edition</a></code></li>
+<li><code><a title="control.pages.Pages.editionInsert" href="#control.pages.Pages.editionInsert">editionInsert</a></code></li>
 <li><code><a title="control.pages.Pages.home" href="#control.pages.Pages.home">home</a></code></li>
 <li><code><a title="control.pages.Pages.navigation" href="#control.pages.Pages.navigation">navigation</a></code></li>
 <li><code><a title="control.pages.Pages.page" href="#control.pages.Pages.page">page</a></code></li>
 <li><code><a title="control.pages.Pages.project" href="#control.pages.Pages.project">project</a></code></li>
+<li><code><a title="control.pages.Pages.projectInsert" href="#control.pages.Pages.projectInsert">projectInsert</a></code></li>
 <li><code><a title="control.pages.Pages.projects" href="#control.pages.Pages.projects">projects</a></code></li>
-<li><code><a title="control.pages.Pages.putText" href="#control.pages.Pages.putText">putText</a></code></li>
-<li><code><a title="control.pages.Pages.putTexts" href="#control.pages.Pages.putTexts">putTexts</a></code></li>
+<li><code><a title="control.pages.Pages.putUpload" href="#control.pages.Pages.putUpload">putUpload</a></code></li>
+<li><code><a title="control.pages.Pages.putValues" href="#control.pages.Pages.putValues">putValues</a></code></li>
+<li><code><a title="control.pages.Pages.remaining" href="#control.pages.Pages.remaining">remaining</a></code></li>
 <li><code><a title="control.pages.Pages.scene" href="#control.pages.Pages.scene">scene</a></code></li>
+<li><code><a title="control.pages.Pages.sceneInsert" href="#control.pages.Pages.sceneInsert">sceneInsert</a></code></li>
 <li><code><a title="control.pages.Pages.scenes" href="#control.pages.Pages.scenes">scenes</a></code></li>
 <li><code><a title="control.pages.Pages.surprise" href="#control.pages.Pages.surprise">surprise</a></code></li>
+<li><code><a title="control.pages.Pages.upload" href="#control.pages.Pages.upload">upload</a></code></li>
 <li><code><a title="control.pages.Pages.viewerFrame" href="#control.pages.Pages.viewerFrame">viewerFrame</a></code></li>
 <li><code><a title="control.pages.Pages.viewerResource" href="#control.pages.Pages.viewerResource">viewerResource</a></code></li>
 </ul>

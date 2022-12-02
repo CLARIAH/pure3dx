@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>control.editsessions API documentation</title>
+<title>control.generic API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -20,33 +20,43 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>control.editsessions</code></h1>
+<h1 class="title">Module <code>control.generic</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/editsessions.py#L1-L19" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/generic.py#L1-L29" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class EditSessions:
-    def __init__(self, Mongo):
-        &#34;&#34;&#34;Managing edit sessions of users.
+<pre><code class="python">class AttrDict(dict):
+    &#34;&#34;&#34;Turn a dict into an object with attributes.
 
-        This class has methods to create and delete edit sessions for users,
-        which guard them from overwriting each other&#39;s data.
+    If non-existing attributes are accessed for reading, `None` is returned.
 
-        Edit sessions prevent users from editing the same piece of content,
-        in particular it prevents multiple `edit`-mode 3D viewers
-        being active with the same scene.
+    See:
+    https://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute
 
-        It is instantiated by a singleton object.
+    And:
+    https://stackoverflow.com/questions/16237659/python-how-to-implement-getattr
+    (especially the remark that
 
-        Parameters
-        ----------
-        Mongo: object
-            Singleton instance of `control.mongo.Mongo`.
-        &#34;&#34;&#34;
-        self.Mongo = Mongo</code></pre>
+    &gt; `__getattr__` is only used for missing attribute lookup
+
+    )
+
+    We also need to define the `__missing__` method in case we access the underlying
+    dict by means of keys, like `xxx[&#34;yyy&#34;]` rather then by attribute like `xxx.yyy`.
+    &#34;&#34;&#34;
+
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+    def __missing__(self, key, *args, **kwargs):
+        return None
+
+    def __getattr__(self, key, *args, **kwargs):
+        return None</code></pre>
 </details>
 </section>
 <section>
@@ -58,48 +68,63 @@
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="control.editsessions.EditSessions"><code class="flex name class">
-<span>class <span class="ident">EditSessions</span></span>
-<span>(</span><span>Mongo)</span>
+<dt id="control.generic.AttrDict"><code class="flex name class">
+<span>class <span class="ident">AttrDict</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Managing edit sessions of users.</p>
-<p>This class has methods to create and delete edit sessions for users,
-which guard them from overwriting each other's data.</p>
-<p>Edit sessions prevent users from editing the same piece of content,
-in particular it prevents multiple <code>edit</code>-mode 3D viewers
-being active with the same scene.</p>
-<p>It is instantiated by a singleton object.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
-<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
-</dl></div>
+<div class="desc"><p>Turn a dict into an object with attributes.</p>
+<p>If non-existing attributes are accessed for reading, <code>None</code> is returned.</p>
+<p>See:
+<a href="https://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute">https://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute</a></p>
+<p>And:
+<a href="https://stackoverflow.com/questions/16237659/python-how-to-implement-getattr">https://stackoverflow.com/questions/16237659/python-how-to-implement-getattr</a>
+(especially the remark that</p>
+<blockquote>
+<p><code>__getattr__</code> is only used for missing attribute lookup</p>
+</blockquote>
+<p>)</p>
+<p>We also need to define the <code>__missing__</code> method in case we access the underlying
+dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute like <code>xxx.yyy</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/editsessions.py#L1-L19" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/generic.py#L1-L29" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class EditSessions:
-    def __init__(self, Mongo):
-        &#34;&#34;&#34;Managing edit sessions of users.
+<pre><code class="python">class AttrDict(dict):
+    &#34;&#34;&#34;Turn a dict into an object with attributes.
 
-        This class has methods to create and delete edit sessions for users,
-        which guard them from overwriting each other&#39;s data.
+    If non-existing attributes are accessed for reading, `None` is returned.
 
-        Edit sessions prevent users from editing the same piece of content,
-        in particular it prevents multiple `edit`-mode 3D viewers
-        being active with the same scene.
+    See:
+    https://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute
 
-        It is instantiated by a singleton object.
+    And:
+    https://stackoverflow.com/questions/16237659/python-how-to-implement-getattr
+    (especially the remark that
 
-        Parameters
-        ----------
-        Mongo: object
-            Singleton instance of `control.mongo.Mongo`.
-        &#34;&#34;&#34;
-        self.Mongo = Mongo</code></pre>
+    &gt; `__getattr__` is only used for missing attribute lookup
+
+    )
+
+    We also need to define the `__missing__` method in case we access the underlying
+    dict by means of keys, like `xxx[&#34;yyy&#34;]` rather then by attribute like `xxx.yyy`.
+    &#34;&#34;&#34;
+
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+    def __missing__(self, key, *args, **kwargs):
+        return None
+
+    def __getattr__(self, key, *args, **kwargs):
+        return None</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -165,7 +190,7 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="control.editsessions.EditSessions" href="#control.editsessions.EditSessions">EditSessions</a></code></h4>
+<h4><code><a title="control.generic.AttrDict" href="#control.generic.AttrDict">AttrDict</a></code></h4>
 </li>
 </ul>
 </li>
