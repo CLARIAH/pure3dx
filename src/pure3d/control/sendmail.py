@@ -78,17 +78,11 @@ class SendMail:
 
     @classmethod
     def create_email_message(cls, email: EmailMessage):
-        # todo: return html or non-html depends on email.is_html
         return Message(
             subject=email.title,
             recipients=[email.recipient],
             body=email.message,
-            html=f"<html><body>{email.message}</body></html>"
-        ) if email.is_html else Message(
-            subject=email.title,
-            recipients=[email.recipient],
-            body=email.message,
-            html=f"<html><body>{email.message}</body></html>"
+            html=email.message
         )
 
     def send_test_mail(self, email_address: str):
