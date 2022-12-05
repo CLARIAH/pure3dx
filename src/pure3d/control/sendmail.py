@@ -25,6 +25,36 @@ class SendMail:
     mail_client = None
     app = None
 
+    def __init__(self, Settings, Messages, Mongo):
+        """Making responses that can be displayed as web pages.
+
+        This class has methods that correspond to routes in the app,
+        for which they get the data (using `control.content.Content`),
+        which gets then wrapped in HTML.
+
+        It is instantiated by a singleton object.
+
+        Most methods generate a response that contains the content of a complete
+        page. For those methods we do not document the return value.
+
+        Some methods return something different.
+        If so, it the return value will be documented.
+
+        Parameters
+        ----------
+        Settings: `control.helpers.generic.AttrDict`
+            App-wide configuration data obtained from
+            `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
+        """
+        self.Settings = Settings
+        self.Mongo = Mongo
+        self.Messages = Messages
+        Messages.debugAdd(self)
+
     @classmethod
     def load_config(cls):
         return _json_loads(open(cls.SEND_MAIL_CONFIGS, 'r').read())
@@ -67,25 +97,18 @@ class SendMail:
             recipient=email_address,
             message="This is a test message",
             is_html=False)
-        try:
-            self.send(email)
-            print(f"Test email sent to {email_address}")
-        except Exception as ex:
-            print(f"Test email failed! Recp is {email_address}; {email=}")
+        self.send(email)
 
     def _send(self, email: EmailMessage):
         with self.app.app_context():
-            print(f"sending to {email=}")
+            self.debug(f"sending to {email=}")
             msg = self.create_email_message(email)
-            sys.stdout.flush()
 
             try:
                 self.mail_client.send(msg)
-                print("mail sent")
-                sys.stdout.flush()
+                self.debug("mail sent successfully")
             except Exception as ex:
-                print(f"sending failed {ex}")
-                sys.stdout.flush()
+                self.debug(f"sending failed: {ex}")
 
     def send(self, email: EmailMessage):
         if email.message and email.title and email.recipient and self.is_valid_email(email.recipient):

@@ -53,9 +53,13 @@ def appFactory(objects):
     # test sending
     send_mail.send_test_mail("qiqing.ding@di.huc.knaw.nl")
     ## how to send ##
-    # from control.sendmail import EmailMessage
-    # email2 = EmailMessage(title="test title 2", message="test message 2", recipient="qiqing.ding@di.huc.knaw.nl")
-    # send_mail.send(email2)
+    # 1 sending a raw message which consists of 3 str args
+    send_mail.send_raw(title="test title1", message="test message 1", recipient="test1@test.com")
+
+    # 2 sending a EmailMessage
+    from control.sendmail import EmailMessage
+    email2 = EmailMessage(title="test title 2", message="test message 2", recipient="qiqing.ding@di.huc.knaw.nl")
+    send_mail.send(email2)
 
     @app.before_request
     def identify():

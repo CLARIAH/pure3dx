@@ -83,7 +83,7 @@ def prepare(trivial=False):
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
-        SendMail = SendMailCls()
+        SendMail = SendMailCls(Settings, Messages, Mongo)
         EditSessions = EditSessionsCls(Mongo)
 
         Content.addAuth(Auth)
