@@ -91,7 +91,7 @@ class SendMail:
         if email.message and email.title and email.recipient and self.is_valid_email(email.recipient):
             self._send(email)
         else:
-            print(f"cannot send email {email=}")
+            print(f"cannot send invalid email {email=}")
             sys.stdout.flush()
 
     def send_raw(self, title: str, recipient: str, message: str):
