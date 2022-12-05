@@ -81,7 +81,7 @@ def prepare(trivial=False):
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
-        EditSessions = EditSessionsCls(Mongo)
+        EditSessions = EditSessionsCls(Mongo, Auth)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
