@@ -1,4 +1,7 @@
 class EditSessions:
+    EXPIRATION = 600
+    EXPIRATION_VIEWER = 3600
+
     def __init__(self, Mongo, Auth):
         """Managing edit sessions of users.
 
@@ -11,23 +14,41 @@ class EditSessions:
 
         It is instantiated by a singleton object.
 
-        Here are the rules.
+        ### What are edit sessions?
+
+        First of all, this machinery is only called upon if the user is *authorised*
+        to edit the relevant piece of content.
+        Whether an authorised user may proceed depends on whether the content
+        in question is not currently being edited by an other user.
 
         The idea is that content may only be modified (updated/deleted) if it is
         guarded by an edit session.
         An edit session is a MongoDb record that holds a user id and fields that
-        specify a piece of content, and a creation time and an access time.
-        The access time is the creation time, until a second attempt is made to
-        create an edit session with the same content/user specification.
-        Then we retain the current session, and set the access time to the time
-        of this subsequent event.
+        specify a piece of content, and a time stamp.
+        The timestamp counts as the start of the session.
 
         When users are done, the edit session is deleted.
 
-        User specification: when a session is created, the _id of the current user
+        The idea is, that before a user is granted edit access to content, it is checked
+        first whether there is an existing edit session for that user and that content.
+        If so, edit access is not granted.
+        If there is no such editsession, access is granted, and a new
+        editsession is made.
+        Whenever the user terminates the editing action, the editsession is deleted.
+        A user can also save withoout terminating the edit action. In that case the
+        timestamp is set to the current time.
+        Editsessions will be removed after a certain amount of time.
+
+        So, editsessions contain:
+
+        * a user specification
+        * a content specification
+        * a time specification
+
+        **User specification**: when a session is created, the _id of the current user
         is stored in the userId field of the editSession record.
 
-        Content specification: we need to specify content in MongoDb records and
+        **Content specification**: we need to specify content in MongoDb records and
         on the file system.
 
         !!! caution "Disclaimer"
@@ -38,36 +59,71 @@ class EditSessions:
             scenes may refer to the same articles, although every scene contains
             its own metadata of the articles.
 
-        In this fuzzy situation we choose a rather coarse mod of action:
-        at most one Voyager-Story is allowed to be fired up per edition.
-        If a Voyager Story is active, the model and none of the scenes, and none
-        of the articles and media can be modified by other users.
+        In this fuzzy situation we choose a rather coarse mode of action:
 
-        But we exert finer control where we can: the metadata fields in the
-        database.
+        * at most one Voyager-Story is allowed to be fired up per edition;
+        * file actions are guarded together with the mongo records that are also
+          affected by those actions.
 
-        Editing some content requires that some other content is locked.
+        That means that content specifications boil down to:
 
-        E.g. editing a scene requires that the 3d-model file and the articles
-        in that edition are also locked.
-        And editing the model means that all scenes must be locked.
+        * `table`: the name of the collection in which the meta data record sits
+        * `recordId`: the id of the record in which the metadata sits
 
-        So in effect, we only need the key "model", to lock the whole edition.
-        So whenever somebody starts working with voyager-story, the whole edition
-        must be locked, except the icons.
+        We list all possible non-mongo actions and indicate the corresponding content
+        specifications (the id values are imaginary):
 
-        Here are the items to be locked by edit sessions:
+        * **viewer sessions that allow editing actions**:
+          `table="editions" recordId="176ba"`
 
-        * *icons*: the project or edition or scene icons.
-        * *editions*: the 3d model of the edition in question, all of its scenes, and
-          the articles folder, with the media subfolder.
+        *   **icon file changes**
+            * **site level**: `table="meta" recordId="954fe"`
+            * **project level**: `table="projects" recordId="065af"`
+            * **edition level**: `table="editions" recordId="176ba"`
+            * **scene level**: `table="scenes" recordId="287cb"`
 
-        Content on MongoDB is specified by: *table*, *recordId*, *key*, where
-        key is a field specifier as in the `fields` dictionary of `datamodel.yml`.
-        We will only edit fields if they fall under one of these keys.
+        *   **model file changes**
+            `table="editions" recordId="176ba"`
 
-        Content on the file system is specified by: *projectId*, *editionId*, *sceneId*
-        *key*. Key is a specifier that points to certain content:
+        *   **scene file changes**
+            `table="editions" recordId="176ba"`
+
+            !!! note "scene locks are edition wide"
+                Even if you want to change an icon of a single scene,
+                you need a full edition-level edit session.
+
+        ### Expiring edit sessions
+
+        Edit sessions expire if the user is done with the action for which they needed
+        the session.
+        But sometimes users forget to finalise their actions, and for those cases we
+        need something that prevents edit sessions to be immortal.
+
+        We let the server expire sessions that reach their expiration time.
+
+        When edit sessions have expired this way, other users may claim
+        editsessions for that content.
+
+        Expiration does not delete the session, but flags it as terminated.
+
+        Only when another uses asks for a new edit session with the same content
+        specs, the terminated session is deleted, after which a new one is created
+        for that other user.
+
+        If the original user, who has not saved his material in time, tries to
+        save content guarded by a terminated session, it will be allowed if the expired
+        session still exists.
+        Because in that case no other user has claimed an editsession for the
+        content, and hence no other user has modified it.
+
+        But if the terminated session has been deleted because of a new edit session
+        by another user, the original user will be notified when he attempts to save.
+        The user cannot proceed, the only thing he can do is to copy the content to
+        the clipboard, try to obtain a new session, and paste the content in
+        that session.
+
+        If a user tries to save content without there being a corresponding
+        edit session.
 
         Parameters
         ----------
@@ -78,47 +134,84 @@ class EditSessions:
         """
         self.Mongo = Mongo
 
-    def create(self, table, recordId, key=None):
-        """Create an edit session of a field in a record for the current user.
-
-        For some fields and record this also guards the editing of releated material
-        on the file system.
-
-        !!! note "Editions and models"
-            If the table is `editions` and the key is None, the current model of
-            the edition will be covered. That means that only the user holding this
-            session may:
-
-            * upload a new version of this model;
-            * modify any scene of this model;
-            * modify articles and media in the articles and articles/media directories.
-
-        !!! note "Scenes and articles and media"
-            If the table is `scenes` and the key is None, the current scene will be
-            covered. That means that only the user holding this session may:
-
-            * upload a new version of this scene;
-            * modify the scene;
-            * modify articles and media in the articles and articles/media directories.
+    def lookup(self, table, recordId):
+        """Look up an edit session.
 
         Parameters
         ----------
         table: string
             The table of the edited material
         recordId: ObjectId
-            The record of the edited material
-        key: string, optional None
-            identifier of the edited field if present, otherwise the session
-            is about related material on the file system.
+            The id of the record of the edited material
 
         Returns
         -------
-        ObjectId
-            If a session with these specs (including the user) already exists,
-            the user is already in this edit session, and the id of the current
-            session is returned. There will b e an indicator in the record of
-            the time of this acces.
-            Otherwise, a new record will be created, with the create time and access
-            time set, and the id of the record is returned.
+        ObjectId or None
+            If the editsession has been found, the id of that session,
+            otherwise None
+        """
+        pass
+
+    def create(self, table, recordId, session=False, extend=False):
+        """Create or extend an edit session of a field in a record for the current user.
+
+        The system can create new editsessions or extend existing editsessions.
+
+        Creation is needed when the user wants to start editing a piece of content
+        that he was not already editing.
+
+        Extending is needed when a user is editing a piece of content and performs
+        a save, while continuing editing the content.
+
+        Parameters
+        ----------
+        table: string
+            The table of the edited material
+        recordId: ObjectId
+            The id of the record of the edited material
+        session: boolean, optional False
+            Whether the editsession is for a viewer session or for something else.
+            This has only influence on the amount of time after which the
+            session expires.
+        extend: boolean, optional False
+            If called with `extend=False` a new editsession is required, otherwise
+            an existing edit session is timestamped with the current time.
+
+        Returns
+        -------
+        boolean
+            Whether the operation succeeded. False means that the user should not get
+            the opportunity to continue the edit action.
+        """
+        pass
+
+    def terminates(self, table, recordId):
+        """Delete an edit session.
+
+        Parameters
+        ----------
+        table: string
+            The table of the edited material
+        recordId: ObjectId
+            The id of the record of the edited material
+
+        Returns
+        -------
+        None
+        """
+        pass
+
+    def timeout(self):
+        """Terminate all outdated edit sessions.
+
+        An outdated editsession is one whose timestamp lies too far in the past.
+
+        For sessions that correspond to a viewer session, this amount is
+        given in the class member `EXPIRATION_VIEWER`.
+
+        For other sessions it is given by the much shorter `EXPIRATION`.
+
+        This method should be called every minute or so.
+
         """
         pass
