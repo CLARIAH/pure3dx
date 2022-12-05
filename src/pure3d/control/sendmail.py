@@ -93,3 +93,7 @@ class SendMail:
         else:
             print(f"cannot send email {email=}")
             sys.stdout.flush()
+
+    def send_raw(self, title: str, recipient: str, message: str):
+        email = EmailMessage(title=title, recipient=recipient, message=message)
+        self.send(email)
