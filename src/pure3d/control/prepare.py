@@ -68,7 +68,7 @@ def prepare(trivial=False):
         Pages = None
         AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Settings = ConfigCls(MessagesCls(None)).Settings
         Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
@@ -87,6 +87,7 @@ def prepare(trivial=False):
         Viewers.addAuth(Auth)
 
         Pages = PagesCls(Settings, Viewers, Messages, Collect, Content, Auth)
+        Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,

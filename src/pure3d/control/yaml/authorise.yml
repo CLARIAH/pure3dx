@@ -1,7 +1,7 @@
 actions:
-  allocate:
-    acro: a
-    name: allocate
+  assign:
+    acro: ⚭
+    name: organise
   create:
     acro: "✚"
     name: create
@@ -16,70 +16,104 @@ actions:
     name: delete
 
 roles:
-  null: not logged in
-  user: authenticated user
-  admin: administrator
+  site:
+    null: not logged in
+    user: authenticated user
+    admin: administrator
+  project:
+    organiser: organiser
+  edition:
+    reader: reviewer
+    editor: editor
 
-projectRoles:
-  reader: reviewer
-  editor: sub-editor
-  creator: editor
-
-
-projectRules:
-  true:
+tableRules:
+  site:
+    state:
+      field: null
+      values:
+        - null
+      init: null
     null:
-      - read
-    reader:
-      - read
-    editor:
-      - read
-    creator:
-      - read
-    user:
-      - read
-    admin:
-      - read
-      - delete
-  false:
-    reader:
-      - read
-    editor:
-      - read
-      - update
-    creator:
-      - read
-      - update
-      - delete
-    admin:
-      - read
-      - delete
-
-recordRules:
-  meta:
-    null:
-      - read
-    user:
-      - read
-    admin:
-      - read
-      - update
-
-createRules:
-  projects:
-    - admin
-  editions:
-    - editor
-    - creator
-  scenes:
-    - editor
-    - creator
-
-assignRules:
-  admin:
-    - creator
-  creator:
-    - editor
-    - reader
-  editor:
-    - reader
+      null:
+        - read
+      site:
+        user:
+          - read
+        admin:
+          - read
+          - update
+  project:
+    state:
+      field: isVisible
+      values:
+        - false
+        - true
+      init: false
+    true:
+      null:
+        - read
+      project:
+        organiser:
+          - read
+      site.user:
+        - read
+      site.admin:
+        - read
+        - delete
+    false:
+      site:
+        admin:
+          - assign:
+            - organiser
+          - create
+          - read
+          - delete
+      project:
+        organiser:
+          - read
+          - update
+          - delete
+      edition:
+        creator:
+          - read
+        editor:
+          - read
+        reviewer:
+          - read
+  edition:
+    state:
+      field: isPublished
+      values:
+        - false
+        - true
+      init: false
+    true:
+      null:
+        - read
+      site:
+        user:
+          - read
+        admin:
+          - read
+          - delete
+    false:
+      site:
+        admin:
+          - read
+          - delete
+      project:
+        organiser:
+          - assign:
+            - editor
+            - reviewer
+          - create
+          - read
+          - delete
+      edition:
+        editor:
+          - assign:
+            - reviewer
+          - read
+          - update
+        reviewer:
+          - read

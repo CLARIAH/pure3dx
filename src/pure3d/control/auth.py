@@ -1,3 +1,4 @@
+from control.generic import AttrDict
 from control.users import Users
 
 
@@ -29,34 +30,63 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(
-        self, table, recordId=None, projectId=None, action=None
-    ):
-        """Gather the access conditions for the relevant record or table.
+    def authorise(self, table, recordId=None, action=None, **masters):
+        """Check whether an action is allowed on data.
+
+        If the action is "create", recordId should not be passed, and masters
+        are important.
+
+        If the action is anything else, recordId should not be None,
+        and masters should not be passed.
 
         Parameters
         ----------
-        table: string, optional None
-            the table that is being used
+        table: string
+            the relevant table
         recordId: ObjectId
-            The id of the record that is being accessed, if any.
-        projectId: ObjectId
-            Only relevant if recordId is None.
-            If passed, the new record to be created will belong to this project
+            The id of the record that is being accessed
+            Not relevant for "create" actions.
         action: string, optional None
-            If None, returns all permitted actions on the record in question,
-            otherwise whether the indicated action is permitted.
-            If recordId is None, it is assumed that the action is `create`,
-            and a boolean is returned.
+            The action for which permission is asked.
+        masters: dict
+            Only relevant for "create" actions.
+            The master tables and ids of master records
+            in them to which the new record will have a link.
+            The tables are keys, the ids of the master records in those tables
+            are values.
 
         Returns
         -------
-        set | boolean
+        boolean | set
+            For "create" actions: boolean, whether the action is allowed.
+            For other actions: if action is passed, boolean whether action is allowed.
+            If action is not passed: set of allowed actions.
+        """
+
+        isCreate = action == "create"
+
+        if recordId is None and not isCreate or recordId is not None and isCreate:
+            return False if action is None else set()
+        return self._authoriseCreate(table, masters) if isCreate else self._authorise(table, recordId, action)
+
+    def _authoriseCreate(self, table, masters):
+        """Check whether a new record may be created in a table.
+
+        Parameters
+        ----------
+        table: string
+            the table into which a record has to be inserted.
+        masters: dict
+            The master tables and ids of master records
+            in them to which the new record will have a link.
+            The tables are keys, the ids of the master records in those tables
+            are values.
+
+        Returns
+        -------
+        boolean
             If `recordId` is None: whether the user is allowed to insert a new
-            record in `table`.
-            Otherwise: if `action` is passed: whether the user is allowed to
-            perform that action on the record in question.
-            Otherwise: the set of actions that the user may perform on this record.
+            record in `table`, linked to the given masters.
         """
         Settings = self.Settings
         Mongo = self.Mongo
@@ -65,44 +95,112 @@ class Auth(Users):
         user = User.sub
         role = User.role
 
-        if recordId is not None:
-            record = Mongo.getRecord(table, _id=recordId)
-            projectId = record._id if table == "projects" else record.projectId
-        else:
-            tableRules = Settings.auth.createRules.get(table, set())
+        tableRules = Settings.auth.tableRules
+        thisTableRules = tableRules.get(table, AttrDict())
+        stateInfo = thisTableRules.state
+        initState = stateInfo.init
+        theseRules = tableRules[initState]
 
-        if projectId is not None:
-            # we are inside a project
-            projectPub = (
-                True
-                if Mongo.getRecord("projects", _id=projectId).isPublished
-                else False
+        permission = "creator" in set(theseRules.get("site", {}).get(role, []))
+
+        if permission:
+            return True
+
+        for (masterTable, masterId) in masters.items():
+            if masterId is None:
+                continue
+
+            masterIdField = f"{masterTable}Id"
+            master = {masterIdField: masterId}
+
+            masterCrossTable = f"{masterTable}User"
+
+            crossRecord = Mongo.getRecord(masterCrossTable, user=user, **master)
+            if not crossRecord:
+                continue
+            masterRole = crossRecord.role
+
+            masterRules = tableRules.get(masterTable, AttrDict())
+            masterStateInfo = masterRules.state
+            masterStateField = masterStateInfo.field
+            masterRecord = Mongo.getRecord(masterTable, _id=masterId)
+            masterState = masterRecord[masterStateField]
+            theseMasterRules = masterRules[masterState]
+
+            permission = permission or "creator" in set(
+                theseMasterRules.get(masterTable, {}).get(masterRole, [])
             )
-            projectRole = (
-                None
-                if user is None
-                else Mongo.getRecord(
-                    "projectUsers", warn=False, projectId=projectId, user=user
-                ).role
-            )
-            actualRole = projectRole or role
-            if recordId is not None:
-                # we are dealing with an existing record
-                actions = Settings.auth.projectRules[projectPub].get(actualRole, [])
-                permission = actions if action is None else action in actions
-            else:
-                # we wonder whether we may insert a record
-                permission = actualRole in tableRules
-        else:
-            # we are outside any project
-            if recordId is not None:
-                # we are dealing with an existing record
-                actions = Settings.auth.recordRules.get(table, {}).get(role, [])
-                permission = actions if action is None else action in actions
-            else:
-                # we wonder whether we may insert a record
-                permission = role in tableRules
+            if permission:
+                break
+
         return permission
+
+    def _authorise(self, table, recordId, action=None):
+        """Gather the access conditions for the relevant record or table.
+
+        Parameters
+        ----------
+        table: string
+            the table that is being used
+        recordId: ObjectId
+            The id of the record that is being accessed
+        action: string, optional None
+            The action for which permission is asked.
+
+        Returns
+        -------
+        set | boolean
+            If `action` is passed: whether the action is permitted.
+            Otherwise: the set of permitted actions.
+        """
+        Settings = self.Settings
+        Mongo = self.Mongo
+        datamodel = Settings.datamodel
+        masterInfo = datamodel.master
+        linkInfo = datamodel.link
+
+        User = self.myDetails()
+        user = User.sub
+        role = User.role
+
+        tableRules = Settings.auth.tableRules
+        thisTableRules = tableRules.get(table, AttrDict())
+        stateInfo = thisTableRules.state
+        stateField = stateInfo.field
+
+        record = Mongo.getRecord(table, _id=recordId)
+        state = record[stateField]
+
+        theseRules = tableRules[state]
+
+        permissions = set(theseRules.get("site", {}).get(role, []))
+
+        for masterTable in masterInfo.get(table, []):
+            masterCrossTable = f"{masterTable}User"
+            if f"{masterTable}User" not in linkInfo:
+                continue
+
+            masterIdField = f"{masterTable}Id"
+            masterId = record[masterIdField]
+            master = {masterIdField: masterId}
+
+            crossRecord = Mongo.getRecord(masterCrossTable, user=user, **master)
+            if not crossRecord:
+                continue
+            masterRole = crossRecord.role
+
+            masterRules = tableRules.get(masterTable, AttrDict())
+            masterStateInfo = masterRules.state
+            masterStateField = masterStateInfo.field
+            masterRecord = Mongo.getRecord(masterTable, _id=masterId)
+            masterState = masterRecord[masterStateField]
+            theseMasterRules = masterRules[masterState]
+
+            permissions |= set(
+                theseMasterRules.get(masterTable, {}).get(masterRole, [])
+            )
+
+        return permissions if action is None else action in permissions
 
     def makeSafe(self, table, recordId, action):
         """Changes an action into an allowed action if needed.

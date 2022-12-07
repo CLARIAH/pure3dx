@@ -1,8 +1,9 @@
 from control.files import (
     listDirs,
     listFiles,
-    get3d,
+    list3d,
     readYaml,
+    fileExists,
     dirMake,
     dirRemove,
     dirCopy,
@@ -10,9 +11,6 @@ from control.files import (
 )
 from control.environment import var
 from control.flask import initializing
-
-ICON_FILE = "icon.png"
-FAVICON_FILE = "favicon.ico"
 
 
 class Collect:
@@ -107,24 +105,25 @@ class Collect:
         Settings = self.Settings
         Mongo = self.Mongo
 
-        for table in (
-            "meta",
-            "projects",
-            "editions",
-            "scenes",
-            "users",
-            "projectUsers",
-        ):
-            Mongo.checkCollection(table, reset=True)
+        tables = Settings.datamodel.tables
 
-        if Settings.testMode:
-            Mongo.checkCollection("users", reset=True)
+        collections = set(Mongo.collections())
+
+        for table in collections:
+            if table not in tables:
+                Mongo.clearCollection(table, delete=True)
+
+        for table in tables:
+            Mongo.clearCollection(table, delete=False)
 
     def doOuter(self):
         """Collects data not belonging to specific projects."""
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
 
+        iconFile = Settings.iconFile
+        faviconFile = Settings.faviconFile
         importDir = self.importDir
         workingDir = self.workingDir
 
@@ -139,10 +138,11 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        Mongo.insertRecord("meta", name="site", icon=ICON_FILE, **meta)
+        siteId = Mongo.insertRecord("site", **meta)
+        self.siteId = siteId
 
-        fileCopy(f"{importDir}/{ICON_FILE}", f"{workingDir}/{ICON_FILE}")
-        fileCopy(f"{importDir}/{FAVICON_FILE}", f"{workingDir}/{FAVICON_FILE}")
+        fileCopy(f"{importDir}/{iconFile}", f"{workingDir}/{iconFile}")
+        fileCopy(f"{importDir}/{faviconFile}", f"{workingDir}/{faviconFile}")
 
     def doProjects(self):
         """Collects data belonging to projects."""
@@ -154,6 +154,7 @@ class Collect:
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
+        self.editionIdByName = {}
 
         projectNames = listDirs(projectsInPath)
 
@@ -172,10 +173,13 @@ class Collect:
         projectName: string
             Directory name of the project to collect.
         """
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        siteId = self.siteId
         projectIdByName = self.projectIdByName
 
+        iconFile = Settings.iconFile
         projectInPath = f"{projectsInPath}/{projectName}"
 
         meta = {}
@@ -187,20 +191,20 @@ class Collect:
 
         title = meta.get("dc", {}).get("title", projectName)
 
-        projectInfo = dict(title=title, icon=ICON_FILE, **meta)
+        projectInfo = dict(title=title, siteId=siteId, **meta)
 
-        projectId = Mongo.insertRecord("projects", **projectInfo)
+        projectId = Mongo.insertRecord("project", **projectInfo)
         projectIdByName[projectName] = projectId
 
         Messages.plain(logmsg=f"PROJECT {projectName} => {projectId}")
 
         projectOutPath = f"{projectsOutPath}/{projectId}"
         dirMake(projectOutPath)
-        fileCopy(f"{projectInPath}/{ICON_FILE}", f"{projectOutPath}/{ICON_FILE}")
+        fileCopy(f"{projectInPath}/{iconFile}", f"{projectOutPath}/{iconFile}")
 
-        self.doEditions(projectInPath, projectOutPath, projectId)
+        self.doEditions(projectInPath, projectOutPath, projectName)
 
-    def doEditions(self, projectInPath, projectOutPath, projectId):
+    def doEditions(self, projectInPath, projectOutPath, projectName):
         """Collects data belonging to the editions of a project.
 
         Parameters
@@ -209,8 +213,8 @@ class Collect:
             Path on the filesystem to the input directory of this project
         projectOutPath: string
             Path on the filesystem to the destination directory of this project
-        projectId: ObjectId
-            MongoId of the project to collect.
+        projectName: String
+            Name of the project to collect.
         """
         editionsInPath = f"{projectInPath}/editions"
         editionsOutPath = f"{projectOutPath}/editions"
@@ -218,15 +222,15 @@ class Collect:
         editionNames = listDirs(editionsInPath)
 
         for editionName in editionNames:
-            self.doEdition(projectId, editionsInPath, editionsOutPath, editionName)
+            self.doEdition(projectName, editionsInPath, editionsOutPath, editionName)
 
-    def doEdition(self, projectId, editionsInPath, editionsOutPath, editionName):
+    def doEdition(self, projectName, editionsInPath, editionsOutPath, editionName):
         """Collects data belonging to a specific edition.
 
         Parameters
         ----------
-        projectId: ObjectId
-            MongoId of the project to which the edition belongs.
+        projectName: String
+            Name of the project to which the edition belongs.
         editionsInPath: string
             Path on the filesystem to the editions input directory
             within this project.
@@ -236,9 +240,14 @@ class Collect:
         editionName: string
             Directory name of the edition to collect.
         """
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        iconFile = Settings.iconFile
+        projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
+        projectId = projectIdByName[projectName]
         editionInPath = f"{editionsInPath}/{editionName}"
 
         meta = {}
@@ -249,87 +258,40 @@ class Collect:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
         title = meta.get("dc", {}).get("title", editionName)
+        authorTool = meta.get("settings", {}).get("authorTool", {})
+        sceneFile = authorTool.sceneFile
 
-        modelFile = None
+        sceneInFile = f"{editionInPath}/{sceneFile}"
 
-        modelFiles = get3d(editionInPath, "model")
+        if not fileExists(sceneInFile):
+            Messages.plain(logmsg="\t\tNo scene file")
 
-        if len(modelFiles) == 0:
-            Messages.plain(logmsg="\t\tNo model")
-        else:
-            extensions = modelFiles["model"]
-            if len(extensions) > 1:
-                Messages.plain(
-                    logmsg=f"\t\tMultiple extensions for model: {', '.join(extensions)}"
-                )
-            else:
-                modelExt = extensions[0]
-                modelFile = f"model.{modelExt.lower()}"
+        modelFiles = list3d(editionInPath)
+        nFiles = len(modelFiles)
 
-        editionInfo = dict(
-            title=title, projectId=projectId, model=modelFile, icon=ICON_FILE, **meta
-        )
-        editionId = Mongo.insertRecord("editions", **editionInfo)
+        if nFiles == 0:
+            Messages.plain(logmsg="\t\tNo models")
+
+        editionInfo = dict(title=title, projectId=projectId, **meta)
+        editionId = Mongo.insertRecord("edition", **editionInfo)
+        editionIdByName.setdefault(projectName, {})[editionName] = editionId
 
         Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")
 
         editionOutPath = f"{editionsOutPath}/{editionId}"
         dirMake(editionOutPath)
-        fileCopy(f"{editionInPath}/{ICON_FILE}", f"{editionOutPath}/{ICON_FILE}")
 
-        if modelFile is not None:
-            modelFileIn = f"{editionInPath}/model.{modelExt}"
-            modelFileOut = f"{editionOutPath}/{modelFile}"
-            fileCopy(modelFileIn, modelFileOut)
-
-        self.doScenes(editionInPath, editionOutPath, projectId, editionId)
-
-    def doScenes(self, editionInPath, editionOutPath, projectId, editionId):
-        """Collects data belonging to the scenes of an edition.
-
-        Parameters
-        ----------
-        editionInPath: string
-            Path on the filesystem to the input directory of this edition
-        editionOutPath: string
-            Path on the filesystem to the destination directory of this edition
-        projectId: ObjectId
-            MongoId of the project to collect.
-        editionId: ObjectId
-            MongoId of the edition to collect.
-        """
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        scenes = listFiles(editionInPath, ".json")
-
-        sceneDefault = None
-
-        for scene in scenes:
-            Messages.plain(logmsg=f"\t\tSCENE {scene}")
-
-            default = sceneDefault is None and scene == "intro"
-            if default:
-                sceneDefault = scene
-
-            sceneFile = f"{scene}.json"
-            sceneIcon = f"{scene}.png"
-
-            sceneInfo = dict(
-                name=scene,
-                scene=sceneFile,
-                icon=sceneIcon,
-                editionId=editionId,
-                projectId=projectId,
-                default=default,
-            )
-            Mongo.insertRecord("scenes", **sceneInfo)
-            sceneInPath = f"{editionInPath}/{sceneFile}"
-            sceneOutPath = f"{editionOutPath}/{sceneFile}"
-            fileCopy(sceneInPath, sceneOutPath)
-            iconInPath = f"{editionInPath}/{sceneIcon}"
-            iconOutPath = f"{editionOutPath}/{sceneIcon}"
-            fileCopy(iconInPath, iconOutPath)
+        for (label, files) in (
+            ("scene", [sceneFile]),
+            ("model", modelFiles),
+            ("icon", [iconFile]),
+        ):
+            Messages.plain(logmsg=f"\t\t\t{label}:")
+            for file in files:
+                Messages.plain(logmsg=f"\t\t\t\t{file}")
+                fileIn = f"{editionInPath}/{file}"
+                fileOut = f"{editionOutPath}/{file}"
+                fileCopy(fileIn, fileOut)
 
         articlesInPath = f"{editionInPath}/articles"
         articlesOutPath = f"{editionOutPath}/articles"
@@ -347,40 +309,78 @@ class Collect:
         importDir = self.importDir
 
         projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
         workflowDir = f"{importDir}/workflow"
         workflowPath = f"{workflowDir}/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
-        users = workflow["users"]
-        projectUsers = workflow["projectUsers"]
-        projectStatus = workflow["projectStatus"]
+        userRole = workflow["userRole"]
+        status = workflow["status"]
 
         userByName = {}
 
-        for (userName, role) in users.items():
-            sub = f"{userName:0>16}"
-            userInfo = dict(
-                nickname=userName,
-                sub=sub,
-                role=role,
-                isTest=True,
-            )
-            Mongo.insertRecord("users", **userInfo)
-            userByName[userName] = sub
+        for (table, statusInfo) in status.items():
+            field = statusInfo["field"]
+            values = statusInfo["values"]
+            tableRep = table.upper()
 
-        for (projectName, isPublished) in projectStatus.items():
-            Messages.plain(logmsg=f"PROJECT {projectName} published: {isPublished}")
-            Mongo.updateRecord(
-                "projects",
-                dict(isPublished=isPublished),
-                _id=projectIdByName[projectName],
-            )
+            for (outerName, outerValue) in values.items():
+                if table == "project":
+                    Messages.plain(
+                        logmsg=(f"{tableRep} {outerName} {field}: {outerValue}")
+                    )
+                    Mongo.updateRecord(
+                        table,
+                        {field: outerValue},
+                        _id=projectIdByName[outerName],
+                    )
+                elif table == "edition":
+                    for (innerName, innerValue) in outerValue.items():
+                        Messages.plain(
+                            logmsg=(
+                                f"{tableRep} {outerName}-{innerName}"
+                                f" {field}: {innerValue}"
+                            )
+                        )
+                        Mongo.updateRecord(
+                            table,
+                            {field: innerValue},
+                            _id=editionIdByName[outerName][innerName],
+                        )
 
-        for (projectName, projectUsrs) in projectUsers.items():
-            for (userName, role) in projectUsrs.items():
-                xInfo = dict(
-                    user=userByName[userName],
-                    projectId=projectIdByName[projectName],
+        for (table, tableUsers) in userRole.items():
+            if table != "site":
+                continue
+            for (userName, role) in tableUsers.items():
+                sub = f"{userName:0>16}"
+                userInfo = dict(
+                    nickname=userName,
+                    sub=sub,
                     role=role,
+                    isTest=True,
                 )
-                Mongo.insertRecord("projectUsers", **xInfo)
+                Mongo.insertRecord("user", **userInfo)
+                userByName[userName] = sub
+
+        for (table, tableUsers) in userRole.items():
+            if table == "site":
+                continue
+            elif table == "project":
+                for (projectName, userInfo) in tableUsers.items():
+                    for (userName, role) in userInfo.items():
+                        xInfo = dict(
+                            user=userByName[userName],
+                            projectId=projectIdByName[projectName],
+                            role=role,
+                        )
+                        Mongo.insertRecord("projectUser", **xInfo)
+            elif table == "edition":
+                for (projectName, editionInfo) in tableUsers.items():
+                    for (editionName, userInfo) in editionInfo.items():
+                        for (userName, role) in userInfo.items():
+                            xInfo = dict(
+                                user=userByName[userName],
+                                editionId=editionIdByName[projectName][editionName],
+                                role=role,
+                            )
+                            Mongo.insertRecord("editionUser", **xInfo)

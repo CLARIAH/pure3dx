@@ -103,37 +103,19 @@ def appFactory(objects):
     def editionInsert(projectId):
         return Pages.editionInsert(Mongo.cast(projectId))
 
-    @app.route("/editions/<string:editionId>")
-    def edition(editionId):
-        return Pages.edition(Mongo.cast(editionId))
+    @app.route("/editions/<string:editionId>", defaults=dict(version=None, action=None))
+    @app.route(
+        "/editions/<string:editionId>/<string:version>", defaults=dict(action=None)
+    )
+    @app.route("/editions/<string:editionId>/<string:version>/<string:action>")
+    def edition(editionId, version, action):
+        return Pages.edition(Mongo.cast(editionId), version, action)
 
     @app.route(
-        "/scenes/<string:sceneId>",
-        defaults=dict(viewer=None, version=None, action=None),
+        "/viewer/<string:viewer>/<string:version>/<string:action>/<string:editionId>"
     )
-    @app.route(
-        "/scenes/<string:sceneId>/<string:viewer>",
-        defaults=dict(version=None, action=None),
-    )
-    @app.route(
-        "/scenes/<string:sceneId>/<string:viewer>/<string:version>",
-        defaults=dict(action=None),
-    )
-    @app.route(
-        "/scenes/<string:sceneId>/<string:viewer>/<string:version>/<string:action>",
-    )
-    def scene(sceneId, viewer, version, action):
-        return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
-
-    @app.route("/projects/<string:projectId>/editions/<string:editionId>/scenes/create")
-    def sceneInsert(projectId, editionId):
-        return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
-
-    @app.route(
-        "/viewer/<string:viewer>/<string:version>/<string:action>/<string:sceneId>"
-    )
-    def viewerFrame(sceneId, viewer, version, action):
-        return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
+    def viewerFrame(editionId, viewer, version, action):
+        return Pages.viewerFrame(Mongo.cast(editionId), viewer, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):

@@ -8,5 +8,4 @@ voyager:
       prefix: "/webdav"
       element: voyager-story
       fileBase: voyager-story
-  default: true
   defaultVersion: "0.21.1p"

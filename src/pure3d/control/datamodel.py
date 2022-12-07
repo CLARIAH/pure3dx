@@ -519,8 +519,8 @@ class Upload:
         relative = self.relative
 
         recordId = record._id
-        projectId = recordId if table == "projects" else record.projectId
-        editionId = recordId if table == "editions" else record.editionId
+        projectId = recordId if table == "project" else record.projectId
+        editionId = recordId if table == "edition" else record.editionId
 
         path = (
             ""

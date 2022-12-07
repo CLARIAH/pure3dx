@@ -3,7 +3,7 @@ import yaml
 import re
 from shutil import rmtree, copytree, copy
 
-from control.generic import AttrDict
+from control.generic import deepAttrDict
 
 
 THREE_EXT = {"glb", "gltf"}
@@ -60,7 +60,7 @@ def readYaml(path, defaultEmpty=False):
         return None
     with open(path) as fh:
         data = yaml.load(fh, Loader=yaml.FullLoader)
-    return AttrDict(data)
+    return deepAttrDict(data)
 
 
 def fileExists(path):
@@ -197,37 +197,3 @@ def list3d(path):
                 files.append(name)
 
     return files
-
-
-def get3d(path, name=None):
-    """Detect 3D files in a certain directory.
-
-    The directory is searched for files that have an extension that signals 3D data.
-    Optionally we restrict the search for files with a given base name.
-
-    Parameters
-    ----------
-    path: string
-        Directory in which the 3D files are looked up.
-    name: string, optionally None
-        If None, all files will be searched.
-        Otherwise this is the base name of the 3D files that we look for.
-
-    Returns
-    -------
-    dict
-        Keyed by base name, valued by extensions of existing 3D files in that directory.
-    """
-
-    files = list3d(path)
-
-    matchingFiles = {}
-
-    for file in files:
-        (thisName, ext) = file.rsplit(".", 1)
-        if name is not None and name != thisName:
-            continue
-
-        matchingFiles.setdefault(thisName, []).append(ext)
-
-    return matchingFiles

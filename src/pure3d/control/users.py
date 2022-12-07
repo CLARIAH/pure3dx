@@ -359,7 +359,7 @@ class Users:
 
             enabled = not userActive or isTestUser
             for record in sorted(
-                Mongo.getList("users", isTest=True),
+                Mongo.getList("user", isTest=True),
                 key=lambda r: r.nickname,
             ):
                 user = record.sub
@@ -468,7 +468,7 @@ class Users:
         Mongo = self.Mongo
         User = self.__User
 
-        record = Mongo.getRecord("users", sub=user)
+        record = Mongo.getRecord("user", sub=user)
 
         if not record:
             Messages.warning(msg="Unknown user", logmsg=f"Unknown user {user}")
@@ -505,13 +505,13 @@ class Users:
         oidc = self.oidc
         User = self.__User
 
-        record = Mongo.getRecord("users", sub=user, warn=False)
+        record = Mongo.getRecord("user", sub=user, warn=False)
         newUser = None
 
         if not record:
             newUser = {att: oidc.user_getfield(att) for att in PROVIDER_ATTS}
-            userId = Mongo.insertRecord("users", role="user", **newUser)
-            record = Mongo.getRecord("users", _id=userId)
+            userId = Mongo.insertRecord("user", role="user", **newUser)
+            record = Mongo.getRecord("user", _id=userId)
 
         User.clear()
         for att in PROVIDER_ATTS:
@@ -527,5 +527,5 @@ class Users:
                     changes[att] = new
                     User[att] = new
             if changes:
-                Mongo.updateRecord("users", changes, sub=User.sub)
+                Mongo.updateRecord("user", changes, sub=User.sub)
         return True

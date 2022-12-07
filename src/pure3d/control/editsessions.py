@@ -74,19 +74,18 @@ class EditSessions:
         specifications (the id values are imaginary):
 
         * **viewer sessions that allow editing actions**:
-          `table="editions" recordId="176ba"`
+          `table="edition" recordId="176ba"`
 
         *   **icon file changes**
-            * **site level**: `table="meta" recordId="954fe"`
-            * **project level**: `table="projects" recordId="065af"`
-            * **edition level**: `table="editions" recordId="176ba"`
-            * **scene level**: `table="scenes" recordId="287cb"`
+            * **site level**: `table="site" recordId="954fe"`
+            * **project level**: `table="project" recordId="065af"`
+            * **edition level**: `table="edition" recordId="176ba"`
 
         *   **model file changes**
-            `table="editions" recordId="176ba"`
+            `table="edition" recordId="176ba"`
 
         *   **scene file changes**
-            `table="editions" recordId="176ba"`
+            `table="edition" recordId="176ba"`
 
             !!! note "scene locks are edition wide"
                 Even if you want to change an icon of a single scene,

@@ -1,13 +1,22 @@
-master:
-  projects:
-    - editions
-    - scenes
+tables:
+  - site
+  - project
+  - edition
+  - user
+  - projectUser
+  - editionUser
 
-  editions:
-    - scenes
+master:
+  project:
+    - site
+  edition:
+    - project
 
 link:
   projectUser:
+    - project
+    - user
+  editionUser:
     - project
     - user
 
@@ -43,39 +52,25 @@ fields:
 
 uploads:
   model:
-    table: editions
-    field: model
+    relative: edition
     accept: ".glb, .gltf"
     caption: model file (glb, gltf)
   scene:
-    table: scenes
-    field: scene
     relative: edition
     accept: ".json"
     caption: scene file (json)
   iconSite:
-    table: meta
-    field: icon
     relative: site
     accept: ".png"
     caption: pure3d logo
     show: true
   iconProject:
-    table: projects
-    field: icon
+    relative: project
     accept: ".png"
     caption: project logo
     show: true
   iconEdition:
-    table: editions
-    field: icon
-    accept: ".png"
-    caption: edition logo
-    show: true
-  iconScene:
-    table: scenes
-    field: icon
     relative: edition
     accept: ".png"
-    caption: scene logo
+    caption: edition logo
     show: true

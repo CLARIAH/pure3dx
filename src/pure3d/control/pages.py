@@ -139,74 +139,64 @@ class Pages:
             newUrl = f"/editions/{editionId}"
         return redirectStatus(newUrl, editionId is not None)
 
-    def edition(self, editionId):
-        """The landing page of an edition.
+    def edition(self, editionId, version, action):
+        """The landing page of an edition, possibly with a scene marked as active.
 
-        This page contains a list of scenes.
-        One of these scenes will be loaded in a 3D viewer.
-        It is dependent on defaults which scene in which viewer/version/mode.
+        An edition knows the scene it should display and the viewer that was
+        used to create the scene.
 
-        Parameters
-        ----------
-        editionId: ObjectId
-            The edition in question.
-            From the edition record we can find the project too.
-        """
-        Content = self.Content
-        editionInfo = Content.getItem("editions", _id=editionId)
-        projectId = editionInfo.projectId
-        return self.scenes(projectId, editionId, None, None, None, None)
+        If action is None, only the edition logo will be shown, no viewer
+        will be loaded.
 
-    def scene(self, sceneId, viewer, version, action):
-        """The landing page of an edition, but with a scene marked as active.
-
-        This page contains a list of scenes.
-        One of these scenes is chosen as the active scene and
-        will be loaded in a 3D viewer.
+        If action is not None, its value determines which viewer will be loaded
+        in the 3D viewer.
         It is dependent on the parameters and/or defaults
         in which viewer/version/mode.
 
-        Parameters
-        ----------
-        sceneId: ObjectId
-            The active scene in question.
-            From the scene record we can find the edition and the project too.
-        viewer: string or None
-            The viewer to use.
-        version: string or None
-            The version to use.
-        action: string or None
-            The mode in which the viewer is to be used (`view` or `edit`).
-        """
-        Content = self.Content
-        sceneInfo = Content.getItem("scenes", _id=sceneId)
-        projectId = sceneInfo.projectId
-        editionId = sceneInfo.editionId
-        return self.scenes(projectId, editionId, sceneId, viewer, version, action)
-
-    def sceneInsert(self, projectId, editionId):
-        """Inserts a scene into an edition and shows the new scene.
+        If version is not None, this will override the default version.
 
         Parameters
         ----------
-        projectId: ObjectId
-            The project to which the scene belongs.
         editionId: ObjectId
-            The edition to which the scene belongs.
+            The editionin question.
+            From the scene record we can find the edition and the project too.
+        version: string or None
+            The viewer version to use.
+        action: string or None
+            The mode in which the viewer is to be used (`read` or `update`).
         """
-        Messages = self.Messages
         Content = self.Content
-        sceneId = Content.insertScene(projectId, editionId)
-        if sceneId is None:
-            Messages.warning(
-                logmsg="Could not create new scene",
-                msg="failed to create new scene",
+        Auth = self.Auth
+
+        editionInfo = Content.getItem("edition", _id=editionId)
+        projectId = editionInfo.projectId
+        breadCrumb = self.breadCrumb(projectId)
+        action = Auth.makeSafe("edition", editionId, action)
+        sceneMaterial = (
+            ""
+            if action is None
+            else Content.getScene(
+                editionId,
+                version=version,
+                action=action,
             )
-            newUrl = f"/editions/{editionId}"
-        else:
-            Messages.info(logmsg=f"Created scene {sceneId}", msg="new scene created")
-            newUrl = f"/scenes/{sceneId}"
-        return redirectStatus(newUrl, sceneId is not None)
+        )
+        left = (
+            breadCrumb
+            + self.putValues("title@4", projectId=projectId, editionId=editionId)
+            + H.div(
+                self.putUpload("model", projectId=projectId, editionId=editionId),
+                cls="modelfile",
+            )
+            + H.h(4, "Scenes")
+            + sceneMaterial
+        )
+        right = self.putValues(
+            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
+            projectId=projectId,
+            editionId=editionId,
+        )
+        return self.page("projects", left=left, right=right)
 
     def viewerFrame(self, sceneId, viewer, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
@@ -226,7 +216,6 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneInfo = Content.getItem("scenes", _id=sceneId)
         sceneName = sceneInfo.name
 
         projectId = sceneInfo.projectId
@@ -234,7 +223,7 @@ class Pages:
 
         urlBase = f"projects/{projectId}/editions/{editionId}/"
 
-        action = Auth.makeSafe("scenes", sceneId, action)
+        action = Auth.makeSafe("scene", sceneId, action)
 
         viewerCode = (
             ""
@@ -340,7 +329,13 @@ class Pages:
         Messages = self.Messages
         Auth = self.Auth
 
-        permitted = Auth.authorise("editions", recordId=editionId, action=action)
+        permitted = Auth.authorise(
+            "edition",
+            recordId=editionId,
+            action=action,
+            project=projectId,
+            edition=editionId,
+        )
         if not permitted:
             User = Auth.myDetails()
             user = User.sub
@@ -424,45 +419,6 @@ class Pages:
             loginWidget=loginWidget,
             iconSite=iconSite,
         )
-
-    def scenes(self, projectId, editionId, sceneId, viewer, version, action):
-        """Workhorse for `Pages.edition()` and `Pages.scene()`.
-
-        The common part between the two functions mentioned.
-        """
-        Content = self.Content
-        Auth = self.Auth
-
-        breadCrumb = self.breadCrumb(projectId)
-        action = Auth.makeSafe("editions", editionId, action)
-        sceneMaterial = (
-            ""
-            if action is None
-            else Content.getScenes(
-                projectId,
-                editionId,
-                sceneId=sceneId,
-                viewer=viewer,
-                version=version,
-                action=action,
-            )
-        )
-        left = (
-            breadCrumb
-            + self.putValues("title@4", projectId=projectId, editionId=editionId)
-            + H.div(
-                self.putUpload("model", projectId=projectId, editionId=editionId),
-                cls="modelfile",
-            )
-            + H.h(4, "Scenes")
-            + sceneMaterial
-        )
-        right = self.putValues(
-            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
-            projectId=projectId,
-            editionId=editionId,
-        )
-        return self.page("projects", left=left, right=right)
 
     def navigation(self, url):
         """Generates the navigation controls.

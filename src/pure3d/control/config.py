@@ -305,15 +305,7 @@ class Config:
             self.good = False
             return
 
-        datamodelConfig = AttrDict()
-        Settings.datamodel = datamodelConfig
-
-        for (k, vDict) in datamodel.items():
-            v = AttrDict()
-            for (m, w) in vDict.items():
-                v[m] = AttrDict(w) if type(w) is dict else w
-
-            datamodelConfig[k] = v
+        Settings.datamodel = datamodel
 
     def checkAuth(self):
         """Read the yaml file with the authorisation rules."""
@@ -329,11 +321,7 @@ class Config:
             self.good = False
             return
 
-        auth = AttrDict()
-        Settings.auth = auth
-
-        for (k, v) in authData.items():
-            auth[k] = v
+        Settings.auth = authData
 
     def checkViewers(self):
         """Make an inventory of the supported 3D viewers."""
@@ -361,9 +349,6 @@ class Config:
             self.good = False
             return
 
-        viewers = AttrDict()
-        viewerDefault = None
-
         viewerNames = listDirs(viewerDir)
 
         for viewerName in viewerNames:
@@ -375,13 +360,7 @@ class Config:
                     )
                 )
                 continue
-            viewerConfig = AttrDict(viewerSettings[viewerName])
-            viewerConfig.modes = AttrDict(
-                {
-                    action: AttrDict(actionInfo)
-                    for (action, actionInfo) in viewerConfig.modes.items()
-                }
-            )
+            viewerConfig = viewerSettings[viewerName]
             viewerPath = f"{viewerDir}/{viewerName}"
             versions = []
 
@@ -392,32 +371,7 @@ class Config:
 
             viewerConfig.versions = versions
 
-            default = viewerConfig.default
-            del viewerConfig["default"]
-
-            if default:
-                if viewerDefault is not None:
-                    Messages.warning(
-                        logmsg=(
-                            f"default viewer declaration {viewerName} overrides"
-                            f" previously declared default {viewerDefault}"
-                        )
-                    )
-                viewerDefault = viewerName
-
-            viewers[viewerName] = viewerConfig
-        if viewerDefault is None:
-            Messages.error(
-                logmsg=(
-                    f"None of the viewers is declared as default viewer"
-                    f" in {viewerSettingsFile}"
-                )
-            )
-            self.good = False
-            return
-
-        Settings.viewerDefault = viewerDefault
-        Settings.viewers = viewers
+        Settings.viewers = viewerSettings
 
     def checkBanner(self):
         """Sets a banner for all pages.

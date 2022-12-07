@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
-from control.generic import AttrDict
+from control.generic import deepAttrDict
 
 
 class Mongo:
@@ -62,7 +62,7 @@ class Mongo:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
-        self.mongo = None
+        self.db = None
         self.database = Settings.database
 
     def connect(self):
@@ -71,17 +71,17 @@ class Mongo:
         The connection details come from `control.config.Config.Settings`.
 
         After a successful connection attempt, the connection handle
-        is stored in the `client` and `mongo` members of the Mongo object.
+        is stored in the `client` and `db` members of the Mongo object.
 
         When a connection handle exists, this method does nothing.
         """
         Messages = self.Messages
         Settings = self.Settings
         client = self.client
-        mongo = self.mongo
+        db = self.db
         database = self.database
 
-        if mongo is None:
+        if db is None:
             try:
                 client = MongoClient(
                     Settings.mongoHost,
@@ -89,14 +89,14 @@ class Mongo:
                     username=Settings.mongoUser,
                     password=Settings.mongoPassword,
                 )
-                mongo = client[database]
+                db = client[database]
             except Exception as e:
                 Messages.error(
                     msg="Could not connect to the database",
                     logmsg=f"Mongo connection: `{e}`",
                 )
             self.client = client
-            self.mongo = mongo
+            self.db = db
 
     def disconnect(self):
         """Disconnect from the MongoDB."""
@@ -106,43 +106,73 @@ class Mongo:
             client.close()
 
         self.client = None
-        self.mongo = None
+        self.db = None
 
-    def checkCollection(self, table, reset=False):
-        """Make sure that a collection exists and (optionally) that it is empty.
+    def collections(self):
+        """List the existent collections in the database.
+
+        Returns
+        -------
+        list
+            The names of the collections.
+        """
+        self.connect()
+        db = self.db
+
+        return list(db.list_collection_names())
+
+    def clearCollection(self, table, delete=False):
+        """Make sure that a collection exists and that it is empty.
 
         Parameters
         ----------
         table: string
             The name of the collection.
             If no such collection exists, it will be created.
-        reset: boolean, optional False
-            If True, and the collection existed before, it will be cleared.
-            Note that the collection will not be deleted, but all its documents
-            will be deleted.
+        delete: boolean, optional False
+            If True, and the collection existed before, it will be deleted.
+            If False, the collection will be cleared, i.e. all its documents
+            get deleted, but the table remains.
         """
         Messages = self.Messages
 
         self.connect()
-        client = self.client
-        mongo = self.mongo
+        db = self.db
 
-        if mongo[table] is None:
-            try:
-                client.create_collection(table)
-            except Exception as e:
-                Messages.error(
-                    msg="Database action",
-                    logmsg=f"Cannot create collection: `{table}`: {e}",
-                )
-        if reset:
-            try:
-                self.execute(table, "delete_many", {})
-            except Exception as e:
-                Messages.error(
-                    msg="Database action",
-                    logmsg=f"Cannot clear collection: `{table}`: {e}",
-                )
+        if delete:
+            if db[table] is not None:
+                try:
+                    db.drop_collection(table)
+                    Messages.plain(
+                        msg=f"dropped collection `{table}`",
+                        logmsg=f"dropped collection `{table}`",
+                    )
+                except Exception as e:
+                    Messages.error(
+                        msg="Database action",
+                        logmsg=f"Cannot delete collection: `{table}`: {e}",
+                    )
+        else:
+            if db[table] is None:
+                try:
+                    db.create_collection(table)
+                except Exception as e:
+                    Messages.error(
+                        msg="Database action",
+                        logmsg=f"Cannot create collection: `{table}`: {e}",
+                    )
+            else:
+                try:
+                    self.execute(table, "delete_many", {})
+                    Messages.plain(
+                        msg=f"cleared collection `{table}`",
+                        logmsg=f"cleared collection `{table}`",
+                    )
+                except Exception as e:
+                    Messages.error(
+                        msg="Database action",
+                        logmsg=f"Cannot clear collection: `{table}`: {e}",
+                    )
 
     def getRecord(self, table, warn=True, **criteria):
         """Get a single document from a collection.
@@ -174,7 +204,7 @@ class Mongo:
             if warn:
                 Messages.warning(logmsg=f"No record in {table} with {criteria}")
             result = {}
-        return AttrDict(result)
+        return deepAttrDict(result)
 
     def getList(self, table, **criteria):
         """Get a list of documents from a collection.
@@ -194,7 +224,7 @@ class Mongo:
         """
 
         result = self.execute(table, "find", criteria, {})
-        return [AttrDict(record) for record in result]
+        return [deepAttrDict(record) for record in result]
 
     def updateRecord(self, table, updates, warn=True, **criteria):
         """Updates a single document from a collection.
@@ -272,9 +302,9 @@ class Mongo:
         Messages = self.Messages
 
         self.connect()
-        mongo = self.mongo
+        db = self.db
 
-        method = getattr(mongo[table], command, None)
+        method = getattr(db[table], command, None)
         result = None
 
         if method is None:

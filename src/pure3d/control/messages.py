@@ -33,14 +33,21 @@ class Messages:
         Settings: `control.generic.AttrDict`
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
-        onFlask: boolean, optional True
-            If False, mo messages will be sent to the screen of the webuser,
-            instead those messages end up in the log.
-            This is useful in the initial processing that takes place
-            before the flask app is started.
         """
         self.Settings = Settings
-        self.onFlask = onFlask
+        self.onFlask = False
+        """Whether the webserver is running.
+
+        If False, mo messages will be sent to the screen of the webuser,
+        instead those messages end up in the log.
+        This is useful in the initial processing that takes place
+        before the flask app is started.
+        """
+
+    def setFlask(self):
+        """Enables messaging to the web interface.
+        """
+        self.onFlask = True
 
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
@@ -110,6 +117,12 @@ class Messages:
 
         It can issue log messages and screen messages.
 
+        Messages passed in `msg` go to the web interface, the ones
+        passed in `logmsg` go to the log.
+
+        If there is not yet a web interface, `msg` messages are suppressed if there
+        is also a `logmsg`, otherwise they will be directed to the log as well.
+
         Parameters
         ----------
         tp: string
@@ -142,17 +155,19 @@ class Messages:
 
         msg: string, optional None
             If not None, it is the contents of a screen message.
-            Ths happens by the built-in `flash` method of Flask.
+            This happens by the built-in `flash` method of Flask.
         logmsg: string, optional None
             If not None, it is the contents of a log message.
+
         """
         Settings = self.Settings
+        onFlask = self.onFlask
 
         stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
         label = "" if tp == "plain" else f"{tp.upper()}: "
 
-        if Settings is None:
-            if msg is not None:
+        if not onFlask:
+            if msg is not None and logmsg is None:
                 stream.write(f"{label}{msg}\n")
             if logmsg is not None:
                 stream.write(f"{label}{logmsg}\n")
@@ -170,7 +185,7 @@ class Messages:
                 stream.write(f"{label}{logmsg}\n")
                 stream.flush()
 
-            if tp == "error" and self.onFlask:
+            if tp == "error" and onFlask:
                 stop()
 
     def client(self, tp, message, replace=False):

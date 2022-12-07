@@ -27,3 +27,35 @@ class AttrDict(dict):
 
     def __getattr__(self, key, *args, **kwargs):
         return None
+
+
+def deepAttrDict(info):
+    """Turn a dict into an AttrDict, recursively.
+
+    Parameters
+    ----------
+    info: any
+        The input dictionary. We assume that it is a data structure built by
+        tuple, list, set, frozenset, dict and atomic types such as int, str, bool.
+        We assume there are no user defined objects in it,
+        and no generators and functions.
+
+    Returns
+    -------
+    AttrDict
+        An AttrDict containing the same info as the input dict, but where
+        each value of type dict is turned into an AttrDict.
+    """
+    return (
+        AttrDict({k: deepAttrDict(v) for (k, v) in info.items()})
+        if type(info) is dict
+        else tuple(deepAttrDict(item) for item in info)
+        if type(info) is tuple
+        else frozenset(deepAttrDict(item) for item in info)
+        if type(info) is frozenset
+        else [deepAttrDict(item) for item in info]
+        if type(info) is list
+        else {deepAttrDict(item) for item in info}
+        if type(info) is set
+        else info
+    )

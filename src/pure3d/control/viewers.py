@@ -146,7 +146,7 @@ class Viewers:
 
         def getActionButton(viewer, version, action, active):
             activeCls = "active" if active else ""
-            thisActionInfo = AttrDict(actionInfo.get(action, {}))
+            thisActionInfo = actionInfo.get(action, AttrDict)
             acro = thisActionInfo.acro
             name = thisActionInfo.name
 

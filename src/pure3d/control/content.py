@@ -1,5 +1,4 @@
 from flask import jsonify
-from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.html import HtmlElements as H
@@ -62,11 +61,11 @@ class Content(Datamodel):
         Auth = self.Auth
 
         wrapped = []
-        wrapped.append(self.actionButton("create", "projects"))
+        wrapped.append(self.actionButton("create", "project"))
 
-        for record in Mongo.getList("projects"):
+        for record in Mongo.getList("project"):
             projectId = record._id
-            permitted = Auth.authorise("projects", recordId=projectId, action="read")
+            permitted = Auth.authorise("project", projectId, action="read")
             if not permitted:
                 continue
 
@@ -75,7 +74,7 @@ class Content(Datamodel):
             projectUrl = f"/projects/{projectId}"
             button = self.actionButton(
                 "delete",
-                "projects",
+                "project",
                 recordId=projectId,
             )
             self.debug(f"deletebutton: {button}")
@@ -87,10 +86,13 @@ class Content(Datamodel):
         return H.content(*wrapped)
 
     def insertProject(self):
+        Settings = self.Settings
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("projects")
+        siteId = Settings.siteId
+
+        permitted = Auth.authorise("project", site=siteId)
         if not permitted:
             return None
 
@@ -105,9 +107,9 @@ class Content(Datamodel):
             description=dict(abstract="No intro", description="No description"),
             creator=name,
         )
-        projectId = Mongo.insertRecord("projects", title=title, meta=dict(dc=dcMeta))
+        projectId = Mongo.insertRecord("project", title=title, meta=dict(dc=dcMeta))
         Mongo.insertRecord(
-            "projectUsers",
+            "projectUser",
             projectId=projectId,
             user=user,
             role="creator",
@@ -139,9 +141,9 @@ class Content(Datamodel):
 
         wrapped = []
 
-        for record in Mongo.getList("editions", projectId=projectId):
+        for record in Mongo.getList("edition", projectId=projectId):
             editionId = record._id
-            permitted = Auth.authorise("editions", recordId=editionId, action="read")
+            permitted = Auth.authorise("edition", recordId=editionId, action="read")
             if not permitted:
                 continue
 
@@ -150,7 +152,7 @@ class Content(Datamodel):
             editionUrl = f"/editions/{editionId}"
             button = self.actionButton(
                 "delete",
-                "editions",
+                "edition",
                 recordId=editionId,
             )
             visual = self.getUpload(
@@ -159,14 +161,14 @@ class Content(Datamodel):
             caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        wrapped.append(self.actionButton("create", "editions", projectId=projectId))
+        wrapped.append(self.actionButton("create", "edition", projectId=projectId))
         return H.content(*wrapped)
 
     def insertEdition(self, projectId):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("editions", projectId=projectId)
+        permitted = Auth.authorise("edition", project=projectId)
         if not permitted:
             return None
 
@@ -185,34 +187,28 @@ class Content(Datamodel):
             creator=name,
         )
         editionId = Mongo.insertRecord(
-            "editions", title=title, projectId=projectId, meta=dict(dc=dcMeta)
+            "edition", title=title, projectId=projectId, meta=dict(dc=dcMeta)
         )
         return editionId
 
-    def getScenes(
+    def getScene(
         self,
         projectId,
         editionId,
-        sceneId=None,
-        viewer=None,
         version=None,
         action=None,
     ):
-        """Get the list of the scenes of an edition of a project.
+        """Get the scene of an edition of a project.
 
-        Well, only if the project is visible to the current user.
-        See `Content.getProjects()`.
+        Well, only if the current user is authorised.
 
-        Scenes are each displayed by means of an icon a title and a row of buttons.
-        The title is the file name (without the `.json` extension) of the scene.
-        Both link to a landing page for the edition.
+        A scenes is displayed by means of an icon and a row of buttons.
 
-        One of the scenes is made *active*, i.e.
-        it is loaded in a specific version of a viewer in a specific
-        mode (`view` or `edit`).
+        If action is not None, the scene is loaded in a specific version of the
+        viewer in a specific mode (`read` or `read`).
+        The edition knows which viewer to choose.
 
-        Which scene is loaded in which viewer and version in which mode,
-        is determined by the parameters.
+        Which version and which mode are used is determined by the parameters.
         If the parameters do not specify values, sensible defaults are chosen.
 
         Parameters
@@ -221,15 +217,6 @@ class Content(Datamodel):
             The project in question.
         editionId: ObjectId
             The edition in question.
-        sceneId: ObjectId, optional None
-            The active scene. If None the default scene is chosen.
-            A scene record specifies whether that scene is the default scene for
-            that edition.
-        viewer: string, optional None
-            The viewer to be used for the 3D viewing. It should be a supported viewer.
-            If None, the default viewer is chosen.
-            The list of those viewers is in the `yaml/viewers.yml` file,
-            which also specifies what the default viewer is.
         version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
@@ -243,9 +230,9 @@ class Content(Datamodel):
         Returns
         -------
         string
-            A list of captions of the scenes of the edition,
-            with one caption replaced by a 3D viewer showing the scene.
-            The list is wrapped in a HTML string.
+            A caption of the scene of the edition,
+            with possibly a frame with the 3D viewer showing the scene.
+            The result is wrapped in a HTML string.
         """
         Mongo = self.Mongo
         Auth = self.Auth
@@ -253,7 +240,7 @@ class Content(Datamodel):
 
         wrapped = []
 
-        actions = Auth.authorise("editions", recordId=editionId)
+        actions = Auth.authorise("edition", recordId=editionId)
         if "read" not in actions:
             return ""
 
@@ -261,14 +248,14 @@ class Content(Datamodel):
 
         wrapped = []
 
-        for record in Mongo.getList("scenes", editionId=editionId):
+        for record in Mongo.getList("scene", editionId=editionId):
             thisSceneId = record._id
 
             isSceneActive = sceneId is None and record.default or record._id == sceneId
             titleText = H.span(record.name, cls="entrytitle")
             button = self.actionButton(
                 "delete",
-                "scenes",
+                "scene",
                 recordId=thisSceneId,
             )
 
@@ -293,36 +280,10 @@ class Content(Datamodel):
 
         wrapped.append(
             self.actionButton(
-                "create", "scenes", projectId=projectId, editionId=editionId
+                "create", "scene", projectId=projectId, editionId=editionId
             )
         )
         return H.content(*wrapped)
-
-    def insertScene(self, projectId, editionId):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        permitted = Auth.authorise("scenes", projectId=projectId)
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        name = User.nickname
-
-        title = "Scene without title"
-
-        dcMeta = dict(
-            title=title,
-            creator=name,
-        )
-        sceneId = Mongo.insertRecord(
-            "scenes",
-            name=title,
-            projectId=projectId,
-            editionId=editionId,
-            meta=dict(dc=dcMeta),
-        )
-        return sceneId
 
     def wrapCaption(self, content, button, active=False):
         activeCls = "active" if active else ""
@@ -333,7 +294,6 @@ class Content(Datamodel):
     def getCaption(self, visual, titleText, button, url):
         title = H.span(titleText, cls="entrytitle")
 
-        # visual = H.img(f"{iconUrlBase}/{icon}", imgAtts=dict(cls="previewicon"))
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
 
@@ -369,19 +329,19 @@ class Content(Datamodel):
         Auth = self.Auth
 
         if editionId is not None:
-            table = "editions"
+            table = "edition"
             crit = dict(_id=editionId)
         elif projectId is not None:
-            table = "projects"
+            table = "project"
             crit = dict(_id=projectId)
         else:
-            table = "meta"
-            crit = dict(name="site")
+            table = "site"
+            crit = dict()
 
-        record = Mongo.getRecord(table, **crit) or AttrDict()
+        record = Mongo.getRecord(table, **crit)
         recordId = record._id
 
-        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+        permissions = Auth.authorise(table, recordId=recordId)
 
         if "read" not in permissions:
             return None
@@ -436,22 +396,22 @@ class Content(Datamodel):
         Auth = self.Auth
 
         if sceneId is not None:
-            table = "scenes"
+            table = "scene"
             crit = dict(_id=sceneId)
         elif editionId is not None:
-            table = "editions"
+            table = "edition"
             crit = dict(_id=editionId)
         elif projectId is not None:
-            table = "projects"
+            table = "project"
             crit = dict(_id=projectId)
         else:
-            table = "meta"
-            crit = dict(name="site")
+            table = "site"
+            crit = dict()
 
-        record = Mongo.getRecord(table, **crit) or AttrDict()
+        record = Mongo.getRecord(table, **crit)
         recordId = record._id
 
-        permissions = Auth.authorise(table, recordId=recordId, projectId=projectId)
+        permissions = Auth.authorise(table, recordId=recordId)
 
         if "read" not in permissions:
             return None
@@ -538,15 +498,15 @@ class Content(Datamodel):
         dataPath = base if path is None else f"{base}/{path}"
 
         if projectId is None:
-            table = "meta"
+            table = "site"
             recordId = (
                 True  # dummy value for authorise, which only tests whether it is falsy
             )
         elif editionId is None:
-            table = "projects"
+            table = "project"
             recordId = projectId
         else:
-            table = "editions"
+            table = "edition"
             recordId = editionId
         permitted = Auth.authorise(table, recordId=recordId, action="read")
 
@@ -629,9 +589,7 @@ class Content(Datamodel):
         if editionId is not None:
             urlInsert += f"editions/{editionId}/"
 
-        permitted = Auth.authorise(
-            table, recordId=recordId, projectId=projectId, action=action
-        )
+        permitted = Auth.authorise(table, recordId=recordId, action=action, project=projectId, edition=editionId)
 
         if not permitted:
             return ""
@@ -661,7 +619,7 @@ class Content(Datamodel):
                 )
                 report = H.br() + report
 
-        actionInfo = AttrDict(actions.get(action, {}))
+        actionInfo = actions.get(action, {})
         text = actionInfo.acro
         name = actionInfo.name
         tableItem = table.rstrip("s")
