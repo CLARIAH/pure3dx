@@ -323,6 +323,18 @@ class Config:
 
         Settings.auth = authData
 
+        tableFromRole = AttrDict()
+        for (table, roles) in authData.roles.items():
+            for role in roles:
+                tableFromRole[role] = table
+
+        detailOf = AttrDict()
+        for (master, details) in authData.masterOf.items():
+            for detail in details:
+                detailOf.setdefault(detail, set()).add(master)
+
+        Settings.auth.tableFromRole = tableFromRole
+
     def checkViewers(self):
         """Make an inventory of the supported 3D viewers."""
         Messages = self.Messages

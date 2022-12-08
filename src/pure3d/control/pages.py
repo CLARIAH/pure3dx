@@ -334,7 +334,6 @@ class Pages:
             recordId=editionId,
             action=action,
             project=projectId,
-            edition=editionId,
         )
         if not permitted:
             User = Auth.myDetails()

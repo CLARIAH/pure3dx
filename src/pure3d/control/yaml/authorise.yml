@@ -26,22 +26,21 @@ roles:
     reader: reviewer
     editor: editor
 
-tableRules:
+masterOf:
+  project:
+    - edition
+
+authRules:
   site:
-    state:
-      field: null
-      values:
-        - null
-      init: null
-    null:
-      null:
-        - read
-      site:
-        user:
-          - read
-        admin:
-          - read
-          - update
+    assign: {}
+    create: {}
+    read:
+      - admin
+      - user
+      - null
+    update: {}
+    delete: {}
+
   project:
     state:
       field: isVisible
@@ -49,37 +48,34 @@ tableRules:
         - false
         - true
       init: false
-    true:
-      null:
-        - read
-      project:
-        organiser:
-          - read
-      site.user:
-        - read
-      site.admin:
-        - read
-        - delete
-    false:
-      site:
+    assign:
+      true: {}
+      false:
         admin:
-          - assign:
-            - organiser
-          - create
-          - read
-          - delete
-      project:
-        organiser:
-          - read
-          - update
-          - delete
-      edition:
-        creator:
-          - read
-        editor:
-          - read
-        reviewer:
-          - read
+          - organiser
+    create:
+      true: {}
+      false:
+        admin: true
+    read:
+      true:
+        admin: true
+        user: true
+        null: true
+      false:
+        admin: true
+        organiser: true
+        editor: true
+        reader: true
+    update:
+      true: {}
+      false:
+        organiser: true
+    delete:
+      true: {}
+      false:
+        admin: true
+
   edition:
     state:
       field: isPublished
@@ -87,33 +83,149 @@ tableRules:
         - false
         - true
       init: false
-    true:
-      null:
-        - read
-      site:
-        user:
-          - read
-        admin:
-          - read
-          - delete
-    false:
-      site:
-        admin:
-          - read
-          - delete
-      project:
+    assign:
+      true: {}
+      false:
         organiser:
+          - editor
+          - reviewer
+        editor:
+          - reviewer
+    create:
+      true: {}
+      false:
+        organiser: true
+    read:
+      true:
+        admin: true
+        user: true
+        null: true
+      false:
+        admin: true
+        organiser: true
+        editor: true
+        reader: true
+    update:
+      true: {}
+      false:
+        editor: true
+    delete:
+      true: {}
+      false:
+        organiser: true
+
+tableRulesOld:
+  site:
+    state:
+      field: null
+      values:
+        - null
+      init: null
+    site:
+      user:
+        null:
+          - read
+      admin:
+        null:
+          - read
+          - update
+      null:
+        null:
+          - read
+
+  project:
+    state:
+      field: isVisible
+      values:
+        - false
+        - true
+      init: false
+    site:
+      admin:
+        true:
+          - read
+          - delete
+        false:
+          - assign:
+            - organiser
+          - create
+          - read
+          - delete
+      user:
+        true:
+          - read
+        false: []
+      null:
+        true:
+          - read
+        false: []
+    project:
+      organiser:
+        true:
+          - read
+        false:
+          - read
+          - update
+          - delete
+    edition:
+      creator:
+        true:
+          - read
+        false: []
+      editor:
+        true:
+          - read
+        false: []
+      reviewer:
+        true:
+          - read
+        false: []
+
+  edition:
+    state:
+      field: isPublished
+      values:
+        - false
+        - true
+      init: false
+    site:
+      admin:
+        true:
+          - read
+          - delete
+        false:
+          - read
+          - delete
+      user:
+        true:
+          - read
+        false: []
+      null:
+        true:
+          - read
+        false: []
+    project:
+      organiser:
+        true:
+          - read
+        false:
           - assign:
             - editor
             - reviewer
           - create
           - read
           - delete
-      edition:
-        editor:
+    edition:
+      editor:
+        true:
+          - read
+        false:
           - assign:
             - reviewer
           - read
           - update
-        reviewer:
+      reviewer:
+        true:
+          - read
+        false:
           - read

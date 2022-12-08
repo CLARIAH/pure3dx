@@ -65,7 +65,7 @@ class Content(Datamodel):
 
         for record in Mongo.getList("project"):
             projectId = record._id
-            permitted = Auth.authorise("project", projectId, action="read")
+            permitted = Auth.authorise("project", recordId=projectId, action="read")
             if not permitted:
                 continue
 
@@ -86,13 +86,10 @@ class Content(Datamodel):
         return H.content(*wrapped)
 
     def insertProject(self):
-        Settings = self.Settings
         Mongo = self.Mongo
         Auth = self.Auth
 
-        siteId = Settings.siteId
-
-        permitted = Auth.authorise("project", site=siteId)
+        permitted = Auth.authorise("project")
         if not permitted:
             return None
 
@@ -341,9 +338,9 @@ class Content(Datamodel):
         record = Mongo.getRecord(table, **crit)
         recordId = record._id
 
-        permissions = Auth.authorise(table, recordId=recordId)
+        actions = Auth.authorise(table, recordId=recordId)
 
-        if "read" not in permissions:
+        if "read" not in actions:
             return None
 
         F = self.makeField(key)
@@ -411,9 +408,9 @@ class Content(Datamodel):
         record = Mongo.getRecord(table, **crit)
         recordId = record._id
 
-        permissions = Auth.authorise(table, recordId=recordId)
+        actions = Auth.authorise(table, recordId=recordId)
 
-        if "read" not in permissions:
+        if "read" not in actions:
             return None
 
         F = self.makeUpload(key)
@@ -589,7 +586,13 @@ class Content(Datamodel):
         if editionId is not None:
             urlInsert += f"editions/{editionId}/"
 
-        permitted = Auth.authorise(table, recordId=recordId, action=action, project=projectId, edition=editionId)
+        permitted = Auth.authorise(
+            table,
+            recordId=recordId,
+            action=action,
+            project=projectId,
+            edition=editionId,
+        )
 
         if not permitted:
             return ""
