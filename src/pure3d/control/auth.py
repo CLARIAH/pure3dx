@@ -130,18 +130,22 @@ class Auth(Users):
 
         stateInfo = tableRules.state
 
-        if isCreate:
-            state = stateInfo.init
-        else:
-            stateField = stateInfo.field
-            record = Mongo.getRecord(table, _id=recordId)
-            state = record[stateField]
+        state = None
+
+        if stateInfo is not None:
+            if isCreate:
+                state = stateInfo.init
+            else:
+                stateField = stateInfo.field
+                record = Mongo.getRecord(table, _id=recordId)
+                state = record[stateField]
 
         # we select the rules for the given state, if any
 
         rules = {
             act: actInfo[state] if stateInfo else actInfo
             for (act, actInfo) in tableRules.items()
+            if act != "state"
         }
 
         # for each possible action, the rules specify the roles that may perform
@@ -151,6 +155,7 @@ class Auth(Users):
 
         tableFromRole = auth.tableFromRole
         masterOf = auth.masterOf
+        userCoupled = set(auth.userCoupled)
 
         # for each of the roles we have to determine whether the role is
         # * site wide (table = site)
@@ -160,16 +165,19 @@ class Auth(Users):
         # First we get the tables associated with each role
 
         allAllowedRoles = {
-            role: tableFromRole[role] for role in set(chain(rules.values()))
+            role: tableFromRole[role]
+            for role in set(chain.from_iterable(v.keys() for v in rules.values()))
         }
 
         # Then we determine which of these tables are master, detail, or none of
         # those, with respect to the table we are acting upon.
 
         allRelatedTables = {
-            relatedTable: "detail"
-            if table in masterOf.get(relatedTable, [])
+            relatedTable: "self"
+            if relatedTable == table
             else "master"
+            if table in masterOf.get(relatedTable, [])
+            else "detail"
             if relatedTable in masterOf.get(table, [])
             else ""
             for relatedTable in allAllowedRoles.values()
@@ -185,10 +193,24 @@ class Auth(Users):
             if kind == "":
                 continue
 
+            if relatedTable not in userCoupled:
+                continue
+
             relatedIdField = f"{relatedTable}Id"
             relatedCrossTable = f"{relatedTable}User"
 
-            if kind == "master":
+            if kind == "self":
+                if isCreate:
+                    continue
+
+                crit = {relatedIdField: recordId}
+                crossRecord = Mongo.getRecord(relatedCrossTable, user=user, **crit)
+                extraRole = crossRecord.role
+
+                if extraRole is not None:
+                    userRoles.add(extraRole)
+
+            elif kind == "master":
                 # if recordId is given, we find a masterId in the record
                 # else we use a masterId from the masters argument to the function
 

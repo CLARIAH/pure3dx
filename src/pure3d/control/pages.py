@@ -108,7 +108,12 @@ class Pages:
         """
         Content = self.Content
         editions = Content.getEditions(projectId)
-        left = self.putValues("title@3 + creator@0", projectId=projectId) + editions
+        editionHeading = H.h(3, "Editions")
+        left = (
+            self.putValues("title@3 + creator@0", projectId=projectId)
+            + editionHeading
+            + editions
+        )
         right = self.putValues(
             "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
             projectId=projectId,
@@ -158,7 +163,7 @@ class Pages:
         Parameters
         ----------
         editionId: ObjectId
-            The editionin question.
+            The editionin quesion.
             From the scene record we can find the edition and the project too.
         version: string or None
             The viewer version to use.
@@ -169,6 +174,9 @@ class Pages:
         Auth = self.Auth
 
         editionInfo = Content.getItem("edition", _id=editionId)
+        editionSettings = editionInfo.get("settings", {})
+        authorTool = editionSettings.get("authorTool")
+        sceneName = authorTool.sceneFile
         projectId = editionInfo.projectId
         breadCrumb = self.breadCrumb(projectId)
         action = Auth.makeSafe("edition", editionId, action)
@@ -184,11 +192,21 @@ class Pages:
         left = (
             breadCrumb
             + self.putValues("title@4", projectId=projectId, editionId=editionId)
+            + H.h(4, "Model files")
             + H.div(
                 self.putUpload("model", projectId=projectId, editionId=editionId),
                 cls="modelfile",
             )
-            + H.h(4, "Scenes")
+            + H.h(4, "Scene")
+            + H.div(
+                self.putUpload(
+                    "scene",
+                    fileName=sceneName,
+                    projectId=projectId,
+                    editionId=editionId,
+                ),
+                cls="scenefile",
+            )
             + sceneMaterial
         )
         right = self.putValues(
@@ -198,13 +216,13 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
-    def viewerFrame(self, sceneId, viewer, version, action):
+    def viewerFrame(self, editionId, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
 
         Parameters
         ----------
-        sceneId: ObjectId
-            The scene that is shown.
+        editionId: ObjectId
+            The edition that is shown.
         viewer: string or None
             The viewer to use.
         version: string or None
@@ -216,14 +234,17 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        sceneName = sceneInfo.name
-
-        projectId = sceneInfo.projectId
-        editionId = sceneInfo.editionId
+        viewerDefault = Viewers.viewerDefault
+        editionInfo = Content.getItem("edition", _id=editionId)
+        projectId = editionInfo.projectId
+        editionSettings = editionInfo.get("settings", {})
+        authorTool = editionSettings.get("authorTool")
+        viewer = authorTool.get("name", viewerDefault)
+        sceneName = authorTool.sceneFile
 
         urlBase = f"projects/{projectId}/editions/{editionId}/"
 
-        action = Auth.makeSafe("scene", sceneId, action)
+        action = Auth.makeSafe("edition", editionId, action)
 
         viewerCode = (
             ""
@@ -292,14 +313,14 @@ class Pages:
         dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
         return send(dataPath)
 
-    def upload(self, table, recordId, field, path):
+    def upload(self, table, recordId, key, path):
         Content = self.Content
 
         parts = path.rstrip("/").rsplit("/", 1)
         fileName = parts[-1]
         path = parts[0] if len(parts) == 2 else ""
 
-        return Content.save(table, recordId, field, path, fileName)
+        return Content.save(table, recordId, key, path, fileName)
 
     def authWebdav(self, projectId, editionId, path, action):
         """Authorises a webdav request.
@@ -533,13 +554,18 @@ class Pages:
             )
         )
 
-    def putUpload(self, key, projectId=None, editionId=None, cls=None):
+    def putUpload(self, key, fileName=None, projectId=None, editionId=None, cls=None):
         """Puts a file upload control on a page.
 
         Parameters
         ----------
         key: string
             the key that identifies the kind of upload
+        fileName: string, optional None
+            If present, it indicates that the uploaded file will have this prescribed
+            name.
+            A file name for an upload object may also have been specified in
+            the datamodel configuration.
         projectId: ObjectId, optional None
             The project in question.
         editionId: ObjectId, optional None
@@ -555,4 +581,9 @@ class Pages:
         """
         Content = self.Content
 
-        return Content.getUpload(key, projectId=projectId, editionId=editionId) or ""
+        return (
+            Content.getUpload(
+                key, fileName=fileName, projectId=projectId, editionId=editionId
+            )
+            or ""
+        )

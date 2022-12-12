@@ -112,10 +112,10 @@ def appFactory(objects):
         return Pages.edition(Mongo.cast(editionId), version, action)
 
     @app.route(
-        "/viewer/<string:viewer>/<string:version>/<string:action>/<string:editionId>"
+        "/viewer/<string:version>/<string:action>/<string:editionId>"
     )
-    def viewerFrame(editionId, viewer, version, action):
-        return Pages.viewerFrame(Mongo.cast(editionId), viewer, version, action)
+    def viewerFrame(version=None, action=None, editionId=None):
+        return Pages.viewerFrame(Mongo.cast(editionId), version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
@@ -144,17 +144,17 @@ def appFactory(objects):
         "/data/<path:path>",
         defaults=dict(projectId=None, editionId=None),
     )
-    def dataProjects(projectId, editionId, path):
+    def dataProjects(projectId=None, editionId=None, path=None):
         return Pages.dataProjects(
             path, projectId=Mongo.cast(projectId), editionId=Mongo.cast(editionId)
         )
 
     @app.route(
-        "/upload/<string:table>/<string:recordId>/<string:field>/<path:path>",
+        "/upload/<string:table>/<string:recordId>/<string:key>/<path:path>",
         methods=["POST"],
     )
-    def upload(table, recordId, field, path):
-        return Pages.upload(table, Mongo.cast(recordId), field, path)
+    def upload(table, recordId, key, path):
+        return Pages.upload(table, Mongo.cast(recordId), key, path)
 
     @app.route(
         "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",

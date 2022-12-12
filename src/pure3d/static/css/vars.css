@@ -52,7 +52,7 @@
     --error-fore:                      hsla(  0, 100%,  50%, 1  );
     --error-back:                      hsla(  0, 100%,  80%, 0.5);
     --error-fore-i:                    hsla(  0,   0%,   0%, 1  );
-    --error-back-i:                    hsla( 60,  80%,  60%, 1  );
+    --error-back-i:                    hsla(  0,  80%,  60%, 1  );
 
     --field-outer-fore:                hsla(  0,   0%,  30%, 1  );
     --field-outer-back:                hsla(  0,   0%,  98%, 1  );
@@ -190,5 +190,6 @@
     --sidebar-width:                   20rem;
     --nav-height:                      3rem;
     --topbar-height:                   3rem;
+    --status-banner-height:            3rem;
     --footbar-height:                  3rem;
 }

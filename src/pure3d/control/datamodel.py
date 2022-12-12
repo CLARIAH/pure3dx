@@ -1,6 +1,7 @@
 from markdown import markdown
 
 from control.generic import AttrDict
+from control.files import fileExists, listFilesAccepted
 from control.html import HtmlElements as H
 
 
@@ -128,7 +129,7 @@ class Datamodel:
         fieldObjects[key] = fieldObject
         return fieldObject
 
-    def makeUpload(self, key):
+    def makeUpload(self, key, fileName=None):
         """Make a file upload object and registers it.
 
         An instance of class `control.datamodel.Upload` is created,
@@ -143,6 +144,11 @@ class Datamodel:
             Identifier for the upload.
             The configuration for this upload will be retrieved using this key.
             The new upload object will be stored under this key.
+        fileName: string, optional None
+            If present, it indicates that the uploaded file will have this prescribed
+            name.
+            A file name for an upload object may also have been specified in
+            the datamodel configuration.
 
         Returns
         -------
@@ -154,7 +160,7 @@ class Datamodel:
 
         uploadObjects = self.uploadObjects
 
-        uploadObject = uploadObjects[key]
+        uploadObject = uploadObjects[(key, fileName)]
         if uploadObject:
             return uploadObject
 
@@ -162,12 +168,14 @@ class Datamodel:
         Mongo = self.Mongo
         uploadsConfig = self.uploadsConfig
 
-        uploadsConfig = uploadsConfig[key]
+        uploadsConfig = AttrDict(**uploadsConfig[key])
         if uploadsConfig is None:
             Messages.error(logmsg=f"Unknown upload key '{key}'")
+        if fileName is not None:
+            uploadsConfig["fileName"] = fileName
 
         uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
-        uploadObjects[key] = uploadObject
+        uploadObjects[(key, fileName)] = uploadObject
         return uploadObject
 
 
@@ -411,10 +419,17 @@ class Upload:
 
         Parameters
         ----------
+        fileName: string or None
+            The file name for the upload.
+            Only when the file name is known in advance.
+            In that case, a file that is uploaded in this upload widget,
+            will get this as file name, regardless of the file name in the
+            upload request.
         kwargs: dict
-            Field configuration arguments.
-            The following parts of the field configuration
-            should be present: `table`, `field` and `relative`.
+            Upload configuration arguments.
+            The following parts of the upload configuration
+            should be present: `table`, `accept`, while `caption`, `fileName`,
+            `multiple`, `show` are optional.
         """
         self.Settings = Settings
         self.Messages = Messages
@@ -425,15 +440,7 @@ class Upload:
         """The identifier of this upload within the app.
         """
 
-        self.table = None
-        """The table in which the file name should be placed.
-        """
-
-        self.field = None
-        """The field in which the file name should be placed.
-        """
-
-        self.relative = None
+        self.table = kwargs.get("table", None)
         """Indicates the directory where the actual file will be saved.
 
         Possibe values:
@@ -441,19 +448,28 @@ class Upload:
         * `site`: top level of the working data directory of the site
         * `project`: project directory of the project in question
         * `edition`: edition directory of the project in question
-
-        If left out, the value will be derived from `table`.
         """
 
-        self.accept = None
+        self.accept = kwargs.get("accept", None)
         """The file types that the field accepts.
         """
 
-        self.caption = None
+        self.caption = kwargs.get("caption", f"{self.table} ({self.accept})")
         """The text to display on the upload button.
         """
 
-        self.show = None
+        self.multiple = kwargs.get("multiple", False)
+        """Whether multiple files of this type may be uploaded.
+        """
+
+        self.fileName = kwargs.get("fileName", None)
+        """The name of the file once it is uploaded.
+
+        If None, there is no prescribed file, and files are named based on the
+        file name in the upload.
+        """
+
+        self.show = kwargs.get("show", False)
         """Whether to show the contents of the file.
 
         This is typically the case when the file is an image to be presented
@@ -470,65 +486,47 @@ class Upload:
 
         good = True
 
-        table = getattr(self, "table", None)
-        field = getattr(self, "field", None)
-        accept = getattr(self, "accept", None)
-
-        for arg in ("table", "field", "relative", "accept", "caption", "show"):
+        for arg in ("table", "accept"):
             if getattr(self, arg, None) is None:
-                if arg == "relative" and table is not None:
-                    setattr(self, arg, table.removesuffix("s"))
-                elif arg == "caption":
-                    setattr(self, arg, f"{table}-{field}-{accept}")
-                elif arg == "show":
-                    setattr(self, arg, False)
-                else:
-                    Messages.error(logmsg=f"Missing info in Upload spec: {arg}")
-                    good = False
+                Messages.error(logmsg=f"Missing info in Upload spec: {arg}")
+                good = False
 
+        self.debug(f"MAKE UPLOAD {key=} {self.fileName=}")
         if not good:
             quit()
 
-    def bare(self, record):
-        """Give the bare file name as stored in a record in MongoDb.
-
-        Parameters
-        ----------
-        record: AttrDict
-            The record in which the file name is stored.
-
-        Returns
-        -------
-        string:
-            Whatever the value is that we find.
-            If the field is not present, returns None, without warning.
-        """
-        field = self.field
-
-        return record[field]
-
-    def getPath(self, record):
+    def getDir(self, record):
         """Give the path to the file in question.
 
         The path can be used to build the static url and the save url.
 
         It does not contain the file name.
         If the path is non-empty, a "/" will be appended.
+
+        Parameters
+        ----------
+        record
+            The record relevant to the upload
         """
         table = self.table
-        relative = self.relative
 
         recordId = record._id
-        projectId = recordId if table == "project" else record.projectId
-        editionId = recordId if table == "edition" else record.editionId
+        projectId = (
+            recordId
+            if table == "project"
+            else record.projectId
+            if table == "edition"
+            else None
+        )
+        editionId = recordId if table == "edition" else None
 
         path = (
             ""
-            if relative == "site"
+            if table == "site"
             else f"projects/{projectId}"
-            if relative == "project"
+            if table == "project"
             else f"projects/{projectId}/editions/{editionId}"
-            if relative == "edition"
+            if table == "edition"
             else None
         )
         sep = "/" if path else ""
@@ -542,26 +540,22 @@ class Upload:
         Parameters
         ----------
         record: AttrDict or dict
-            The record in which the field value is stored.
+            The record relevant to the upload
         mayChange: boolean, optional False
             Whether the file may be changed.
             If so, an upload widget is supplied, wich contains a a delete button.
 
         Returns
         -------
-        string:
-            Whatever the value is that we find for that field, converted to HTML.
-            If the field is not present, returns the empty string, without warning.
+        string
+            The name of the uploaded file(s) and/or an upload control.
         """
-
-        fileName = self.bare(record)
-
-        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
 
         key = self.key
         table = self.table
-        field = self.field
-        relative = self.relative
+        fileName = self.fileName
         accept = self.accept
         caption = self.caption
         show = self.show
@@ -570,22 +564,31 @@ class Upload:
 
         recordId = record._id
 
-        fid = f"{table}/{recordId}/{field}"
+        fid = f"{table}/{recordId}/{key}"
 
-        path = self.getPath(record)
-        if path is None:
-            Messages.warning(
-                logmsg=f"Wrong file path for upload {key} based on relative {relative}",
-                msg="The location for this file cannot be determined",
-            )
+        path = self.getDir(record)
 
         if show:
             staticUrl = f"/data/{path}{fileName}"
-            img = H.img(staticUrl, fid=fid)
+            visual = H.img(staticUrl, fid=fid)
         else:
-            img = ""
+            if fileName is None:
+                sep = "/" if path else ""
+                fullDir = f"{workingDir}{sep}{path}"
+                visual = []
 
-        visual = img or H.span(fileName, cls="fieldinner")
+                for file in listFilesAccepted(fullDir, accept, withExt=True):
+                    visual.append(H.span(file, cls="fieldInner"))
+
+                visual = H.span(visual, cls="fieldouter")
+            else:
+                fullPath = f"{workingDir}/{path}{fileName}"
+                exists = fileExists(fullPath)
+                annotation = H.span(
+                    "✔︎" if exists else "?",
+                    title="file is present" if exists else "no file present",
+                )
+                visual = H.span(f"{fileName}&nbsp;{annotation}", cls="fieldinner")
 
         if not mayChange:
             return visual

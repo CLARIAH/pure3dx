@@ -1,11 +1,14 @@
-voyager:
-  modes:
-    read:
-      prefix: "/data"
-      element: voyager-explorer
-      fileBase: voyager-explorer
-    update:
-      prefix: "/webdav"
-      element: voyager-story
-      fileBase: voyager-story
-  defaultVersion: "0.21.1p"
+default: voyager
+
+viewers:
+  voyager:
+    modes:
+      read:
+        prefix: "/data"
+        element: voyager-explorer
+        fileBase: voyager-explorer
+      update:
+        prefix: "/webdav"
+        element: voyager-story
+        fileBase: voyager-story
+    defaultVersion: "0.21.1p"

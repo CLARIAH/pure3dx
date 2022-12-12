@@ -52,25 +52,28 @@ fields:
 
 uploads:
   model:
-    relative: edition
+    table: edition
     accept: ".glb, .gltf"
     caption: model file (glb, gltf)
   scene:
-    relative: edition
+    table: edition
     accept: ".json"
     caption: scene file (json)
   iconSite:
-    relative: site
+    table: site
     accept: ".png"
     caption: pure3d logo
+    fileName: icon.png
     show: true
   iconProject:
-    relative: project
+    table: project
     accept: ".png"
     caption: project logo
+    fileName: icon.png
     show: true
   iconEdition:
-    relative: edition
+    table: edition
     accept: ".png"
     caption: edition logo
+    fileName: icon.png
     show: true

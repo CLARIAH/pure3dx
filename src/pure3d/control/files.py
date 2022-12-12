@@ -155,6 +155,30 @@ def listFiles(path, ext):
     return files
 
 
+def listFilesAccepted(path, accept, withExt=True):
+    """The list of all files in a directory that match a certain accepted header.
+
+    If the directory does not exist, the empty list is returned.
+    """
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    exts = [ext.strip() for ext in accept.split(",")]
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            for ext in exts:
+                nExt = len(ext)
+                if name.endswith(ext) and entry.is_file():
+                    fileName = name if withExt else name[0:-nExt]
+                    files.append(fileName)
+
+    return files
+
+
 def listImages(path):
     """The list of all image files in a directory.
 

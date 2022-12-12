@@ -328,11 +328,6 @@ class Config:
             for role in roles:
                 tableFromRole[role] = table
 
-        detailOf = AttrDict()
-        for (master, details) in authData.masterOf.items():
-            for detail in details:
-                detailOf.setdefault(detail, set()).add(master)
-
         Settings.auth.tableFromRole = tableFromRole
 
     def checkViewers(self):
@@ -364,7 +359,7 @@ class Config:
         viewerNames = listDirs(viewerDir)
 
         for viewerName in viewerNames:
-            if viewerName not in viewerSettings:
+            if viewerName not in viewerSettings.viewers:
                 Messages.warning(
                     logmsg=(
                         f"Skipping viewer {viewerName}"
@@ -372,7 +367,7 @@ class Config:
                     )
                 )
                 continue
-            viewerConfig = viewerSettings[viewerName]
+            viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f"{viewerDir}/{viewerName}"
             versions = []
 
@@ -383,7 +378,8 @@ class Config:
 
             viewerConfig.versions = versions
 
-        Settings.viewers = viewerSettings
+        Settings.viewers = viewerSettings.viewers
+        Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):
         """Sets a banner for all pages.

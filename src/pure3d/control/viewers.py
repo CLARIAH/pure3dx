@@ -33,7 +33,7 @@ class Viewers:
         """
         self.Auth = Auth
 
-    def check(self, viewer, version, fail=False):
+    def check(self, viewer, version):
         """Checks whether a viewer version exists.
 
         Given a viewer and a version, it is looked up whether the code
@@ -46,44 +46,41 @@ class Viewers:
             The viewer in question.
         version: string
             The version of the viewer in question.
-        fail: boolean, optional False
-            If true, returns True or False, depending on whther the
-            given viewer-version combination is supported.
 
         Returns
         -------
-        tuple or boolean
-            The viewer and version are returned unmodified if that viewer
+        string or None
+            The version is returned unmodified if that viewer
             version is supported.
             If the viewer is supported, but not the version, the default version
             of that viewer is taken, if there is a default version,
             otherwise the latest supported version.
-            If the viewer is not supported, the default viewer is taken.
-            See the `fail` parameter above.
+            If the viewer is not supported, None is returned.
         """
         viewers = self.viewers
+
         if viewer not in viewers:
-            viewer = self.viewerDefault
+            return None
+
         viewerInfo = viewers[viewer]
         versions = viewerInfo.versions
         defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
             version = defaultVersion if defaultVersion in versions else versions[-1]
-        return (viewer, version)
+        return version
 
-    def getFrame(self, sceneId, actions, viewerActive, versionActive, actionActive):
+    def getFrame(self, editionId, actions, viewer, versionActive, actionActive):
         """Produces a set of buttons to launch 3D viewers for a scene.
 
         Parameters
         ----------
-        sceneId: ObjectId
-            The scene in question.
+        editionId: ObjectId
+            The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
             Typically `read` and possibly also `update`.
-        viewerActive: string or None
-            The viewer in which the scene is currently loaded,
-            if any, otherwise None
+        viewer: string
+            The viewer in which the scene is currently loaded.
         versionActive: string or None
             The version of the viewer in which the scene is currently loaded,
             if any, otherwise None
@@ -100,20 +97,22 @@ class Viewers:
         actionInfo = self.Settings.auth.actions
         viewers = self.viewers
 
-        src = f"/viewer/{viewerActive}/{versionActive}/{actionActive}/{sceneId}"
+        versionActive = self.check(viewer, versionActive)
+
+        src = f"/viewer/{versionActive}/{actionActive}/{editionId}"
         frame = H.div(
             H.div(H.iframe(src, cls="previewer"), cls="surround"), cls="model"
         )
 
-        def getViewerButtons(viewer, active):
-            activeCls = "active" if active else ""
+        def getViewerButtons(viewer):
+            activeCls = "active"
             return H.span(
                 [
                     H.span(viewer, cls=f"vwl {activeCls}"),
                     H.span(
                         [
                             getVersionButtons(
-                                viewer, version, active and version == versionActive
+                                viewer, version, version == versionActive
                             )
                             for version in viewers[viewer].versions
                         ],
@@ -157,10 +156,10 @@ class Viewers:
                 href = []
             else:
                 elem = "a"
-                href = [f"/scenes/{sceneId}/{viewer}/{version}/{action}"]
+                href = [f"/edition/{editionId}/{viewer}/{version}/{action}"]
 
                 if action == "update":
-                    viewerHref = f"/viewer/{viewer}/{version}/{action}/{sceneId}"
+                    viewerHref = f"/viewer/{viewer}/{version}/{action}/{editionId}"
                     atts["onclick"] = dedent(
                         f"""
                         window.open(
@@ -180,20 +179,18 @@ class Viewers:
 
             return H.elem(elem, acro, *href, cls=cls, **atts)
 
-        allButtons = [
-            getViewerButtons(viewer, viewer == viewerActive) for viewer in viewers
-        ]
+        allButtons = getViewerButtons(viewer)
 
         activeButtons = [
-            H.span(viewerActive, cls="vwla"),
+            H.span(viewer, cls="vwla"),
             H.span(versionActive, cls="vvla"),
         ] + [
-            getActionButton(viewerActive, versionActive, action, action == actionActive)
+            getActionButton(viewer, versionActive, action, action == actionActive)
             for action in actions
             if action != "delete"
         ]
 
-        buttons = H.details(activeButtons, allButtons, f"vwbuttons-{sceneId}")
+        buttons = H.details(activeButtons, allButtons, f"vwbuttons-{editionId}")
 
         return (frame, buttons)
 

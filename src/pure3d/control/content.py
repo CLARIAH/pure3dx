@@ -77,7 +77,6 @@ class Content(Datamodel):
                 "project",
                 recordId=projectId,
             )
-            self.debug(f"deletebutton: {button}")
             visual = self.getUpload("iconProject", projectId=projectId)
             caption = self.getCaption(visual, title, button, projectUrl)
 
@@ -109,7 +108,7 @@ class Content(Datamodel):
             "projectUser",
             projectId=projectId,
             user=user,
-            role="creator",
+            role="editor",
         )
         return projectId
 
@@ -190,7 +189,6 @@ class Content(Datamodel):
 
     def getScene(
         self,
-        projectId,
         editionId,
         version=None,
         action=None,
@@ -199,7 +197,7 @@ class Content(Datamodel):
 
         Well, only if the current user is authorised.
 
-        A scenes is displayed by means of an icon and a row of buttons.
+        A scene is displayed by means of an icon and a row of buttons.
 
         If action is not None, the scene is loaded in a specific version of the
         viewer in a specific mode (`read` or `read`).
@@ -210,8 +208,6 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        projectId: ObjectId
-            The project in question.
         editionId: ObjectId
             The edition in question.
         version: string, optional None
@@ -231,7 +227,6 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         """
-        Mongo = self.Mongo
         Auth = self.Auth
         Viewers = self.Viewers
 
@@ -241,45 +236,30 @@ class Content(Datamodel):
         if "read" not in actions:
             return ""
 
-        (viewer, version) = Viewers.check(viewer, version)
+        viewerDefault = Viewers.viewerDefault
+        editionInfo = self.getItem("edition", _id=editionId)
+        editionSettings = editionInfo.get("settings", {})
+        authorTool = editionSettings.get("authorTool")
+        viewer = authorTool.get("name", viewerDefault)
+        sceneName = authorTool.sceneFile
+
+        version = Viewers.check(viewer, version)
 
         wrapped = []
 
-        for record in Mongo.getList("scene", editionId=editionId):
-            thisSceneId = record._id
-
-            isSceneActive = sceneId is None and record.default or record._id == sceneId
-            titleText = H.span(record.name, cls="entrytitle")
-            button = self.actionButton(
-                "delete",
-                "scene",
-                recordId=thisSceneId,
-            )
-
-            if isSceneActive:
-                (frame, buttons) = Viewers.getFrame(
-                    thisSceneId, actions, viewer, version, action
-                )
-                title = H.span(titleText, cls="entrytitle")
-                content = f"""{frame}{title}{buttons}"""
-                caption = self.wrapCaption(content, button, active=True)
-            else:
-                sceneUrl = f"/scenes/{record._id}"
-                visual = self.getUpload(
-                    "iconScene",
-                    projectId=projectId,
-                    editionId=editionId,
-                    sceneId=thisSceneId,
-                )
-                caption = self.getCaption(visual, titleText, button, sceneUrl)
-
-            wrapped.append(caption)
-
-        wrapped.append(
-            self.actionButton(
-                "create", "scene", projectId=projectId, editionId=editionId
-            )
+        titleText = H.span(sceneName, cls="entrytitle")
+        button = self.actionButton(
+            "delete",
+            "edition",
+            recordId=editionId,
         )
+
+        (frame, buttons) = Viewers.getFrame(editionId, actions, viewer, version, action)
+        title = H.span(titleText, cls="entrytitle")
+        content = f"""{frame}{title}{buttons}"""
+        caption = self.wrapCaption(content, button, active=True)
+
+        wrapped.append(caption)
         return H.content(*wrapped)
 
     def wrapCaption(self, content, button, active=False):
@@ -349,36 +329,34 @@ class Content(Datamodel):
             return F.bare(record)
 
         button = self.actionButton(
-            "update",
-            table,
-            recordId=recordId,
-            key=key,
-            projectId=projectId,
-            editionId=editionId,
+            "update", table, recordId=recordId, key=key, projectId=projectId
         )
 
         return F.formatted(table, record, level=level, button=button)
 
-    def getUpload(self, key, projectId=None, editionId=None, sceneId=None):
+    def getUpload(self, key, fileName=None, projectId=None, editionId=None):
         """Display the name and/or upload controls of an uploaded file.
 
-        The user may to upload model files and scene files to an edition,
+        The user may upload model files and a scene file to an edition,
         and various png files as icons for projects, edtions, and scenes.
         Here we produce the control to do so.
 
-        Only if the user has `update` authorisation, an upload/delete widget will be returned.
+        Only if the user has `update` authorisation, an upload/delete widget
+        will be returned.
 
         Parameters
         ----------
         key: an identifier for the upload field.
+        fileName: string, optional None
+            If present, it indicates that the uploaded file will have this prescribed
+            name.
+            A file name for an upload object may also have been specified in
+            the datamodel configuration.
         projectId: ObjectId, optional None
             The project in question. If it is None, we are at the site level.
         editionId: ObjectId, optional None
             The edition in question. If it is None, we are at the project level
             or site level.
-        sceneId: ObjectId, optional None
-            The scene in question. If it is None, we are at the edition,
-            project, or site level.
 
         Returns
         -------
@@ -389,13 +367,11 @@ class Content(Datamodel):
             If the user has edit permission for the edition, we display
             widgets to upload a new file or to delete the existing file.
         """
+        Settings = self.Settings
         Mongo = self.Mongo
         Auth = self.Auth
 
-        if sceneId is not None:
-            table = "scene"
-            crit = dict(_id=sceneId)
-        elif editionId is not None:
+        if editionId is not None:
             table = "edition"
             crit = dict(_id=editionId)
         elif projectId is not None:
@@ -403,7 +379,7 @@ class Content(Datamodel):
             crit = dict(_id=projectId)
         else:
             table = "site"
-            crit = dict()
+            crit = Settings.siteRecord
 
         record = Mongo.getRecord(table, **crit)
         recordId = record._id
@@ -413,9 +389,9 @@ class Content(Datamodel):
         if "read" not in actions:
             return None
 
-        F = self.makeUpload(key)
+        F = self.makeUpload(key, fileName=fileName)
 
-        return F.formatted(record, "update" in permissions)
+        return F.formatted(record, "update" in actions)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -543,9 +519,7 @@ class Content(Datamodel):
         """
         return self.Mongo.getRecord(table, *args, **kwargs)
 
-    def actionButton(
-        self, action, table, recordId=None, key=None, projectId=None, editionId=None
-    ):
+    def actionButton(self, action, table, recordId=None, key=None, projectId=None):
         """Puts a button on the interface, if that makes sense.
 
         The button, when pressed, will lead to an action on certain content.
@@ -583,15 +557,12 @@ class Content(Datamodel):
         urlInsert = "/"
         if projectId is not None:
             urlInsert += f"projects/{projectId}/"
-        if editionId is not None:
-            urlInsert += f"editions/{editionId}/"
 
         permitted = Auth.authorise(
             table,
             recordId=recordId,
             action=action,
             project=projectId,
-            edition=editionId,
         )
 
         if not permitted:

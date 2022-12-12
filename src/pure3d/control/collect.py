@@ -138,7 +138,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        siteId = Mongo.insertRecord("site", **meta)
+        siteId = Mongo.insertRecord("site", name="site", **meta)
         self.siteId = siteId
 
         fileCopy(f"{importDir}/{iconFile}", f"{workingDir}/{iconFile}")
