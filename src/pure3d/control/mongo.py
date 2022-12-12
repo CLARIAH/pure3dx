@@ -32,6 +32,22 @@ class Mongo:
             oValue = None
         return oValue
 
+    @staticmethod
+    def isId(value):
+        """Test whether a value is an ObjectId
+
+        Parameters
+        ----------
+        value: any
+        The value to test
+
+        Returns
+        -------
+        boolean
+            Whether the value is an objectId
+        """
+        return isinstance(value, ObjectId)
+
     def __init__(self, Settings, Messages):
         """CRUD interface to content in the MongoDb database.
 
@@ -173,6 +189,33 @@ class Mongo:
                         msg="Database action",
                         logmsg=f"Cannot clear collection: `{table}`: {e}",
                     )
+
+    def get(self, table, record):
+        """Get the record and recordId if only one of them is specified.
+
+        If the record is specified by id, the id maybe an ObjectId or a string,
+        which will then be cast to an ObjectId.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record can be found
+        record: string or ObjectID or AttrDict
+            Either the id of the record, or the record itself.
+
+        Returns
+        -------
+        tuple
+            * ObjectId: the id of the record
+            * AttrDict: the record itself
+        """
+
+        if type(record) is str:
+            record = self.cast(record)
+        if self.isId(record):
+            record = Mongo.getRecord(table, _id=record)
+        recordId = record._id
+        return (recordId, record)
 
     def getRecord(self, table, warn=True, **criteria):
         """Get a single document from a collection.

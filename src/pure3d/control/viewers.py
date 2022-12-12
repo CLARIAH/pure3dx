@@ -5,7 +5,7 @@ from control.html import HtmlElements as H
 
 
 class Viewers:
-    def __init__(self, Settings, Messages):
+    def __init__(self, Settings, Messages, Mongo):
         """Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -22,6 +22,7 @@ class Viewers:
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
+        self.Mongo = Mongo
         self.viewers = Settings.viewers
         self.viewerDefault = Settings.viewerDefault
 
@@ -69,12 +70,12 @@ class Viewers:
             version = defaultVersion if defaultVersion in versions else versions[-1]
         return version
 
-    def getFrame(self, editionId, actions, viewer, versionActive, actionActive):
+    def getFrame(self, edition, actions, viewer, versionActive, actionActive):
         """Produces a set of buttons to launch 3D viewers for a scene.
 
         Parameters
         ----------
-        editionId: ObjectId
+        edition: string or ObjectId or AttrDict
             The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
@@ -94,26 +95,28 @@ class Viewers:
         string
             The HTML that represents the buttons.
         """
+        Mongo = self.Mongo
+
         actionInfo = self.Settings.auth.actions
         viewers = self.viewers
 
         versionActive = self.check(viewer, versionActive)
+
+        (editionId, edition) = Mongo.get("edition", edition)
 
         src = f"/viewer/{versionActive}/{actionActive}/{editionId}"
         frame = H.div(
             H.div(H.iframe(src, cls="previewer"), cls="surround"), cls="model"
         )
 
-        def getViewerButtons(viewer):
+        def getViewerButtons():
             activeCls = "active"
             return H.span(
                 [
                     H.span(viewer, cls=f"vwl {activeCls}"),
                     H.span(
                         [
-                            getVersionButtons(
-                                viewer, version, version == versionActive
-                            )
+                            getVersionButtons(version, version == versionActive)
                             for version in viewers[viewer].versions
                         ],
                         cls="vwv",
@@ -122,7 +125,7 @@ class Viewers:
                 cls="vw",
             )
 
-        def getVersionButtons(viewer, version, active):
+        def getVersionButtons(version, active):
             nonlocal activeButtons
 
             activeCls = "active" if active else ""
@@ -130,9 +133,7 @@ class Viewers:
             versionButtons = H.span(
                 [H.span(version, cls=f"vvl {activeCls}")]
                 + [
-                    getActionButton(
-                        viewer, version, action, active and action == actionActive
-                    )
+                    getActionButton(version, action, active and action == actionActive)
                     for action in actions
                     if action != "delete"
                 ],
@@ -143,7 +144,7 @@ class Viewers:
                 activeButtons = versionButtons
             return versionButtons
 
-        def getActionButton(viewer, version, action, active):
+        def getActionButton(version, action, active):
             activeCls = "active" if active else ""
             thisActionInfo = actionInfo.get(action, AttrDict)
             acro = thisActionInfo.acro
@@ -156,10 +157,10 @@ class Viewers:
                 href = []
             else:
                 elem = "a"
-                href = [f"/edition/{editionId}/{viewer}/{version}/{action}"]
+                href = [f"/edition/{editionId}/{version}/{action}"]
 
                 if action == "update":
-                    viewerHref = f"/viewer/{viewer}/{version}/{action}/{editionId}"
+                    viewerHref = f"/viewer/{version}/{action}/{editionId}"
                     atts["onclick"] = dedent(
                         f"""
                         window.open(
@@ -179,13 +180,13 @@ class Viewers:
 
             return H.elem(elem, acro, *href, cls=cls, **atts)
 
-        allButtons = getViewerButtons(viewer)
+        allButtons = getViewerButtons()
 
         activeButtons = [
             H.span(viewer, cls="vwla"),
             H.span(versionActive, cls="vvla"),
         ] + [
-            getActionButton(viewer, versionActive, action, action == actionActive)
+            getActionButton(versionActive, action, action == actionActive)
             for action in actions
             if action != "delete"
         ]
@@ -194,7 +195,7 @@ class Viewers:
 
         return (frame, buttons)
 
-    def genHtml(self, urlBase, sceneName, viewer, version, action):
+    def genHtml(self, urlBase, sceneFile, viewer, version, action):
         """Generates the HTML for the viewer page that is loaded in an iframe.
 
         When a scene is loaded in a viewer, it happens in an iframe.
@@ -206,9 +207,8 @@ class Viewers:
             The first part of the root url that is given to the viewer.
             The viewer code uses this to retrieve additional information.
             The root url will be completed with the `action` and the `viewer`.
-        sceneName: string
-            The name of the scene in the file system. The viewer will find the
-            scene json file by this name.
+        sceneFile: string
+            The name of the scene file in the file system.
         viewer: string
             The chosen viewer.
         version: string
@@ -261,7 +261,7 @@ class Viewers:
                         element,
                         "XXXXXXXXXX",
                         root=viewerRoot,
-                        document=f"{sceneName}.json",
+                        document=sceneFile,
                         resourceroot=f"{viewerStaticRoot}/",
                     )
                 ),

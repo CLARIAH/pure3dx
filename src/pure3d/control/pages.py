@@ -3,7 +3,7 @@ from control.html import HtmlElements as H
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Collect, Content, Auth):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Collect, Content, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -40,6 +40,7 @@ class Pages:
         self.Viewers = Viewers
         self.Messages = Messages
         Messages.debugAdd(self)
+        self.Mongo = Mongo
         self.Collect = Collect
         self.Content = Content
         self.Auth = Auth
@@ -90,61 +91,68 @@ class Pages:
                 logmsg="Could not create new project",
                 msg="failed to create new project",
             )
-            newUrl = "/projects"
+            newUrl = "/project"
         else:
             Messages.info(
                 logmsg=f"Created project {projectId}", msg="new project created"
             )
-            newUrl = f"/projects/{projectId}"
+            newUrl = f"/project/{projectId}"
         return redirectStatus(newUrl, projectId is not None)
 
-    def project(self, projectId):
+    def project(self, project):
         """The landing page of a project.
 
         Parameters
         ----------
-        projectId: ObjectId
+        project: string or ObjectId or AttrDict
             The project in question.
         """
+        Mongo = self.Mongo
         Content = self.Content
-        editions = Content.getEditions(projectId)
+
+        (projectId, project) = Mongo.get("project", project)
+        editions = Content.getEditions(project)
         editionHeading = H.h(3, "Editions")
         left = (
-            self.putValues("title@3 + creator@0", projectId=projectId)
+            self.putValues("title@3 + creator@0", project=project)
             + editionHeading
             + editions
         )
         right = self.putValues(
             "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
-            projectId=projectId,
+            project=project,
         )
         return self.page("projects", left=left, right=right)
 
-    def editionInsert(self, projectId):
+    def editionInsert(self, project):
         """Inserts an edition into a project and shows the new edition.
 
         Parameters
         ----------
-        projectId: ObjectId
+        project: string or ObjectId or AttrDict
             The project to which the edition belongs.
         """
         Messages = self.Messages
+        Mongo = self.Mongo
         Content = self.Content
-        editionId = Content.insertEdition(projectId)
+
+        (projectId, project) = Mongo.get("project", project)
+        editionId = Content.insertEdition(project)
+
         if editionId is None:
             Messages.warning(
                 logmsg="Could not create new edition",
                 msg="failed to create new edition",
             )
-            newUrl = f"/projects/{projectId}"
+            newUrl = f"/project/{projectId}"
         else:
             Messages.info(
                 logmsg=f"Created edition {editionId}", msg="new edition created"
             )
-            newUrl = f"/editions/{editionId}"
+            newUrl = f"/edition/{editionId}"
         return redirectStatus(newUrl, editionId is not None)
 
-    def edition(self, editionId, version, action):
+    def edition(self, edition, version, action):
         """The landing page of an edition, possibly with a scene marked as active.
 
         An edition knows the scene it should display and the viewer that was
@@ -162,48 +170,46 @@ class Pages:
 
         Parameters
         ----------
-        editionId: ObjectId
+        edition: string or ObjectId or AttrDict
             The editionin quesion.
-            From the scene record we can find the edition and the project too.
+            From the edition record we can find the project too.
         version: string or None
             The viewer version to use.
         action: string or None
             The mode in which the viewer is to be used (`read` or `update`).
         """
         Content = self.Content
+        Mongo = self.Mongo
         Auth = self.Auth
 
-        editionInfo = Content.getItem("edition", _id=editionId)
-        editionSettings = editionInfo.get("settings", {})
-        authorTool = editionSettings.get("authorTool")
-        sceneName = authorTool.sceneFile
-        projectId = editionInfo.projectId
-        breadCrumb = self.breadCrumb(projectId)
-        action = Auth.makeSafe("edition", editionId, action)
+        (editionId, edition) = Mongo.get("edition", edition)
+        (viewer, sceneFile) = Content.getViewInfo(edition)
+
+        projectId = edition.projectId
+        (projectId, project) = Mongo.get("project", projectId)
+        breadCrumb = self.breadCrumb(project)
+        action = Auth.makeSafe("edition", edition, action)
         sceneMaterial = (
             ""
             if action is None
             else Content.getScene(
-                editionId,
+                edition,
                 version=version,
                 action=action,
             )
         )
         left = (
             breadCrumb
-            + self.putValues("title@4", projectId=projectId, editionId=editionId)
+            + self.putValues("title@4", project=project, edition=edition)
             + H.h(4, "Model files")
             + H.div(
-                self.putUpload("model", projectId=projectId, editionId=editionId),
+                self.putUpload("model", project=project, edition=edition),
                 cls="modelfile",
             )
             + H.h(4, "Scene")
             + H.div(
                 self.putUpload(
-                    "scene",
-                    fileName=sceneName,
-                    projectId=projectId,
-                    editionId=editionId,
+                    "scene", fileName=sceneFile, project=project, edition=edition
                 ),
                 cls="scenefile",
             )
@@ -211,17 +217,17 @@ class Pages:
         )
         right = self.putValues(
             "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
-            projectId=projectId,
-            editionId=editionId,
+            project=project,
+            edition=edition,
         )
         return self.page("projects", left=left, right=right)
 
-    def viewerFrame(self, editionId, version, action):
+    def viewerFrame(self, edition, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
 
         Parameters
         ----------
-        editionId: ObjectId
+        edition: string or ObjectId or AttrDict
             The edition that is shown.
         viewer: string or None
             The viewer to use.
@@ -231,25 +237,22 @@ class Pages:
             The mode in which the viewer is to be used (`view` or `edit`).
         """
         Content = self.Content
+        Mongo = self.Mongo
         Viewers = self.Viewers
         Auth = self.Auth
 
-        viewerDefault = Viewers.viewerDefault
-        editionInfo = Content.getItem("edition", _id=editionId)
-        projectId = editionInfo.projectId
-        editionSettings = editionInfo.get("settings", {})
-        authorTool = editionSettings.get("authorTool")
-        viewer = authorTool.get("name", viewerDefault)
-        sceneName = authorTool.sceneFile
+        (editionId, edition) = Mongo.get("edition", edition)
+        (viewer, sceneFile) = Content.getViewInfo(edition)
+        projectId = edition.projectId
 
-        urlBase = f"projects/{projectId}/editions/{editionId}/"
+        urlBase = f"project/{projectId}/edition/{editionId}/"
 
-        action = Auth.makeSafe("edition", editionId, action)
+        action = Auth.makeSafe("edition", edition, action)
 
         viewerCode = (
             ""
             if action is None
-            else Viewers.genHtml(urlBase, sceneName, viewer, version, action)
+            else Viewers.genHtml(urlBase, sceneFile, viewer, version, action)
         )
         return template("viewer", viewerCode=viewerCode)
 
@@ -277,7 +280,7 @@ class Pages:
         dataPath = Content.getViewerFile(path)
         return send(dataPath)
 
-    def dataProjects(self, path, projectId=None, editionId=None):
+    def dataProjects(self, path, project=None, edition=None):
         """Data content requested directly from the file repository.
 
         This is
@@ -294,10 +297,10 @@ class Pages:
             Path on the file system under the data directory
             where the resource resides.
             The path is relative to the project, and, if given, the edition.
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict
             The id of a project under which the resource is to be found.
             If None, it is site-wide material.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict
             If not None, the name of an edition under which the resource
             is to be found.
 
@@ -310,19 +313,19 @@ class Pages:
         """
         Content = self.Content
 
-        dataPath = Content.getData(path, projectId=projectId, editionId=editionId)
+        dataPath = Content.getData(path, project=project, edition=edition)
         return send(dataPath)
 
-    def upload(self, table, recordId, key, path):
+    def upload(self, table, record, key, path):
         Content = self.Content
 
         parts = path.rstrip("/").rsplit("/", 1)
         fileName = parts[-1]
         path = parts[0] if len(parts) == 2 else ""
 
-        return Content.save(table, recordId, key, path, fileName)
+        return Content.save(table, record, key, path, fileName)
 
-    def authWebdav(self, projectId, editionId, path, action):
+    def authWebdav(self, project, edition, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -332,9 +335,9 @@ class Pages:
 
         Parameters
         ----------
-        projectId: ObjectId
+        project: string or ObjectId or AttrDict
             The project in question.
-        editionId: ObjectId
+        edition: string or ObjectId or AttrDict
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -348,18 +351,22 @@ class Pages:
             Whether the action is permitted on ths data by the current user.
         """
         Messages = self.Messages
+        Mongo = self.Mongo
         Auth = self.Auth
 
         permitted = Auth.authorise(
             "edition",
-            recordId=editionId,
+            record=edition,
             action=action,
-            project=projectId,
+            project=project,
         )
         if not permitted:
             User = Auth.myDetails()
             user = User.sub
             name = User.nickname
+
+            (projectId, project) = Mongo.get("project", project)
+            (editionId, edition) = Mongo.get("edition", edition)
             Messages.info(
                 logmsg=f"WEBDav unauthorised by user {name} ({user})"
                 f" on project {projectId} edition {editionId} path {path}"
@@ -499,39 +506,16 @@ class Pages:
 
         return H.div(divContent, cls="tabs")
 
-    def breadCrumb(self, projectId):
-        """Makes a link to the landing page of a project.
-
-        Parameters
-        ----------
-        projectId: ObjectId
-            The project in question.
-        """
-        Content = self.Content
-        projectUrl = f"/projects/{projectId}"
-        text = Content.getValue("title", projectId=projectId, bare=True)
-        return H.p(
-            [
-                "Project: ",
-                H.a(
-                    [text, H.gt()],
-                    projectUrl,
-                    cls="button",
-                    title="back to the project page",
-                ),
-            ]
-        )
-
-    def putValues(self, fieldSpecs, projectId=None, editionId=None):
+    def putValues(self, fieldSpecs, project=None, edition=None):
         """Puts several pieces of metadata on the web page.
 
         Parameters
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict, optional None
             The project in question.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict, optional None
             The edition in question.
 
         Returns
@@ -544,8 +528,8 @@ class Pages:
         return H.content(
             Content.getValue(
                 key,
-                projectId=projectId,
-                editionId=editionId,
+                project=project,
+                edition=edition,
                 level=level,
             )
             or ""
@@ -554,7 +538,7 @@ class Pages:
             )
         )
 
-    def putUpload(self, key, fileName=None, projectId=None, editionId=None, cls=None):
+    def putUpload(self, key, fileName=None, project=None, edition=None, cls=None):
         """Puts a file upload control on a page.
 
         Parameters
@@ -566,9 +550,9 @@ class Pages:
             name.
             A file name for an upload object may also have been specified in
             the datamodel configuration.
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict
             The project in question.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict
             The edition in question.
         cls: string, optional None
             An extra CSS class for the control
@@ -582,8 +566,6 @@ class Pages:
         Content = self.Content
 
         return (
-            Content.getUpload(
-                key, fileName=fileName, projectId=projectId, editionId=editionId
-            )
+            Content.getUpload(key, fileName=fileName, project=project, edition=edition)
             or ""
         )

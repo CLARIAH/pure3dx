@@ -33,7 +33,6 @@ def appFactory(objects):
 
     Settings = objects.Settings
     Messages = objects.Messages
-    Mongo = objects.Mongo
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
     Pages = objects.Pages
@@ -87,90 +86,83 @@ def appFactory(objects):
     def surpriseme():
         return Pages.surprise()
 
-    @app.route("/projects")
+    @app.route("/project")
     def projects():
         return Pages.projects()
 
-    @app.route("/projects/create")
+    @app.route("/project/create")
     def projectInsert():
         return Pages.projectInsert()
 
-    @app.route("/projects/<string:projectId>")
-    def project(projectId):
-        return Pages.project(Mongo.cast(projectId))
+    @app.route("/project/<string:project>")
+    def project(project):
+        return Pages.project(project)
 
-    @app.route("/projects/<string:projectId>/editions/create")
-    def editionInsert(projectId):
-        return Pages.editionInsert(Mongo.cast(projectId))
+    @app.route("/project/<string:project>/edition/create")
+    def editionInsert(project):
+        return Pages.editionInsert(project)
 
-    @app.route("/editions/<string:editionId>", defaults=dict(version=None, action=None))
+    @app.route("/edition/<string:edition>", defaults=dict(version=None, action=None))
     @app.route(
-        "/editions/<string:editionId>/<string:version>", defaults=dict(action=None)
+        "/edition/<string:edition>/<string:version>", defaults=dict(action=None)
     )
-    @app.route("/editions/<string:editionId>/<string:version>/<string:action>")
-    def edition(editionId, version, action):
-        return Pages.edition(Mongo.cast(editionId), version, action)
+    @app.route("/edition/<string:edition>/<string:version>/<string:action>")
+    def edition(edition, version, action):
+        return Pages.edition(edition, version, action)
 
-    @app.route(
-        "/viewer/<string:version>/<string:action>/<string:editionId>"
-    )
-    def viewerFrame(version=None, action=None, editionId=None):
-        return Pages.viewerFrame(Mongo.cast(editionId), version, action)
+    @app.route("/viewer/<string:version>/<string:action>/<string:edition>")
+    def viewerFrame(version=None, action=None, edition=None):
+        return Pages.viewerFrame(edition, version, action)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
         return Pages.viewerResource(path)
 
     @app.route(
-        "/data/projects/<string:projectId>/editions/<string:editionId>/",
+        "/data/project/<string:project>/edition/<string:edition>/",
         defaults=dict(path=None),
     )
     @app.route(
-        "/data/projects/<string:projectId>/editions/<string:editionId>/<path:path>",
+        "/data/project/<string:project>/edition/<string:edition>/<path:path>",
     )
     @app.route(
-        "/data/projects/<string:projectId>/",
-        defaults=dict(editionId=None, path=None),
+        "/data/project/<string:project>/",
+        defaults=dict(edition=None, path=None),
     )
     @app.route(
-        "/data/projects/<string:projectId>/<path:path>",
-        defaults=dict(editionId=None),
+        "/data/project/<string:project>/<path:path>",
+        defaults=dict(edition=None),
     )
     @app.route(
         "/data/",
-        defaults=dict(projectId=None, editionId=None, path=None),
+        defaults=dict(project=None, edition=None, path=None),
     )
     @app.route(
         "/data/<path:path>",
-        defaults=dict(projectId=None, editionId=None),
+        defaults=dict(project=None, edition=None),
     )
-    def dataProjects(projectId=None, editionId=None, path=None):
-        return Pages.dataProjects(
-            path, projectId=Mongo.cast(projectId), editionId=Mongo.cast(editionId)
-        )
+    def dataProjects(project=None, edition=None, path=None):
+        return Pages.dataProjects(path, project=project, edition=edition)
 
     @app.route(
-        "/upload/<string:table>/<string:recordId>/<string:key>/<path:path>",
+        "/upload/<string:table>/<string:record>/<string:key>/<path:path>",
         methods=["POST"],
     )
-    def upload(table, recordId, key, path):
-        return Pages.upload(table, Mongo.cast(recordId), key, path)
+    def upload(table, record, key, path):
+        return Pages.upload(table, record, key, path)
 
     @app.route(
-        "/auth/webdav/projects/<string:projectId>/editions/<string:editionId>/",
+        "/auth/webdav/project/<string:project>/edition/<string:edition>/",
         defaults=dict(path=None),
         methods=tuple(webdavMethods),
     )
     @app.route(
-        "/auth/webdav/projects/<string:projectId>/editions/"
-        "<string:editionId>/<path:path>",
+        "/auth/webdav/project/<string:project>/edition/<string:edition>/<path:path>",
         methods=tuple(webdavMethods),
     )
-    def authWebdav(projectId, editionId, path):
+    def authWebdav(project, edition, path):
         action = webdavMethods[method()]
-        return Pages.authWebdav(
-            Mongo.cast(projectId), Mongo.cast(editionId), path, action
-        )
+        return Pages.authWebdav(project, edition, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):

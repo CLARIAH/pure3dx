@@ -31,13 +31,13 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, recordId=None, action=None, **masters):
+    def authorise(self, table, record=None, action=None, **masters):
         """Check whether an action is allowed on data.
 
-        If the action is "create", recordId should not be passed, and
+        If the action is "create", `record` should not be passed, and
         masters are important.
 
-        If the action is anything else, recordId should not be None,
+        If the action is anything else, `record` should not be None,
         and masters should not be passed.
 
         How do the authorisation rules work?
@@ -67,8 +67,9 @@ class Auth(Users):
         ----------
         table: string
             the relevant table
-        recordId: ObjectId
-            The id of the record that is being accessed
+        record: ObjectId or AttrDict, optional None
+            The id of the record that is being accessed or
+            the record itself
             Not relevant for "create" actions.
         action: string, optional None
             The action for which permission is asked.
@@ -97,12 +98,12 @@ class Auth(Users):
         Messages = self.Messages
         isCreate = action == "create"
 
-        if recordId is None and not isCreate or recordId is not None and isCreate:
+        if record is None and not isCreate or record is not None and isCreate:
             Messages.error(
                 msg="Programming error in calculating authorization",
                 logmsg=(
                     f"Wrong call to Auth.authorise with action {action} "
-                    f"and recordId {recordId} in table {table}"
+                    f"and record {record} in table {table}"
                 ),
             )
             # this is a programming error
@@ -131,6 +132,9 @@ class Auth(Users):
         stateInfo = tableRules.state
 
         state = None
+
+        if not isCreate:
+            (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
             if isCreate:
@@ -302,7 +306,7 @@ class Auth(Users):
             else allowedActions.get(action, set() if action == "assign" else False)
         )
 
-    def makeSafe(self, table, recordId, action):
+    def makeSafe(self, table, record, action):
         """Changes an action into an allowed action if needed.
 
         This function 'demotes' an action to an allowed action if the
@@ -317,8 +321,8 @@ class Auth(Users):
         ----------
         table: string
             The table in which the record exists.
-        recordId: ObjectId
-            The id of the record.
+        record: ObjectId or AttrDict
+            The id of the record or the record itself.
         action: string
             An intended action.
 
@@ -327,5 +331,5 @@ class Auth(Users):
         string or None
             The resulting safe action.
         """
-        actions = self.authorise(table, recordId=recordId)
+        actions = self.authorise(table, record=record)
         return action if action in actions else "read" if "read" in actions else None

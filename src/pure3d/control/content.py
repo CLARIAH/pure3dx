@@ -63,21 +63,21 @@ class Content(Datamodel):
         wrapped = []
         wrapped.append(self.actionButton("create", "project"))
 
-        for record in Mongo.getList("project"):
-            projectId = record._id
-            permitted = Auth.authorise("project", recordId=projectId, action="read")
+        for project in Mongo.getList("project"):
+            projectId = project._id
+            permitted = Auth.authorise("project", record=project, action="read")
             if not permitted:
                 continue
 
-            title = record.title
+            title = project.title
 
-            projectUrl = f"/projects/{projectId}"
+            projectUrl = f"/project/{projectId}"
             button = self.actionButton(
                 "delete",
                 "project",
-                recordId=projectId,
+                record=project,
             )
-            visual = self.getUpload("iconProject", projectId=projectId)
+            visual = self.getUpload("iconProject", project=project)
             caption = self.getCaption(visual, title, button, projectUrl)
 
             wrapped.append(caption)
@@ -112,7 +112,7 @@ class Content(Datamodel):
         )
         return projectId
 
-    def getEditions(self, projectId):
+    def getEditions(self, project):
         """Get the list of the editions of a project.
 
         Well, only if the project is visible to the current user.
@@ -123,7 +123,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        projectId: ObjectId
+        project: string or ObjectId or AttrDict
             The project in question.
 
         Returns
@@ -137,34 +137,36 @@ class Content(Datamodel):
 
         wrapped = []
 
-        for record in Mongo.getList("edition", projectId=projectId):
-            editionId = record._id
-            permitted = Auth.authorise("edition", recordId=editionId, action="read")
+        (projectId, project) = Mongo.get("project", project)
+
+        for edition in Mongo.getList("edition", projectId=projectId):
+            editionId = edition._id
+            permitted = Auth.authorise("edition", record=edition, action="read")
             if not permitted:
                 continue
 
-            title = record.title
+            title = edition.title
 
-            editionUrl = f"/editions/{editionId}"
+            editionUrl = f"/edition/{editionId}"
             button = self.actionButton(
                 "delete",
                 "edition",
-                recordId=editionId,
+                record=edition,
             )
-            visual = self.getUpload(
-                "iconEdition", projectId=projectId, editionId=editionId
-            )
+            visual = self.getUpload("iconEdition", project=project, edition=edition)
             caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        wrapped.append(self.actionButton("create", "edition", projectId=projectId))
+        wrapped.append(self.actionButton("create", "edition", project=project))
         return H.content(*wrapped)
 
-    def insertEdition(self, projectId):
+    def insertEdition(self, project):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("edition", project=projectId)
+        (projectId, project) = Mongo.get("project", project)
+
+        permitted = Auth.authorise("edition", project=project)
         if not permitted:
             return None
 
@@ -187,9 +189,37 @@ class Content(Datamodel):
         )
         return editionId
 
+    def getViewInfo(self, edition):
+        """Gets viewer-related info that an edition is made with.
+
+        Parameters
+        ----------
+        edition: string or ObjectId or AttrDict
+            The edition record.
+
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
+
+        """
+        Mongo = self.Mongo
+        Viewers = self.Viewers
+        viewerDefault = Viewers.viewerDefault
+
+        (editionId, edition) = Mongo.get("edition", edition)
+
+        editionSettings = edition.get("settings", {})
+        authorTool = editionSettings.get("authorTool")
+        viewer = authorTool.get("name", viewerDefault)
+        sceneFile = authorTool.sceneFile
+
+        return (viewer, sceneFile)
+
     def getScene(
         self,
-        editionId,
+        edition,
         version=None,
         action=None,
     ):
@@ -208,7 +238,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        editionId: ObjectId
+        edition: string or ObjectId or AttrDict
             The edition in question.
         version: string, optional None
             The version of the chosen viewer that will be used.
@@ -228,33 +258,29 @@ class Content(Datamodel):
             The result is wrapped in a HTML string.
         """
         Auth = self.Auth
+        Mongo = self.Mongo
         Viewers = self.Viewers
 
         wrapped = []
 
-        actions = Auth.authorise("edition", recordId=editionId)
+        (editionId, edition) = Mongo.get("edition", edition)
+        (viewer, sceneFile) = self.getViewInfo(edition)
+        actions = Auth.authorise("edition", record=edition)
         if "read" not in actions:
             return ""
-
-        viewerDefault = Viewers.viewerDefault
-        editionInfo = self.getItem("edition", _id=editionId)
-        editionSettings = editionInfo.get("settings", {})
-        authorTool = editionSettings.get("authorTool")
-        viewer = authorTool.get("name", viewerDefault)
-        sceneName = authorTool.sceneFile
 
         version = Viewers.check(viewer, version)
 
         wrapped = []
 
-        titleText = H.span(sceneName, cls="entrytitle")
+        titleText = H.span(sceneFile, cls="entrytitle")
         button = self.actionButton(
             "delete",
             "edition",
-            recordId=editionId,
+            record=edition,
         )
 
-        (frame, buttons) = Viewers.getFrame(editionId, actions, viewer, version, action)
+        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
         title = H.span(titleText, cls="entrytitle")
         content = f"""{frame}{title}{buttons}"""
         caption = self.wrapCaption(content, button, active=True)
@@ -274,7 +300,7 @@ class Content(Datamodel):
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
 
-    def getValue(self, key, projectId=None, editionId=None, level=None, bare=False):
+    def getValue(self, key, project=None, edition=None, level=None, bare=False):
         """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -288,9 +314,9 @@ class Content(Datamodel):
         Parameters
         ----------
         key: an identifier for the meta data field.
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict, optional None
             The project whose metadata we need. If it is None, we are at the site level.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
         bare: boolean, optional None
@@ -302,23 +328,22 @@ class Content(Datamodel):
             It is assumed that the metadata value that is addressed exists.
             If not, we return the empty string.
         """
+        Settings = self.Settings
         Mongo = self.Mongo
         Auth = self.Auth
 
-        if editionId is not None:
+        if edition is not None:
             table = "edition"
-            crit = dict(_id=editionId)
-        elif projectId is not None:
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
             table = "project"
-            crit = dict(_id=projectId)
+            (recordId, record) = Mongo.get(table, project)
         else:
             table = "site"
-            crit = dict()
+            siteRecord = Settings.siteRecord
+            record = Mongo.getRecord(table, **siteRecord)
 
-        record = Mongo.getRecord(table, **crit)
-        recordId = record._id
-
-        actions = Auth.authorise(table, recordId=recordId)
+        actions = Auth.authorise(table, record=record)
 
         if "read" not in actions:
             return None
@@ -329,12 +354,12 @@ class Content(Datamodel):
             return F.bare(record)
 
         button = self.actionButton(
-            "update", table, recordId=recordId, key=key, projectId=projectId
+            "update", table, record=record, key=key, project=project
         )
 
         return F.formatted(table, record, level=level, button=button)
 
-    def getUpload(self, key, fileName=None, projectId=None, editionId=None):
+    def getUpload(self, key, fileName=None, project=None, edition=None):
         """Display the name and/or upload controls of an uploaded file.
 
         The user may upload model files and a scene file to an edition,
@@ -352,9 +377,9 @@ class Content(Datamodel):
             name.
             A file name for an upload object may also have been specified in
             the datamodel configuration.
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict
             The project in question. If it is None, we are at the site level.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict
             The edition in question. If it is None, we are at the project level
             or site level.
 
@@ -371,20 +396,18 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        if editionId is not None:
+        if edition is not None:
             table = "edition"
-            crit = dict(_id=editionId)
-        elif projectId is not None:
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
             table = "project"
-            crit = dict(_id=projectId)
+            (recordId, record) = Mongo.get(table, project)
         else:
             table = "site"
-            crit = Settings.siteRecord
+            siteRecord = Settings.siteRecord
+            record = Mongo.getRecord(table, **siteRecord)
 
-        record = Mongo.getRecord(table, **crit)
-        recordId = record._id
-
-        actions = Auth.authorise(table, recordId=recordId)
+        actions = Auth.authorise(table, record=record)
 
         if "read" not in actions:
             return None
@@ -429,7 +452,7 @@ class Content(Datamodel):
 
         return viewerPath
 
-    def getData(self, path, projectId=None, editionId=None):
+    def getData(self, path, project=None, edition=None):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
@@ -441,9 +464,9 @@ class Content(Datamodel):
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict
             The id of the project in question.
-        editionId: ObjectId, optional None
+        edition: string or ObjectId or AttrDict
             The id of the edition in question.
 
         Returns
@@ -454,34 +477,40 @@ class Content(Datamodel):
         """
         Settings = self.Settings
         Messages = self.Messages
+        Mongo = self.Mongo
         Auth = self.Auth
 
         workingDir = Settings.workingDir
 
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+        if edition is not None:
+            (editionId, edition) = Mongo.get("edition", edition)
+
         urlBase = (
             ""
-            if projectId is None
-            else f"projects/{projectId}"
-            if editionId is None
-            else f"projects/{projectId}/editions/{editionId}"
+            if project is None
+            else f"project/{projectId}"
+            if edition is None
+            else f"project/{projectId}/edition/{editionId}"
         )
         sep = "/" if urlBase else ""
         base = f"{workingDir}{sep}{urlBase}"
 
         dataPath = base if path is None else f"{base}/{path}"
 
-        if projectId is None:
+        if project is None:
             table = "site"
             recordId = (
                 True  # dummy value for authorise, which only tests whether it is falsy
             )
         elif editionId is None:
             table = "project"
-            recordId = projectId
+            (recordId, record) = Mongo.get(table, projectId)
         else:
             table = "edition"
-            recordId = editionId
-        permitted = Auth.authorise(table, recordId=recordId, action="read")
+            (recordId, record) = Mongo.get(table, editionId)
+        permitted = Auth.authorise(table, record=record, action="read")
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -519,7 +548,7 @@ class Content(Datamodel):
         """
         return self.Mongo.getRecord(table, *args, **kwargs)
 
-    def actionButton(self, action, table, recordId=None, key=None, projectId=None):
+    def actionButton(self, action, table, record=None, key=None, project=None):
         """Puts a button on the interface, if that makes sense.
 
         The button, when pressed, will lead to an action on certain content.
@@ -539,30 +568,31 @@ class Content(Datamodel):
             The type of action that will be performed if the button triggered.
         table: string
             the table to which the action applies;
-        recordId: ObjectId, optional None
+        record: ObjectId, optional None
             the record in question
-        projectId: ObjectId, optional None
+        project: string or ObjectId or AttrDict
             The project in question, if any.
-            Needed to determine whether a press on the button is permitted.
-        editionId: ObjectId, optional None
-            The edition in question, if any.
             Needed to determine whether a press on the button is permitted.
         key: string, optional None
             If present, it identifies a metadata field that is stored inside the
             record. From the key, the value can be found.
         """
         Settings = self.Settings
+        Mongo = self.Mongo
         Auth = self.Auth
 
         urlInsert = "/"
-        if projectId is not None:
-            urlInsert += f"projects/{projectId}/"
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+            urlInsert += f"project/{projectId}/"
+
+        (record, recordId) = Mongo.get(table, record)
 
         permitted = Auth.authorise(
             table,
-            recordId=recordId,
+            record=record,
             action=action,
-            project=projectId,
+            project=project,
         )
 
         if not permitted:
@@ -575,7 +605,7 @@ class Content(Datamodel):
         report = ""
 
         if action == "delete":
-            details = self.getDetailRecords(table, recordId)
+            details = self.getDetailRecords(table, record)
             if len(details):
                 disable = True
                 detailContent = []
@@ -625,15 +655,63 @@ class Content(Datamodel):
 
         return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
 
-    def save(self, table, recordId, field, path, fileName):
+    def breadCrumb(self, project):
+        """Makes a link to the landing page of a project.
+
+        Parameters
+        ----------
+        project: string or ObjectId or AttrDict
+            The project in question.
+        """
+        Mongo = self.Mongo
+
+        (projectId, project) = Mongo.get("project", project)
+        projectUrl = f"/project/{projectId}"
+        text = self.getValue("title", project=project, bare=True)
+        return H.p(
+            [
+                "Project: ",
+                H.a(
+                    [text, H.gt()],
+                    projectUrl,
+                    cls="button",
+                    title="back to the project page",
+                ),
+            ]
+        )
+
+    def save(self, table, record, field, path, fileName):
+        """Save a record.
+
+        Parameters
+        ----------
+        table: string
+            The table to which the record must be saved
+        record: string or ObjectId or AttrDict
+            The record to be saved
+        field: string
+            The field to be saved
+        path: string
+        fileName: string
+
+        Return
+        ------
+        response
+            A json response with the status of the save operation:
+
+            * a boolean: whether the save succeeded
+            * a message: messages to display
+        """
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        permitted = Auth.authorise(table, recordId=recordId, action="update")
-        previousFileName = Mongo.getRecord(table, _id=recordId)[field]
+        (recordId, record) = Mongo.get("record", record)
+
+        permitted = Auth.authorise(table, record=record, action="update")
+        previousFileName = record[field]
 
         sep = "/" if path else ""
         filePath = f"{path}{sep}{fileName}"

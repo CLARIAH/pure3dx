@@ -76,7 +76,7 @@ def prepare(trivial=False):
         if Collect.trigger():
             Collect.fetch()
 
-        Viewers = ViewersCls(Settings, Messages)
+        Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
@@ -86,7 +86,7 @@ def prepare(trivial=False):
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Collect, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
         Messages.setFlask()
 
     return AttrDict(

@@ -124,6 +124,7 @@ class Collect:
 
         iconFile = Settings.iconFile
         faviconFile = Settings.faviconFile
+        siteRecord = Settings.siteRecord
         importDir = self.importDir
         workingDir = self.workingDir
 
@@ -138,7 +139,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        siteId = Mongo.insertRecord("site", name="site", **meta)
+        siteId = Mongo.insertRecord("site", **siteRecord, **meta)
         self.siteId = siteId
 
         fileCopy(f"{importDir}/{iconFile}", f"{workingDir}/{iconFile}")
@@ -149,8 +150,8 @@ class Collect:
         importDir = self.importDir
         workingDir = self.workingDir
 
-        projectsInPath = f"{importDir}/projects"
-        projectsOutPath = f"{workingDir}/projects"
+        projectsInPath = f"{importDir}/project"
+        projectsOutPath = f"{workingDir}/project"
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
@@ -216,8 +217,8 @@ class Collect:
         projectName: String
             Name of the project to collect.
         """
-        editionsInPath = f"{projectInPath}/editions"
-        editionsOutPath = f"{projectOutPath}/editions"
+        editionsInPath = f"{projectInPath}/edition"
+        editionsOutPath = f"{projectOutPath}/edition"
 
         editionNames = listDirs(editionsInPath)
 
@@ -272,8 +273,8 @@ class Collect:
         if nFiles == 0:
             Messages.plain(logmsg="\t\tNo models")
 
-        editionInfo = dict(title=title, projectId=projectId, **meta)
-        editionId = Mongo.insertRecord("edition", **editionInfo)
+        editionRecord = dict(title=title, projectId=projectId, **meta)
+        editionId = Mongo.insertRecord("edition", **editionRecord)
         editionIdByName.setdefault(projectName, {})[editionName] = editionId
 
         Messages.plain(logmsg=f"\tEDITION {editionName} => {editionId}")

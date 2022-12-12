@@ -46,7 +46,7 @@ class Datamodel:
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-    def getDetailRecords(self, masterTable, masterId):
+    def getDetailRecords(self, masterTable, master):
         """Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
@@ -59,8 +59,8 @@ class Datamodel:
         ----------
         masterTable: string
             The name of the table in which the master record lives.
-        masterId: ObjectId
-            The id of the master record.
+        master: string or ObjectId or AttrDict
+            The master record.
 
         Returns
         -------
@@ -76,6 +76,7 @@ class Datamodel:
 
         detailTables = masterConfig.get(masterTable, [])
 
+        (masterId, master) = Mongo.get(masterTable, master)
         crit = {f"{masterTable.rstrip('s')}Id": masterId}
 
         detailRecords = AttrDict()
@@ -263,7 +264,7 @@ class Field:
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string or ObjectId or AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -273,8 +274,12 @@ class Field:
             No conversion/casting to other types will be performed.
             If the field is not present, returns None, without warning.
         """
+        Mongo = self.Mongo
+        table = self.table
         nameSpace = self.nameSpace
         fieldPath = self.fieldPath
+
+        (recordId, record) = Mongo.get(table, record)
 
         fields = fieldPath.split(".")
 
@@ -293,7 +298,7 @@ class Field:
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string or ObjectId or AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -335,7 +340,7 @@ class Field:
         ----------
         table: string
             The table from which the record is taken
-        record: AttrDict or dict
+        record: string or ObjectId or AttrDict
             The record in which the field value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
@@ -505,12 +510,14 @@ class Upload:
 
         Parameters
         ----------
-        record
+        record: string or ObjectId or AttrDict
             The record relevant to the upload
         """
+        Mongo = self.Mongo
         table = self.table
 
-        recordId = record._id
+        (recordId, record) = Mongo.get(table, record)
+
         projectId = (
             recordId
             if table == "project"
@@ -523,9 +530,9 @@ class Upload:
         path = (
             ""
             if table == "site"
-            else f"projects/{projectId}"
+            else f"project/{projectId}"
             if table == "project"
-            else f"projects/{projectId}/editions/{editionId}"
+            else f"project/{projectId}/edition/{editionId}"
             if table == "edition"
             else None
         )
@@ -539,7 +546,7 @@ class Upload:
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string or ObjectId or AttrDict
             The record relevant to the upload
         mayChange: boolean, optional False
             Whether the file may be changed.
@@ -551,6 +558,7 @@ class Upload:
             The name of the uploaded file(s) and/or an upload control.
         """
         Settings = self.Settings
+        Mongo = self.Mongo
         workingDir = Settings.workingDir
 
         key = self.key
@@ -562,7 +570,7 @@ class Upload:
 
         title = f"click to upload a {caption}"
 
-        recordId = record._id
+        (recordId, record) = Mongo.get(table, record)
 
         fid = f"{table}/{recordId}/{key}"
 
