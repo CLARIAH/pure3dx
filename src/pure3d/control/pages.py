@@ -86,6 +86,7 @@ class Pages:
         Messages = self.Messages
         Content = self.Content
         projectId = Content.insertProject()
+
         if projectId is None:
             Messages.warning(
                 logmsg="Could not create new project",
@@ -97,6 +98,7 @@ class Pages:
                 logmsg=f"Created project {projectId}", msg="new project created"
             )
             newUrl = f"/project/{projectId}"
+
         return redirectStatus(newUrl, projectId is not None)
 
     def project(self, project):
@@ -187,7 +189,7 @@ class Pages:
 
         projectId = edition.projectId
         (projectId, project) = Mongo.get("project", projectId)
-        breadCrumb = self.breadCrumb(project)
+        breadCrumb = Content.breadCrumb(project)
         action = Auth.makeSafe("edition", edition, action)
         sceneMaterial = (
             ""
@@ -467,7 +469,7 @@ class Pages:
         TABS = (
             ("home", "Home", True),
             ("about", "About", True),
-            ("projects", "3D Projects", True),
+            ("project", "3D Projects", True),
             ("directory", "3D Directory", False),
             ("surpriseme", "Surprise Me", True),
             ("advancedsearch", "Advanced Search", False),

@@ -300,6 +300,74 @@ class Content(Datamodel):
         content = H.a(f"{visual}{title}", url, cls="entry")
         return self.wrapCaption(content, button)
 
+    def getItem(self, project=None, edition=None):
+        """Get a relevant record.
+
+        A relevant record is either a project record, or an edition record,
+        or the one and only site record.
+
+        If all optional parameters are None, we look for the site record.
+        If the project parameter is not None, we look for the project record.
+
+        Paramenters
+        -----------
+        project: string or ObjectId or AttrDict, optional None
+            The project whose record we need.
+        edition: string or ObjectId or AttrDict, optional None
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple
+            * table: string; the table in which the record is found
+            * record id: string; the id of the record
+            * record: AttrDict; the record itself
+
+            If both project and edition are not None
+        """
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        if edition is not None:
+            table = "edition"
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
+            table = "project"
+            (recordId, record) = Mongo.get(table, project)
+        else:
+            table = "site"
+            siteCrit = Settings.siteCrit
+            record = Mongo.getRecord(table, **siteCrit)
+            recordId = record._id
+
+        return (table, recordId, record)
+
+    def getItems(self, project, edition):
+        """Get the project and edition records.
+
+        Paramenters
+        -----------
+        project: string or ObjectId or AttrDict
+            The project whose record we need.
+        edition: string or ObjectId or AttrDict
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple:
+            * project id: string
+            * project record: AttrDict
+            * edition id: string
+            * edition record: AttrDict
+        """
+        projectInfo = (
+            (None, None) if project is None else self.getItem(project=project)[1:]
+        )
+        editionInfo = (
+            (None, None) if edition is None else self.getItem(edition=edition)[1:]
+        )
+        return (*projectInfo, *editionInfo)
+
     def getValue(self, key, project=None, edition=None, level=None, bare=False):
         """Retrieve a metadata value.
 
@@ -328,20 +396,9 @@ class Content(Datamodel):
             It is assumed that the metadata value that is addressed exists.
             If not, we return the empty string.
         """
-        Settings = self.Settings
-        Mongo = self.Mongo
         Auth = self.Auth
 
-        if edition is not None:
-            table = "edition"
-            (recordId, record) = Mongo.get(table, edition)
-        elif project is not None:
-            table = "project"
-            (recordId, record) = Mongo.get(table, project)
-        else:
-            table = "site"
-            siteRecord = Settings.siteRecord
-            record = Mongo.getRecord(table, **siteRecord)
+        (table, recordId, record) = self.getItem(project=project, edition=edition)
 
         actions = Auth.authorise(table, record=record)
 
@@ -392,20 +449,9 @@ class Content(Datamodel):
             If the user has edit permission for the edition, we display
             widgets to upload a new file or to delete the existing file.
         """
-        Settings = self.Settings
-        Mongo = self.Mongo
         Auth = self.Auth
 
-        if edition is not None:
-            table = "edition"
-            (recordId, record) = Mongo.get(table, edition)
-        elif project is not None:
-            table = "project"
-            (recordId, record) = Mongo.get(table, project)
-        else:
-            table = "site"
-            siteRecord = Settings.siteRecord
-            record = Mongo.getRecord(table, **siteRecord)
+        (table, recordId, record) = self.getItem(project=project, edition=edition)
 
         actions = Auth.authorise(table, record=record)
 
@@ -477,15 +523,11 @@ class Content(Datamodel):
         """
         Settings = self.Settings
         Messages = self.Messages
-        Mongo = self.Mongo
         Auth = self.Auth
 
         workingDir = Settings.workingDir
 
-        if project is not None:
-            (projectId, project) = Mongo.get("project", project)
-        if edition is not None:
-            (editionId, edition) = Mongo.get("edition", edition)
+        (projectId, project, editionId, edition) = self.getItems(project, edition)
 
         urlBase = (
             ""
@@ -499,17 +541,8 @@ class Content(Datamodel):
 
         dataPath = base if path is None else f"{base}/{path}"
 
-        if project is None:
-            table = "site"
-            recordId = (
-                True  # dummy value for authorise, which only tests whether it is falsy
-            )
-        elif editionId is None:
-            table = "project"
-            (recordId, record) = Mongo.get(table, projectId)
-        else:
-            table = "edition"
-            (recordId, record) = Mongo.get(table, editionId)
+        (table, record, recordId) = self.getItem(project=project, edition=edition)
+
         permitted = Auth.authorise(table, record=record, action="read")
 
         fexists = fileExists(dataPath)
@@ -525,28 +558,6 @@ class Content(Datamodel):
             )
 
         return dataPath
-
-    def getItem(self, table, *args, **kwargs):
-        """Get a all information about an item.
-
-        The item can be a project, edition, or scene.
-        The information about that item is a record in MongoDb.
-        possibly additional files on the file system.
-
-        Parameters
-        ----------
-        table: string
-            The name of the table from which to fetch an item
-        *args, **kwargs: any
-            Additional arguments to select the item's record
-            from MongoDB
-
-        Returns
-        -------
-        AttrDict
-            the contents of the item's record in MongoDB
-        """
-        return self.Mongo.getRecord(table, *args, **kwargs)
 
     def actionButton(self, action, table, record=None, key=None, project=None):
         """Puts a button on the interface, if that makes sense.
@@ -582,8 +593,9 @@ class Content(Datamodel):
         Auth = self.Auth
 
         urlInsert = "/"
+        (projectId, project) = Mongo.get("project", project)
+
         if project is not None:
-            (projectId, project) = Mongo.get("project", project)
             urlInsert += f"project/{projectId}/"
 
         (record, recordId) = Mongo.get(table, record)

@@ -200,7 +200,7 @@ class Mongo:
         ----------
         table: string
             The table in which the record can be found
-        record: string or ObjectID or AttrDict
+        record: string or ObjectID or AttrDict or None
             Either the id of the record, or the record itself.
 
         Returns
@@ -208,12 +208,17 @@ class Mongo:
         tuple
             * ObjectId: the id of the record
             * AttrDict: the record itself
+
+            If `record` is None, both members of the tuple are None
         """
 
+        if record is None:
+            return (None, None)
+
         if type(record) is str:
-            record = self.cast(record)
-        if self.isId(record):
-            record = Mongo.getRecord(table, _id=record)
+            record = self.getRecord(table, _id=self.cast(record))
+        elif self.isId(record):
+            record = self.getRecord(table, _id=record)
         recordId = record._id
         return (recordId, record)
 

@@ -274,12 +274,8 @@ class Field:
             No conversion/casting to other types will be performed.
             If the field is not present, returns None, without warning.
         """
-        Mongo = self.Mongo
-        table = self.table
         nameSpace = self.nameSpace
         fieldPath = self.fieldPath
-
-        (recordId, record) = Mongo.get(table, record)
 
         fields = fieldPath.split(".")
 
@@ -496,7 +492,6 @@ class Upload:
                 Messages.error(logmsg=f"Missing info in Upload spec: {arg}")
                 good = False
 
-        self.debug(f"MAKE UPLOAD {key=} {self.fileName=}")
         if not good:
             quit()
 
@@ -513,10 +508,8 @@ class Upload:
         record: string or ObjectId or AttrDict
             The record relevant to the upload
         """
-        Mongo = self.Mongo
         table = self.table
-
-        (recordId, record) = Mongo.get(table, record)
+        recordId = record._id
 
         projectId = (
             recordId
@@ -558,7 +551,6 @@ class Upload:
             The name of the uploaded file(s) and/or an upload control.
         """
         Settings = self.Settings
-        Mongo = self.Mongo
         workingDir = Settings.workingDir
 
         key = self.key
@@ -568,9 +560,9 @@ class Upload:
         caption = self.caption
         show = self.show
 
-        title = f"click to upload a {caption}"
+        recordId = record._id
 
-        (recordId, record) = Mongo.get(table, record)
+        title = f"click to upload a {caption}"
 
         fid = f"{table}/{recordId}/{key}"
 

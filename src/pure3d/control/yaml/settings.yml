@@ -14,5 +14,5 @@ database: pure3d
 mongoHost: mongodb
 mongoPort: 27017
 
-siteRecord:
+siteCrit:
   name: "site"

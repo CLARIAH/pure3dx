@@ -259,7 +259,7 @@ class Viewers:
                 H.body(
                     H.elem(
                         element,
-                        "XXXXXXXXXX",
+                        "",
                         root=viewerRoot,
                         document=sceneFile,
                         resourceroot=f"{viewerStaticRoot}/",

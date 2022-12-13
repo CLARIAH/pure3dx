@@ -124,7 +124,7 @@ class Collect:
 
         iconFile = Settings.iconFile
         faviconFile = Settings.faviconFile
-        siteRecord = Settings.siteRecord
+        siteCrit = Settings.siteCrit
         importDir = self.importDir
         workingDir = self.workingDir
 
@@ -139,7 +139,7 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
 
-        siteId = Mongo.insertRecord("site", **siteRecord, **meta)
+        siteId = Mongo.insertRecord("site", **siteCrit, **meta)
         self.siteId = siteId
 
         fileCopy(f"{importDir}/{iconFile}", f"{workingDir}/{iconFile}")

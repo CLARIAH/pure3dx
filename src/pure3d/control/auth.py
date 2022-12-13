@@ -141,7 +141,6 @@ class Auth(Users):
                 state = stateInfo.init
             else:
                 stateField = stateInfo.field
-                record = Mongo.getRecord(table, _id=recordId)
                 state = record[stateField]
 
         # we select the rules for the given state, if any
@@ -170,7 +169,9 @@ class Auth(Users):
 
         allAllowedRoles = {
             role: tableFromRole[role]
-            for role in set(chain.from_iterable(v.keys() for v in rules.values()))
+            for role in set(
+                chain.from_iterable(v.keys() for v in rules.values() if v is not None)
+            )
         }
 
         # Then we determine which of these tables are master, detail, or none of
@@ -276,6 +277,8 @@ class Auth(Users):
         allowedActions = {}
 
         for (act, requiredRoles) in rules.items():
+            if requiredRoles is None:
+                continue
             if act == "assign":
                 permission = set()
                 for presentRole in userRoles:
