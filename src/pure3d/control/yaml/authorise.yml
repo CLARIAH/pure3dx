@@ -1,18 +1,13 @@
 actions:
   assign:
-    acro: ⚭
-    name: organise
+    name: assign
   create:
-    acro: "✚"
     name: create
   read:
-    acro: "⎚"
     name: view
   update:
-    acro: "✎"
     name: edit
   delete:
-    acro: "✖︎"
     name: delete
 
 roles:
@@ -42,8 +37,10 @@ authRules:
       admin: true
       user: true
       null: true
-    update: {}
-    delete: {}
+    update:
+      admin: true
+    delete:
+      admin: true
 
   project:
     state:

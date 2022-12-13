@@ -18,7 +18,7 @@ def appFactory(objects):
 
     Parameters
     ----------
-    objects: `control.generic.AttrDict`
+    objects
         a slew of objects that set up the toolkit with which the app works:
         settings, messaging and logging, MongoDb connection, 3d viewer support,
         higher level objects that can fetch chunks of content and distribute
@@ -69,6 +69,10 @@ def appFactory(objects):
     def logout():
         return Auth.logout()
 
+    @app.route("/reset")
+    def reset():
+        return Pages.reset()
+
     @app.route("/collect")
     def collect():
         return Pages.collect()
@@ -108,7 +112,7 @@ def appFactory(objects):
     )
     @app.route("/edition/<string:edition>/<string:version>/<string:action>")
     def edition(edition, version, action):
-        return Pages.edition(edition, version, action)
+        return Pages.edition(edition, version=version, action=action)
 
     @app.route("/viewer/<string:version>/<string:action>/<string:edition>")
     def viewerFrame(version=None, action=None, edition=None):
@@ -145,11 +149,11 @@ def appFactory(objects):
         return Pages.dataProjects(path, project=project, edition=edition)
 
     @app.route(
-        "/upload/<string:table>/<string:record>/<string:key>/<path:path>",
+        "/upload/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
         methods=["POST"],
     )
-    def upload(table, record, key, path):
-        return Pages.upload(table, record, key, path)
+    def upload(record, key, fileNameMandatory, path):
+        return Pages.upload(record, key, fileNameMandatory, path)
 
     @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",

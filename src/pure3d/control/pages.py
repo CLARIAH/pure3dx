@@ -1,5 +1,4 @@
 from control.flask import redirectStatus, template, send, stop, getReferrer
-from control.html import HtmlElements as H
 
 
 class Pages:
@@ -20,7 +19,7 @@ class Pages:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -106,9 +105,11 @@ class Pages:
 
         Parameters
         ----------
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
         Content = self.Content
 
@@ -131,7 +132,7 @@ class Pages:
 
         Parameters
         ----------
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project to which the edition belongs.
         """
         Messages = self.Messages
@@ -154,7 +155,7 @@ class Pages:
             newUrl = f"/edition/{editionId}"
         return redirectStatus(newUrl, editionId is not None)
 
-    def edition(self, edition, version, action):
+    def edition(self, edition, version=None, action=None):
         """The landing page of an edition, possibly with a scene marked as active.
 
         An edition knows the scene it should display and the viewer that was
@@ -172,14 +173,16 @@ class Pages:
 
         Parameters
         ----------
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The editionin quesion.
             From the edition record we can find the project too.
-        version: string or None
+        version: string, optional None
             The viewer version to use.
-        action: string or None
+        action: string, optional None
             The mode in which the viewer is to be used (`read` or `update`).
         """
+        Settings = self.Settings
+        H = Settings.H
         Content = self.Content
         Mongo = self.Mongo
         Auth = self.Auth
@@ -229,13 +232,13 @@ class Pages:
 
         Parameters
         ----------
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition that is shown.
-        viewer: string or None
+        viewer: string | None
             The viewer to use.
-        version: string or None
+        version: string | None
             The version to use.
-        action: string or None
+        action: string | None
             The mode in which the viewer is to be used (`view` or `edit`).
         """
         Content = self.Content
@@ -299,10 +302,10 @@ class Pages:
             Path on the file system under the data directory
             where the resource resides.
             The path is relative to the project, and, if given, the edition.
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The id of a project under which the resource is to be found.
             If None, it is site-wide material.
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             If not None, the name of an edition under which the resource
             is to be found.
 
@@ -318,14 +321,27 @@ class Pages:
         dataPath = Content.getData(path, project=project, edition=edition)
         return send(dataPath)
 
-    def upload(self, table, record, key, path):
+    def upload(self, record, key, fileNameMandatory, path):
+        """Upload a file.
+
+        Parameters
+        ----------
+        record: string | ObjectId | AttrDict
+            The context record of the upload
+        key: string
+            The key of the upload
+        fileNameMandatory: string
+            The name of the file as which the uploaded file will be saved;
+            but if it is `-`, the file will be saved with the
+            name from the request.
+        """
         Content = self.Content
 
         parts = path.rstrip("/").rsplit("/", 1)
         fileName = parts[-1]
         path = parts[0] if len(parts) == 2 else ""
 
-        return Content.save(table, record, key, path, fileName)
+        return Content.saveFile(record, key, fileNameMandatory, path, fileName)
 
     def authWebdav(self, project, edition, path, action):
         """Authorises a webdav request.
@@ -337,9 +353,9 @@ class Pages:
 
         Parameters
         ----------
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question.
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition in question.
         path: string
             The path relative to the directory of the edition.
@@ -465,6 +481,8 @@ class Pages:
         string
             The HTML of the navigation.
         """
+        Settings = self.Settings
+        H = Settings.H
 
         TABS = (
             ("home", "Home", True),
@@ -515,9 +533,9 @@ class Pages:
         ----------
         fieldSpecs: string
             `,`-separated list of fieldSpecs
-        project: string or ObjectId or AttrDict, optional None
+        project: string | ObjectId | AttrDict, optional None
             The project in question.
-        edition: string or ObjectId or AttrDict, optional None
+        edition: string | ObjectId | AttrDict, optional None
             The edition in question.
 
         Returns
@@ -525,6 +543,8 @@ class Pages:
         string
             The join of the individual results of retrieving metadata value.
         """
+        Settings = self.Settings
+        H = Settings.H
         Content = self.Content
 
         return H.content(
@@ -552,9 +572,9 @@ class Pages:
             name.
             A file name for an upload object may also have been specified in
             the datamodel configuration.
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict, optional None
             The project in question.
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict, optional None
             The edition in question.
         cls: string, optional None
             An extra CSS class for the control

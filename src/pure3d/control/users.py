@@ -7,7 +7,6 @@ from control.flask import (
     getReferrer,
     redirectStatus,
 )
-from control.html import HtmlElements as H
 
 
 PROVIDER_ATTS = tuple(
@@ -34,7 +33,7 @@ class Users:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -325,6 +324,8 @@ class Users:
             HTML of the list of buttons for test users, with the button
             for the current user styled as active.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
 
         (testMode, isTestUser, userActive) = self.getUser()

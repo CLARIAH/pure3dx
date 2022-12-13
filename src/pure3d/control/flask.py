@@ -149,7 +149,7 @@ def sessionGet(name):
 
     Returns
     -------
-    string or None
+    string | void
         The value of the variable, if it exists,
         else None.
     """
@@ -188,7 +188,7 @@ def arg(name):
 
     Returns
     -------
-    string or None
+    string | void
         The value of the arg, if it is defined,
         else the None.
     """

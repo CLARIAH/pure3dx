@@ -1,7 +1,6 @@
 from flask import jsonify
-from control.files import fileExists, fileRemove
+from control.files import fileExists
 from control.datamodel import Datamodel
-from control.html import HtmlElements as H
 from control.flask import data
 
 
@@ -17,7 +16,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Viewers: object
@@ -40,6 +39,8 @@ class Content(Datamodel):
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
+        Settings = self.Settings
+        H = Settings.H
         return H.h(2, "You will be surprised!")
 
     def getProjects(self):
@@ -57,6 +58,8 @@ class Content(Datamodel):
             A list of captions of the projects,
             wrapped in a HTML string.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
 
@@ -123,7 +126,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question.
 
         Returns
@@ -132,6 +135,8 @@ class Content(Datamodel):
             A list of captions of the editions of the project,
             wrapped in a HTML string.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
 
@@ -194,7 +199,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition record.
 
         Returns
@@ -238,7 +243,7 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition in question.
         version: string, optional None
             The version of the chosen viewer that will be used.
@@ -257,8 +262,10 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         """
-        Auth = self.Auth
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
+        Auth = self.Auth
         Viewers = self.Viewers
 
         wrapped = []
@@ -289,84 +296,22 @@ class Content(Datamodel):
         return H.content(*wrapped)
 
     def wrapCaption(self, content, button, active=False):
+        Settings = self.Settings
+        H = Settings.H
+
         activeCls = "active" if active else ""
         return H.div(
             [H.div(content, cls=f"caption {activeCls}"), button], cls="captioncontent"
         )
 
     def getCaption(self, visual, titleText, button, url):
-        title = H.span(titleText, cls="entrytitle")
-
-        content = H.a(f"{visual}{title}", url, cls="entry")
-        return self.wrapCaption(content, button)
-
-    def getItem(self, project=None, edition=None):
-        """Get a relevant record.
-
-        A relevant record is either a project record, or an edition record,
-        or the one and only site record.
-
-        If all optional parameters are None, we look for the site record.
-        If the project parameter is not None, we look for the project record.
-
-        Paramenters
-        -----------
-        project: string or ObjectId or AttrDict, optional None
-            The project whose record we need.
-        edition: string or ObjectId or AttrDict, optional None
-            The edition whose record we need.
-
-        Returns
-        -------
-        tuple
-            * table: string; the table in which the record is found
-            * record id: string; the id of the record
-            * record: AttrDict; the record itself
-
-            If both project and edition are not None
-        """
         Settings = self.Settings
-        Mongo = self.Mongo
+        H = Settings.H
 
-        if edition is not None:
-            table = "edition"
-            (recordId, record) = Mongo.get(table, edition)
-        elif project is not None:
-            table = "project"
-            (recordId, record) = Mongo.get(table, project)
-        else:
-            table = "site"
-            siteCrit = Settings.siteCrit
-            record = Mongo.getRecord(table, **siteCrit)
-            recordId = record._id
+        title = H.span(titleText, cls="entrytitle")
+        content = H.a(f"{visual}{title}", url, cls="entry")
 
-        return (table, recordId, record)
-
-    def getItems(self, project, edition):
-        """Get the project and edition records.
-
-        Paramenters
-        -----------
-        project: string or ObjectId or AttrDict
-            The project whose record we need.
-        edition: string or ObjectId or AttrDict
-            The edition whose record we need.
-
-        Returns
-        -------
-        tuple:
-            * project id: string
-            * project record: AttrDict
-            * edition id: string
-            * edition record: AttrDict
-        """
-        projectInfo = (
-            (None, None) if project is None else self.getItem(project=project)[1:]
-        )
-        editionInfo = (
-            (None, None) if edition is None else self.getItem(edition=edition)[1:]
-        )
-        return (*projectInfo, *editionInfo)
+        return self.wrapCaption(content, button)
 
     def getValue(self, key, project=None, edition=None, level=None, bare=False):
         """Retrieve a metadata value.
@@ -382,9 +327,9 @@ class Content(Datamodel):
         Parameters
         ----------
         key: an identifier for the meta data field.
-        project: string or ObjectId or AttrDict, optional None
+        project: string | ObjectId | AttrDict, optional None
             The project whose metadata we need. If it is None, we are at the site level.
-        edition: string or ObjectId or AttrDict, optional None
+        edition: string | ObjectId | AttrDict, optional None
             The edition whose metadata we need. If it is None, we need metadata of
             a project or outer metadata.
         bare: boolean, optional None
@@ -434,9 +379,9 @@ class Content(Datamodel):
             name.
             A file name for an upload object may also have been specified in
             the datamodel configuration.
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question. If it is None, we are at the site level.
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition in question. If it is None, we are at the project level
             or site level.
 
@@ -510,9 +455,9 @@ class Content(Datamodel):
         path: string
             The path of the data file within project/edition directory
             within the data directory.
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The id of the project in question.
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The id of the edition in question.
 
         Returns
@@ -575,13 +520,13 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        action: string, optional None
+        action: string
             The type of action that will be performed if the button triggered.
         table: string
             the table to which the action applies;
         record: ObjectId, optional None
             the record in question
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question, if any.
             Needed to determine whether a press on the button is permitted.
         key: string, optional None
@@ -589,6 +534,7 @@ class Content(Datamodel):
             record. From the key, the value can be found.
         """
         Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
 
@@ -636,7 +582,6 @@ class Content(Datamodel):
                 report = H.br() + report
 
         actionInfo = actions.get(action, {})
-        text = actionInfo.acro
         name = actionInfo.name
         tableItem = table.rstrip("s")
         keyRepTip = "" if key is None else f" {key} of"
@@ -644,17 +589,15 @@ class Content(Datamodel):
         recordIdRep = "" if recordId is None else f"/{recordId}"
 
         if disable:
-            elem = "span"
-            href = []
+            href = None
             cls = "disabled"
-            can = "Cannot "
+            can = "Cannot"
         else:
-            elem = "a"
-            href = [
+            href = (
                 f"{urlInsert}{table}/create"
                 if action == "create"
                 else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
-            ]
+            )
             cls = ""
             can = ""
 
@@ -664,17 +607,18 @@ class Content(Datamodel):
             if action == "create"
             else f"{can}{name}{keyRepTip} this {tableItem}"
         )
-
-        return H.elem(elem, text, *href, title=tip, cls=fullCls) + report
+        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
 
     def breadCrumb(self, project):
         """Makes a link to the landing page of a project.
 
         Parameters
         ----------
-        project: string or ObjectId or AttrDict
+        project: string | ObjectId | AttrDict
             The project in question.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
 
         (projectId, project) = Mongo.get("project", project)
@@ -692,19 +636,23 @@ class Content(Datamodel):
             ]
         )
 
-    def save(self, table, record, field, path, fileName):
-        """Save a record.
+    def saveFile(self, record, key, fileNameMandatory, path, fileName):
+        """Saves a file in the context given by a record.
 
         Parameters
         ----------
-        table: string
-            The table to which the record must be saved
-        record: string or ObjectId or AttrDict
-            The record to be saved
-        field: string
-            The field to be saved
+        record: string | ObjectId | AttrDict
+            The context record, relative to which the file has to be saved
+        key: string
+            The upload key
+        fileNameMandatory: string
+            The name of the file as which the uploaded file will be saved;
+            but if it is `-`, the file will be saved with the
+            name from the request.
         path: string
+            The path from the context directory to the file
         fileName: string
+            Name  of the file to be saved as mentioned in the request.
 
         Return
         ------
@@ -720,17 +668,27 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        (recordId, record) = Mongo.get("record", record)
+        if fileNameMandatory == "-":
+            fileNameMandatory = None
+
+        uploadObject = self.getUploadObject(key, fileName=fileNameMandatory)
+        self.debug(f"{list(self.uploadObjects.keys())=}")
+        self.debug(f"{key=} {fileNameMandatory=}")
+        table = uploadObject.table
+
+        (recordId, record) = Mongo.get(table, record)
 
         permitted = Auth.authorise(table, record=record, action="update")
-        previousFileName = record[field]
+
+        if fileNameMandatory is not None and fileName != fileNameMandatory:
+            fileName = fileNameMandatory
 
         sep = "/" if path else ""
         filePath = f"{path}{sep}{fileName}"
         fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
-            logmsg = f"Upload not permitted: {table}-{field}: {fileFullPath}"
+            logmsg = f"Upload not permitted: {key}: {fileFullPath}"
             Messages.warning(
                 logmsg=logmsg,
                 msg=f"Upload not permitted: {filePath}",
@@ -741,33 +699,14 @@ class Content(Datamodel):
             with open(fileFullPath, "wb") as fh:
                 fh.write(data())
         except Exception:
-            logmsg = "Could not save uploaded file: {table}-{field}: {fileFullPath}"
+            logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
             Messages.warning(
                 logmsg=logmsg,
                 msg=f"Uploaded file not saved: {filePath}",
             )
             return jsonify(status=False, msg=logmsg)
 
-        if not Mongo.updateRecord(
-            table, dict(field=fileName), warn=False, _id=recordId
-        ):
-            logmsg = (
-                "Could not store uploaded file name in MongoDB: "
-                f"{table}-{field}: {filePath}"
-            )
-            Messages.warning(
-                logmsg=logmsg,
-                msg=f"Uploaded file name not stored: {fileName}",
-            )
-            return jsonify(status=False, msg=logmsg)
-
-        previousFilePath = f"{path}{sep}{previousFileName}"
-        previousFileFullPath = f"{workingDir}/{previousFilePath}"
-
-        if previousFileFullPath != fileFullPath:
-            fileRemove(previousFileFullPath)
-
-        fid = f"{table}/{recordId}/{field}"
+        fid = f"{recordId}/{key}"
         staticUrl = f"/data/{filePath}"
 
         return jsonify(status=True, fid=fid, staticUrl=staticUrl)

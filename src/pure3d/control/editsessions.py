@@ -145,7 +145,7 @@ class EditSessions:
 
         Returns
         -------
-        ObjectId or None
+        ObjectId | void
             If the editsession has been found, the id of that session,
             otherwise None
         """
@@ -196,7 +196,7 @@ class EditSessions:
 
         Returns
         -------
-        None
+        void
         """
         pass
 

@@ -1,8 +1,6 @@
 import sys
 from control.flask import stop, flashMsg
 
-from control.html import HtmlElements as H
-
 
 class Messages:
     def __init__(self, Settings, onFlask=True):
@@ -30,7 +28,7 @@ class Messages:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         """
@@ -153,10 +151,10 @@ class Messages:
               It also raises an exception, which will lead
               to a 404 response (if flask is running, that is).
 
-        msg: string, optional None
+        msg: string | void
             If not None, it is the contents of a screen message.
             This happens by the built-in `flash` method of Flask.
-        logmsg: string, optional None
+        logmsg: string | void
             If not None, it is the contents of a log message.
 
         """
@@ -174,6 +172,8 @@ class Messages:
             stream.flush()
         else:
             debugMode = Settings.debugMode
+            H = Settings.H
+
             if tp == "debug" and not debugMode:
                 return
 

@@ -15,7 +15,7 @@ class Mongo:
 
         Returns
         -------
-        ObjectId | None
+        ObjectId | void
             The corresponding BSON ObjectId if the input is a valid representation of
             such an id, otherwise `None`.
         """
@@ -68,7 +68,7 @@ class Mongo:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -200,7 +200,7 @@ class Mongo:
         ----------
         table: string
             The table in which the record can be found
-        record: string or ObjectID or AttrDict or None
+        record: string | ObjectID | AttrDict | void
             Either the id of the record, or the record itself.
 
         Returns
@@ -240,9 +240,9 @@ class Mongo:
 
         Returns
         -------
-        `control.generic.AttrDict`
+        AttrDict
             The single document found,
-            or an empty `control.generic.AttrDict` if no document
+            or an empty AttrDict if no document
             satisfies the criteria.
         """
         Messages = self.Messages
@@ -266,7 +266,7 @@ class Mongo:
 
         Returns
         -------
-        list of `control.generic.AttrDict`
+        list of AttrDict
             The list of documents found, empty if no documents are found.
             Each document is cast to an AttrDict.
         """

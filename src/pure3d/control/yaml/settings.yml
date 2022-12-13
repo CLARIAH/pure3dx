@@ -16,3 +16,22 @@ mongoPort: 27017
 
 siteCrit:
   name: "site"
+
+icons:
+  assign: "⊫"
+  create: "✚"
+  read: "⎚"
+  update: "✎"
+  delete: "✖︎"
+  upload: "↑"
+  chain: "⚭"
+  check: "✔︎"
+  cross: "✘"
+  devel: "⚒︎"
+  info: "ℹ︎"
+  missing: "☒"
+  noicon: "☹︎"
+  none: "○"
+  ok: "↩︎"
+  prov: "⌚︎"
+  refresh: "♺"

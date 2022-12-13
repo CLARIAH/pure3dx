@@ -4,7 +4,7 @@ from subprocess import check_output
 from control.generic import AttrDict
 from control.files import dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
-from control.html import HtmlElements as H
+from control.html import HtmlElements
 
 
 class Config:
@@ -32,7 +32,9 @@ class Config:
         Messages.debugAdd(self)
         Messages.info(logmsg="CONFIG INIT")
         self.good = True
-        self.Settings = AttrDict()
+        Settings = AttrDict()
+        Settings.H = HtmlElements(Settings)
+        self.Settings = Settings
         """The actual configuration settings are stored here.
         """
 
@@ -114,6 +116,7 @@ class Config:
         of the git repo that the running code is in.
         """
         Settings = self.Settings
+        H = Settings.H
         repoDir = Settings.repoDir
 
         (long, short) = tuple(
@@ -394,6 +397,7 @@ class Config:
             `Settings` object.
         """
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         wip = var("devstatus")
 
@@ -410,7 +414,7 @@ class Config:
                     """
                 )
             )
-            resetLink = H.a(
+            resetDataLink = H.a(
                 "reset data",
                 "/collect",
                 title="reset data to initial state",
@@ -426,6 +430,6 @@ class Config:
                 cls="large",
                 target="_blank",
             )
-            banner = H.div([content, issueLink, resetLink], id="statusbanner")
+            banner = H.div([content, issueLink, resetDataLink], id="statusbanner")
 
         Settings.banner = banner

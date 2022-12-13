@@ -18,7 +18,7 @@ class Auth(Users):
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -67,7 +67,7 @@ class Auth(Users):
         ----------
         table: string
             the relevant table
-        record: ObjectId or AttrDict, optional None
+        record: ObjectId | AttrDict, optional None
             The id of the record that is being accessed or
             the record itself
             Not relevant for "create" actions.
@@ -324,14 +324,14 @@ class Auth(Users):
         ----------
         table: string
             The table in which the record exists.
-        record: ObjectId or AttrDict
+        record: ObjectId | AttrDict
             The id of the record or the record itself.
         action: string
             An intended action.
 
         Returns
         -------
-        string or None
+        string | void
             The resulting safe action.
         """
         actions = self.authorise(table, record=record)

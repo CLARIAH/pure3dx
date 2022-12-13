@@ -48,12 +48,12 @@ def readYaml(path, defaultEmpty=False):
         The path of the file on the file system.
     defaultEmpty: boolean, optional False
         What to do if the file does not exist.
-        If True, it returns an empty `control.generic.AttrDict`
+        If True, it returns an empty AttrDict
         otherwise False.
 
     Returns
     -------
-    `control.generic.AttrDict` or None
+    AttrDict | void
         The data content of the yaml file if it exists.
     """
     if not os.path.isfile(path):

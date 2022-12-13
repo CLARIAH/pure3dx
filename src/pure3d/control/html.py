@@ -6,8 +6,6 @@
 
 """
 
-from control.generic import AttrDict
-
 AMP = "&"
 LT = "<"
 GT = ">"
@@ -40,24 +38,6 @@ EMPTY_ELEMENTS = {
     "track",
     "wbr",
 }
-
-ICONS = AttrDict(
-    chain="⚭",
-    check="✔︎",
-    clear="✖︎",
-    cross="✘",
-    delete="🗑",
-    devel="⚒︎",
-    edit="✎",
-    info="ℹ︎",
-    create="✦",
-    missing="☒",
-    noicon="☹︎",
-    none="○",
-    ok="↩︎",
-    prov="⌚︎",
-    refresh="♺",
-)
 
 # study url_for
 
@@ -182,6 +162,9 @@ class HtmlElements:
         Nearly all elements accept an arbitrary supply of attributes
         in the `**atts` parameter, which will not further be documented.
     """
+
+    def __init__(self, Settings):
+        self.Settings = Settings
 
     @staticmethod
     def he(val):
@@ -416,7 +399,7 @@ class HtmlElements:
     def button(material, tp, **atts):
         """BUTTON.
 
-        A clickable butto
+        A clickable button
 
         Parameters
         ----------
@@ -498,9 +481,9 @@ class HtmlElements:
             HtmlElement("summary").wrap(summary) + content, itemkey=itemkey, **atts
         )
 
-    @staticmethod
     def detailx(
-        icons,
+        self,
+        detailIcons,
         material,
         itemkey,
         openAtts={},
@@ -523,7 +506,7 @@ class HtmlElements:
 
         Parameters
         ----------
-        icons: string | (string, string)
+        detailIcons: string | (string, string)
             Names of the icons that open and close the element.
         itemkey: string
             Identifier for reference from Javascript.
@@ -536,11 +519,15 @@ class HtmlElements:
         -------
         string(html)
         """
+        Settings = self.Settings
+        icons = Settings.icons
 
         content = asString(material)
-        (iconOpen, iconClose) = (icons, icons) if type(icons) is str else icons
+        (iconOpen, iconClose) = (
+            (detailIcons, detailIcons) if type(detailIcons) is str else detailIcons
+        )
         triggerElements = [
-            (HtmlElements.iconx if icon in ICONS else HtmlElements.span)(
+            (self.iconx if icon in icons else self.span)(
                 icon,
                 itemkey=itemkey,
                 trigger=value,
@@ -647,14 +634,13 @@ class HtmlElements:
 
         return HtmlElement("head").wrap(material, **atts)
 
-    @staticmethod
-    def icon(icon, asChar=False, **atts):
+    def icon(self, icon, asChar=False, **atts):
         """icon.
 
         Pseudo element for an icon.
 
         !!! warning
-            The `icon` names must be listed in the authorise.yaml config file
+            The `icon` names must be listed in the settings.yml config file
             under the key `icons`. The icon itself is a Unicode character.
 
         Parameters
@@ -670,15 +656,18 @@ class HtmlElements:
         -------
         string(html)
         """
+        Settings = self.Settings
+        icons = Settings.icons
 
-        iconChar = ICONS.get(icon, default=ICONS["noicon"])
+        iconChar = icons.get(icon, icons["noicon"])
+
         if asChar:
-            return ICONS.get(icon, default=ICONS["noicon"])
+            return icons.get(icon, icons["noicon"])
+
         addClass = f"symbol i-{icon} "
         return HtmlElement("span").wrap(iconChar, addClass=addClass, **atts)
 
-    @staticmethod
-    def iconx(icon, href=None, **atts):
+    def iconx(self, icon, href=None, **atts):
         """iconx.
 
         Pseudo element for a clickable icon.
@@ -689,7 +678,7 @@ class HtmlElements:
         an `<a ...>` element, but without a `href` attribute.
 
         !!! warning
-            The `icon` names must be listed in the web.yaml config file
+            The `icon` names must be listed in the settings.yml config file
             under the key `icons`. The icon itself is a Unicode character.
 
         Parameters
@@ -704,8 +693,10 @@ class HtmlElements:
         -------
         string(html)
         """
+        Settings = self.Settings
+        icons = Settings.icons
 
-        iconChar = ICONS.get(icon, default=ICONS["noicon"])
+        iconChar = icons.get(icon, icons["noicon"])
         addClass = f"icon i-{icon} "
         if href:
             atts["href"] = href
@@ -732,8 +723,7 @@ class HtmlElements:
 
         return HtmlElement("iframe").wrap("", src=src, **atts)
 
-    @staticmethod
-    def img(src, href=None, title=None, imgAtts={}, **atts):
+    def img(self, src, href=None, title=None, imgAtts={}, **atts):
         """IMG.
 
         Image element.
@@ -762,7 +752,7 @@ class HtmlElements:
         """
 
         return (
-            HtmlElements.a(
+            self.a(
                 HtmlElement("img").wrap(E, src=src, **imgAtts),
                 href,
                 title=title,
@@ -772,8 +762,7 @@ class HtmlElements:
             else HtmlElement("img").wrap(E, src=src, title=title, **imgAtts, **atts)
         )
 
-    @staticmethod
-    def input(material, tp, **atts):
+    def input(self, material, tp, **atts):
         """INPUT.
 
         The element to receive types user input.
@@ -799,15 +788,15 @@ class HtmlElements:
         """
 
         content = asString(material)
-        return HtmlElement("input").wrap(
-            E, tp=tp, value=HtmlElements.he(content), **atts
-        )
+        return HtmlElement("input").wrap(E, tp=tp, value=self.he(content), **atts)
 
-    @staticmethod
     def finput(
+        self,
         fileName,
         accept,
         saveUrl,
+        fid,
+        show,
         title="Click to upload a file",
         cls="",
         **atts,
@@ -825,6 +814,10 @@ class HtmlElements:
             MIME type of uploaded file
         saveUrl: string
             The url to which the resulting file should be posted.
+        fid: string
+            Identifier that uniquely identifies this file upload.
+        show: boolean, optional False
+            Whether the uploaded file should be shown as an image.
         cls: string, optional ""
             CSS class for the button
         title: string, optional ""
@@ -835,15 +828,30 @@ class HtmlElements:
         string(html)
         """
 
-        return HtmlElement("input").wrap(
-            E,
-            tp="file",
-            value=HtmlElements.he(fileName),
-            accept=accept,
+        value = self.he(fileName)
+
+        if show:
+            spanValue = ""
+            buttonTitle = f"{value} - {title}"
+        else:
+            spanValue = value
+            buttonTitle = title
+
+        return self.span(
+            [
+                self.input(
+                    value,
+                    "file",
+                    accept=accept,
+                    **atts,
+                ),
+                self.iconx("upload", cls="fileupload-button button small", title=buttonTitle),
+                self.span(spanValue, cls="fileupload-label"),
+            ],
             url=saveUrl,
-            title=title,
             cls=f"fileupload {cls}",
-            **atts,
+            fid=fid,
+            show=show,
         )
 
     @staticmethod
@@ -929,8 +937,7 @@ class HtmlElements:
 
         return HtmlElement("span").wrap(material, **atts)
 
-    @staticmethod
-    def table(headers, rows, **atts):
+    def table(self, headers, rows, **atts):
         """TABLE.
 
         The table element.
@@ -953,8 +960,8 @@ class HtmlElements:
 
         th = HtmlElement("th").wrap
         td = HtmlElement("td").wrap
-        headerMaterial = HtmlElements.wrapTable(headers, th)
-        rowMaterial = HtmlElements.wrapTable(rows, td)
+        headerMaterial = self.wrapTable(headers, th)
+        rowMaterial = self.wrapTable(rows, td)
         material = HtmlElement("body").wrap(headerMaterial + rowMaterial)
         return HtmlElement("table").wrap(material, **atts)
 
@@ -1013,8 +1020,8 @@ def asString(value, tight=False):
 
     Parameters
     ----------
-    material: string | iterable
-        Every argument in `material` may be None, a string, or an iterable.
+    value: string | iterable | void
+        Every argument in `value` may be None, a string, or an iterable.
     tight: boolean, optional False
         If True, all material will be joined tightly, with no intervening string.
         Otherwise, all pieces will be joined with a newline.

@@ -21,8 +21,16 @@ const uploadControls = () => {
     const fid = el.attr("fid")
     const show = el.attr("show")
 
-    el.change(() => {
-      const theFile = el.prop("files")[0]
+    const finput = el.children("input")
+    const ficon = el.children("span.fileupload-button")
+    const fspan = el.children("span.fileupload-label")
+
+    ficon.off('click').click(() => {
+      finput.click()
+    })
+
+    finput.change(() => {
+      const theFile = finput.prop("files")[0]
       const xhr = new XMLHttpRequest()
       const { upload } = xhr
 
@@ -47,6 +55,7 @@ const uploadControls = () => {
               const { response } = xhr
               if (response) {
                 addMsg("good", "uploaded", true)
+                fspan.html(show == null ? theFile.name : "")
                 const { staticUrl } = response
 
                 if (show != null) {

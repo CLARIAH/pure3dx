@@ -51,7 +51,7 @@ def prepare(trivial=False):
 
     Returns
     -------
-    `control.generic.AttrDict`
+    AttrDict
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 

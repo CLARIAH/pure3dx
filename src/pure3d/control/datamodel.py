@@ -2,7 +2,6 @@ from markdown import markdown
 
 from control.generic import AttrDict
 from control.files import fileExists, listFilesAccepted
-from control.html import HtmlElements as H
 
 
 class Datamodel:
@@ -25,7 +24,7 @@ class Datamodel:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -46,6 +45,74 @@ class Datamodel:
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
+    def getItem(self, project=None, edition=None):
+        """Get a relevant record.
+
+        A relevant record is either a project record, or an edition record,
+        or the one and only site record.
+
+        If all optional parameters are None, we look for the site record.
+        If the project parameter is not None, we look for the project record.
+
+        Paramenters
+        -----------
+        project: string | ObjectId | AttrDict, optional None
+            The project whose record we need.
+        edition: string | ObjectId | AttrDict, optional None
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple
+            * table: string; the table in which the record is found
+            * record id: string; the id of the record
+            * record: AttrDict; the record itself
+
+            If both project and edition are not None
+        """
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        if edition is not None:
+            table = "edition"
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
+            table = "project"
+            (recordId, record) = Mongo.get(table, project)
+        else:
+            table = "site"
+            siteCrit = Settings.siteCrit
+            record = Mongo.getRecord(table, **siteCrit)
+            recordId = record._id
+
+        return (table, recordId, record)
+
+    def getItems(self, project, edition):
+        """Get the project and edition records.
+
+        Paramenters
+        -----------
+        project: string | ObjectId | AttrDict
+            The project whose record we need.
+        edition: string | ObjectId | AttrDict
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple:
+            * project id: string
+            * project record: AttrDict
+            * edition id: string
+            * edition record: AttrDict
+        """
+        projectInfo = (
+            (None, None) if project is None else self.getItem(project=project)[1:]
+        )
+        editionInfo = (
+            (None, None) if edition is None else self.getItem(edition=edition)[1:]
+        )
+        return (*projectInfo, *editionInfo)
+
     def getDetailRecords(self, masterTable, master):
         """Retrieve the detail records of a master record.
 
@@ -59,7 +126,7 @@ class Datamodel:
         ----------
         masterTable: string
             The name of the table in which the master record lives.
-        master: string or ObjectId or AttrDict
+        master: string | ObjectId | AttrDict
             The master record.
 
         Returns
@@ -130,6 +197,21 @@ class Datamodel:
         fieldObjects[key] = fieldObject
         return fieldObject
 
+    def getFieldObject(self, key):
+        """Get a field object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the field object
+
+        Returns
+        -------
+        object | void
+            The field object found under the given key, if present, otherwise None
+        """
+        return self.fieldObjects[key]
+
     def makeUpload(self, key, fileName=None):
         """Make a file upload object and registers it.
 
@@ -160,6 +242,10 @@ class Datamodel:
         Settings = self.Settings
 
         uploadObjects = self.uploadObjects
+        uploadsConfig = self.uploadsConfig
+
+        if fileName is None:
+            fileName = uploadsConfig.get(key, AttrDict()).fileName
 
         uploadObject = uploadObjects[(key, fileName)]
         if uploadObject:
@@ -178,6 +264,27 @@ class Datamodel:
         uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
         uploadObjects[(key, fileName)] = uploadObject
         return uploadObject
+
+    def getUploadObject(self, key, fileName=None):
+        """Get an upload object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the field object
+        fileName: string, optional None
+            The file name of the upload object.
+            If not passed, the file name is derived from the config of the key.
+
+        Returns
+        -------
+        object | void
+            The upload object found under the given key and file name, if
+            present, otherwise None
+        """
+        if fileName is None:
+            fileName = self.uploadsConfig[key].fileName
+        return self.uploadObjects[(key, fileName)]
 
 
 class Field:
@@ -264,7 +371,7 @@ class Field:
 
         Parameters
         ----------
-        record: string or ObjectId or AttrDict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -294,7 +401,7 @@ class Field:
 
         Parameters
         ----------
-        record: string or ObjectId or AttrDict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -336,7 +443,7 @@ class Field:
         ----------
         table: string
             The table from which the record is taken
-        record: string or ObjectId or AttrDict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
@@ -357,6 +464,9 @@ class Field:
             Whatever the value is that we find for that field, converted to HTML.
             If the field is not present, returns the empty string, without warning.
         """
+        Settings = self.Settings
+        H = Settings.H
+
         tp = self.tp
         caption = self.caption
 
@@ -420,17 +530,17 @@ class Upload:
 
         Parameters
         ----------
-        fileName: string or None
-            The file name for the upload.
-            Only when the file name is known in advance.
-            In that case, a file that is uploaded in this upload widget,
-            will get this as file name, regardless of the file name in the
-            upload request.
         kwargs: dict
             Upload configuration arguments.
             The following parts of the upload configuration
             should be present: `table`, `accept`, while `caption`, `fileName`,
             `multiple`, `show` are optional.
+
+            The file name for the upload can be passed only when the file name
+            is known in advance.
+            In that case, a file that is uploaded in this upload widget,
+            will get this as file name, regardless of the file name in the
+            upload request.
         """
         self.Settings = Settings
         self.Messages = Messages
@@ -505,7 +615,7 @@ class Upload:
 
         Parameters
         ----------
-        record: string or ObjectId or AttrDict
+        record: string | ObjectId | AttrDict
             The record relevant to the upload
         """
         table = self.table
@@ -539,7 +649,7 @@ class Upload:
 
         Parameters
         ----------
-        record: string or ObjectId or AttrDict
+        record: string | ObjectId | AttrDict
             The record relevant to the upload
         mayChange: boolean, optional False
             Whether the file may be changed.
@@ -551,10 +661,10 @@ class Upload:
             The name of the uploaded file(s) and/or an upload control.
         """
         Settings = self.Settings
+        H = Settings.H
         workingDir = Settings.workingDir
 
         key = self.key
-        table = self.table
         fileName = self.fileName
         accept = self.accept
         caption = self.caption
@@ -564,7 +674,8 @@ class Upload:
 
         title = f"click to upload a {caption}"
 
-        fid = f"{table}/{recordId}/{key}"
+        fileNameRep = "-" if fileName is None else fileName
+        fid = f"{recordId}/{key}/{fileNameRep}"
 
         path = self.getDir(record)
 
@@ -590,6 +701,9 @@ class Upload:
                 )
                 visual = H.span(f"{fileName}&nbsp;{annotation}", cls="fieldinner")
 
+        if key == "iconSite":
+            self.debug(f"{mayChange=}")
+
         if not mayChange:
             return visual
 
@@ -597,5 +711,5 @@ class Upload:
         saveUrl = f"/upload/{fid}{sep}{path}"
 
         return H.content(
-            visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+            visual, H.finput(fileName, accept, saveUrl, fid, show, title=title)
         )

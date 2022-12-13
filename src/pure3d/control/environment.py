@@ -11,7 +11,7 @@ def var(name):
 
     Returns
     -------
-    string or None
+    string | void
         If the variable does not exist, None is returned.
     """
     return os.environ.get(name, None)

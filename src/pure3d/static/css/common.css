@@ -365,3 +365,9 @@ summary
   padding-bottom: 0.1rem;
 }
 
+input[type=file] {
+    display: block;
+    visibility: hidden;
+    width: 0;
+    height: 0;
+}

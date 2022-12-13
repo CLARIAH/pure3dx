@@ -1,7 +1,6 @@
 from textwrap import dedent
 
 from control.generic import AttrDict
-from control.html import HtmlElements as H
 
 
 class Viewers:
@@ -15,7 +14,7 @@ class Viewers:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         """
@@ -50,7 +49,7 @@ class Viewers:
 
         Returns
         -------
-        string or None
+        string | void
             The version is returned unmodified if that viewer
             version is supported.
             If the viewer is supported, but not the version, the default version
@@ -75,17 +74,17 @@ class Viewers:
 
         Parameters
         ----------
-        edition: string or ObjectId or AttrDict
+        edition: string | ObjectId | AttrDict
             The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
             Typically `read` and possibly also `update`.
         viewer: string
             The viewer in which the scene is currently loaded.
-        versionActive: string or None
+        versionActive: string | void
             The version of the viewer in which the scene is currently loaded,
             if any, otherwise None
-        actionActive: string or None
+        actionActive: string | void
             The mode in which the scene is currently loaded in the viewer
             (`read` or `update`),
             if any, otherwise None
@@ -95,9 +94,11 @@ class Viewers:
         string
             The HTML that represents the buttons.
         """
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
 
-        actionInfo = self.Settings.auth.actions
+        actionInfo = Settings.auth.actions
         viewers = self.viewers
 
         versionActive = self.check(viewer, versionActive)
@@ -147,17 +148,14 @@ class Viewers:
         def getActionButton(version, action, active):
             activeCls = "active" if active else ""
             thisActionInfo = actionInfo.get(action, AttrDict)
-            acro = thisActionInfo.acro
             name = thisActionInfo.name
 
             atts = {}
 
             if active:
-                elem = "span"
-                href = []
+                href = None
             else:
-                elem = "a"
-                href = [f"/edition/{editionId}/{version}/{action}"]
+                href = f"/edition/{editionId}/{version}/{action}"
 
                 if action == "update":
                     viewerHref = f"/viewer/{version}/{action}/{editionId}"
@@ -178,7 +176,7 @@ class Viewers:
 
             cls = f"button {activeCls} vwb"
 
-            return H.elem(elem, acro, *href, cls=cls, **atts)
+            return H.iconx(action, href=href, cls=cls, **atts)
 
         allButtons = getViewerButtons()
 
@@ -221,10 +219,11 @@ class Viewers:
         string
             The HTML for the iframe.
         """
-        viewers = self.viewers
         Settings = self.Settings
+        H = Settings.H
         debugMode = Settings.debugMode
         viewerUrlBase = Settings.viewerUrlBase
+        viewers = self.viewers
 
         ext = "dev" if debugMode else "min"
 
