@@ -33,7 +33,7 @@ class Config:
         Messages.info(logmsg="CONFIG INIT")
         self.good = True
         Settings = AttrDict()
-        Settings.H = HtmlElements(Settings)
+        Settings.H = HtmlElements(Settings, Messages)
         self.Settings = Settings
         """The actual configuration settings are stored here.
         """
@@ -307,6 +307,11 @@ class Config:
             Messages.error(logmsg=f"Cannot read {datamodelFile} in {yamlDir}")
             self.good = False
             return
+
+        details = AttrDict()
+        for (detail, master) in datamodel.master.items():
+            details[detail] = master
+        datamodel.detail = details
 
         Settings.datamodel = datamodel
 

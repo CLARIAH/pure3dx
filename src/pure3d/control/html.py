@@ -163,8 +163,10 @@ class HtmlElements:
         in the `**atts` parameter, which will not further be documented.
     """
 
-    def __init__(self, Settings):
+    def __init__(self, Settings, Messages):
         self.Settings = Settings
+        self.Messages = Messages
+        Messages.debugAdd(self)
 
     @staticmethod
     def he(val):
@@ -792,12 +794,12 @@ class HtmlElements:
 
     def finput(
         self,
-        fileName,
+        content,
         accept,
+        mayChange,
         saveUrl,
-        fid,
-        show,
-        title="Click to upload a file",
+        deleteUrl,
+        caption,
         cls="",
         **atts,
     ):
@@ -805,53 +807,116 @@ class HtmlElements:
 
         The input element for uploading files.
 
+        If the user does not have `update` permission, only information about
+        currently uploaded file(s) is presented.
+
+        But if the user does have upload permission, there will be an additional control
+        to update a new file and there will be controls to delete existing files.
+
         Parameters
         ----------
-        fileName: string
-            The name of the currently existing file. If there is not yet a file
-            pass the empty string.
+        content: list or tuple
+            The widget handles to cases:
+
+            * 1 single file with a prescribed name.
+            * no prescribed name, lists all files that match the
+              `accept` parameter.
+
+            In the first case, `content` is a tuple consisting of
+
+            * file name
+            * whether the file exists
+            * a url to load the file as image, or None
+
+            In the second case, `content` is a list containing a tuple for each file:
+
+            * file name
+            * a url to load the file as image, or None
+
+            And in this case, all files exist.
+
+            In both cases, a delete control will be added to each file, if allowed.
+
+            If an image url is present, the contents of the file will be
+            displayed as an img element.
         accept: string
             MIME type of uploaded file
+        mayChange: boolean
+            Whether the user is allowed to upload new files and delete existing files.
         saveUrl: string
             The url to which the resulting file should be posted.
-        fid: string
-            Identifier that uniquely identifies this file upload.
-        show: boolean, optional False
-            Whether the uploaded file should be shown as an image.
+        deleteUrl: string
+            The url to use to delete a file, with the understanding that the
+            file name should be appended to it.
+        caption: string
+            basis for tooltips for the upload and delete buttons
         cls: string, optional ""
-            CSS class for the button
-        title: string, optional ""
-            tooltip for the button
+            CSS class for the buttons
 
         Returns
         -------
         string(html)
         """
 
-        value = self.he(fileName)
+        content = []
 
-        if show:
-            spanValue = ""
-            buttonTitle = f"{value} - {title}"
+        if type(content) is tuple:
+            prescribed = True
+            items = [content]
         else:
-            spanValue = value
-            buttonTitle = title
+            prescribed = False
+            items = [(file, True, imgUrl) for (file, imgUrl) in content]
+
+        for (file, exists, imgUrl) in items:
+            fileRep = self.he(file)
+
+            label = (
+                self.img(imgUrl, title=file, cls="content")
+                if imgUrl
+                else self.span(
+                    [self.icon("exist" if exists else "noexist"), fileRep]
+                    if prescribed
+                    else fileRep,
+                    cls="filename",
+                )
+            )
+            deleteControl = ""
+            inputControl = ""
+            uploadControl = ""
+
+            if mayChange:
+                if exists:
+                    deleteControl = self.icon(
+                        "delete",
+                        cls=f"delete {cls}",
+                        title=f"delete {caption}",
+                        url=f"{deleteUrl}{file}",
+                    )
+                if prescribed:
+                    inputControl = self.input(fileRep, "file", accept=accept)
+                    uploadControl = self.iconx(
+                        "upload", cls=f"upload {cls}", title=f"upload {caption}"
+                    )
+
+            content.append(
+                self.span(
+                    [inputControl, label, deleteControl, uploadControl]
+                )
+            )
+
+        if mayChange and not prescribed:
+            label = self.span(f"Upload file ({accept})", cls="filenamex")
+            inputControl = self.input(None, "file", accept=accept)
+            uploadControl = self.iconx(
+                "upload", cls=f"upload {cls}", title=f"upload {caption}"
+            )
+            content.append(self.span([inputControl, label, uploadControl]))
 
         return self.span(
-            [
-                self.input(
-                    value,
-                    "file",
-                    accept=accept,
-                    **atts,
-                ),
-                self.iconx("upload", cls="fileupload-button button small", title=buttonTitle),
-                self.span(spanValue, cls="fileupload-label"),
-            ],
-            url=saveUrl,
+            content,
+            saveurl=saveUrl,
             cls=f"fileupload {cls}",
-            fid=fid,
-            show=show,
+            **atts,
         )
 
     @staticmethod

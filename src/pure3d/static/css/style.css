@@ -234,3 +234,15 @@ span.fieldinner {
   padding: 0.2rem 1rem;
   margin: 0.2rem 1rem;
 }
+span.fileupload {
+  display: inline-flex;
+  flex-flow: column wrap;
+  border-radius: 0.2em;
+  border-style: solid;
+  border-width: 0.1em;
+  border-color: var(--field-outer-border);
+  color: var(--field-outer-fore);
+  background-color: var(--field-outer-back);
+  padding: 0.5rem 0.2rem;
+  margin: 0.5rem 0.2rem;
+}

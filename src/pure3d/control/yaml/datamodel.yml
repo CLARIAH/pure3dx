@@ -7,10 +7,8 @@ tables:
   - editionUser
 
 master:
-  project:
-    - site
-  edition:
-    - project
+  project: site
+  edition: project
 
 link:
   projectUser:

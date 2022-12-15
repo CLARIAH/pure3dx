@@ -1,4 +1,5 @@
 from flask import jsonify
+from control.generic import AttrDict
 from control.files import fileExists
 from control.datamodel import Datamodel
 from control.flask import data
@@ -63,8 +64,10 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
+        (table, recordId, record) = self.relevant()
+
         wrapped = []
-        wrapped.append(self.actionButton("create", "project"))
+        wrapped.append(self.actionButton(table, record, "create"))
 
         for project in Mongo.getList("project"):
             projectId = project._id
@@ -75,12 +78,8 @@ class Content(Datamodel):
             title = project.title
 
             projectUrl = f"/project/{projectId}"
-            button = self.actionButton(
-                "delete",
-                "project",
-                record=project,
-            )
-            visual = self.getUpload("iconProject", project=project)
+            button = self.actionButton("project", project, "delete")
+            visual = self.getUpload(project, "iconProject")
             caption = self.getCaption(visual, title, button, projectUrl)
 
             wrapped.append(caption)
@@ -153,16 +152,12 @@ class Content(Datamodel):
             title = edition.title
 
             editionUrl = f"/edition/{editionId}"
-            button = self.actionButton(
-                "delete",
-                "edition",
-                record=edition,
-            )
-            visual = self.getUpload("iconEdition", project=project, edition=edition)
+            button = self.actionButton("edition", edition, "delete")
+            visual = self.getUpload(edition, "iconEdition")
             caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        wrapped.append(self.actionButton("create", "edition", project=project))
+        wrapped.append(self.actionButton("project", project, "create"))
         return H.content(*wrapped)
 
     def insertEdition(self, project):
@@ -215,9 +210,9 @@ class Content(Datamodel):
 
         (editionId, edition) = Mongo.get("edition", edition)
 
-        editionSettings = edition.get("settings", {})
-        authorTool = editionSettings.get("authorTool")
-        viewer = authorTool.get("name", viewerDefault)
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
         sceneFile = authorTool.sceneFile
 
         return (viewer, sceneFile)
@@ -281,11 +276,7 @@ class Content(Datamodel):
         wrapped = []
 
         titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.actionButton(
-            "delete",
-            "edition",
-            record=edition,
-        )
+        button = self.actionButton("edition", edition, "delete")
 
         (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
         title = H.span(titleText, cls="entrytitle")
@@ -313,7 +304,7 @@ class Content(Datamodel):
 
         return self.wrapCaption(content, button)
 
-    def getValue(self, key, project=None, edition=None, level=None, bare=False):
+    def getValue(self, table, record, key, level=None, bare=False):
         """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -327,11 +318,16 @@ class Content(Datamodel):
         Parameters
         ----------
         key: an identifier for the meta data field.
-        project: string | ObjectId | AttrDict, optional None
-            The project whose metadata we need. If it is None, we are at the site level.
-        edition: string | ObjectId | AttrDict, optional None
-            The edition whose metadata we need. If it is None, we need metadata of
-            a project or outer metadata.
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
+        level: string, optional None
+            The heading level with which the value should be formatted.
+
+            * `0`: No heading level
+            * `None`: no formatting at all
+
         bare: boolean, optional None
             Get the bare value, without HTML wrapping and without buttons.
 
@@ -343,8 +339,6 @@ class Content(Datamodel):
         """
         Auth = self.Auth
 
-        (table, recordId, record) = self.getItem(project=project, edition=edition)
-
         actions = Auth.authorise(table, record=record)
 
         if "read" not in actions:
@@ -355,13 +349,38 @@ class Content(Datamodel):
         if bare:
             return F.bare(record)
 
-        button = self.actionButton(
-            "update", table, record=record, key=key, project=project
-        )
+        button = self.actionButton(table, record, "update", key=key)
 
         return F.formatted(table, record, level=level, button=button)
 
-    def getUpload(self, key, fileName=None, project=None, edition=None):
+    def getValues(self, table, record, fieldSpecs):
+        """Puts several pieces of metadata on the web page.
+
+        Parameters
+        ----------
+        fieldSpecs: string
+            `,`-separated list of fieldSpecs
+        table: string
+            The relevant table
+        record: string | ObjectId | AttrDict | void
+            The relevant record
+
+        Returns
+        -------
+        string
+            The join of the individual results of retrieving metadata value.
+        """
+        Settings = self.Settings
+        H = Settings.H
+
+        return H.content(
+            self.getValue(table, record, key, level=level) or ""
+            for (key, level) in (
+                fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
+            )
+        )
+
+    def getUpload(self, record, key, fileName=None, bust=None):
         """Display the name and/or upload controls of an uploaded file.
 
         The user may upload model files and a scene file to an edition,
@@ -373,17 +392,24 @@ class Content(Datamodel):
 
         Parameters
         ----------
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
         key: an identifier for the upload field.
         fileName: string, optional None
             If present, it indicates that the uploaded file will have this prescribed
             name.
             A file name for an upload object may also have been specified in
             the datamodel configuration.
-        project: string | ObjectId | AttrDict
-            The project in question. If it is None, we are at the site level.
-        edition: string | ObjectId | AttrDict
-            The edition in question. If it is None, we are at the project level
-            or site level.
+        bust: string, optional None
+            If not None, the image url of the file whose name is passed in
+            `bust` is made unique by adding the current time to it. That will
+            bust the cache for the image, so that uploaded images replace the
+            existing images.
+
+            This is useful when this function is called to provide udated
+            content for an file upload widget after it has been used to
+            successfully upload a file. The file name of the uploaded
+            file is known, and that is the one that gets a cache buster appended.
 
         Returns
         -------
@@ -396,7 +422,8 @@ class Content(Datamodel):
         """
         Auth = self.Auth
 
-        (table, recordId, record) = self.getItem(project=project, edition=edition)
+        uploadObject = self.getUploadObject(key, fileName=fileName)
+        table = uploadObject.table
 
         actions = Auth.authorise(table, record=record)
 
@@ -405,7 +432,7 @@ class Content(Datamodel):
 
         F = self.makeUpload(key, fileName=fileName)
 
-        return F.formatted(record, "update" in actions)
+        return F.formatted(record, "update" in actions, bust=bust)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -443,17 +470,18 @@ class Content(Datamodel):
 
         return viewerPath
 
-    def getData(self, path, project=None, edition=None):
+    def getData(self, table, record, path):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
         This is the data directory.
         Below that the files are organized by projects and editions.
+        Projects and editions corresponds to records in tables in MongoDB.
 
         Parameters
         ----------
         path: string
-            The path of the data file within project/edition directory
+            The path of the data file within site/project/edition directory
             within the data directory.
         project: string | ObjectId | AttrDict
             The id of the project in question.
@@ -472,7 +500,9 @@ class Content(Datamodel):
 
         workingDir = Settings.workingDir
 
-        (projectId, project, editionId, edition) = self.getItems(project, edition)
+        (site, siteId, project, projectId, edition, editionId) = self.context(
+            table, record
+        )
 
         urlBase = (
             ""
@@ -486,7 +516,7 @@ class Content(Datamodel):
 
         dataPath = base if path is None else f"{base}/{path}"
 
-        (table, record, recordId) = self.getItem(project=project, edition=edition)
+        (table, recordId, record) = self.relevant(project=project, edition=edition)
 
         permitted = Auth.authorise(table, record=record, action="read")
 
@@ -504,7 +534,7 @@ class Content(Datamodel):
 
         return dataPath
 
-    def actionButton(self, action, table, record=None, key=None, project=None):
+    def actionButton(self, table, record, action, key=None):
         """Puts a button on the interface, if that makes sense.
 
         The button, when pressed, will lead to an action on certain content.
@@ -520,32 +550,28 @@ class Content(Datamodel):
 
         Parameters
         ----------
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
         action: string
             The type of action that will be performed if the button triggered.
-        table: string
-            the table to which the action applies;
-        record: ObjectId, optional None
-            the record in question
         project: string | ObjectId | AttrDict
             The project in question, if any.
             Needed to determine whether a press on the button is permitted.
         key: string, optional None
-            If present, it identifies a metadata field that is stored inside the
-            record. From the key, the value can be found.
+            If present, it identifies a field that is stored inside the
+            record.
         """
         Settings = self.Settings
         H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
 
-        urlInsert = "/"
-        (projectId, project) = Mongo.get("project", project)
-
-        if project is not None:
-            urlInsert += f"project/{projectId}/"
-
         (record, recordId) = Mongo.get(table, record)
-
+        (site, siteId, project, projectId, edition, editionId) = self.context(
+            table, record
+        )
         permitted = Auth.authorise(
             table,
             record=record,
@@ -570,7 +596,7 @@ class Content(Datamodel):
                 for (detailTable, detailRecords) in details.items():
                     nDetails = len(detailRecords)
                     plural = "" if nDetails == 1 else "s"
-                    detailRep = detailTable.rstrip("s") + plural
+                    detailRep = detailTable + plural
                     detailContent.append(f"""{nDetails}&nbsp;{detailRep}""")
 
                 report = H.div(
@@ -583,7 +609,6 @@ class Content(Datamodel):
 
         actionInfo = actions.get(action, {})
         name = actionInfo.name
-        tableItem = table.rstrip("s")
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
         recordIdRep = "" if recordId is None else f"/{recordId}"
@@ -593,20 +618,20 @@ class Content(Datamodel):
             cls = "disabled"
             can = "Cannot"
         else:
-            href = (
-                f"{urlInsert}{table}/create"
-                if action == "create"
-                else f"/{table}{recordIdRep}{keyRepUrl}/{action}"
-            )
+            if action == "create":
+                datamodel = Settings.datamodel
+                detail = datamodel.detail
+                insertTable = detail[table]
+                href = f"/{table}/{recordId}/{insertTable}/create"
+                tip = f"{name} new {insertTable}"
+            else:
+                href = f"/{table}{recordIdRep}{keyRepUrl}/{action}"
+                tip = f"{can}{name}{keyRepTip} this {table}"
+
             cls = ""
             can = ""
 
         fullCls = f"button large {cls}"
-        tip = (
-            f"{name} new {tableItem}"
-            if action == "create"
-            else f"{can}{name}{keyRepTip} this {tableItem}"
-        )
         return H.iconx(action, href=href, title=tip, cls=fullCls) + report
 
     def breadCrumb(self, project):
@@ -623,7 +648,7 @@ class Content(Datamodel):
 
         (projectId, project) = Mongo.get("project", project)
         projectUrl = f"/project/{projectId}"
-        text = self.getValue("title", project=project, bare=True)
+        text = self.getValue("project", project, "title", bare=True)
         return H.p(
             [
                 "Project: ",
@@ -636,23 +661,24 @@ class Content(Datamodel):
             ]
         )
 
-    def saveFile(self, record, key, fileNameMandatory, path, fileName):
+    def saveFile(self, table, record, key, path, fileName, givenFileName=None):
         """Saves a file in the context given by a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
-            The context record, relative to which the file has to be saved
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
         key: string
             The upload key
-        fileNameMandatory: string
-            The name of the file as which the uploaded file will be saved;
-            but if it is `-`, the file will be saved with the
-            name from the request.
         path: string
             The path from the context directory to the file
         fileName: string
             Name  of the file to be saved as mentioned in the request.
+        givenFileName: string, optional None
+            The name of the file as which the uploaded file will be saved;
+            if None, the file will be saved with the name from the request.
 
         Return
         ------
@@ -661,6 +687,7 @@ class Content(Datamodel):
 
             * a boolean: whether the save succeeded
             * a message: messages to display
+            * content: new content for an upload control (only if successful)
         """
         Settings = self.Settings
         Messages = self.Messages
@@ -668,20 +695,15 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        if fileNameMandatory == "-":
-            fileNameMandatory = None
-
-        uploadObject = self.getUploadObject(key, fileName=fileNameMandatory)
-        self.debug(f"{list(self.uploadObjects.keys())=}")
-        self.debug(f"{key=} {fileNameMandatory=}")
+        uploadObject = self.getUploadObject(key, fileName=givenFileName)
         table = uploadObject.table
 
         (recordId, record) = Mongo.get(table, record)
 
         permitted = Auth.authorise(table, record=record, action="update")
 
-        if fileNameMandatory is not None and fileName != fileNameMandatory:
-            fileName = fileNameMandatory
+        if givenFileName is not None and fileName != givenFileName:
+            fileName = givenFileName
 
         sep = "/" if path else ""
         filePath = f"{path}{sep}{fileName}"
@@ -706,7 +728,6 @@ class Content(Datamodel):
             )
             return jsonify(status=False, msg=logmsg)
 
-        fid = f"{recordId}/{key}"
-        staticUrl = f"/data/{filePath}"
+        content = self.getUpload(record, key, fileName=givenFileName, bust=fileName)
 
-        return jsonify(status=True, fid=fid, staticUrl=staticUrl)
+        return jsonify(status=True, content=content)

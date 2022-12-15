@@ -1,6 +1,6 @@
 from markdown import markdown
 
-from control.generic import AttrDict
+from control.generic import AttrDict, now
 from control.files import fileExists, listFilesAccepted
 
 
@@ -45,14 +45,16 @@ class Datamodel:
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-    def getItem(self, project=None, edition=None):
-        """Get a relevant record.
+    def relevant(self, project=None, edition=None):
+        """Get a relevant record and the table to which it belongs.
 
         A relevant record is either a project record, or an edition record,
         or the one and only site record.
 
         If all optional parameters are None, we look for the site record.
         If the project parameter is not None, we look for the project record.
+
+        This is the inverse of `context()`.
 
         Paramenters
         -----------
@@ -87,31 +89,44 @@ class Datamodel:
 
         return (table, recordId, record)
 
-    def getItems(self, project, edition):
-        """Get the project and edition records.
+    def context(self, table, record):
+        """Get the context of a record.
 
-        Paramenters
-        -----------
-        project: string | ObjectId | AttrDict
-            The project whose record we need.
-        edition: string | ObjectId | AttrDict
-            The edition whose record we need.
+        Get the project and edition records to which the record belongs.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record sits.
+        record: string
+            The record.
+
+        This is the inverse of `relevant()`.
 
         Returns
         -------
-        tuple:
-            * project id: string
-            * project record: AttrDict
-            * edition id: string
-            * edition record: AttrDict
+        tuple of tuple
+            * (site, project, record)
+            where the members are either None, or a full record
         """
-        projectInfo = (
-            (None, None) if project is None else self.getItem(project=project)[1:]
-        )
-        editionInfo = (
-            (None, None) if edition is None else self.getItem(edition=edition)[1:]
-        )
-        return (*projectInfo, *editionInfo)
+        Mongo = self.Mongo
+
+        (recordId, record) = Mongo.get(table, record)
+
+        if table == "site":
+            (editionId, edition) = (None, None)
+            (projectId, project) = (None, None)
+            (siteId, site) = (recordId, record)
+        elif table == "project":
+            (editionId, edition) = (None, None)
+            (projectId, project) = (recordId, record)
+            (siteId, site) = Mongo.get("site", record.siteId)
+        elif table == "edition":
+            (editionId, edition) = (recordId, record)
+            (projectId, project) = Mongo.get("project", record.projectId)
+            (siteId, site) = Mongo.get("site", project.siteId)
+
+        return (siteId, site, projectId, project, editionId, edition)
 
     def getDetailRecords(self, masterTable, master):
         """Retrieve the detail records of a master record.
@@ -488,8 +503,7 @@ class Field:
 
         if level is not None:
             if "{value}" in caption:
-                kind = table.rstrip("s")
-                heading = caption.format(kind=kind, value=content)
+                heading = caption.format(kind=table, value=content)
                 content = ""
             else:
                 heading = caption
@@ -534,13 +548,7 @@ class Upload:
             Upload configuration arguments.
             The following parts of the upload configuration
             should be present: `table`, `accept`, while `caption`, `fileName`,
-            `multiple`, `show` are optional.
-
-            The file name for the upload can be passed only when the file name
-            is known in advance.
-            In that case, a file that is uploaded in this upload widget,
-            will get this as file name, regardless of the file name in the
-            upload request.
+            `show` are optional.
         """
         self.Settings = Settings
         self.Messages = Messages
@@ -576,8 +584,15 @@ class Upload:
         self.fileName = kwargs.get("fileName", None)
         """The name of the file once it is uploaded.
 
-        If None, there is no prescribed file, and files are named based on the
-        file name in the upload.
+        The file name for the upload can be passed when the file name
+        is known in advance.
+        In that case, a file that is uploaded in this upload widget,
+        will get this as prescribed file name, regardless of the file name in the
+        upload request.
+
+        Without a file name, the upload widget will show all existing files
+        conforming to the `accept` setting, and will have a control to upload a
+        new file.
         """
 
         self.show = kwargs.get("show", False)
@@ -642,7 +657,7 @@ class Upload:
         sep = "/" if path else ""
         return f"{path}{sep}"
 
-    def formatted(self, record, mayChange=False):
+    def formatted(self, record, mayChange=False, bust=None):
         """Give the formatted value of a file field in a record.
 
         Optionally also puts an upload control.
@@ -654,6 +669,10 @@ class Upload:
         mayChange: boolean, optional False
             Whether the file may be changed.
             If so, an upload widget is supplied, wich contains a a delete button.
+        bust: string, optional None
+            If not None, the image url of the file whose name is passed in
+            `bust` is made unique by adding the current time to it.
+            This is a cache buster.
 
         Returns
         -------
@@ -672,44 +691,34 @@ class Upload:
 
         recordId = record._id
 
-        title = f"click to upload a {caption}"
-
         fileNameRep = "-" if fileName is None else fileName
         fid = f"{recordId}/{key}/{fileNameRep}"
 
         path = self.getDir(record)
-
-        if show:
-            staticUrl = f"/data/{path}{fileName}"
-            visual = H.img(staticUrl, fid=fid)
-        else:
-            if fileName is None:
-                sep = "/" if path else ""
-                fullDir = f"{workingDir}{sep}{path}"
-                visual = []
-
-                for file in listFilesAccepted(fullDir, accept, withExt=True):
-                    visual.append(H.span(file, cls="fieldInner"))
-
-                visual = H.span(visual, cls="fieldouter")
-            else:
-                fullPath = f"{workingDir}/{path}{fileName}"
-                exists = fileExists(fullPath)
-                annotation = H.span(
-                    "✔︎" if exists else "?",
-                    title="file is present" if exists else "no file present",
-                )
-                visual = H.span(f"{fileName}&nbsp;{annotation}", cls="fieldinner")
-
-        if key == "iconSite":
-            self.debug(f"{mayChange=}")
-
-        if not mayChange:
-            return visual
-
         sep = "/" if path else ""
+        fullDir = f"{workingDir}{sep}{path}"
         saveUrl = f"/upload/{fid}{sep}{path}"
+        deleteUrl = f"/delete/{fid}{sep}{path}".rstrip("/") + "/"
 
-        return H.content(
-            visual, H.finput(fileName, accept, saveUrl, fid, show, title=title)
+        if fileName is None:
+            content = []
+            for file in listFilesAccepted(fullDir, accept, withExt=True):
+                buster = (
+                    f"?v={now()}" if show and bust is not None and bust == show else ""
+                )
+                item = [file, f"/data/{path}{file}{buster}" if show else None]
+                content.append(item)
+        else:
+            fullPath = f"{workingDir}/{path}{fileName}"
+            exists = fileExists(fullPath)
+            content = (fileName, exists, f"/data/{path}{fileName}" if show else None)
+
+        return H.finput(
+            content,
+            accept,
+            mayChange,
+            saveUrl,
+            deleteUrl,
+            caption,
+            cls="button small",
         )

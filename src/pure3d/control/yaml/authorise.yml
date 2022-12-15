@@ -13,6 +13,7 @@ actions:
 roles:
   site:
     null: not logged in
+    guest: guest
     user: authenticated user
     admin: administrator
   project:
@@ -36,6 +37,7 @@ authRules:
     read:
       admin: true
       user: true
+      guest: true
       null: true
     update:
       admin: true
@@ -62,6 +64,7 @@ authRules:
       true:
         admin: true
         user: true
+        guest: true
         null: true
       false:
         admin: true
@@ -100,6 +103,7 @@ authRules:
       true:
         admin: true
         user: true
+        guest: true
         null: true
       false:
         admin: true

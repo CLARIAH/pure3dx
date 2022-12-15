@@ -56,28 +56,34 @@ class Pages:
 
     def home(self):
         """The site-wide home page."""
-        left = self.putValues("siteTitle@1 + abstract@2")
+        Content = self.Content
+        (table, recordId, record) = Content.relevant()
+        left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
         """The site-wide about page."""
-        left = self.putValues("siteTitle@1 + abstract@2")
-        right = self.putValues("description@2 + provenance@2")
+        Content = self.Content
+        (table, recordId, record) = Content.relevant()
+        left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
+        right = Content.getValues(table, record, "description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
         """The "surprise me!" page."""
         Content = self.Content
+        (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
-        left = self.putValues("siteTitle@1")
+        left = Content.getValues(table, record, "siteTitle@1")
         right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
         """The page with the list of projects."""
         Content = self.Content
+        (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
-        left = self.putValues("siteTitle@2") + projects
+        left = Content.getValues(table, record, "siteTitle@2") + projects
         return self.page("projects", left=left)
 
     def projectInsert(self):
@@ -112,18 +118,18 @@ class Pages:
         H = Settings.H
         Mongo = self.Mongo
         Content = self.Content
-
         (projectId, project) = Mongo.get("project", project)
         editions = Content.getEditions(project)
         editionHeading = H.h(3, "Editions")
         left = (
-            self.putValues("title@3 + creator@0", project=project)
+            Content.getValues("project", project, "title@3 + creator@0")
             + editionHeading
             + editions
         )
-        right = self.putValues(
+        right = Content.getValues(
+            "project",
+            project,
             "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
-            project=project,
         )
         return self.page("projects", left=left, right=right)
 
@@ -205,25 +211,19 @@ class Pages:
         )
         left = (
             breadCrumb
-            + self.putValues("title@4", project=project, edition=edition)
+            + Content.getValues("edition", edition, "title@4")
             + H.h(4, "Model files")
-            + H.div(
-                self.putUpload("model", project=project, edition=edition),
-                cls="modelfile",
-            )
+            + H.div(Content.getUpload(edition, "model"), cls="modelfile")
             + H.h(4, "Scene")
             + H.div(
-                self.putUpload(
-                    "scene", fileName=sceneFile, project=project, edition=edition
-                ),
-                cls="scenefile",
+                Content.getUpload(edition, "scene", fileName=sceneFile), cls="scenefile"
             )
             + sceneMaterial
         )
-        right = self.putValues(
+        right = Content.getValues(
+            "edition",
+            edition,
             "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
-            project=project,
-            edition=edition,
         )
         return self.page("projects", left=left, right=right)
 
@@ -317,11 +317,12 @@ class Pages:
             If the file does not exists, a 404 is returned.
         """
         Content = self.Content
+        (table, recordId, record) = Content.relevant(project=project, edition=edition)
 
-        dataPath = Content.getData(path, project=project, edition=edition)
+        dataPath = Content.getData(table, record, path)
         return send(dataPath)
 
-    def upload(self, record, key, fileNameMandatory, path):
+    def upload(self, record, key, path, givenFileName=None):
         """Upload a file.
 
         Parameters
@@ -330,10 +331,9 @@ class Pages:
             The context record of the upload
         key: string
             The key of the upload
-        fileNameMandatory: string
+        givenFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
-            but if it is `-`, the file will be saved with the
-            name from the request.
+            if is None, the file will be saved with the name from the request.
         """
         Content = self.Content
 
@@ -341,7 +341,9 @@ class Pages:
         fileName = parts[-1]
         path = parts[0] if len(parts) == 2 else ""
 
-        return Content.saveFile(record, key, fileNameMandatory, path, fileName)
+        return Content.saveFile(
+            record, key, path, fileName, givenFileName=givenFileName
+        )
 
     def authWebdav(self, project, edition, path, action):
         """Authorises a webdav request.
@@ -446,11 +448,13 @@ class Pages:
             Content for the right column of the page.
         """
         Settings = self.Settings
-        # Messages = self.Messages
+        Content = self.Content
         Auth = self.Auth
 
+        (table, recordId, record) = Content.relevant()
+
         navigation = self.navigation(url)
-        iconSite = self.putUpload("iconSite")
+        iconSite = Content.getUpload(record, "iconSite")
         (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return template(
@@ -525,69 +529,3 @@ class Pages:
         divContent.append(search)
 
         return H.div(divContent, cls="tabs")
-
-    def putValues(self, fieldSpecs, project=None, edition=None):
-        """Puts several pieces of metadata on the web page.
-
-        Parameters
-        ----------
-        fieldSpecs: string
-            `,`-separated list of fieldSpecs
-        project: string | ObjectId | AttrDict, optional None
-            The project in question.
-        edition: string | ObjectId | AttrDict, optional None
-            The edition in question.
-
-        Returns
-        -------
-        string
-            The join of the individual results of retrieving metadata value.
-        """
-        Settings = self.Settings
-        H = Settings.H
-        Content = self.Content
-
-        return H.content(
-            Content.getValue(
-                key,
-                project=project,
-                edition=edition,
-                level=level,
-            )
-            or ""
-            for (key, level) in (
-                fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
-            )
-        )
-
-    def putUpload(self, key, fileName=None, project=None, edition=None, cls=None):
-        """Puts a file upload control on a page.
-
-        Parameters
-        ----------
-        key: string
-            the key that identifies the kind of upload
-        fileName: string, optional None
-            If present, it indicates that the uploaded file will have this prescribed
-            name.
-            A file name for an upload object may also have been specified in
-            the datamodel configuration.
-        project: string | ObjectId | AttrDict, optional None
-            The project in question.
-        edition: string | ObjectId | AttrDict, optional None
-            The edition in question.
-        cls: string, optional None
-            An extra CSS class for the control
-
-        Returns
-        -------
-        string
-            A control that shows the file and possibly provides an upload/delete
-            control for it.
-        """
-        Content = self.Content
-
-        return (
-            Content.getUpload(key, fileName=fileName, project=project, edition=edition)
-            or ""
-        )

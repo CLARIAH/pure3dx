@@ -1,3 +1,16 @@
+from datetime import datetime as dt
+
+
+def now():
+    """The current moment in time as a isolike string value.
+
+    Strips everything after the decimal point,
+    (milliseconds and timezone).
+    """
+
+    return dt.utcnow().isoformat().split(".")[0].replace(":", "-")
+
+
 class AttrDict(dict):
     """Turn a dict into an object with attributes.
 

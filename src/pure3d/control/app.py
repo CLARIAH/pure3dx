@@ -36,7 +36,6 @@ def appFactory(objects):
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
     Pages = objects.Pages
-    Content = objects.Content
     webdavMethods = Settings.webdavMethods
 
     app = make(__name__, static_folder="../static")
@@ -52,7 +51,7 @@ def appFactory(objects):
 
     @app.route("/favicon.ico")
     def favicon():
-        favicon = Content.getData("favicon.ico")
+        favicon = Pages.dataProjects("favicon.ico")
         return send(favicon)
 
     @app.route("/login")
@@ -152,8 +151,10 @@ def appFactory(objects):
         "/upload/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
         methods=["POST"],
     )
-    def upload(record, key, fileNameMandatory, path):
-        return Pages.upload(record, key, fileNameMandatory, path)
+    def upload(record, key, givenFileName, path):
+        if givenFileName == "-":
+            givenFileName = None
+        return Pages.upload(record, key, path, givenFileName=givenFileName)
 
     @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",
