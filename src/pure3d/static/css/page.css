@@ -281,13 +281,6 @@ div.headlineend {
   background-color: var(--help-back);
   color: var(--help-fore);
 }
-#logo {
-  flex: 0 1 auto;
-  text-align: right;
-  height: calc(var(--topbar-height) - 1rem);
-  z-index: 999;
-}
-
 /* LOGIN */
 
 .login-buttons {

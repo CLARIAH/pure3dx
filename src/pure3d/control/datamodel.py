@@ -38,7 +38,8 @@ class Datamodel:
         self.Mongo = Mongo
 
         datamodel = Settings.datamodel
-        self.masterConfig = datamodel.master
+        self.detailMaster = datamodel.detailMaster
+        self.masterDetail = datamodel.masterDetail
         self.linkConfig = datamodel.link
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
@@ -154,19 +155,18 @@ class Datamodel:
             records, the empty dict is returned.
         """
         Mongo = self.Mongo
-        masterConfig = self.masterConfig
+        masterDetail = self.masterDetail
 
-        detailTables = masterConfig.get(masterTable, [])
+        detailTable = masterDetail[masterTable]
 
         (masterId, master) = Mongo.get(masterTable, master)
-        crit = {f"{masterTable.rstrip('s')}Id": masterId}
+        crit = {f"{masterTable}Id": masterId}
 
         detailRecords = AttrDict()
 
-        for detailTable in detailTables:
-            details = Mongo.getList(detailTable, **crit)
-            if len(details):
-                detailRecords[detailTable] = details
+        details = Mongo.getList(detailTable, **crit)
+        if len(details):
+            detailRecords[detailTable] = details
 
         return detailRecords
 
@@ -280,13 +280,29 @@ class Datamodel:
         uploadObjects[(key, fileName)] = uploadObject
         return uploadObject
 
+    def getUploadConfig(self, key):
+        """Get an upload config.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload config
+
+        Returns
+        -------
+        object | void
+            The upload config found under the given key and file name, if
+            present, otherwise None
+        """
+        return self.uploadsConfig[key]
+
     def getUploadObject(self, key, fileName=None):
         """Get an upload object.
 
         Parameters
         ----------
         key: string
-            The key of the field object
+            The key of the upload object
         fileName: string, optional None
             The file name of the upload object.
             If not passed, the file name is derived from the config of the key.
@@ -698,7 +714,7 @@ class Upload:
         sep = "/" if path else ""
         fullDir = f"{workingDir}{sep}{path}"
         saveUrl = f"/upload/{fid}{sep}{path}"
-        deleteUrl = f"/delete/{fid}{sep}{path}".rstrip("/") + "/"
+        deleteUrl = f"/deletefile/{fid}{sep}{path}".rstrip("/") + "/"
 
         if fileName is None:
             content = []
@@ -720,5 +736,6 @@ class Upload:
             saveUrl,
             deleteUrl,
             caption,
-            cls="button small",
+            buttonCls="button small",
+            cls=f"{key.lower()}",
         )

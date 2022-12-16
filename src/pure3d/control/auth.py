@@ -31,14 +31,16 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, record=None, action=None, **masters):
+    def authorise(self, table, record, action=None, insertTable=None):
         """Check whether an action is allowed on data.
 
-        If the action is "create", `record` should not be passed, and
-        masters are important.
+        The "create" action is a bit special, because we do not have any record
+        to start with. In this case `table` and `record` should point to the
+        master record, and `insertTable` should have the table that will
+        contain the new record.
 
-        If the action is anything else, `record` should not be None,
-        and masters should not be passed.
+        If the action is anything else, `tabale` and `record` refer to
+        the relevant record, and `insertTable` should not be passed.
 
         How do the authorisation rules work?
 
@@ -51,10 +53,6 @@ class Auth(Users):
         If so, we apply the rules for those cases and see whether the action is
         permitted.
 
-        The "create" action is a bit special, because we do not have any record
-        to start with. But we do have master records specified as arguments,
-        and this is the basis for applying additional user roles.
-
         Then we have the possibility that a record is in a certain state, e.g.
         projects may be visible or invisible, editions may be published or
         unpublished.
@@ -66,19 +64,17 @@ class Auth(Users):
         Parameters
         ----------
         table: string
-            the relevant table
-        record: ObjectId | AttrDict, optional None
-            The id of the record that is being accessed or
-            the record itself
-            Not relevant for "create" actions.
+            the relevant table; for `create` actions it is the master table
+            of the table in which a record will be inserted.
+        record: ObjectId | AttrDict
+            The id of the record that is being accessed or the record itself;
+            for `create` actions it is the master record to which a new record
+            will be created as a detail.
         action: string, optional None
             The action for which permission is asked.
-        masters: dict
+        insertTable: string
             Only relevant for "create" actions.
-            The master tables and ids of master records
-            in them to which the new record will have a link.
-            The tables are keys, the ids of the master records in those tables
-            are values.
+            The detail table in which the new record will be inserted.
 
         Returns
         -------
@@ -96,14 +92,21 @@ class Auth(Users):
             `action in result`
         """
         Messages = self.Messages
+        Content = self.Content
         isCreate = action == "create"
 
-        if record is None and not isCreate or record is not None and isCreate:
+        if (
+            insertTable is None
+            and isCreate
+            or insertTable is not None
+            and action is not None
+            and not isCreate
+        ):
             Messages.error(
                 msg="Programming error in calculating authorization",
                 logmsg=(
                     f"Wrong call to Auth.authorise with action {action} "
-                    f"and record {record} in table {table}"
+                    f"and insertTable {insertTable}"
                 ),
             )
             # this is a programming error
@@ -111,6 +114,8 @@ class Auth(Users):
 
         Settings = self.Settings
         Mongo = self.Mongo
+
+        detailMaster = Content.detailMaster
 
         User = self.myDetails()
         user = User.sub
@@ -120,7 +125,7 @@ class Auth(Users):
 
         auth = Settings.auth
         authRules = auth.authRules
-        tableRules = authRules.get(table, AttrDict())
+        tableRules = authRules.get(insertTable if isCreate else table, AttrDict())
 
         # we need the state of the record that we want to apply the action to
         # If the action is create, we have no record.
@@ -133,8 +138,7 @@ class Auth(Users):
 
         state = None
 
-        if not isCreate:
-            (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
             if isCreate:
@@ -157,7 +161,6 @@ class Auth(Users):
         # We collect the set of all possible roles and organize them by table
 
         tableFromRole = auth.tableFromRole
-        masterOf = auth.masterOf
         userCoupled = set(auth.userCoupled)
 
         # for each of the roles we have to determine whether the role is
@@ -176,17 +179,32 @@ class Auth(Users):
 
         # Then we determine which of these tables are master, detail, or none of
         # those, with respect to the table we are acting upon.
+        # Note that in case of "create" the table we act upon is a detail of
+        # what we passed as "table"
 
-        allRelatedTables = {
-            relatedTable: "self"
-            if relatedTable == table
-            else "master"
-            if table in masterOf.get(relatedTable, [])
-            else "detail"
-            if relatedTable in masterOf.get(table, [])
-            else ""
-            for relatedTable in allAllowedRoles.values()
-        }
+        allRelatedTables = (
+            {
+                relatedTable: "self"
+                if relatedTable == insertTable
+                else "detail"
+                if detailMaster[relatedTable] == insertTable
+                else "master"
+                if detailMaster[insertTable] == relatedTable
+                else ""
+                for relatedTable in allAllowedRoles.values()
+            }
+            if isCreate
+            else {
+                relatedTable: "self"
+                if relatedTable == table
+                else "detail"
+                if detailMaster[relatedTable] == table
+                else "master"
+                if detailMaster[table] == relatedTable
+                else ""
+                for relatedTable in allAllowedRoles.values()
+            }
+        )
 
         # for each of the relatedTables we compute whether it leads to extra roles
         # for the current user.
@@ -209,18 +227,20 @@ class Auth(Users):
                     continue
 
                 crit = {relatedIdField: recordId}
-                crossRecord = Mongo.getRecord(relatedCrossTable, user=user, **crit)
+                crossRecord = Mongo.getRecord(
+                    relatedCrossTable, user=user, warn=False, **crit
+                )
                 extraRole = crossRecord.role
 
                 if extraRole is not None:
                     userRoles.add(extraRole)
 
             elif kind == "master":
-                # if recordId is given, we find a masterId in the record
-                # else we use a masterId from the masters argument to the function
+                # if the action is create the given record is the master
+                # else we find the masterId in the given record
 
                 if isCreate:
-                    masterId = masters.get(relatedTable, None)
+                    masterId = recordId
                 else:
                     masterId = record[relatedIdField]
 
@@ -230,7 +250,9 @@ class Auth(Users):
                 # because we find a user role there
 
                 crit = {relatedIdField: masterId}
-                crossRecord = Mongo.getRecord(relatedCrossTable, user=user, **crit)
+                crossRecord = Mongo.getRecord(
+                    relatedCrossTable, user=user, warn=False, **crit
+                )
                 extraRole = crossRecord.role
 
                 if extraRole is not None:
@@ -310,15 +332,14 @@ class Auth(Users):
         )
 
     def makeSafe(self, table, record, action):
-        """Changes an action into an allowed action if needed.
+        """Changes an update action into a read action if needed.
 
-        This function 'demotes' an action to an allowed action if the
-        action itself is not allowed.
+        This function 'demotes' an "update: to a "read" if the
+        "update" is not allowed.
 
-        In practice, if the action is `update` or `delete`, but that is not
-        allowed, it is changed into `read`.
+        If "read" itself is not allowed, None is returned.
 
-        If `read` itself is not allowed, None is returned.
+        If any other action tahn "update" or "read" is passed, None is returned.
 
         Parameters
         ----------
@@ -334,5 +355,8 @@ class Auth(Users):
         string | void
             The resulting safe action.
         """
-        actions = self.authorise(table, record=record)
+        if action not in {"update", "read"}:
+            return None
+
+        actions = self.authorise(table, record)
         return action if action in actions else "read" if "read" in actions else None

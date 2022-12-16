@@ -6,7 +6,7 @@ tables:
   - projectUser
   - editionUser
 
-master:
+detailMaster:
   project: site
   edition: project
 

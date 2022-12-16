@@ -308,10 +308,10 @@ class Config:
             self.good = False
             return
 
-        details = AttrDict()
-        for (detail, master) in datamodel.master.items():
-            details[detail] = master
-        datamodel.detail = details
+        masterDetail = AttrDict()
+        for (detail, master) in datamodel.detailMaster.items():
+            masterDetail[master] = detail
+        datamodel.masterDetail = masterDetail
 
         Settings.datamodel = datamodel
 

@@ -1,6 +1,6 @@
 from flask import jsonify
 from control.generic import AttrDict
-from control.files import fileExists
+from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import data
 
@@ -64,14 +64,16 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        (table, recordId, record) = self.relevant()
+        (siteTable, siteId, site) = self.relevant()
 
         wrapped = []
-        wrapped.append(self.actionButton(table, record, "create"))
+        wrapped.append(
+            self.actionButton("site", site, action="create", insertTable="project")
+        )
 
         for project in Mongo.getList("project"):
             projectId = project._id
-            permitted = Auth.authorise("project", record=project, action="read")
+            permitted = Auth.authorise("project", project, action="read")
             if not permitted:
                 continue
 
@@ -90,7 +92,9 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise("project")
+        (siteTable, siteId, site) = self.relevant()
+
+        permitted = Auth.authorise("site", site, action="create", insertTable="project")
         if not permitted:
             return None
 
@@ -157,7 +161,9 @@ class Content(Datamodel):
             caption = self.getCaption(visual, title, button, editionUrl)
             wrapped.append(caption)
 
-        wrapped.append(self.actionButton("project", project, "create"))
+        wrapped.append(
+            self.actionButton("project", project, "create", insertTable="edition")
+        )
         return H.content(*wrapped)
 
     def insertEdition(self, project):
@@ -166,7 +172,9 @@ class Content(Datamodel):
 
         (projectId, project) = Mongo.get("project", project)
 
-        permitted = Auth.authorise("edition", project=project)
+        permitted = Auth.authorise(
+            "project", project, action="create", insertTable="edition"
+        )
         if not permitted:
             return None
 
@@ -217,12 +225,7 @@ class Content(Datamodel):
 
         return (viewer, sceneFile)
 
-    def getScene(
-        self,
-        edition,
-        version=None,
-        action=None,
-    ):
+    def getScene(self, edition, version=None, action=None):
         """Get the scene of an edition of a project.
 
         Well, only if the current user is authorised.
@@ -244,9 +247,9 @@ class Content(Datamodel):
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `view`
+        action: string, optional `read`
             The mode in which the viewer should be opened.
-            If the mode is `edit`, the viewer is opened in edit mode.
+            If the mode is `update`, the viewer is opened in edit mode.
             All other modes lead to the viewer being opened in read-only
             mode.
 
@@ -263,11 +266,14 @@ class Content(Datamodel):
         Auth = self.Auth
         Viewers = self.Viewers
 
+        if action is None:
+            action = "read"
+
         wrapped = []
 
         (editionId, edition) = Mongo.get("edition", edition)
         (viewer, sceneFile) = self.getViewInfo(edition)
-        actions = Auth.authorise("edition", record=edition)
+        actions = Auth.authorise("edition", edition)
         if "read" not in actions:
             return ""
 
@@ -339,7 +345,7 @@ class Content(Datamodel):
         """
         Auth = self.Auth
 
-        actions = Auth.authorise(table, record=record)
+        actions = Auth.authorise(table, record)
 
         if "read" not in actions:
             return None
@@ -422,10 +428,10 @@ class Content(Datamodel):
         """
         Auth = self.Auth
 
-        uploadObject = self.getUploadObject(key, fileName=fileName)
-        table = uploadObject.table
+        uploadConfig = self.getUploadConfig(key)
+        table = uploadConfig.table
 
-        actions = Auth.authorise(table, record=record)
+        actions = Auth.authorise(table, record)
 
         if "read" not in actions:
             return None
@@ -500,7 +506,7 @@ class Content(Datamodel):
 
         workingDir = Settings.workingDir
 
-        (site, siteId, project, projectId, edition, editionId) = self.context(
+        (site, siteId, projectId, project, editionId, edition) = self.context(
             table, record
         )
 
@@ -518,7 +524,7 @@ class Content(Datamodel):
 
         (table, recordId, record) = self.relevant(project=project, edition=edition)
 
-        permitted = Auth.authorise(table, record=record, action="read")
+        permitted = Auth.authorise(table, record, action="read")
 
         fexists = fileExists(dataPath)
         if not permitted or not fexists:
@@ -534,7 +540,7 @@ class Content(Datamodel):
 
         return dataPath
 
-    def actionButton(self, table, record, action, key=None):
+    def actionButton(self, table, record, action, insertTable=None, key=None):
         """Puts a button on the interface, if that makes sense.
 
         The button, when pressed, will lead to an action on certain content.
@@ -548,16 +554,22 @@ class Content(Datamodel):
             In that case, no delete button is displayed. Instead we display a count
             of detail records.
 
+        !!! note "Create buttons"
+            When placing a create button, the relevant record acts as the master
+            record, to which the newly created record will be added as a detail.
+
         Parameters
         ----------
         table: string
             The relevant table.
-        record: string | ObjectId | AttrDict | void
+        record: string | ObjectId | AttrDict
             The relevant record.
         action: string
             The type of action that will be performed if the button triggered.
-        project: string | ObjectId | AttrDict
-            The project in question, if any.
+        insertTable: string, optional None
+            If the action is "create", this is the table in which a record
+            get inserted. The `table` and `record` arguments are then
+            supposed to specify the *master* record of the newly inserted record.
             Needed to determine whether a press on the button is permitted.
         key: string, optional None
             If present, it identifies a field that is stored inside the
@@ -569,14 +581,9 @@ class Content(Datamodel):
         Auth = self.Auth
 
         (record, recordId) = Mongo.get(table, record)
-        (site, siteId, project, projectId, edition, editionId) = self.context(
-            table, record
-        )
+
         permitted = Auth.authorise(
-            table,
-            record=record,
-            action=action,
-            project=project,
+            table, record, action=action, insertTable=insertTable
         )
 
         if not permitted:
@@ -611,27 +618,23 @@ class Content(Datamodel):
         name = actionInfo.name
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
-        recordIdRep = "" if recordId is None else f"/{recordId}"
 
         if disable:
             href = None
             cls = "disabled"
             can = "Cannot"
         else:
-            if action == "create":
-                datamodel = Settings.datamodel
-                detail = datamodel.detail
-                insertTable = detail[table]
-                href = f"/{table}/{recordId}/{insertTable}/create"
-                tip = f"{name} new {insertTable}"
-            else:
-                href = f"/{table}{recordIdRep}{keyRepUrl}/{action}"
-                tip = f"{can}{name}{keyRepTip} this {table}"
-
             cls = ""
             can = ""
 
-        fullCls = f"button large {cls}"
+        if action == "create":
+            href = f"/{table}/{recordId}/{insertTable}/create"
+            tip = f"{name} new {insertTable}"
+        else:
+            href = f"/{table}/{recordId}{keyRepUrl}/{action}"
+            tip = f"{can}{name}{keyRepTip} this {table}"
+
+        fullCls = f"button small {cls}"
         return H.iconx(action, href=href, title=tip, cls=fullCls) + report
 
     def breadCrumb(self, project):
@@ -661,13 +664,11 @@ class Content(Datamodel):
             ]
         )
 
-    def saveFile(self, table, record, key, path, fileName, givenFileName=None):
+    def saveFile(self, record, key, path, fileName, givenFileName=None):
         """Saves a file in the context given by a record.
 
         Parameters
         ----------
-        table: string
-            The relevant table.
         record: string | ObjectId | AttrDict | void
             The relevant record.
         key: string
@@ -700,7 +701,7 @@ class Content(Datamodel):
 
         (recordId, record) = Mongo.get(table, record)
 
-        permitted = Auth.authorise(table, record=record, action="update")
+        permitted = Auth.authorise(table, record, action="update")
 
         if givenFileName is not None and fileName != givenFileName:
             fileName = givenFileName
@@ -711,22 +712,85 @@ class Content(Datamodel):
 
         if not permitted:
             logmsg = f"Upload not permitted: {key}: {fileFullPath}"
-            Messages.warning(
-                logmsg=logmsg,
-                msg=f"Upload not permitted: {filePath}",
-            )
-            return jsonify(status=False, msg=logmsg)
+            msg = f"Upload not permitted: {filePath}"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
 
         try:
             with open(fileFullPath, "wb") as fh:
                 fh.write(data())
         except Exception:
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
-            Messages.warning(
-                logmsg=logmsg,
-                msg=f"Uploaded file not saved: {filePath}",
-            )
-            return jsonify(status=False, msg=logmsg)
+            msg = f"Uploaded file not saved: {filePath}"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        content = self.getUpload(record, key, fileName=givenFileName, bust=fileName)
+
+        return jsonify(status=True, content=content)
+
+    def deleteFile(self, record, key, path, fileName, givenFileName=None):
+        """Deletes a file in the context given by a record.
+
+        Parameters
+        ----------
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
+        key: string
+            The upload key
+        path: string
+            The path from the context directory to the file
+        fileName: string
+            Name  of the file to be saved as mentioned in the request.
+        givenFileName: string, optional None
+            The name of the file as which the uploaded file will be saved;
+            if None, the file will be saved with the name from the request.
+
+        Return
+        ------
+        response
+            A json response with the status of the save operation:
+
+            * a boolean: whether the save succeeded
+            * a message: messages to display
+            * content: new content for an upload control (only if successful)
+        """
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        workingDir = Settings.workingDir
+
+        uploadObject = self.getUploadObject(key, fileName=givenFileName)
+        table = uploadObject.table
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = Auth.authorise(table, record, action="update")
+
+        sep = "/" if path else ""
+        filePath = f"{path}{sep}{fileName}"
+        fileFullPath = f"{workingDir}/{filePath}"
+
+        if not permitted:
+            logmsg = f"Delete file not permitted: {key}: {fileFullPath}"
+            msg = f"Delete not permitted: {filePath}"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        if not fileExists(fileFullPath):
+            logmsg = f"File does not exist: {key}: {fileFullPath}"
+            msg = f"File does not exist: {filePath}"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        try:
+            fileRemove(fileFullPath)
+        except Exception:
+            logmsg = f"Could not delete file: {key}: {fileFullPath}"
+            msg = f"File not deleted: {filePath}"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
 
         content = self.getUpload(record, key, fileName=givenFileName, bust=fileName)
 

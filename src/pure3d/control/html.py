@@ -801,6 +801,7 @@ class HtmlElements:
         deleteUrl,
         caption,
         cls="",
+        buttonCls="",
         **atts,
     ):
         """INPUT type="file".
@@ -851,14 +852,14 @@ class HtmlElements:
         caption: string
             basis for tooltips for the upload and delete buttons
         cls: string, optional ""
+            CSS class for the outer element
+        buttonCls: string, optional ""
             CSS class for the buttons
 
         Returns
         -------
         string(html)
         """
-
-        content = []
 
         if type(content) is tuple:
             prescribed = True
@@ -867,11 +868,13 @@ class HtmlElements:
             prescribed = False
             items = [(file, True, imgUrl) for (file, imgUrl) in content]
 
+        html = []
+
         for (file, exists, imgUrl) in items:
             fileRep = self.he(file)
 
             label = (
-                self.img(imgUrl, title=file, cls="content")
+                self.img(imgUrl, title=file, cls=f"content")
                 if imgUrl
                 else self.span(
                     [self.icon("exist" if exists else "noexist"), fileRep]
@@ -888,17 +891,17 @@ class HtmlElements:
                 if exists:
                     deleteControl = self.icon(
                         "delete",
-                        cls=f"delete {cls}",
+                        cls=f"delete {buttonCls}",
                         title=f"delete {caption}",
                         url=f"{deleteUrl}{file}",
                     )
                 if prescribed:
                     inputControl = self.input(fileRep, "file", accept=accept)
                     uploadControl = self.iconx(
-                        "upload", cls=f"upload {cls}", title=f"upload {caption}"
+                        "upload", cls=f"upload {buttonCls}", title=f"upload {caption}"
                     )
 
-            content.append(
+            html.append(
                 self.span(
                     [inputControl, label, deleteControl, uploadControl]
                 )
@@ -908,12 +911,12 @@ class HtmlElements:
             label = self.span(f"Upload file ({accept})", cls="filenamex")
             inputControl = self.input(None, "file", accept=accept)
             uploadControl = self.iconx(
-                "upload", cls=f"upload {cls}", title=f"upload {caption}"
+                "upload", cls=f"upload {buttonCls}", title=f"upload {caption}"
             )
-            content.append(self.span([inputControl, label, uploadControl]))
+            html.append(self.span([inputControl, label, uploadControl]))
 
         return self.span(
-            content,
+            html,
             saveurl=saveUrl,
             cls=f"fileupload {cls}",
             **atts,

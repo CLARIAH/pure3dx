@@ -22,10 +22,6 @@ roles:
     reader: reviewer
     editor: editor
 
-masterOf:
-  project:
-    - edition
-
 userCoupled:
   - edition
   - profile

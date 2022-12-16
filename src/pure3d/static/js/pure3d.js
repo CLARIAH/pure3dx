@@ -1,24 +1,28 @@
 /*eslint-env jquery*/
 
-const report = task => (jqXHR, stat, error) => {
-  if (task != null) {
-    console.error(stat, { error })
-    flash(task, stat)
+const addMsg = (tp, msg, replace = false) => {
+  const msgbar = $("#msgbar")
+  const html = `<span class="msgitem ${tp}">${msg}</span>`
+  if (replace) {
+    msgbar.html(html)
+  } else {
+    msgbar.append(html)
   }
 }
 
-const flash = (task, error) => {
-  const msgbar = $("#msgbar")
-  const stat = error || "succeeded"
-  const cls = error ? "error" : "message"
-  msgbar.html(`<div class="msgitem ${cls}">&lt${task}&gt; ${stat}</div>`)
+window.addMsg = addMsg
+
+const report = task => (jqXHR, stat) => {
+  if (task != null) {
+    addMsg("error", `${task} ${stat}`)
+  }
 }
 
 const processHtml = (task, destElem) => html => {
   destElem.replaceWith(html)
   uploadControl(destElem)
   if (task != null) {
-    flash(task)
+    addMsg("good", `${task} succeeded`)
   }
 }
 
@@ -45,18 +49,6 @@ const fetch = (url, task, destElem, data) => {
     })
   }
 }
-
-const addMsg = (tp, msg, replace = false) => {
-  const msgbar = $("#msgbar")
-  const html = `<span class="msgitem ${tp}">${msg}</span>`
-  if (replace) {
-    msgbar.html(html)
-  } else {
-    msgbar.append(html)
-  }
-}
-
-window.addMsg = addMsg
 
 const uploadControls = () => {
   const fuploads = $(".fileupload")

@@ -167,9 +167,6 @@ class Pages:
         An edition knows the scene it should display and the viewer that was
         used to create the scene.
 
-        If action is None, only the edition logo will be shown, no viewer
-        will be loaded.
-
         If action is not None, its value determines which viewer will be loaded
         in the 3D viewer.
         It is dependent on the parameters and/or defaults
@@ -199,15 +196,13 @@ class Pages:
         projectId = edition.projectId
         (projectId, project) = Mongo.get("project", projectId)
         breadCrumb = Content.breadCrumb(project)
+        if action is None:
+            action = "read"
         action = Auth.makeSafe("edition", edition, action)
         sceneMaterial = (
             ""
-            if action is None
-            else Content.getScene(
-                edition,
-                version=version,
-                action=action,
-            )
+            if False and action is None
+            else Content.getScene(edition, version=version, action=action)
         )
         left = (
             breadCrumb
@@ -285,7 +280,7 @@ class Pages:
         dataPath = Content.getViewerFile(path)
         return send(dataPath)
 
-    def dataProjects(self, path, project=None, edition=None):
+    def fileData(self, path, project=None, edition=None):
         """Data content requested directly from the file repository.
 
         This is
@@ -345,7 +340,30 @@ class Pages:
             record, key, path, fileName, givenFileName=givenFileName
         )
 
-    def authWebdav(self, project, edition, path, action):
+    def deleteFile(self, record, key, path, givenFileName=None):
+        """Delete a file.
+
+        Parameters
+        ----------
+        record: string | ObjectId | AttrDict
+            The context record of the upload
+        key: string
+            The key of the upload
+        givenFileName: string, optional None
+            The name of the file as which the uploaded file will be saved;
+            if is None, the file will be saved with the name from the request.
+        """
+        Content = self.Content
+
+        parts = path.rstrip("/").rsplit("/", 1)
+        fileName = parts[-1]
+        path = parts[0] if len(parts) == 2 else ""
+
+        return Content.deleteFile(
+            record, key, path, fileName, givenFileName=givenFileName
+        )
+
+    def authWebdav(self, edition, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -355,8 +373,6 @@ class Pages:
 
         Parameters
         ----------
-        project: string | ObjectId | AttrDict
-            The project in question.
         edition: string | ObjectId | AttrDict
             The edition in question.
         path: string
@@ -374,22 +390,17 @@ class Pages:
         Mongo = self.Mongo
         Auth = self.Auth
 
-        permitted = Auth.authorise(
-            "edition",
-            record=edition,
-            action=action,
-            project=project,
-        )
+        (editionId, edition) = Mongo.get("edition", edition)
+        permitted = Auth.authorise("edition", record=edition, action=action)
+
         if not permitted:
             User = Auth.myDetails()
             user = User.sub
             name = User.nickname
 
-            (projectId, project) = Mongo.get("project", project)
-            (editionId, edition) = Mongo.get("edition", edition)
             Messages.info(
                 logmsg=f"WEBDav unauthorised by user {name} ({user})"
-                f" on project {projectId} edition {editionId} path {path}"
+                f" on edition {editionId} path {path}"
             )
         return permitted
 

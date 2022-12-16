@@ -1,4 +1,4 @@
-from control.flask import make, stop, method, initializing, send
+from control.flask import make, stop, method, initializing
 
 
 def appFactory(objects):
@@ -51,8 +51,7 @@ def appFactory(objects):
 
     @app.route("/favicon.ico")
     def favicon():
-        favicon = Pages.dataProjects("favicon.ico")
-        return send(favicon)
+        return Pages.fileData("favicon.ico")
 
     @app.route("/login")
     def login():
@@ -144,8 +143,8 @@ def appFactory(objects):
         "/data/<path:path>",
         defaults=dict(project=None, edition=None),
     )
-    def dataProjects(project=None, edition=None, path=None):
-        return Pages.dataProjects(path, project=project, edition=edition)
+    def fileData(project=None, edition=None, path=None):
+        return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
         "/upload/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
@@ -155,6 +154,15 @@ def appFactory(objects):
         if givenFileName == "-":
             givenFileName = None
         return Pages.upload(record, key, path, givenFileName=givenFileName)
+
+    @app.route(
+        "/deletefile/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
+        methods=["POST"],
+    )
+    def deletefile(record, key, givenFileName, path):
+        if givenFileName == "-":
+            givenFileName = None
+        return Pages.deletefile(record, key, path, givenFileName=givenFileName)
 
     @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",
@@ -167,7 +175,7 @@ def appFactory(objects):
     )
     def authWebdav(project, edition, path):
         action = webdavMethods[method()]
-        return Pages.authWebdav(project, edition, path, action)
+        return Pages.authWebdav(edition, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
