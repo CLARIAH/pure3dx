@@ -9,13 +9,15 @@ from control.flask import (
 )
 
 
-PROVIDER_ATTS = tuple(
-    """
+PROVIDER_ATTS = {
+    x: x
+    for x in """
     sub
     email
     nickname
 """.strip().split()
-)
+}
+PROVIDER_ATTS["sub"] = "user"
 
 
 class Users:
@@ -51,7 +53,7 @@ class Users:
 
         If there is no current user, it has no members.
 
-        Otherwise, it has member `sub`, the sub of the current user.
+        Otherwise, it has member `user`, the "sub" of the current user.
         It may also have additional members, such as `name` and `role`.
         """
 
@@ -91,7 +93,7 @@ class Users:
         So, we find out if we have to log in a test user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user's sub
+        We only log in a test user if we are in test mode and the user's "sub"
         is passed in the request.
 
         Returns
@@ -133,11 +135,11 @@ class Users:
         When this function starts operating, the user has been through the login
         process provided by the authentication service.
 
-        We can now find the user's sub and additional attributes in the request
+        We can now find the user's "sub" and additional attributes in the request
         context.
 
         We use that information to lookup the user in the MongoDb users table.
-        If the user does not exists, we add a new user record, with this sub and
+        If the user does not exists, we add a new user record, with this "sub" and
         these attributes, and role `user`.
 
         If the user does exists, we check whether we have to update his attributes.
@@ -254,21 +256,21 @@ class Users:
     def myDetails(self):
         """Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain an sub?
+        The `__User` member is inspected: does it contain a field called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
             Otherwise a copy of the complete __User record is returned.
-            unless there is no `sub` member in the current user, then
+            unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         """
         User = self.__User
-        return AttrDict(**User) if "sub" in User else AttrDict({})
+        return AttrDict(**User) if "user" in User else AttrDict({})
 
     def getUser(self, fromArg=False):
-        """Obtain the sub of the currently logged in user from the request info.
+        """Obtain the "sub" of the currently logged in user from the request info.
 
         It works for test users and normal users.
 
@@ -284,7 +286,7 @@ class Users:
         boolean, boolean, string
             Whether we are in test mode.
             Whether the user is a test user.
-            The sub of the user
+            The "sub" of the user
         """
         oidc = self.oidc
         Settings = self.Settings
@@ -363,7 +365,7 @@ class Users:
                 Mongo.getList("user", isTest=True),
                 key=lambda r: r.nickname,
             ):
-                user = record.sub
+                user = record.user
                 name = record.nickname
                 role = self.presentRole(record.role)
 
@@ -424,7 +426,7 @@ class Users:
         referrer: string
             url where we came from.
         user: string
-            The sub of the test user that we must log in as.
+            The "sub" of the test user that we must log in as.
 
         Returns
         -------
@@ -469,14 +471,14 @@ class Users:
         Mongo = self.Mongo
         User = self.__User
 
-        record = Mongo.getRecord("user", sub=user)
+        record = Mongo.getRecord("user", user=user)
 
         if not record:
             Messages.warning(msg="Unknown user", logmsg=f"Unknown user {user}")
             return False
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
@@ -485,14 +487,14 @@ class Users:
     def __findUser(self, user, update=False):
         """Lookup user data in the MongoDb users collection.
 
-        The user is looked up by the `sub` field.
+        The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from
         the identity provider.
 
         Parameters
         ----------
         user: string
-            The `sub` of by which a user is looked up, if not None.
+            The `user` of by which a user is looked up, if not None.
         update: boolean, optional False
 
         Returns
@@ -506,27 +508,30 @@ class Users:
         oidc = self.oidc
         User = self.__User
 
-        record = Mongo.getRecord("user", sub=user, warn=False)
+        record = Mongo.getRecord("user", user=user, warn=False)
         newUser = None
 
         if not record:
-            newUser = {att: oidc.user_getfield(att) for att in PROVIDER_ATTS}
+            newUser = {
+                att: oidc.user_getfield(oidcAtt)
+                for (oidcAtt, att) in PROVIDER_ATTS.items()
+            }
             userId = Mongo.insertRecord("user", role="user", **newUser)
             record = Mongo.getRecord("user", _id=userId)
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
         if update and not newUser:
             changes = {}
-            for att in PROVIDER_ATTS:
+            for (oidcAtt, att) in PROVIDER_ATTS.items():
                 orig = User[att]
-                new = oidc.user_getfield(att)
+                new = oidc.user_getfield(oidcAtt)
                 if new is not None and orig != new:
                     changes[att] = new
                     User[att] = new
             if changes:
-                Mongo.updateRecord("user", changes, sub=User.sub)
+                Mongo.updateRecord("user", changes, user=User.user)
         return True

@@ -31,6 +31,86 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
+    def authUser(self, task, table=None, record=None):
+        """Check whether a certain task related to the user table is allowed.
+
+        Admins may see the list of users, project and edition users
+        may see which other users are in the same project or edition
+        as they are, admins may assign project organisers,
+        project organisers may assign edition editors,
+        edition editors may assign edition readers.
+
+        The following tasks are defined;
+        per task there is a relevant table/record that should be passed:
+
+        `tab`: see the users tab.
+            *No relevant record needed.*
+            *No other user needed.*
+
+            Only admins and users that are associated to
+            any project/edition will see the "Users" tab in navigation.
+
+            A boolean is returned.
+
+        `view`: see details of other users.
+            *The relevant record is either a project or an edition.*
+
+            Only admins and people in the same project/edition may see
+            the users in that item.
+
+            A list of users is returned.
+
+        `assign`:
+            Only for projects and unpublished editions: according to the
+            assignRules in `authorise.yaml`
+
+            *The relevant record is either a project or an edition.*
+            *The `otherUser` parameter is the assignee.
+
+            We need the role of the assignee, because users cannot assign
+            more powerful users.
+
+            A boolean is returned/
+
+        Parameters
+        ----------
+        task: string
+            The task to be executed
+        table: string, optional None
+            the relevant table
+        record: ObjectId | AttrDict, optional None
+            the relevant record
+        user: ObjectId | AttrDict, optional None
+            the other user
+
+        Returns
+        -------
+        boolean
+            Whether the current user may execute the task in the given
+            context, affecting the other user.
+        """
+        Mongo = self.Mongo
+        User = self.myDetails()
+        user = User.user
+        role = User.role
+
+        if role == "admin":
+            return True
+
+        crossTable = f"{table}User"
+
+        if task == "tab":
+            return sum(
+                len(Mongo.getList(f"{tb}User", user=user))
+                for tb in ("project", "edition")
+            ) > 0
+
+        (recordId, record) = Mongo.get(table, record)
+
+        if task == "view":
+            same = Mongo.getList(crossTable, crossField=recordId)
+            return {r.userId for r in same}
+
     def authorise(self, table, record, action=None, insertTable=None):
         """Check whether an action is allowed on data.
 
@@ -78,14 +158,11 @@ class Auth(Users):
 
         Returns
         -------
-        boolean | set | dict
-            For "assign" actions: set of roles that may be assigned to another user
-            for this record.
-
+        boolean | dict
             For other actions: a boolean whether action is allowed.
 
             If no action is passed: dict keyed by the allowed actions, the values
-            are sets for "assign" actions and booleans for other actions.
+            are true.
             Actions with a falsy permission (False or the empty set) are not included
             in the dict.
             So, to test whether any action is allowed, it suffices to test whether
@@ -118,7 +195,7 @@ class Auth(Users):
         detailMaster = Content.detailMaster
 
         User = self.myDetails()
-        user = User.sub
+        user = User.user
         role = User.role
 
         # we select the authorisation rules for this table
@@ -294,42 +371,30 @@ class Auth(Users):
         #    and valued by a boolean or a set, depending on the action.
 
         # We compute the allowed actions resulting in a dict keyed by the action
-        # and valued by a boolean for most actions and a set for the action "assign"
+        # and valued by a boolean.
 
         allowedActions = {}
 
         for (act, requiredRoles) in rules.items():
             if requiredRoles is None:
                 continue
-            if act == "assign":
-                permission = set()
-                for presentRole in userRoles:
-                    permission |= set(requiredRoles.get(presentRole, []))
-                if permission:
-                    allowedActions[act] = permission
-            else:
-                permission = False
-                for presentRole in userRoles:
-                    if requiredRoles.get(presentRole, False):
-                        permission = True
-                        break
-                if permission:
-                    allowedActions[act] = True
+
+            permission = False
+            for presentRole in userRoles:
+                if requiredRoles.get(presentRole, False):
+                    permission = True
+                    break
+
+            if permission:
+                allowedActions[act] = True
 
         # Finally we return the result.
         #
         # If no action is given, we return the allowedActions straightaway.
         # Otherwise we lookup the given action in allowedActions, get the
         # associated value (or provide a falsy default), and return that.
-        #
-        # Note that in the case of the assign action a set of roles is returned,
-        # the roles that this user may assign to another user for this record.
 
-        return (
-            allowedActions
-            if action is None
-            else allowedActions.get(action, set() if action == "assign" else False)
-        )
+        return allowedActions if action is None else allowedActions.get(action, False)
 
     def makeSafe(self, table, record, action):
         """Changes an update action into a read action if needed.

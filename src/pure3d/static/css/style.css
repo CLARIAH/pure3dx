@@ -30,26 +30,6 @@
   text-align: justify;
 }
 
-.modelfile {
-  font-family: monospace;
-  font-size: large;
-  font-weight: bold;
-  color: var(--model-fore);
-  background-color: var(--model-back);
-  border-radius: 0.2em;
-  border-style: solid;
-  border-width: 0.1em;
-  border-color: var(--model-border);
-  padding: 0.2rem 1rem;
-  margin: 1rem 0.2rem;
-}
-.modelfile.none {
-  font-family: sans-serif;
-  font-size: large;
-  color: var(--model-fore-none);
-  border-style: dashed;
-}
-
 .wrapper {
   display: flex;
   flex-direction: column;
@@ -81,11 +61,6 @@
   text-align: right;
 }
 
-.scene {
-  font-size: large;
-  font-weight: bold;
-  width: 40%;
-}
 .viewerbuttons {
   width: 55%;
 }
@@ -234,9 +209,26 @@ span.fieldinner {
   padding: 0.2rem 1rem;
   margin: 0.2rem 1rem;
 }
-span.fileupload {
+span.fileswidgetsingle {
   display: inline-flex;
-  flex-flow: column wrap;
+  flex-flow: column nowrap;
+  padding: 0;
+  margin: 0;
+}
+span.fileswidgetsingle > span.withimage {
+  color: var(--field-inner-fore);
+  padding: 0;
+  margin: 0;
+}
+span.fileswidgetmulti > span.withimage,
+span.fileswidgetsingle > span.withimage {
+  color: var(--field-inner-fore);
+  padding: 0;
+  margin: 0;
+}
+span.fileswidgetmulti {
+  display: inline-flex;
+  flex-flow: column nowrap;
   border-radius: 0.2em;
   border-style: solid;
   border-width: 0.1em;
@@ -246,14 +238,34 @@ span.fileupload {
   padding: 0.5rem 0.2rem;
   margin: 0.5rem 0.2rem;
 }
+span.fileswidgetsingle > span.withoutimage,
+span.fileswidgetmulti > span.withoutimage {
+  border-radius: 0.1em;
+  border-style: solid;
+  border-width: 0.1em;
+  border-color: var(--field-inner-border);
+  color: var(--field-inner-fore);
+  background-color: var(--field-inner-back);
+  padding: 0.2rem 1rem;
+  margin: 0.2rem 1rem;
+}
 span.fileupload.iconsite {
   all: unset;
   height: 100%;
   flex: 0 1 auto;
   text-align: right;
 }
+span.fileupload.iconsite > span {
+  all: unset;
+}
 span.fileupload.iconsite img {
   height: calc(var(--topbar-height) - 1rem);
   z-index: 999;
+}
+span.fileupload.iconproject img {
+  width: 10rem;
+}
+span.fileupload.iconedition img {
+  width: 10rem;
 }
 

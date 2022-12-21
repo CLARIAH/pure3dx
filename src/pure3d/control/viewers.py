@@ -186,7 +186,7 @@ class Viewers:
         ] + [
             getActionButton(versionActive, action, action == actionActive)
             for action in actions
-            if action not in {"assign", "delete"}
+            if action not in {"delete"}
         ]
 
         buttons = H.details(activeButtons, allButtons, f"vwbuttons-{editionId}")

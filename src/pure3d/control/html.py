@@ -213,7 +213,7 @@ class HtmlElements:
         return "&quot;"
 
     @staticmethod
-    def content(*material, tight=False):
+    def content(*material, tight=True):
         """fragment.
 
         This is a pseudo element.
@@ -636,7 +636,7 @@ class HtmlElements:
 
         return HtmlElement("head").wrap(material, **atts)
 
-    def icon(self, icon, asChar=False, **atts):
+    def icon(self, icon, text=None, asChar=False, **atts):
         """icon.
 
         Pseudo element for an icon.
@@ -649,6 +649,8 @@ class HtmlElements:
         ----------
         icon: string
             Name of the icon.
+        text: string, optional, `None`
+            Extra text that will be placed in front of the icon.
         asChar: boolean, optional, `False`
             If `True`, just output the icon character.
             Otherwise, wrap it in a `<span>` with all
@@ -667,9 +669,11 @@ class HtmlElements:
             return icons.get(icon, icons["noicon"])
 
         addClass = f"symbol i-{icon} "
-        return HtmlElement("span").wrap(iconChar, addClass=addClass, **atts)
+        return HtmlElement("span").wrap(
+            (text or "") + iconChar, addClass=addClass, **atts
+        )
 
-    def iconx(self, icon, href=None, **atts):
+    def iconx(self, icon, text=None, href=None, **atts):
         """iconx.
 
         Pseudo element for a clickable icon.
@@ -687,6 +691,8 @@ class HtmlElements:
         ----------
         icon: string
             Name of the icon.
+        text: string, optional, `None`
+            Extra text that will be placed in front of the icon.
         href: url, optional, `None`
             Destination of the icon when clicked.
             Will be left out when equal to the empty string.
@@ -704,7 +710,7 @@ class HtmlElements:
             atts["href"] = href
 
         return HtmlElement("span" if href is None else "a").wrap(
-            iconChar, addClass=addClass, **atts
+            (text or "") + iconChar, addClass=addClass, **atts
         )
 
     @staticmethod
@@ -802,6 +808,7 @@ class HtmlElements:
         caption,
         cls="",
         buttonCls="",
+        wrapped=True,
         **atts,
     ):
         """INPUT type="file".
@@ -855,6 +862,15 @@ class HtmlElements:
             CSS class for the outer element
         buttonCls: string, optional ""
             CSS class for the buttons
+        wrapped: boolean, optional True
+            Whether the content should be wrapped in a container element.
+            If so, the container element carries a class attribute filled
+            with `cls`, and all attributes specified in the `atts` argument.
+            This generates a new widget on the page.
+
+            If False, only the content is passed. Use this if the content
+            of an existing widget has changed and must be inserted in
+            that widget. The outer element of the widget is not changed.
 
         Returns
         -------
@@ -864,17 +880,26 @@ class HtmlElements:
         if type(content) is tuple:
             prescribed = True
             items = [content]
+            outerCls = "fileswidgetsingle"
         else:
             prescribed = False
             items = [(file, True, imgUrl) for (file, imgUrl) in content]
+            outerCls = "fileswidgetmulti"
 
         html = []
 
         for (file, exists, imgUrl) in items:
             fileRep = self.he(file)
 
+            itemCls = "withimage" if imgUrl else "withoutimage"
             label = (
-                self.img(imgUrl, title=file, cls=f"content")
+                (
+                    self.img(imgUrl, title=file, cls="content")
+                    if exists
+                    else self.icon(
+                        "noexist", imgurl=imgUrl, title=f"{file} does not exist"
+                    )
+                )
                 if imgUrl
                 else self.span(
                     [self.icon("exist" if exists else "noexist"), fileRep]
@@ -901,25 +926,28 @@ class HtmlElements:
                         "upload", cls=f"upload {buttonCls}", title=f"upload {caption}"
                     )
 
-            html.append(
-                self.span(
-                    [inputControl, label, deleteControl, uploadControl]
-                )
-            )
+            html.append(self.span([inputControl, label, deleteControl, uploadControl], cls=itemCls))
 
         if mayChange and not prescribed:
             label = self.span(f"Upload file ({accept})", cls="filenamex")
             inputControl = self.input(None, "file", accept=accept)
             uploadControl = self.iconx(
-                "upload", cls=f"upload {buttonCls}", title=f"upload {caption}"
+                "upload",
+                text=label,
+                cls=f"upload {buttonCls}",
+                title=f"upload {caption}",
             )
-            html.append(self.span([inputControl, label, uploadControl]))
+            html.append(self.span([inputControl, uploadControl]))
 
-        return self.span(
-            html,
-            saveurl=saveUrl,
-            cls=f"fileupload {cls}",
-            **atts,
+        return (
+            self.span(
+                html,
+                saveurl=saveUrl,
+                cls=f"fileupload {outerCls} {cls}",
+                **atts,
+            )
+            if wrapped
+            else "".join(html)
         )
 
     @staticmethod
@@ -1078,7 +1106,7 @@ class HtmlElements:
         return material
 
 
-def asString(value, tight=False):
+def asString(value, tight=True):
     """Join an iterable of strings or iterables into a string.
 
     And if the value is already a string, return it, and if it is `None`
@@ -1106,7 +1134,7 @@ def asString(value, tight=False):
         if value is None
         else value
         if type(value) is str
-        else sep.join(asString(val) for val in value)
+        else sep.join(asString(val, tight=tight) for val in value)
         if isIterable(value)
         else str(value)
     )

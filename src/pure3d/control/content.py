@@ -88,6 +88,53 @@ class Content(Datamodel):
 
         return H.content(*wrapped)
 
+    def getUsers(self):
+        """Get the list of relevant users.
+
+        Admin users get the list of all users.
+
+        Normal users get the list of users associated with
+
+        Guests and not-logged-in users cannot see any user.
+
+        * the project of which they are organiser
+        * the editions of which they are editor or reviewer
+
+        Returns
+        -------
+        string
+            A list of captions of the projects,
+            wrapped in a HTML string.
+        """
+        Settings = self.Settings
+        H = Settings.H
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (siteTable, siteId, site) = self.relevant()
+
+        wrapped = []
+        wrapped.append(
+            self.actionButton("site", site, action="create", insertTable="project")
+        )
+
+        for project in Mongo.getList("project"):
+            projectId = project._id
+            permitted = Auth.authorise("project", project, action="read")
+            if not permitted:
+                continue
+
+            title = project.title
+
+            projectUrl = f"/project/{projectId}"
+            button = self.actionButton("project", project, "delete")
+            visual = self.getUpload(project, "iconProject")
+            caption = self.getCaption(visual, title, button, projectUrl)
+
+            wrapped.append(caption)
+
+        return H.content(*wrapped)
+
     def insertProject(self):
         Mongo = self.Mongo
         Auth = self.Auth
@@ -99,7 +146,7 @@ class Content(Datamodel):
             return None
 
         User = Auth.myDetails()
-        user = User.sub
+        user = User.user
         name = User.nickname
 
         title = "Project without title"
@@ -386,7 +433,7 @@ class Content(Datamodel):
             )
         )
 
-    def getUpload(self, record, key, fileName=None, bust=None):
+    def getUpload(self, record, key, fileName=None, bust=None, wrapped=True):
         """Display the name and/or upload controls of an uploaded file.
 
         The user may upload model files and a scene file to an edition,
@@ -416,6 +463,9 @@ class Content(Datamodel):
             content for an file upload widget after it has been used to
             successfully upload a file. The file name of the uploaded
             file is known, and that is the one that gets a cache buster appended.
+        wrapped: boolean, optional True
+            Whether the content should be wrapped in a container element.
+            See `control.html.HtmlElements.finput()`.
 
         Returns
         -------
@@ -438,7 +488,7 @@ class Content(Datamodel):
 
         F = self.makeUpload(key, fileName=fileName)
 
-        return F.formatted(record, "update" in actions, bust=bust)
+        return F.formatted(record, "update" in actions, bust=bust, wrapped=wrapped)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -696,8 +746,8 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        uploadObject = self.getUploadObject(key, fileName=givenFileName)
-        table = uploadObject.table
+        uploadConfig = self.getUploadConfig(key)
+        table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
 
@@ -725,7 +775,9 @@ class Content(Datamodel):
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
-        content = self.getUpload(record, key, fileName=givenFileName, bust=fileName)
+        content = self.getUpload(
+            record, key, fileName=givenFileName, bust=fileName, wrapped=False
+        )
 
         return jsonify(status=True, content=content)
 
@@ -761,8 +813,8 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        uploadObject = self.getUploadObject(key, fileName=givenFileName)
-        table = uploadObject.table
+        uploadConfig = self.getUploadConfig(key)
+        table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
 
@@ -792,6 +844,8 @@ class Content(Datamodel):
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
-        content = self.getUpload(record, key, fileName=givenFileName, bust=fileName)
+        content = self.getUpload(
+            record, key, fileName=givenFileName, bust=fileName, wrapped=False
+        )
 
         return jsonify(status=True, content=content)

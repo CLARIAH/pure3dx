@@ -158,6 +158,8 @@ class Datamodel:
         masterDetail = self.masterDetail
 
         detailTable = masterDetail[masterTable]
+        if detailTable is None:
+            return AttrDict()
 
         (masterId, master) = Mongo.get(masterTable, master)
         crit = {f"{masterTable}Id": masterId}
@@ -673,7 +675,7 @@ class Upload:
         sep = "/" if path else ""
         return f"{path}{sep}"
 
-    def formatted(self, record, mayChange=False, bust=None):
+    def formatted(self, record, mayChange=False, bust=None, wrapped=True):
         """Give the formatted value of a file field in a record.
 
         Optionally also puts an upload control.
@@ -689,6 +691,9 @@ class Upload:
             If not None, the image url of the file whose name is passed in
             `bust` is made unique by adding the current time to it.
             This is a cache buster.
+        wrapped: boolean, optional True
+            Whether the content should be wrapped in a container element.
+            See `control.html.HtmlElements.finput()`.
 
         Returns
         -------
@@ -718,16 +723,19 @@ class Upload:
 
         if fileName is None:
             content = []
-            for file in listFilesAccepted(fullDir, accept, withExt=True):
+            for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
                 buster = (
-                    f"?v={now()}" if show and bust is not None and bust == show else ""
+                    f"?v={now()}" if show and bust is not None and bust == fileNm else ""
                 )
-                item = [file, f"/data/{path}{file}{buster}" if show else None]
+                item = [fileNm, f"/data/{path}{fileNm}{buster}" if show else None]
                 content.append(item)
         else:
+            buster = (
+                f"?v={now()}" if show and bust is not None and bust == fileName else ""
+            )
             fullPath = f"{workingDir}/{path}{fileName}"
             exists = fileExists(fullPath)
-            content = (fileName, exists, f"/data/{path}{fileName}" if show else None)
+            content = (fileName, exists, f"/data/{path}{fileName}{buster}" if show else None)
 
         return H.finput(
             content,
@@ -736,6 +744,7 @@ class Upload:
             saveUrl,
             deleteUrl,
             caption,
+            wrapped=wrapped,
             buttonCls="button small",
             cls=f"{key.lower()}",
         )

@@ -10,7 +10,20 @@ const addMsg = (tp, msg, replace = false) => {
   }
 }
 
+const addMsgs = (messages, replace = false) => {
+  const msgbar = $("#msgbar")
+  if (replace) {
+    msgbar.html("")
+  }
+  for (const message of messages) {
+    const [tp, msg] = message
+    const html = `<span class="msgitem ${tp}">${msg}</span>`
+    msgbar.append(html)
+  }
+}
+
 window.addMsg = addMsg
+window.addMsgs = addMsgs
 
 const report = task => (jqXHR, stat) => {
   if (task != null) {
@@ -18,15 +31,24 @@ const report = task => (jqXHR, stat) => {
   }
 }
 
-const processHtml = (task, destElem) => html => {
-  destElem.replaceWith(html)
-  uploadControl(destElem)
-  if (task != null) {
-    addMsg("good", `${task} succeeded`)
+const processHtml = (task, destElem) => response => {
+  console.warn(task, response, { fupload: destElem })
+  const { status: stat, messages, content } = response
+  if (stat) {
+    const destElemJQ = $(destElem)
+    destElemJQ.html(content)
+    uploadControl(destElem)
+    if (task != null) {
+      addMsg("good", `${task} succeeded`, true)
+    }
+  }
+  else {
+    console.warn({ stat, messages })
+    addMsgs(messages)
   }
 }
 
-const fetch = (url, task, destElem, data) => {
+const fetchData = (url, task, destElem, data) => {
   if (data === undefined) {
     $.ajax({
       type: "GET",
@@ -59,21 +81,21 @@ const uploadControls = () => {
 }
 
 const uploadControl = fupload => {
-  const fuploadEl = $(fupload)
-  const saveUrl = fuploadEl.attr("saveurl")
+  const fuploadJQ = $(fupload)
+  const saveUrl = fuploadJQ.attr("saveurl")
 
-  const finput = fuploadEl.children("input")
-  const fupdate = fuploadEl.children(".upload")
-  const fdelete = fuploadEl.children(".delete")
+  const finput = fuploadJQ.find("input")
+  const fupdate = fuploadJQ.find("span.upload.button")
+  const fdelete = fuploadJQ.find("span.delete.button")
 
   fupdate.off("click").click(() => {
     finput.click()
   })
 
   fdelete.off("click").click(e => {
-    const me = $(e.currentTarget)
-    const deleteUrl = me.attr("deleteurl")
-    fetch(deleteUrl, "delete", fupload)
+    const eJQ = $(e.currentTarget)
+    const deleteUrl = eJQ.attr("url")
+    fetchData(deleteUrl, "delete", fupload)
   })
 
   finput.change(() => {
@@ -91,7 +113,7 @@ const uploadControl = fupload => {
         addMsg("error", "uploading failed", true)
       } else if (type == "load" || type == "loadend") {
         if (!stat.success) {
-          addMsg("info", "done uploading ...", true)
+          addMsg("good", "uploaded.", true)
           if (!stat.problem) {
             stat.success = true
           }
@@ -104,13 +126,15 @@ const uploadControl = fupload => {
               addMsg("good", "uploaded", true)
               const { content } = response
 
-              fupload.replaceWith(content)
+              console.warn("UPLOADED", { content, fupload })
+              fuploadJQ.html(content)
+              uploadControl(fupload)
               stat.processed = true
             }
           }
         }
       } else {
-        addMsg("info", "still uploading ...", true)
+        addMsg("info", "still uploading ...")
       }
     }
 

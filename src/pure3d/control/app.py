@@ -92,6 +92,10 @@ def appFactory(objects):
     def projects():
         return Pages.projects()
 
+    @app.route("/user")
+    def users():
+        return Pages.users()
+
     @app.route("/project/create")
     def projectInsert():
         return Pages.projectInsert()
@@ -105,9 +109,7 @@ def appFactory(objects):
         return Pages.editionInsert(project)
 
     @app.route("/edition/<string:edition>", defaults=dict(version=None, action=None))
-    @app.route(
-        "/edition/<string:edition>/<string:version>", defaults=dict(action=None)
-    )
+    @app.route("/edition/<string:edition>/<string:version>", defaults=dict(action=None))
     @app.route("/edition/<string:edition>/<string:version>/<string:action>")
     def edition(edition, version, action):
         return Pages.edition(edition, version=version, action=action)
@@ -147,7 +149,7 @@ def appFactory(objects):
         return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
-        "/upload/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
+        "/upload/<string:record>/<string:key>/<string:givenFileName>/<path:path>",
         methods=["POST"],
     )
     def upload(record, key, givenFileName, path):
@@ -156,13 +158,13 @@ def appFactory(objects):
         return Pages.upload(record, key, path, givenFileName=givenFileName)
 
     @app.route(
-        "/deletefile/<string:record>/<string:key>/<string:fileNameMandatory>/<path:path>",
-        methods=["POST"],
+        "/deletefile/<string:record>/<string:key>"
+        "/<string:givenFileName>/<path:path>",
     )
-    def deletefile(record, key, givenFileName, path):
+    def deleteFile(record, key, givenFileName, path):
         if givenFileName == "-":
             givenFileName = None
-        return Pages.deletefile(record, key, path, givenFileName=givenFileName)
+        return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
     @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",

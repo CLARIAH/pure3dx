@@ -353,15 +353,15 @@ class Collect:
             if table != "site":
                 continue
             for (userName, role) in tableUsers.items():
-                sub = f"{userName:0>16}"
+                user = f"{userName:0>16}"
                 userInfo = dict(
                     nickname=userName,
-                    sub=sub,
+                    user=user,
                     role=role,
                     isTest=True,
                 )
                 Mongo.insertRecord("user", **userInfo)
-                userByName[userName] = sub
+                userByName[userName] = user
 
         for (table, tableUsers) in userRole.items():
             if table == "site":

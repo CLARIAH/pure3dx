@@ -1,6 +1,4 @@
 actions:
-  assign:
-    name: assign
   create:
     name: create
   read:
@@ -24,11 +22,22 @@ roles:
 
 userCoupled:
   - edition
-  - profile
+  - project
+
+assignRules:
+  site: {}
+  project:
+    admin:
+      - organiser
+  edition:
+    organiser:
+      - editor
+      - reviewer
+    editor:
+      - reviewer
 
 authRules:
   site:
-    assign: {}
     create: {}
     read:
       admin: true
@@ -47,11 +56,6 @@ authRules:
         - false
         - true
       init: false
-    assign:
-      true: {}
-      false:
-        admin:
-          - organiser
     create:
       true: {}
       false:
@@ -83,14 +87,6 @@ authRules:
         - false
         - true
       init: false
-    assign:
-      true: {}
-      false:
-        organiser:
-          - editor
-          - reviewer
-        editor:
-          - reviewer
     create:
       true: {}
       false:

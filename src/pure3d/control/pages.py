@@ -86,6 +86,14 @@ class Pages:
         left = Content.getValues(table, record, "siteTitle@2") + projects
         return self.page("projects", left=left)
 
+    def users(self):
+        """The page with the list of users."""
+        Content = self.Content
+        (table, recordId, record) = Content.relevant()
+        users = Content.getUsers()
+        left = Content.getValues(table, record, "siteTitle@2") + users
+        return self.page("users", left=left)
+
     def projectInsert(self):
         """Inserts a project and shows the new project."""
         Messages = self.Messages
@@ -207,13 +215,11 @@ class Pages:
         left = (
             breadCrumb
             + Content.getValues("edition", edition, "title@4")
-            + H.h(4, "Model files")
-            + H.div(Content.getUpload(edition, "model"), cls="modelfile")
-            + H.h(4, "Scene")
-            + H.div(
-                Content.getUpload(edition, "scene", fileName=sceneFile), cls="scenefile"
-            )
             + sceneMaterial
+            + H.h(4, "Scene")
+            + H.div(Content.getUpload(edition, "scene", fileName=sceneFile))
+            + H.h(4, "Model files")
+            + H.div(Content.getUpload(edition, "model"))
         )
         right = Content.getValues(
             "edition",
@@ -395,7 +401,7 @@ class Pages:
 
         if not permitted:
             User = Auth.myDetails()
-            user = User.sub
+            user = User.user
             name = User.nickname
 
             Messages.info(
@@ -497,15 +503,22 @@ class Pages:
             The HTML of the navigation.
         """
         Settings = self.Settings
+        Auth = self.Auth
         H = Settings.H
 
+        # 1st column: url
+        # 2nd column: interface string
+        # 3rd column: True: enabled, False: disabled
+        # 4th column: authorised
+
         TABS = (
-            ("home", "Home", True),
-            ("about", "About", True),
-            ("project", "3D Projects", True),
-            ("directory", "3D Directory", False),
-            ("surpriseme", "Surprise Me", True),
-            ("advancedsearch", "Advanced Search", False),
+            ("home", "Home", True, True),
+            ("about", "About", True, True),
+            ("project", "3D Projects", True, True),
+            ("user", "Users", True, Auth.authUser("tab")),
+            ("directory", "3D Directory", False, True),
+            ("surpriseme", "Surprise Me", True, True),
+            ("advancedsearch", "Advanced Search", False, True),
         )
 
         search = H.span(
@@ -524,7 +537,9 @@ class Pages:
 
         divContent = []
 
-        for (tab, label, enabled) in TABS:
+        for (tab, label, enabled, authorised) in TABS:
+            if not authorised:
+                continue
             active = "active" if url == tab else ""
             if enabled:
                 elem = "a"
