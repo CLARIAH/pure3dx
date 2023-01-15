@@ -70,7 +70,7 @@ class Auth(Users):
             We need the role of the assignee, because users cannot assign
             more powerful users.
 
-            A boolean is returned/
+            A boolean is returned.
 
         Parameters
         ----------
@@ -101,8 +101,8 @@ class Auth(Users):
 
         if task == "tab":
             return sum(
-                len(Mongo.getList(f"{tb}User", user=user))
-                for tb in ("project", "edition")
+                len(Mongo.getList(f"{table}User", user=user))
+                for table in ("project", "edition")
             ) > 0
 
         (recordId, record) = Mongo.get(table, record)
