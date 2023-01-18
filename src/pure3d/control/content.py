@@ -95,10 +95,10 @@ class Content(Datamodel):
 
         Normal users get the list of users associated with
 
-        Guests and not-logged-in users cannot see any user.
-
         * the project of which they are organiser
         * the editions of which they are editor or reviewer
+
+        Guests and not-logged-in users cannot see any user.
 
         Returns
         -------
@@ -368,6 +368,8 @@ class Content(Datamodel):
         If a value is in fact composed of multiple values, it will be
         handled accordingly.
 
+        If the user may edit the value, an edit button is added.
+
         Parameters
         ----------
         key: an identifier for the meta data field.
@@ -402,9 +404,8 @@ class Content(Datamodel):
         if bare:
             return F.bare(record)
 
-        button = self.actionButton(table, record, "update", key=key)
-
-        return F.formatted(table, record, level=level, button=button)
+        editable = Auth.authorise(table, record, action="update")
+        return F.formatted(table, record, editable=editable, level=level)
 
     def getValues(self, table, record, fieldSpecs):
         """Puts several pieces of metadata on the web page.
@@ -589,103 +590,6 @@ class Content(Datamodel):
             )
 
         return dataPath
-
-    def actionButton(self, table, record, action, insertTable=None, key=None):
-        """Puts a button on the interface, if that makes sense.
-
-        The button, when pressed, will lead to an action on certain content.
-        It will be checked first if that action is allowed for the current user.
-        If not the button will not be shown.
-
-        !!! note "Delete buttons"
-            Even if a user is authorised to delete a record,
-            it is not allowed to delete master records if its detail records
-            still exist.
-            In that case, no delete button is displayed. Instead we display a count
-            of detail records.
-
-        !!! note "Create buttons"
-            When placing a create button, the relevant record acts as the master
-            record, to which the newly created record will be added as a detail.
-
-        Parameters
-        ----------
-        table: string
-            The relevant table.
-        record: string | ObjectId | AttrDict
-            The relevant record.
-        action: string
-            The type of action that will be performed if the button triggered.
-        insertTable: string, optional None
-            If the action is "create", this is the table in which a record
-            get inserted. The `table` and `record` arguments are then
-            supposed to specify the *master* record of the newly inserted record.
-            Needed to determine whether a press on the button is permitted.
-        key: string, optional None
-            If present, it identifies a field that is stored inside the
-            record.
-        """
-        Settings = self.Settings
-        H = Settings.H
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (record, recordId) = Mongo.get(table, record)
-
-        permitted = Auth.authorise(
-            table, record, action=action, insertTable=insertTable
-        )
-
-        if not permitted:
-            return ""
-
-        Settings = self.Settings
-        actions = Settings.auth.actions
-
-        disable = False
-        report = ""
-
-        if action == "delete":
-            details = self.getDetailRecords(table, record)
-            if len(details):
-                disable = True
-                detailContent = []
-                for (detailTable, detailRecords) in details.items():
-                    nDetails = len(detailRecords)
-                    plural = "" if nDetails == 1 else "s"
-                    detailRep = detailTable + plural
-                    detailContent.append(f"""{nDetails}&nbsp;{detailRep}""")
-
-                report = H.div(
-                    [
-                        H.span(thisContent, cls="dreport") + H.br()
-                        for thisContent in detailContent
-                    ]
-                )
-                report = H.br() + report
-
-        actionInfo = actions.get(action, {})
-        name = actionInfo.name
-        keyRepTip = "" if key is None else f" {key} of"
-        keyRepUrl = "" if key is None else f"/{key}"
-
-        if disable:
-            href = None
-            cls = "disabled"
-            can = "Cannot"
-        else:
-            cls = ""
-            can = ""
-
-        if action == "create":
-            href = f"/{table}/{recordId}/{insertTable}/create"
-            tip = f"{name} new {insertTable}"
-        else:
-            href = f"/{table}/{recordId}{keyRepUrl}/{action}"
-            tip = f"{can}{name}{keyRepTip} this {table}"
-
-        fullCls = f"button small {cls}"
-        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
 
     def breadCrumb(self, project):
         """Makes a link to the landing page of a project.

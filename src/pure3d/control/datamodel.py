@@ -1,3 +1,4 @@
+import json
 from markdown import markdown
 
 from control.generic import AttrDict, now
@@ -210,7 +211,7 @@ class Datamodel:
         if fieldsConfig is None:
             Messages.error(logmsg=f"Unknown field key '{key}'")
 
-        fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
+        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
 
@@ -319,9 +320,122 @@ class Datamodel:
             fileName = self.uploadsConfig[key].fileName
         return self.uploadObjects[(key, fileName)]
 
+    def actionButton(
+        self,
+        table,
+        record,
+        action,
+        permitted=None,
+        insertTable=None,
+        key=None,
+        href=None,
+    ):
+        """Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        !!! note "Delete buttons"
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
+        !!! note "Create buttons"
+            When placing a create button, the relevant record acts as the master
+            record, to which the newly created record will be added as a detail.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict
+            The relevant record.
+        action: string
+            The type of action that will be performed if the button triggered.
+        permitted: boolean, optional None
+            If the permission for the action is already known before calling
+            this function, it is passed here.
+            If this parameter is None, we'll compute the permission.
+        insertTable: string, optional None
+            If the action is "create", this is the table in which a record
+            get inserted. The `table` and `record` arguments are then
+            supposed to specify the *master* record of the newly inserted record.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a field that is stored inside the
+            record.
+        href: string, optional None
+            If present, contains the href attribute for the button.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = (
+            Auth.authorise(table, record, action=action, insertTable=insertTable)
+            if permitted is None
+            else permitted
+        )
+
+        if not permitted:
+            return ""
+
+        Settings = self.Settings
+        H = Settings.H
+        actions = Settings.auth.actions
+
+        disable = False
+        report = ""
+
+        if action == "delete":
+            details = self.getDetailRecords(table, record)
+            if len(details):
+                disable = True
+                detailContent = []
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = "" if nDetails == 1 else "s"
+                    detailRep = detailTable + plural
+                    detailContent.append(f"""{nDetails}&nbsp;{detailRep}""")
+
+                report = H.div(
+                    [
+                        H.span(thisContent, cls="dreport") + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
+
+        actionInfo = actions.get(action, {})
+        name = actionInfo.name
+        keyRepTip = "" if key is None else f" {key} of"
+        keyRepUrl = "" if key is None else f"/{key}"
+
+        if disable:
+            href = None
+            cls = "disabled"
+            can = "Cannot"
+        else:
+            cls = ""
+            can = ""
+
+        if action == "create":
+            href = f"/{table}/{recordId}/{insertTable}/create" if href is None else href
+            tip = f"{name} new {insertTable}"
+        else:
+            href = f"/{table}/{recordId}{keyRepUrl}/{action}" if href is None else href
+            tip = f"{can}{name}{keyRepTip} this {table}"
+
+        fullCls = f"button small {cls}"
+        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
+
 
 class Field:
-    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
         """Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -351,6 +465,7 @@ class Field:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+        self.Datamodel = Datamodel
 
         self.key = key
         """The identifier of this field within the app.
@@ -451,7 +566,7 @@ class Field:
         table,
         record,
         level=None,
-        button="",
+        editable=False,
         outerCls="fieldouter",
         innerCls="fieldinner",
     ):
@@ -482,8 +597,9 @@ class Field:
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
             If 0, the caption will be placed in a span.
-        button: string, optional ""
-            An optional edit button.
+        editable: boolean, optional False
+            Whether the field is editable by the current user.
+            If so, edit controls are provided.
         outerCls: string optional "fieldouter"
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not 'text'
@@ -498,33 +614,48 @@ class Field:
             If the field is not present, returns the empty string, without warning.
         """
         Settings = self.Settings
+        Mongo = self.Mongo
+
         H = Settings.H
+
+        (recordId, record) = Mongo.get(table, record)
 
         tp = self.tp
         caption = self.caption
+        key = self.key
 
-        logical = self.logical(record)
+        bare = self.bare(record)
 
         if tp == "text":
-            content = markdown(H.content(logical), tight=False)
+            readonlyContent = markdown(bare, tight=False)
         else:
-            content = H.wrapValue(
-                logical,
+            readonlyContent = H.wrapValue(
+                bare,
                 outerElem="span",
                 outerAtts=dict(cls=outerCls),
                 innerElem="span",
                 innerAtts=dict(cls=innerCls),
             )
-        sep = "&nbsp;" if button else ""
-
-        content = f"{button}{sep}{content}"
+        if editable:
+            bareRep = json.dumps(bare.replace("'", "&apos;"))
+            keyRepUrl = "" if key is None else f"/{key}"
+            saveUrl = f"/{table}/{recordId}{keyRepUrl}/save"
+            updateButton = self.actionButtonClient(table, "update", key=key)
+            cancelButton = self.actionButtonClient(table, "cancel", key=key)
+            returnButton = self.actionButtonClient(table, "return", key=key)
+            resetButton = self.actionButtonClient(table, "reset", key=key)
+            saveButton = self.actionButtonClient(table, "save", key=key)
+            editableContent = H.textarea(
+                "", cls="editContent", saveurl=saveUrl, origValue=bareRep
+            )
 
         if level is not None:
             if "{value}" in caption:
-                heading = caption.format(kind=table, value=content)
-                content = ""
+                theCaption = caption.format(kind=table, value=readonlyContent)
+                inCaption = True
             else:
-                heading = caption
+                theCaption = caption
+                inCaption = False
 
             if level == 0:
                 elem = "span"
@@ -532,9 +663,49 @@ class Field:
             else:
                 elem = "h"
                 lv = [level]
-            heading = H.elem(elem, *lv, heading)
+            theCaption = H.elem(elem, *lv, theCaption)
 
-        return heading + content
+        return (
+            H.span(
+                [
+                    "" if inCaption else theCaption,
+                    H.span(
+                        theCaption if inCaption else readonlyContent,
+                        cls="readonlycontent",
+                    ),
+                    "&nbsp;",
+                    editableContent,
+                    updateButton,
+                    cancelButton,
+                    returnButton,
+                    resetButton,
+                    saveButton,
+                ],
+                cls="editwidget",
+            )
+            if editable
+            else theCaption + ("" if inCaption else readonlyContent)
+        )
+
+    def actionButtonClient(self, table, name, key=None, **atts):
+        """Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        """
+        Settings = self.Settings
+        H = Settings.H
+
+        href = "#"
+
+        fullCls = "button small"
+        return H.iconx(name, href=href, cls=fullCls, kind=name)
 
 
 class Upload:
@@ -725,7 +896,9 @@ class Upload:
             content = []
             for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
                 buster = (
-                    f"?v={now()}" if show and bust is not None and bust == fileNm else ""
+                    f"?v={now()}"
+                    if show and bust is not None and bust == fileNm
+                    else ""
                 )
                 item = [fileNm, f"/data/{path}{fileNm}{buster}" if show else None]
                 content.append(item)
@@ -735,7 +908,11 @@ class Upload:
             )
             fullPath = f"{workingDir}/{path}{fileName}"
             exists = fileExists(fullPath)
-            content = (fileName, exists, f"/data/{path}{fileName}{buster}" if show else None)
+            content = (
+                fileName,
+                exists,
+                f"/data/{path}{fileName}{buster}" if show else None,
+            )
 
         return H.finput(
             content,

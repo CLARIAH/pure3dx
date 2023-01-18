@@ -31,8 +31,7 @@ const report = task => (jqXHR, stat) => {
   }
 }
 
-const processHtml = (task, destElem) => response => {
-  console.warn(task, response, { fupload: destElem })
+const processUploads = (task, destElem) => response => {
   const { status: stat, messages, content } = response
   if (stat) {
     const destElemJQ = $(destElem)
@@ -41,8 +40,7 @@ const processHtml = (task, destElem) => response => {
     if (task != null) {
       addMsg("good", `${task} succeeded`, true)
     }
-  }
-  else {
+  } else {
     console.warn({ stat, messages })
     addMsgs(messages)
   }
@@ -55,7 +53,7 @@ const fetchData = (url, task, destElem, data) => {
       url,
       processData: false,
       contentType: false,
-      success: processHtml(task, destElem),
+      success: processUploads(task, destElem),
       error: report(task),
     })
   } else {
@@ -66,10 +64,102 @@ const fetchData = (url, task, destElem, data) => {
       data,
       processData: false,
       contentType: true,
-      success: processHtml(task, destElem),
+      success: processUploads(task, destElem),
       error: report(task),
     })
   }
+}
+
+const editWidgets = () => {
+  $(".editcontent").hide()
+  $(`a.button[kind="cancel"]`).hide()
+  $(`a.button[kind="return"]`).hide()
+  $(`a.button[kind="reset"]`).hide()
+  $(`a.button[kind="save"]`).hide()
+  const editwidgets = $(".editwidget")
+
+  editwidgets.each((i, editwidget) => {
+    editWidget(editwidget)
+  })
+}
+
+const handleTyping = (buttons, container) => () => {
+  const { cancelButton, returnButton, resetButton, saveButton } = buttons
+  const value = container.val()
+  const origValue = container.attr("origvalue")
+  if (origValue == value) {
+    cancelButton.hide()
+    returnButton.show()
+    resetButton.hide()
+    saveButton.hide()
+  } else {
+    cancelButton.show()
+    returnButton.hide()
+    resetButton.show()
+    saveButton.show()
+  }
+}
+
+const editWidget = editwidget => {
+  const editwidgetJQ = $(editwidget)
+  const updateButton = editwidgetJQ.find(`a.button[kind="update"]`)
+  const cancelButton = editwidgetJQ.find(`a.button[kind="cancel"]`)
+  const returnButton = editwidgetJQ.find(`a.button[kind="return"]`)
+  const resetButton = editwidgetJQ.find(`a.button[kind="reset"]`)
+  const saveButton = editwidgetJQ.find(`a.button[kind="save"]`)
+  const editContent = editwidgetJQ.find(".editcontent")
+  const editContentDOM = editContent.get(0)
+  const readonlyContent = editwidgetJQ.find(".readonlycontent")
+
+  updateButton.off("click").click(() => {
+    editContent.show()
+    editContent.val(JSON.parse(editContent.attr("origvalue")))
+    editContentDOM.addEventListener(
+      "keyup",
+      handleTyping({ cancelButton, returnButton, resetButton, saveButton }, editContent)
+    )
+    readonlyContent.hide()
+    updateButton.hide()
+    cancelButton.hide()
+    returnButton.show()
+    resetButton.hide()
+    saveButton.hide()
+  })
+  cancelButton.off("click").click(() => {
+    editContent.val("")
+    editContent.hide()
+    readonlyContent.show()
+    updateButton.show()
+    cancelButton.hide()
+    returnButton.hide()
+    resetButton.hide()
+    saveButton.hide()
+  })
+  returnButton.off("click").click(() => {
+    editContent.val("")
+    editContent.hide()
+    readonlyContent.show()
+    updateButton.show()
+    cancelButton.hide()
+    returnButton.hide()
+    resetButton.hide()
+    saveButton.hide()
+  })
+  resetButton.off("click").click(() => {
+    editContent.val(JSON.parse(editContent.attr("origvalue")))
+    cancelButton.hide()
+    returnButton.show()
+    resetButton.hide()
+    saveButton.hide()
+  })
+  saveButton.off("click").click(() => {
+    const saveValue = editContent.val()
+    editContent.attr("origvalue", JSON.stringify(saveValue))
+    cancelButton.hide()
+    returnButton.show()
+    resetButton.hide()
+    saveButton.hide()
+  })
 }
 
 const uploadControls = () => {
@@ -155,4 +245,5 @@ const uploadControl = fupload => {
 
 $(() => {
   uploadControls()
+  editWidgets()
 })

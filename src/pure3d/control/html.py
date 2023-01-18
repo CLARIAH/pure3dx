@@ -252,7 +252,8 @@ class HtmlElements:
         """Wraps one or more values in elements.
 
         The value is recursively joined into elements.
-        The at the outermost level the result is wrapped in a single outer element.
+        The value at the outermost level the result is wrapped in a single
+        outer element.
         All nested values are wrapped in inner elements.
 
         If the value is None, a bare empty string is returned.
@@ -284,19 +285,8 @@ class HtmlElements:
         if value is None:
             return E
 
-        if _level == 0:
-            elem = outerElem
-            args = outerArgs
-            atts = outerAtts
-        else:
-            elem = innerElem
-            args = innerArgs
-            atts = innerAtts
-
-        isMany = isIterable(value)
-
-        if type(value) is str or not isMany:
-            if _level == 0:
+        def _wrapValue(value, isOuter):
+            if isOuter:
                 elem = outerElem
                 args = outerArgs
                 atts = outerAtts
@@ -304,26 +294,20 @@ class HtmlElements:
                 elem = innerElem
                 args = innerArgs
                 atts = innerAtts
-            return thisCls.elem(elem, thisCls.he(str(value)), *args, **atts)
 
-        return thisCls.elem(
-            elem,
-            [
-                thisCls.wrapValue(
-                    val,
-                    _level=_level + 1,
-                    outerElem=innerElem,
-                    outerArgs=innerArgs,
-                    outerAtts=innerAtts,
-                    innerElem=innerElem,
-                    innerArgs=innerArgs,
-                    innerAtts=innerAtts,
-                )
-                for val in value
-            ],
-            *args,
-            **atts,
-        )
+            isMany = isIterable(value)
+
+            if value is None or type(value) is str or not isMany:
+                return thisCls.elem(elem, str(value or ""), *args, **atts)
+
+            return thisCls.elem(
+                elem,
+                [_wrapValue(val, False) for val in value],
+                *args,
+                **atts,
+            )
+
+        return _wrapValue(value, True)
 
     @classmethod
     def elem(thisClass, tag, *args, **kwargs):
@@ -703,11 +687,17 @@ class HtmlElements:
         """
         Settings = self.Settings
         icons = Settings.icons
+        iconTips = Settings.iconTips
 
         iconChar = icons.get(icon, icons["noicon"])
         addClass = f"icon i-{icon} "
         if href:
             atts["href"] = href
+
+        if "title" not in atts:
+            title = iconTips.get(icon, None)
+            if title is not None:
+                atts["title"] = title
 
         return HtmlElement("span" if href is None else "a").wrap(
             (text or "") + iconChar, addClass=addClass, **atts
@@ -926,7 +916,11 @@ class HtmlElements:
                         "upload", cls=f"upload {buttonCls}", title=f"upload {caption}"
                     )
 
-            html.append(self.span([inputControl, label, deleteControl, uploadControl], cls=itemCls))
+            html.append(
+                self.span(
+                    [inputControl, label, deleteControl, uploadControl], cls=itemCls
+                )
+            )
 
         if mayChange and not prescribed:
             label = self.span(f"Upload file ({accept})", cls="filenamex")
