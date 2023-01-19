@@ -15,6 +15,7 @@ E = ""
 MINONE = "-1"
 ZERO = "0"
 ONE = "1"
+NBSP = "\u00a0"
 
 CLS = "cls"
 CLASS = "class"
@@ -168,8 +169,15 @@ class HtmlElements:
         self.Messages = Messages
         Messages.debugAdd(self)
 
-    @staticmethod
-    def he(val):
+    amp = "&amp;"
+    lt = "&lt;"
+    gt = "&gt;"
+    apos = "&apos;"
+    quot = "&quot;"
+    nbsp = NBSP
+
+    @classmethod
+    def he(cls, val):
         """Escape HTML characters.
 
         The following characters will be replaced by entities:
@@ -185,32 +193,12 @@ class HtmlElements:
             if val is None
             else (
                 str(val)
-                .replace(AMP, """&amp;""")
-                .replace(LT, """&lt;""")
-                .replace(APOS, """&apos;""")
-                .replace(QUOT, """&quot;""")
+                .replace(AMP, cls.amp)
+                .replace(LT, cls.lt)
+                .replace(APOS, cls.apos)
+                .replace(QUOT, cls.quot)
             )
         )
-
-    @staticmethod
-    def amp():
-        return "&amp;"
-
-    @staticmethod
-    def lt():
-        return "&lt;"
-
-    @staticmethod
-    def gt():
-        return "&gt;"
-
-    @staticmethod
-    def apos():
-        return "&apos;"
-
-    @staticmethod
-    def quot():
-        return "&quot;"
 
     @staticmethod
     def content(*material, tight=True):
@@ -352,6 +340,23 @@ class HtmlElements:
         return HtmlElement("a").wrap(material, href=href, **atts)
 
     @staticmethod
+    def b(material, **atts):
+        """B.
+
+        Bold element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("b").wrap(material, **atts)
+
+    @staticmethod
     def body(material, **atts):
         """BODY.
 
@@ -400,6 +405,23 @@ class HtmlElements:
         """
 
         return HtmlElement("button").wrap(material, tp=tp, **atts)
+
+    @staticmethod
+    def code(material, **atts):
+        """CODE.
+
+        Code element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("code").wrap(material, **atts)
 
     @staticmethod
     def checkbox(var, **atts):
@@ -619,6 +641,23 @@ class HtmlElements:
         """
 
         return HtmlElement("head").wrap(material, **atts)
+
+    @staticmethod
+    def i(material, **atts):
+        """I.
+
+        Italic element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("i").wrap(material, **atts)
 
     def icon(self, icon, text=None, asChar=False, **atts):
         """icon.
@@ -1036,8 +1075,8 @@ class HtmlElements:
         ----------
         headers, rows: iterables of iterables
             An iterable of rows.
-            Each row is a tuple: an iterable of cells, and a CSS class for the row.
-            Each cell is a tuple: material for the cell, and a CSS class for the cell.
+            Each row is a tuple: an iterable of cells, and a dict of atts for the row.
+            Each cell is a tuple: material for the cell, and a dict of atts for the cell.
 
         !!! note
             Cells in normal rows are wrapped in `<td>`, cells in header rows go
@@ -1052,7 +1091,7 @@ class HtmlElements:
         td = HtmlElement("td").wrap
         headerMaterial = self.wrapTable(headers, th)
         rowMaterial = self.wrapTable(rows, td)
-        material = HtmlElement("body").wrap(headerMaterial + rowMaterial)
+        material = HtmlElement("tbody").wrap(headerMaterial + rowMaterial)
         return HtmlElement("table").wrap(material, **atts)
 
     @staticmethod
@@ -1080,7 +1119,7 @@ class HtmlElements:
         Parameters
         ----------
         data: iterable of iterables.
-            Rows and cells within them, both with CSS classes.
+            Rows and cells within them, both with dicts of atts.
         td: function
             Funnction for wrapping the cells, typically boiling down
             to wrapping them in either `<th>` or `<td>` elements.

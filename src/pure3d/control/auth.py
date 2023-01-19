@@ -48,7 +48,7 @@ class Auth(Users):
             *No other user needed.*
 
             Only admins and users that are associated to
-            any project/edition will see the "Users" tab in navigation.
+            any project/edition will see the "My work" tab in navigation.
 
             A boolean is returned.
 

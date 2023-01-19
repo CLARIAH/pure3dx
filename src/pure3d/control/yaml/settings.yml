@@ -19,7 +19,9 @@ siteCrit:
 
 icons:
   assign: "⊫"
-  cancel: "❌"
+  edit_cancel: "❌"
+  edit_save: "✅"
+  edit_update: "✎"
   chain: "⚭"
   check: "✔︎"
   create: "✚"
@@ -37,14 +39,10 @@ icons:
   read: "⎚"
   refresh: "♺"
   reset: "↩︎"
-  return: "✔︎"
-  save: "✅"
   update: "✎"
   upload: "↑"
 
 iconTips:
-  update: "edit this value"
-  cancel: "stop editing and discard changes"
-  return: "stop editing (value is unchanged)"
-  reset: "return to last saved value"
-  save: "saved current value"
+  edit_cancel: "reset to last saved value"
+  edit_save: "save and quit"
+  edit_update: "edit this value"

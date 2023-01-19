@@ -93,9 +93,9 @@ def appFactory(objects):
     def projects():
         return Pages.projects()
 
-    @app.route("/user")
-    def users():
-        return Pages.users()
+    @app.route("/mywork")
+    def mywork():
+        return Pages.mywork()
 
     @app.route("/project/create")
     def projectInsert():
@@ -127,25 +127,15 @@ def appFactory(objects):
         "/data/project/<string:project>/edition/<string:edition>/",
         defaults=dict(path=None),
     )
+    @app.route("/data/project/<string:project>/edition/<string:edition>/<path:path>")
     @app.route(
-        "/data/project/<string:project>/edition/<string:edition>/<path:path>",
+        "/data/project/<string:project>/", defaults=dict(edition=None, path=None)
     )
     @app.route(
-        "/data/project/<string:project>/",
-        defaults=dict(edition=None, path=None),
+        "/data/project/<string:project>/<path:path>", defaults=dict(edition=None)
     )
-    @app.route(
-        "/data/project/<string:project>/<path:path>",
-        defaults=dict(edition=None),
-    )
-    @app.route(
-        "/data/",
-        defaults=dict(project=None, edition=None, path=None),
-    )
-    @app.route(
-        "/data/<path:path>",
-        defaults=dict(project=None, edition=None),
-    )
+    @app.route("/data/", defaults=dict(project=None, edition=None, path=None))
+    @app.route("/data/<path:path>", defaults=dict(project=None, edition=None))
     def fileData(project=None, edition=None, path=None):
         return Pages.fileData(path, project=project, edition=edition)
 
@@ -159,25 +149,16 @@ def appFactory(objects):
         return Pages.upload(record, key, path, givenFileName=givenFileName)
 
     @app.route(
-        "/deletefile/<string:record>/<string:key>"
-        "/<string:givenFileName>/<path:path>",
+        "/deletefile/<string:record>/<string:key>/<string:givenFileName>/<path:path>"
     )
     def deleteFile(record, key, givenFileName, path):
         if givenFileName == "-":
             givenFileName = None
         return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
-    @app.route(
-        "/save/<string:table>/<string:record>/<string:key>",
-        defaults=dict(level=None),
-        methods=["POST"],
-    )
-    @app.route(
-        "/save/<string:table>/<string:record>/<string:key>/<string:level>",
-        methods=["POST"],
-    )
-    def saveValue(table, record, key, level=None):
-        return Content.saveValue(table, record, key, level=level)
+    @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
+    def saveValue(table, record, key):
+        return Content.saveValue(table, record, key)
 
     @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",

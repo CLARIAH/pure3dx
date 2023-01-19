@@ -268,4 +268,23 @@ span.fileupload.iconproject img {
 span.fileupload.iconedition img {
   width: 10rem;
 }
-
+.editwidget.editing {
+  border: 0.1rem solid var(--edit-text-border);
+}
+.editcontent.dirty {
+  border: 0.3rem solid var(--edit-dirty-border);
+}
+.prole,.ptitle,.etitle {
+  border: 0.1rem solid var(--field-outer-border);
+}
+.ptitle,.etitle {
+  color: var(--field-outer-fore);
+  background-color: var(--field-outer-back);
+  padding: 0.2rem 0.6rem;
+}
+.prole {
+  font-weight: bold;
+  color: var(--field-inner-fore);
+  background-color: var(--field-inner-back);
+  padding: 0.2rem 1.2rem;
+}

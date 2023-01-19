@@ -69,7 +69,7 @@ class Content(Datamodel):
 
         wrapped = []
         wrapped.append(
-            self.actionButton("site", site, action="create", insertTable="project")
+            H.p(self.actionButton("site", site, action="create", insertTable="project"))
         )
 
         for project in Mongo.getList("project"):
@@ -89,8 +89,8 @@ class Content(Datamodel):
 
         return H.content(*wrapped)
 
-    def getUsers(self):
-        """Get the list of relevant users.
+    def getMywork(self):
+        """Get the list of relevant projects, editions and users.
 
         Admin users get the list of all users.
 
@@ -101,38 +101,107 @@ class Content(Datamodel):
 
         Guests and not-logged-in users cannot see any user.
 
+        If the user has rights to modify the association
+        between users and projects/editions, he will get
+        the controls to do so.
+
         Returns
         -------
         string
-            A list of captions of the projects,
-            wrapped in a HTML string.
         """
         Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
 
-        (siteTable, siteId, site) = self.relevant()
+        User = Auth.myDetails()
+        user = User.user
 
-        wrapped = []
-        wrapped.append(
-            self.actionButton("site", site, action="create", insertTable="project")
+        H = Settings.H
+        authSettings = Settings.auth
+        roles = authSettings.roles
+
+        mail = User.email or "no email"
+        role = roles.site[User.role]
+
+        wrapped = [
+            H.h(1, "My details"),
+            H.p(H.b(User.nickname)),
+            H.p(H.code(mail)),
+            H.p(role),
+        ]
+        wrapped.append(H.h(1, "My projects and editions"))
+
+        editionLinks = Mongo.getList("editionUser", user=user)
+        editionIds = sorted({link.editionId for link in editionLinks})
+        editionList = Mongo.getList("edition", _id={"$in": editionIds})
+
+        editions = {edition._id: edition for edition in editionList}
+
+        parentProjectIds = sorted(
+            {editions[editionId].projectId for editionId in editionIds}
         )
 
-        for project in Mongo.getList("project"):
-            projectId = project._id
-            permitted = Auth.authorise("project", project, action="read")
-            if not permitted:
-                continue
+        projectLinks = Mongo.getList("projectUser", user=user)
+        projectIds = sorted({link.projectId for link in projectLinks})
+        allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
+        projectList = Mongo.getList("project", _id={"$in": allProjectIds})
+        projects = {project._id: project for project in projectList}
 
+        editionList = Mongo.getList("edition", projectId={"$in": allProjectIds})
+        editions = {edition._id: edition for edition in editionList}
+
+        for edition in editionList:
+            editionId = edition._id
+            projectId = edition.projectId
+            projects[projectId].setdefault("editions", {})[editionId] = edition
+
+        for link in projectLinks:
+            projectId = link.projectId
+            project = projects[projectId]
+            role = link.role
+            if role:
+                project.role = roles.project[role]
+
+        for link in editionLinks:
+            editionId = link.editionId
+            edition = editions[editionId]
+            role = link.role
+            if role:
+                edition.role = roles.edition[role]
+
+        pTitleAtts = dict(cls="ptitle")
+        eTitleAtts = dict(cls="etitle")
+        roleAtts = dict(cls="prole")
+
+        headingRow = (
+            [("project", pTitleAtts), ("edition", eTitleAtts), ("role", roleAtts)],
+            {},
+        )
+        projectRows = []
+
+        for projectId in sorted(projects):
+            project = projects[projectId]
             title = project.title
+            role = project.role or ""
+            projectRows.append(
+                ([(title, pTitleAtts), ("", eTitleAtts), (role, roleAtts)], {})
+            )
+            theseEditions = project.editions
+            if theseEditions:
+                for editionId in sorted(theseEditions):
+                    edition = editions[editionId]
+                    title = edition.title
+                    role = edition.role or ""
+                    projectRows.append(
+                        ([("", pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
+                    )
 
-            projectUrl = f"/project/{projectId}"
-            button = self.actionButton("project", project, "delete")
-            visual = self.getUpload(project, "iconProject")
-            caption = self.getCaption(visual, title, button, projectUrl)
-
-            wrapped.append(caption)
+        material = (
+            H.p("You are not associated with specific projects or editions.")
+            if len(projectRows) == 0
+            else H.table([headingRow], projectRows, cls="projecttable")
+        )
+        wrapped.append(material)
 
         return H.content(*wrapped)
 
@@ -210,7 +279,7 @@ class Content(Datamodel):
             wrapped.append(caption)
 
         wrapped.append(
-            self.actionButton("project", project, "create", insertTable="edition")
+            H.p(self.actionButton("project", project, "create", insertTable="edition"))
         )
         return H.content(*wrapped)
 
@@ -358,7 +427,7 @@ class Content(Datamodel):
 
         return self.wrapCaption(content, button)
 
-    def saveValue(self, table, record, key, level=None):
+    def saveValue(self, table, record, key):
         """Saves a value of into a record.
 
         A record contains a document, which is a (nested) dict.
@@ -378,10 +447,6 @@ class Content(Datamodel):
 
         key: string
             an identifier for the meta data field.
-
-        level: string, optional None
-            The heading level with which the value should be formatted.
-            See `getValue`.
 
         Returns
         -------
@@ -408,9 +473,12 @@ class Content(Datamodel):
 
         value = json.loads(requestData())
 
-        if Mongo.updateRecord(
-            table, {f"{nameSpace}.{fieldPath}": value}, stop=False, _id=recordId
-        ) is None:
+        if (
+            Mongo.updateRecord(
+                table, {f"{nameSpace}.{fieldPath}": value}, stop=False, _id=recordId
+            )
+            is None
+        ):
             return dict(
                 stat=False,
                 messages=[["error", "could not update the record in the database"]],
@@ -425,7 +493,7 @@ class Content(Datamodel):
                 ["warning", f"{fieldPath=}"],
                 ["warning", f"{value=}"],
             ],
-            readonly=F.formatted(table, record, editable=False, level=level),
+            readonly=F.formatted(table, record, editable=False, level=None),
         )
 
     def getValue(self, table, record, key, level=None, bare=False):
@@ -683,7 +751,7 @@ class Content(Datamodel):
             [
                 "Project: ",
                 H.a(
-                    [text, H.gt()],
+                    text,
                     projectUrl,
                     cls="button",
                     title="back to the project page",

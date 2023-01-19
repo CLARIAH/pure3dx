@@ -1,4 +1,3 @@
-import json
 from markdown import markdown
 
 from control.generic import AttrDict, now
@@ -400,7 +399,7 @@ class Datamodel:
                     nDetails = len(detailRecords)
                     plural = "" if nDetails == 1 else "s"
                     detailRep = detailTable + plural
-                    detailContent.append(f"""{nDetails}&nbsp;{detailRep}""")
+                    detailContent.append(f"""{nDetails}{H.nbsp}{detailRep}""")
 
                 report = H.div(
                     [
@@ -637,23 +636,32 @@ class Field:
                 innerAtts=dict(cls=innerCls),
             )
         if editable:
-            bareRep = json.dumps(bare.replace("'", "&apos;"))
             keyRepUrl = "" if key is None else f"/{key}"
-            levelUrl = "" if level is None else f"/{level}"
-            saveUrl = f"/save/{table}/{recordId}{keyRepUrl}{levelUrl}"
-            updateButton = self.actionButtonClient(table, "update", key=key)
-            cancelButton = self.actionButtonClient(table, "cancel", key=key)
-            returnButton = self.actionButtonClient(table, "return", key=key)
-            resetButton = self.actionButtonClient(table, "reset", key=key)
-            saveButton = self.actionButtonClient(table, "save", key=key)
+            saveUrl = f"/save/{table}/{recordId}{keyRepUrl}"
+            updateButton = self.actionButtonClient(table, "edit_update", key=key)
+            cancelButton = self.actionButtonClient(table, "edit_cancel", key=key)
+            saveButton = self.actionButtonClient(table, "edit_save", key=key)
             msgs = H.div("", cls="editmsgs")
             editableContent = H.textarea(
-                "", cls="editContent", saveurl=saveUrl, origValue=bareRep
+                "", cls="editcontent", saveurl=saveUrl, origValue=bare
             )
+            content = "".join(
+                [
+                    H.span(readonlyContent, cls="readonlycontent"),
+                    H.nbsp,
+                    editableContent,
+                    updateButton,
+                    saveButton,
+                    cancelButton,
+                    msgs,
+                ]
+            )
+        else:
+            content = readonlyContent
 
         if level is not None:
             if "{value}" in caption:
-                theCaption = caption.format(kind=table, value=readonlyContent)
+                theCaption = caption.format(kind=table, value=content)
                 inCaption = True
             else:
                 theCaption = caption
@@ -670,28 +678,11 @@ class Field:
             theCaption = ""
             inCaption = False
 
-        return (
-            H.span(
-                [
-                    "" if inCaption else theCaption,
-                    H.span(
-                        theCaption if inCaption else readonlyContent,
-                        cls="readonlycontent",
-                    ),
-                    "&nbsp;",
-                    editableContent,
-                    updateButton,
-                    cancelButton,
-                    returnButton,
-                    resetButton,
-                    saveButton,
-                    msgs,
-                ],
-                cls="editwidget",
-            )
-            if editable
-            else theCaption + ("" if inCaption else readonlyContent)
+        fullContent = ("" if inCaption else theCaption) + (
+            theCaption if inCaption else content
         )
+
+        return H.div(fullContent, cls="editwidget") if editable else fullContent
 
     def actionButtonClient(self, table, name, key=None, **atts):
         """Generates an action button to be activated by client side Javascript.

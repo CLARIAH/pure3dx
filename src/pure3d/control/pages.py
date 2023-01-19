@@ -86,13 +86,13 @@ class Pages:
         left = Content.getValues(table, record, "siteTitle@2") + projects
         return self.page("projects", left=left)
 
-    def users(self):
+    def mywork(self):
         """The page with the list of users."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        users = Content.getUsers()
-        left = Content.getValues(table, record, "siteTitle@2") + users
-        return self.page("users", left=left)
+        items = Content.getMywork()
+        left = Content.getValues(table, record, "siteTitle@2") + items
+        return self.page("mywork", left=left)
 
     def projectInsert(self):
         """Inserts a project and shows the new project."""
@@ -515,7 +515,7 @@ class Pages:
             ("home", "Home", True, True),
             ("about", "About", True, True),
             ("project", "3D Projects", True, True),
-            ("user", "Users", True, Auth.authUser("tab")),
+            ("mywork", "My Work", True, Auth.authUser("tab")),
             ("directory", "3D Directory", False, True),
             ("surpriseme", "Surprise Me", True, True),
             ("advancedsearch", "Advanced Search", False, True),

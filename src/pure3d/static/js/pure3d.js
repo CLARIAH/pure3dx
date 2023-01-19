@@ -72,10 +72,8 @@ const fetchData = (url, task, destElem, data) => {
 
 const editWidgets = () => {
   $(".editcontent").hide()
-  $(`a.button[kind="cancel"]`).hide()
-  $(`a.button[kind="return"]`).hide()
-  $(`a.button[kind="reset"]`).hide()
-  $(`a.button[kind="save"]`).hide()
+  $(`a.button[kind="edit_cancel"]`).hide()
+  $(`a.button[kind="edit_save"]`).hide()
   $(`.editwidgets`).hide()
   const editwidgets = $(".editwidget")
 
@@ -84,45 +82,23 @@ const editWidgets = () => {
   })
 }
 
-const handleTyping = (buttons, container) => () => {
-  const { cancelButton, returnButton, resetButton, saveButton } = buttons
-  const value = container.val()
-  const origValue = container.attr("origvalue")
-  if (origValue == value) {
-    cancelButton.hide()
-    returnButton.show()
-    resetButton.hide()
-    saveButton.hide()
-  } else {
-    cancelButton.show()
-    returnButton.hide()
-    resetButton.show()
-    saveButton.show()
-  }
-}
-
 const editWidget = editwidget => {
   const editwidgetJQ = $(editwidget)
-  const updateButton = editwidgetJQ.find(`a.button[kind="update"]`)
-  const cancelButton = editwidgetJQ.find(`a.button[kind="cancel"]`)
-  const returnButton = editwidgetJQ.find(`a.button[kind="return"]`)
-  const resetButton = editwidgetJQ.find(`a.button[kind="reset"]`)
-  const saveButton = editwidgetJQ.find(`a.button[kind="save"]`)
+  const updateButton = editwidgetJQ.find(`a.button[kind="edit_update"]`)
+  const cancelButton = editwidgetJQ.find(`a.button[kind="edit_cancel"]`)
+  const saveButton = editwidgetJQ.find(`a.button[kind="edit_save"]`)
   const editContent = editwidgetJQ.find(".editcontent")
   const editMessages = editwidgetJQ.find(".editmsgs")
   const editContentDOM = editContent.get(0)
   const saveUrl = editContent.attr("saveurl")
   const readonlyContent = editwidgetJQ.find(".readonlycontent")
 
-  const saveData = () => {
-    const saveValue = JSON.stringify(editContent.val())
-    console.warn(`save ${saveValue} to ${saveUrl}`)
-
+  const saveData = saveValue => {
     $.ajax({
       type: "POST",
       headers: { "Content-Type": "application/json" },
       url: saveUrl,
-      data: saveValue,
+      data: JSON.stringify(saveValue),
       processData: false,
       contentType: true,
       success: processSavedOK(saveValue),
@@ -140,81 +116,94 @@ const editWidget = editwidget => {
   }
 
   const processSavedError = (jqXHR, stat) => {
-    console.warn({ saveUrl })
     const { status, statusText } = jqXHR
     abortSave([[stat, `save failed: ${status} ${statusText}`]])
   }
 
   const finishSave = (saveValue, readonly) => {
-    editContent.attr("origvalue", saveValue)
+    editwidgetJQ.removeClass("editing")
     readonlyContent.html(readonly)
+    readonlyContent.show()
+    editContent.val("")
+    editContent.attr("origvalue", saveValue)
+    editContent.removeClass("dirty")
+    editContent.hide()
+    editMessages.hide()
+
+    updateButton.show()
     cancelButton.hide()
-    returnButton.show()
-    resetButton.hide()
     saveButton.hide()
   }
 
   const abortSave = messages => {
-    editMessages.show()
     editMessages.html("")
     for (const message of messages) {
       const [tp, msg] = message
       const html = `<span class="msgitem ${tp}">${msg}</span>`
       editMessages.append(html)
     }
+    editMessages.show()
+
     cancelButton.show()
-    returnButton.hide()
-    resetButton.show()
     saveButton.show()
   }
 
+  const handleTyping = () => {
+    const value = editContent.val()
+    const origValue = editContent.attr("origvalue")
+    if (origValue == value) {
+      editContent.removeClass("dirty")
+      cancelButton.hide()
+      saveButton.show()
+    } else {
+      editContent.addClass("dirty")
+      cancelButton.show()
+      saveButton.show()
+    }
+  }
+
   updateButton.off("click").click(() => {
-    editContent.show()
-    editContent.val(JSON.parse(editContent.attr("origvalue")))
-    editContentDOM.addEventListener(
-      "keyup",
-      handleTyping({ cancelButton, returnButton, resetButton, saveButton }, editContent)
-    )
+    editwidgetJQ.addClass("editing")
     readonlyContent.hide()
+    editContent.val(editContent.attr("origvalue"))
+    editContent.removeClass("dirty")
+    editContentDOM.addEventListener("keyup", handleTyping)
+    editContent.show()
+    editMessages.html("")
+    editMessages.hide()
+
     updateButton.hide()
     cancelButton.hide()
-    returnButton.show()
-    resetButton.hide()
-    saveButton.hide()
-    editMessages.hide()
+    saveButton.show()
   })
   cancelButton.off("click").click(() => {
-    editContent.val("")
-    editContent.hide()
-    readonlyContent.show()
-    updateButton.show()
-    cancelButton.hide()
-    returnButton.hide()
-    resetButton.hide()
-    saveButton.hide()
+    editContent.val(editContent.attr("origvalue"))
+    editContent.removeClass("dirty")
+    editMessages.html("")
     editMessages.hide()
-  })
-  returnButton.off("click").click(() => {
-    editContent.val("")
-    editContent.hide()
-    readonlyContent.show()
-    updateButton.show()
+
     cancelButton.hide()
-    returnButton.hide()
-    resetButton.hide()
-    saveButton.hide()
-    editMessages.hide()
-  })
-  resetButton.off("click").click(() => {
-    editContent.val(JSON.parse(editContent.attr("origvalue")))
-    cancelButton.hide()
-    returnButton.show()
-    resetButton.hide()
-    saveButton.hide()
-    editMessages.hide()
+    saveButton.show()
   })
   saveButton.off("click").click(() => {
-    saveData()
+    const origValue = editContent.attr("origvalue")
+    const saveValue = editContent.val()
+    if (origValue == saveValue) {
+      editwidgetJQ.removeClass("editing")
+      readonlyContent.show()
+      editContent.val("")
+      editContent.removeClass("dirty")
+      editContent.hide()
+      editMessages.html("")
+      editMessages.hide()
+
+      updateButton.show()
+      cancelButton.hide()
+      saveButton.hide()
+    }
+    else {
+      saveData(saveValue)
+    }
   })
 }
 
@@ -271,8 +260,6 @@ const uploadControl = fupload => {
             if (response) {
               addMsg("good", "uploaded", true)
               const { content } = response
-
-              console.warn("UPLOADED", { content, fupload })
               fuploadJQ.html(content)
               uploadControl(fupload)
               stat.processed = true
