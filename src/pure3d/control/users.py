@@ -1,6 +1,6 @@
 from control.generic import AttrDict
 from control.flask import (
-    arg,
+    requestArg,
     sessionPop,
     sessionGet,
     sessionSet,
@@ -124,7 +124,7 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         return (
-            self.__loginTest(referrer, arg("user"))
+            self.__loginTest(referrer, requestArg("user"))
             if isTestUser
             else self.__loginOidc(referrer)
         )
@@ -296,7 +296,7 @@ class Users:
         isTestUser = None
 
         if testMode:
-            user = arg("user") if fromArg else sessionGet("user")
+            user = requestArg("user") if fromArg else sessionGet("user")
             if user:
                 isTestUser = True
 

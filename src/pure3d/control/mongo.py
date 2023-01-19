@@ -222,7 +222,7 @@ class Mongo:
         recordId = record._id
         return (recordId, record)
 
-    def getRecord(self, table, warn=True, **criteria):
+    def getRecord(self, table, warn=True, stop=True, **criteria):
         """Get a single document from a collection.
 
         Parameters
@@ -231,6 +231,9 @@ class Mongo:
             The name of the collection from which we want to retrieve a single record.
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the search.
             Usually they will be such that there will be just one document
@@ -247,20 +250,23 @@ class Mongo:
         """
         Messages = self.Messages
 
-        result = self.execute(table, "find_one", criteria, {})
+        result = self.execute(table, "find_one", criteria, {}, stop=stop)
         if result is None:
             if warn:
                 Messages.warning(logmsg=f"No record in {table} with {criteria}")
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, **criteria):
+    def getList(self, table, stop=True, **criteria):
         """Get a list of documents from a collection.
 
         Parameters
         ----------
         table: string
             The name of the collection from which we want to retrieve records.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the search.
 
@@ -271,10 +277,10 @@ class Mongo:
             Each document is cast to an AttrDict.
         """
 
-        result = self.execute(table, "find", criteria, {})
+        result = self.execute(table, "find", criteria, {}, stop=stop)
         return [deepAttrDict(record) for record in result]
 
-    def updateRecord(self, table, updates, warn=True, **criteria):
+    def updateRecord(self, table, updates, stop=True, **criteria):
         """Updates a single document from a collection.
 
         Parameters
@@ -283,8 +289,6 @@ class Mongo:
             The name of the collection in which we want to update a single record.
         updates: dict
             The fields that must be updated with the values they must get
-        warn: boolean, optional True
-            If True, warn if there is no record satisfying the criteria.
         criteria: dict
             A set of criteria to narrow down the selection.
             Usually they will be such that there will be just one document
@@ -297,20 +301,18 @@ class Mongo:
         boolean
             Whether the update was successful
         """
-        return self.execute(
-            table,
-            "update_one",
-            criteria,
-            {"$set": updates},
-        )
+        return self.execute(table, "update_one", criteria, {"$set": updates}, stop=stop)
 
-    def insertRecord(self, table, **fields):
+    def insertRecord(self, table, stop=True, **fields):
         """Inserts a new record in a table.
 
         Parameters
         ----------
         table: string
             The table in which the record will be inserted.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
         **fields: dict
             The field names and their contents to populate the new record with.
 
@@ -320,10 +322,10 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         """
-        result = self.execute(table, "insert_one", dict(**fields))
+        result = self.execute(table, "insert_one", dict(**fields), stop=stop)
         return result.inserted_id if result else None
 
-    def execute(self, table, command, *args, **kwargs):
+    def execute(self, table, command, *args, stop=True, **kwargs):
         """Executes a MongoDb command and returns the result.
 
         Parameters
@@ -337,6 +339,9 @@ class Mongo:
             So the Mongo command `findOne` should be passed as `find_one`.
         args: list
             Any number of additional arguments that the command requires.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
         kwargs: list
             Any number of additional keyword arguments that the command requires.
 
@@ -365,6 +370,7 @@ class Mongo:
             Messages.error(
                 msg="Database action",
                 logmsg=f"Executing Mongo command db.{table}.{command}: {e}",
+                stop=False,
             )
             result = None
 

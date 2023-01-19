@@ -1,5 +1,5 @@
 import sys
-from control.flask import stop, flashMsg
+from control.flask import appStop, flashMsg
 
 
 class Messages:
@@ -82,12 +82,12 @@ class Messages:
         """
         self.message("debug", msg=msg, logmsg=logmsg)
 
-    def error(self, msg=None, logmsg=None):
+    def error(self, msg=None, logmsg=None, stop=True):
         """Issue an error message.
 
         See `Messages.message()`
         """
-        self.message("error", msg=msg, logmsg=logmsg)
+        self.message("error", msg=msg, logmsg=logmsg, stop=stop)
 
     def warning(self, msg=None, logmsg=None):
         """Issue a warning message.
@@ -110,7 +110,7 @@ class Messages:
         """
         self.message("plain", msg=msg, logmsg=logmsg)
 
-    def message(self, tp, msg, logmsg):
+    def message(self, tp, msg, logmsg, stop=True):
         """Workhorse to issue a message in a variety of ways.
 
         It can issue log messages and screen messages.
@@ -150,12 +150,16 @@ class Messages:
               Log messages go to standard error.
               It also raises an exception, which will lead
               to a 404 response (if flask is running, that is).
+              But this stopping can be prevented by passing
+              `stop=False`.
 
         msg: string | void
             If not None, it is the contents of a screen message.
             This happens by the built-in `flash` method of Flask.
         logmsg: string | void
             If not None, it is the contents of a log message.
+        stop: boolean, optional True
+            If False, an error message will not lead to a stop.
 
         """
         Settings = self.Settings
@@ -185,8 +189,8 @@ class Messages:
                 stream.write(f"{label}{logmsg}\n")
                 stream.flush()
 
-            if tp == "error" and onFlask:
-                stop()
+            if tp == "error" and onFlask and stop:
+                appStop()
 
     def client(self, tp, message, replace=False):
         """Adds javascript code whose execution displays a message.

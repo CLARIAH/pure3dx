@@ -1,4 +1,4 @@
-from control.flask import make, stop, method, initializing
+from control.flask import appMake, appStop, requestMethod, appInitializing
 
 
 def appFactory(objects):
@@ -35,10 +35,11 @@ def appFactory(objects):
     Messages = objects.Messages
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
+    Content = objects.Content
     Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = make(__name__, static_folder="../static")
+    app = appMake(__name__, static_folder="../static")
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
@@ -46,7 +47,7 @@ def appFactory(objects):
 
     @app.before_request
     def identify():
-        if not initializing():
+        if not appInitializing():
             Auth.identify()
 
     @app.route("/favicon.ico")
@@ -167,6 +168,18 @@ def appFactory(objects):
         return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
     @app.route(
+        "/save/<string:table>/<string:record>/<string:key>",
+        defaults=dict(level=None),
+        methods=["POST"],
+    )
+    @app.route(
+        "/save/<string:table>/<string:record>/<string:key>/<string:level>",
+        methods=["POST"],
+    )
+    def saveValue(table, record, key, level=None):
+        return Content.saveValue(table, record, key, level=level)
+
+    @app.route(
         "/auth/webdav/project/<string:project>/edition/<string:edition>/",
         defaults=dict(path=None),
         methods=tuple(webdavMethods),
@@ -176,7 +189,7 @@ def appFactory(objects):
         methods=tuple(webdavMethods),
     )
     def authWebdav(project, edition, path):
-        action = webdavMethods[method()]
+        action = webdavMethods[requestMethod()]
         return Pages.authWebdav(edition, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
@@ -187,7 +200,7 @@ def appFactory(objects):
     @app.route("/cannot/webdav/<path:path>")
     def nowebdav(path):
         Messages.warning(logmsg=f"Unauthorized webdav access: {path}")
-        stop()
+        appStop()
 
     @app.route("/<path:path>")
     def remaining(path):

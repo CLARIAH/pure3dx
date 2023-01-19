@@ -20,7 +20,7 @@ PROTOCOL_RE = re.compile(
 )
 
 
-def initializing():
+def appInitializing():
     """Whether the flask web app is already running.
 
     It is False during the initialization code in the app factory
@@ -29,12 +29,12 @@ def initializing():
     return var("WERKZEUG_RUN_MAIN") is None
 
 
-def make(*args, **kwargs):
+def appMake(*args, **kwargs):
     """Create the Flask app."""
     return Flask(*args, **kwargs)
 
 
-def template(template, **kwargs):
+def renderTemplate(template, **kwargs):
     """Renders a template.
 
     Parameters
@@ -72,7 +72,7 @@ def response(data):
     return make_response(data)
 
 
-def send(path):
+def sendFile(path):
     """Send a file as a response.
 
     It is assumed that `path` exists as a readable file
@@ -116,7 +116,7 @@ def redirectStatus(url, good):
     return redirect(url, code=code)
 
 
-def stop():
+def appStop():
     """Stop the request with a 404."""
     abort(404)
 
@@ -173,12 +173,12 @@ def sessionSet(name, value):
     session[name] = value
 
 
-def method():
+def requestMethod():
     """Get the request method."""
     return request.method
 
 
-def arg(name):
+def requestArg(name):
     """Get the value of a request arg.
 
     Parameters
@@ -195,7 +195,7 @@ def arg(name):
     return request.args.get(name, None)
 
 
-def data():
+def requestData():
     """Get the request data.
 
     Returns

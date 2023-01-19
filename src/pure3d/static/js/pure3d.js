@@ -76,6 +76,7 @@ const editWidgets = () => {
   $(`a.button[kind="return"]`).hide()
   $(`a.button[kind="reset"]`).hide()
   $(`a.button[kind="save"]`).hide()
+  $(`.editwidgets`).hide()
   const editwidgets = $(".editwidget")
 
   editwidgets.each((i, editwidget) => {
@@ -108,8 +109,64 @@ const editWidget = editwidget => {
   const resetButton = editwidgetJQ.find(`a.button[kind="reset"]`)
   const saveButton = editwidgetJQ.find(`a.button[kind="save"]`)
   const editContent = editwidgetJQ.find(".editcontent")
+  const editMessages = editwidgetJQ.find(".editmsgs")
   const editContentDOM = editContent.get(0)
+  const saveUrl = editContent.attr("saveurl")
   const readonlyContent = editwidgetJQ.find(".readonlycontent")
+
+  const saveData = () => {
+    const saveValue = JSON.stringify(editContent.val())
+    console.warn(`save ${saveValue} to ${saveUrl}`)
+
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: saveUrl,
+      data: saveValue,
+      processData: false,
+      contentType: true,
+      success: processSavedOK(saveValue),
+      error: processSavedError,
+    })
+  }
+
+  const processSavedOK = saveValue => response => {
+    const { stat, messages, readonly } = response
+    if (stat) {
+      finishSave(saveValue, readonly)
+    } else {
+      abortSave(messages)
+    }
+  }
+
+  const processSavedError = (jqXHR, stat) => {
+    console.warn({ saveUrl })
+    const { status, statusText } = jqXHR
+    abortSave([[stat, `save failed: ${status} ${statusText}`]])
+  }
+
+  const finishSave = (saveValue, readonly) => {
+    editContent.attr("origvalue", saveValue)
+    readonlyContent.html(readonly)
+    cancelButton.hide()
+    returnButton.show()
+    resetButton.hide()
+    saveButton.hide()
+  }
+
+  const abortSave = messages => {
+    editMessages.show()
+    editMessages.html("")
+    for (const message of messages) {
+      const [tp, msg] = message
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      editMessages.append(html)
+    }
+    cancelButton.show()
+    returnButton.hide()
+    resetButton.show()
+    saveButton.show()
+  }
 
   updateButton.off("click").click(() => {
     editContent.show()
@@ -124,6 +181,7 @@ const editWidget = editwidget => {
     returnButton.show()
     resetButton.hide()
     saveButton.hide()
+    editMessages.hide()
   })
   cancelButton.off("click").click(() => {
     editContent.val("")
@@ -134,6 +192,7 @@ const editWidget = editwidget => {
     returnButton.hide()
     resetButton.hide()
     saveButton.hide()
+    editMessages.hide()
   })
   returnButton.off("click").click(() => {
     editContent.val("")
@@ -144,6 +203,7 @@ const editWidget = editwidget => {
     returnButton.hide()
     resetButton.hide()
     saveButton.hide()
+    editMessages.hide()
   })
   resetButton.off("click").click(() => {
     editContent.val(JSON.parse(editContent.attr("origvalue")))
@@ -151,14 +211,10 @@ const editWidget = editwidget => {
     returnButton.show()
     resetButton.hide()
     saveButton.hide()
+    editMessages.hide()
   })
   saveButton.off("click").click(() => {
-    const saveValue = editContent.val()
-    editContent.attr("origvalue", JSON.stringify(saveValue))
-    cancelButton.hide()
-    returnButton.show()
-    resetButton.hide()
-    saveButton.hide()
+    saveData()
   })
 }
 

@@ -1,8 +1,9 @@
+import json
 from flask import jsonify
 from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
-from control.flask import data
+from control.flask import requestData
 
 
 class Content(Datamodel):
@@ -357,6 +358,76 @@ class Content(Datamodel):
 
         return self.wrapCaption(content, button)
 
+    def saveValue(self, table, record, key, level=None):
+        """Saves a value of into a record.
+
+        A record contains a document, which is a (nested) dict.
+        A value is inserted somewhere (deep) in that dict.
+
+        The value is given by the request.
+
+        Where exactly is given by a path that is stored in the field information,
+        which is accessible by the key.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict | void
+            The relevant record.
+
+        key: string
+            an identifier for the meta data field.
+
+        level: string, optional None
+            The heading level with which the value should be formatted.
+            See `getValue`.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `msgs`: messages issued during the process
+        """
+        Auth = self.Auth
+        Mongo = self.Mongo
+
+        permitted = Auth.authorise(table, record, action="update")
+
+        if not permitted:
+            return dict(stat=False, messages=[["error", "update not allowed"]])
+
+        F = self.makeField(key)
+
+        nameSpace = F.nameSpace
+        fieldPath = F.fieldPath
+
+        (recordId, record) = Mongo.get(table, record)
+
+        value = json.loads(requestData())
+
+        if Mongo.updateRecord(
+            table, {f"{nameSpace}.{fieldPath}": value}, stop=False, _id=recordId
+        ) is None:
+            return dict(
+                stat=False,
+                messages=[["error", "could not update the record in the database"]],
+            )
+        else:
+            (recordId, record) = Mongo.get(table, recordId)
+
+        return dict(
+            stat=True,
+            messages=[
+                ["warning", f"{nameSpace=}"],
+                ["warning", f"{fieldPath=}"],
+                ["warning", f"{value=}"],
+            ],
+            readonly=F.formatted(table, record, editable=False, level=level),
+        )
+
     def getValue(self, table, record, key, level=None, bare=False):
         """Retrieve a metadata value.
 
@@ -372,7 +443,8 @@ class Content(Datamodel):
 
         Parameters
         ----------
-        key: an identifier for the meta data field.
+        key: string
+            an identifier for the meta data field.
         table: string
             The relevant table.
         record: string | ObjectId | AttrDict | void
@@ -448,7 +520,8 @@ class Content(Datamodel):
         ----------
         record: string | ObjectId | AttrDict | void
             The relevant record.
-        key: an identifier for the upload field.
+        key: string
+            an identifier for the upload field.
         fileName: string, optional None
             If present, it indicates that the uploaded file will have this prescribed
             name.
@@ -672,7 +745,7 @@ class Content(Datamodel):
 
         try:
             with open(fileFullPath, "wb") as fh:
-                fh.write(data())
+                fh.write(requestData())
         except Exception:
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
             msg = f"Uploaded file not saved: {filePath}"

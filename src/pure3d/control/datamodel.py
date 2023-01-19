@@ -639,12 +639,14 @@ class Field:
         if editable:
             bareRep = json.dumps(bare.replace("'", "&apos;"))
             keyRepUrl = "" if key is None else f"/{key}"
-            saveUrl = f"/{table}/{recordId}{keyRepUrl}/save"
+            levelUrl = "" if level is None else f"/{level}"
+            saveUrl = f"/save/{table}/{recordId}{keyRepUrl}{levelUrl}"
             updateButton = self.actionButtonClient(table, "update", key=key)
             cancelButton = self.actionButtonClient(table, "cancel", key=key)
             returnButton = self.actionButtonClient(table, "return", key=key)
             resetButton = self.actionButtonClient(table, "reset", key=key)
             saveButton = self.actionButtonClient(table, "save", key=key)
+            msgs = H.div("", cls="editmsgs")
             editableContent = H.textarea(
                 "", cls="editContent", saveurl=saveUrl, origValue=bareRep
             )
@@ -664,6 +666,9 @@ class Field:
                 elem = "h"
                 lv = [level]
             theCaption = H.elem(elem, *lv, theCaption)
+        else:
+            theCaption = ""
+            inCaption = False
 
         return (
             H.span(
@@ -680,6 +685,7 @@ class Field:
                     returnButton,
                     resetButton,
                     saveButton,
+                    msgs,
                 ],
                 cls="editwidget",
             )

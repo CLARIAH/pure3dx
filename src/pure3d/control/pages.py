@@ -1,4 +1,4 @@
-from control.flask import redirectStatus, template, send, stop, getReferrer
+from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
 
 class Pages:
@@ -260,7 +260,7 @@ class Pages:
             if action is None
             else Viewers.genHtml(urlBase, sceneFile, viewer, version, action)
         )
-        return template("viewer", viewerCode=viewerCode)
+        return renderTemplate("viewer", viewerCode=viewerCode)
 
     def viewerResource(self, path):
         """Components requested by viewers.
@@ -284,7 +284,7 @@ class Pages:
         Content = self.Content
 
         dataPath = Content.getViewerFile(path)
-        return send(dataPath)
+        return sendFile(dataPath)
 
     def fileData(self, path, project=None, edition=None):
         """Data content requested directly from the file repository.
@@ -321,7 +321,7 @@ class Pages:
         (table, recordId, record) = Content.relevant(project=project, edition=edition)
 
         dataPath = Content.getData(table, record, path)
-        return send(dataPath)
+        return sendFile(dataPath)
 
     def upload(self, record, key, path, givenFileName=None):
         """Upload a file.
@@ -449,7 +449,7 @@ class Pages:
             return redirectStatus(back, True)
 
         Messages.warning(logmsg=f"Not found: /{path}")
-        stop()
+        appStop()
 
     def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
@@ -474,7 +474,7 @@ class Pages:
         iconSite = Content.getUpload(record, "iconSite")
         (testLoginWidget, loginWidget) = Auth.wrapLogin()
 
-        return template(
+        return renderTemplate(
             "index",
             banner=Settings.banner,
             versionInfo=Settings.versionInfo,

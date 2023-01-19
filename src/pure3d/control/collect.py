@@ -10,7 +10,7 @@ from control.files import (
     fileCopy,
 )
 from control.environment import var
-from control.flask import initializing
+from control.flask import appInitializing
 
 
 class Collect:
@@ -80,7 +80,7 @@ class Collect:
         """
         doCollect = var("docollect") == "v"
 
-        return initializing() and doCollect
+        return appInitializing() and doCollect
 
     def fetch(self):
         """Performs a data collection."""

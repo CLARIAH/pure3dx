@@ -2,7 +2,7 @@ from wsgidav.wsgidav_app import WsgiDAVApp
 
 from control.prepare import prepare
 from control.app import appFactory as appFactoryMain
-from control.flask import make
+from control.flask import appMake
 
 
 def getWebdavApp(objects):
@@ -98,7 +98,7 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
 
 
 def appFactoryMaster():
-    app = make(__name__)
+    app = appMake(__name__)
     return app
 
 
