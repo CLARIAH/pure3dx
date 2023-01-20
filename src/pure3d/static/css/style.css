@@ -274,17 +274,28 @@ span.fileupload.iconedition img {
 .editcontent.dirty {
   border: 0.3rem solid var(--edit-dirty-border);
 }
-.prole,.ptitle,.etitle {
+.puser,.prole,.ptitle,.etitle,.pstatus {
   border: 0.1rem solid var(--field-outer-border);
 }
-.ptitle,.etitle {
+.ptitle,.etitle,.pstatus {
   color: var(--field-outer-fore);
   background-color: var(--field-outer-back);
   padding: 0.2rem 0.6rem;
 }
-.prole {
-  font-weight: bold;
+.puser,.prole {
   color: var(--field-inner-fore);
   background-color: var(--field-inner-back);
   padding: 0.2rem 1.2rem;
+}
+.prole,.pstatus {
+  font-weight: bold;
+}
+.pstatus.wip {
+  background-color: var(--warning-back);
+}
+.pstatus.public {
+  background-color: var(--good-back);
+}
+.pstatus.published {
+  background-color: var(--special-back);
 }

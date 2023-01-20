@@ -4,10 +4,11 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
+from control.wrap import Wrap
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -30,6 +31,7 @@ class Content(Datamodel):
         """
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
+        self.Wrap = Wrap
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -114,96 +116,123 @@ class Content(Datamodel):
         Auth = self.Auth
 
         User = Auth.myDetails()
-        user = User.user
 
         H = Settings.H
         authSettings = Settings.auth
         roles = authSettings.roles
 
         mail = User.email or "no email"
-        role = roles.site[User.role]
+        myRole = roles.site[User.role]
 
         wrapped = [
             H.h(1, "My details"),
             H.p(H.b(User.nickname)),
             H.p(H.code(mail)),
-            H.p(role),
+            H.p(myRole),
         ]
         wrapped.append(H.h(1, "My projects and editions"))
 
-        editionLinks = Mongo.getList("editionUser", user=user)
-        editionIds = sorted({link.editionId for link in editionLinks})
-        editionList = Mongo.getList("edition", _id={"$in": editionIds})
+        userList = Mongo.getList("user")
+        projectList = Mongo.getList("project")
+        editionList = Mongo.getList("edition")
+        projectLinks = Mongo.getList("projectUser")
+        editionLinks = Mongo.getList("editionUser")
 
-        editions = {edition._id: edition for edition in editionList}
+        users = {x._id: x for x in userList}
+        projects = {x._id: x for x in projectList}
+        editions = {x._id: x for x in editionList}
 
-        parentProjectIds = sorted(
-            {editions[editionId].projectId for editionId in editionIds}
-        )
+        for x in editionList:
+            eId = x._id
+            pId = x.projectId
+            projects[pId].setdefault("editions", {})[eId] = x
 
-        projectLinks = Mongo.getList("projectUser", user=user)
-        projectIds = sorted({link.projectId for link in projectLinks})
-        allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
-        projectList = Mongo.getList("project", _id={"$in": allProjectIds})
-        projects = {project._id: project for project in projectList}
-
-        editionList = Mongo.getList("edition", projectId={"$in": allProjectIds})
-        editions = {edition._id: edition for edition in editionList}
-
-        for edition in editionList:
-            editionId = edition._id
-            projectId = edition.projectId
-            projects[projectId].setdefault("editions", {})[editionId] = edition
-
-        for link in projectLinks:
-            projectId = link.projectId
-            project = projects[projectId]
-            role = link.role
+        for x in projectLinks:
+            role = x.role
             if role:
-                project.role = roles.project[role]
+                u = x.user
+                pId = x.projectId
+                p = projects[pId]
+                p.setdefault("users", {}).setdefault(role, []).append(u)
 
-        for link in editionLinks:
-            editionId = link.editionId
-            edition = editions[editionId]
-            role = link.role
+        for x in editionLinks:
+            role = x.role
             if role:
-                edition.role = roles.edition[role]
+                u = x.user
+                eId = x.editionId
+                e = editions[eId]
+                e.setdefault("users", {}).setdefault(role, []).append(u)
 
-        pTitleAtts = dict(cls="ptitle")
-        eTitleAtts = dict(cls="etitle")
-        roleAtts = dict(cls="prole")
-
-        headingRow = (
-            [("project", pTitleAtts), ("edition", eTitleAtts), ("role", roleAtts)],
-            {},
-        )
-        projectRows = []
-
-        for projectId in sorted(projects):
-            project = projects[projectId]
-            title = project.title
-            role = project.role or ""
-            projectRows.append(
-                ([(title, pTitleAtts), ("", eTitleAtts), (role, roleAtts)], {})
+        def wrapProject(p):
+            status = "public" if p.isVisible else "hidden"
+            statusCls = "public" if p.isVisible else "wip"
+            return H.div(
+                [
+                    H.div(
+                        [
+                            H.div(status, cls=statusCls),
+                            H.div(p.title, cls="ptitle"),
+                            H.div(
+                                "no users"
+                                if p.users is None
+                                else [wrapUser(*u) for u in p.users],
+                                cls="pusers",
+                            ),
+                        ],
+                        cls="phead",
+                    ),
+                    H.div(
+                        "no editions"
+                        if p.editions is None
+                        else [wrapEdition(e) for e in p.editions],
+                        cls="peditions",
+                    ),
+                ],
+                cls="pentry",
             )
-            theseEditions = project.editions
-            if theseEditions:
-                for editionId in sorted(theseEditions):
-                    edition = editions[editionId]
-                    title = edition.title
-                    role = edition.role or ""
-                    projectRows.append(
-                        ([("", pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
-                    )
 
-        material = (
-            H.p("You are not associated with specific projects or editions.")
-            if len(projectRows) == 0
-            else H.table([headingRow], projectRows, cls="projecttable")
+        def wrapEdition(e):
+            status = "public" if p.isVisible else "hidden"
+            statusCls = "public" if p.isVisible else "wip"
+            return H.div(
+                [
+                    H.div(
+                        [
+                            H.div(status, cls=statusCls),
+                            H.div(p.title, cls="ptitle"),
+                            H.div(
+                                "no users"
+                                if p.users is None
+                                else [wrapUser(*u) for u in p.users],
+                                cls="pusers",
+                            ),
+                        ],
+                        cls="phead",
+                    ),
+                    H.div(
+                        "no editions"
+                        if p.editions is None
+                        else [wrapEdition(e) for e in p.editions],
+                        cls="peditions",
+                    ),
+                ],
+                cls="pentry",
+            )
+
+        def wrapUser(user, role):
+            userInfo = users[user]
+            name = userInfo.nickname
+            return H.div(name, cls=f"user {role}")
+
+        return H.div(
+            [
+                wrapProject(p)
+                for p in sorted(
+                    projectList, key=lambda p: (1 if p.isVisible else 0, p.title, p._id)
+                )
+            ],
+            cls="plist",
         )
-        wrapped.append(material)
-
-        return H.content(*wrapped)
 
     def insertProject(self):
         Mongo = self.Mongo
