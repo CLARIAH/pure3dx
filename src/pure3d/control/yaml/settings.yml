@@ -8,7 +8,7 @@ title: >-
 
 heading: Pure 3D website
 iconFile: icon.png
-favIconFile: favicon.ico
+faviconFile: favicon.ico
 
 database: pure3d
 mongoHost: mongodb

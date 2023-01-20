@@ -241,7 +241,12 @@ class Wrap:
                     H.div(
                         "no editions"
                         if p.editions is None
-                        else [wrapEdition(e) for e in p.editions],
+                        else [
+                            wrapEdition(e)
+                            for e in sorted(
+                                p.editions.values(), key=lambda x: (x.title, x._id)
+                            )
+                        ],
                         cls="peditions",
                     ),
                 ],
@@ -249,8 +254,8 @@ class Wrap:
             )
 
         def wrapEdition(e):
-            status = "public" if e.isVisible else "hidden"
-            statusCls = "public" if e.isVisible else "wip"
+            status = "published" if e.isPublished else "in progress"
+            statusCls = "public" if e.isPublished else "wip"
             return H.div(
                 [
                     H.div(status, cls=statusCls),
@@ -269,22 +274,19 @@ class Wrap:
                     [
                         H.div(role, cls=f"role {role}"),
                         H.div(
-                            H.nbsp if users[role] is None else
-                            [H.div(u.nickname, cls="user {role}") for u in users[role]],
-                            cls=f"users {role}"
-                        )
+                            H.nbsp
+                            if users[role] is None
+                            else [
+                                H.div(u.nickname, cls="user {role}")
+                                for u in users[role]
+                            ],
+                            cls=f"users {role}",
+                        ),
                     ],
                     cls="users",
                 )
-
+                for role in itemRoles
             ]
-            for role in itemRoles:
-                uRecords = users.get(role, [])
-
-        def wrapUser(user, role):
-            userInfo = users[user]
-            name = userInfo.nickname
-            return H.div(name, cls=f"user {role}")
 
         return H.div(
             [

@@ -173,7 +173,7 @@ class Content(Datamodel):
         projectLinks = Mongo.getList("projectUser")
         editionLinks = Mongo.getList("editionUser")
 
-        users = {x._id: x for x in userList}
+        users = {x.user: x for x in userList}
         projects = {x._id: x for x in projectList}
         editions = {x._id: x for x in editionList}
 
