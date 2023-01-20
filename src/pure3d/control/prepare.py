@@ -81,12 +81,15 @@ def prepare(trivial=False):
 
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
-        Content = ContentCls(Settings, Viewers, Messages, Mongo)
+        Wrap = WrapCls(Settings, Messages, Viewers)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo, Auth)
 
+        Wrap.addAuth(Auth)
         Content.addAuth(Auth)
+        Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
         Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
@@ -98,6 +101,7 @@ def prepare(trivial=False):
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
+        Wrap=Wrap,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,

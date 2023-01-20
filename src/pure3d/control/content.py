@@ -4,7 +4,6 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
-from control.wrap import Wrap
 
 
 class Content(Datamodel):
@@ -62,34 +61,88 @@ class Content(Datamodel):
             A list of captions of the projects,
             wrapped in a HTML string.
         """
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
+        Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
 
-        wrapped = []
-        wrapped.append(
-            H.p(self.actionButton("site", site, action="create", insertTable="project"))
-        )
+        return Wrap.projectsMain(site, Mongo.getList("project"))
 
-        for project in Mongo.getList("project"):
-            projectId = project._id
-            permitted = Auth.authorise("project", project, action="read")
-            if not permitted:
-                continue
+    def getEditions(self, project):
+        """Get the list of the editions of a project.
 
-            title = project.title
+        Well, only if the project is visible to the current user.
+        See `Content.getProjects()`.
 
-            projectUrl = f"/project/{projectId}"
-            button = self.actionButton("project", project, "delete")
-            visual = self.getUpload(project, "iconProject")
-            caption = self.getCaption(visual, title, button, projectUrl)
+        Editions are each displayed by means of an icon and a title.
+        Both link to a landing page for the edition.
 
-            wrapped.append(caption)
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
 
-        return H.content(*wrapped)
+        Returns
+        -------
+        string
+            A list of captions of the editions of the project,
+            wrapped in a HTML string.
+        """
+        Mongo = self.Mongo
+        Wrap = self.Wrap
+
+        (projectId, project) = Mongo.get("project", project)
+
+        return Wrap.editionsMain(project, Mongo.getList("edition"))
+
+    def getScene(self, edition, version=None, action=None):
+        """Get the scene of an edition of a project.
+
+        Well, only if the current user is authorised.
+
+        A scene is displayed by means of an icon and a row of buttons.
+
+        If action is not None, the scene is loaded in a specific version of the
+        viewer in a specific mode (`read` or `read`).
+        The edition knows which viewer to choose.
+
+        Which version and which mode are used is determined by the parameters.
+        If the parameters do not specify values, sensible defaults are chosen.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        version: string, optional None
+            The version of the chosen viewer that will be used.
+            If no version or a non-existing version are specified,
+            the latest existing version for that viewer will be chosen.
+        action: string, optional `read`
+            The mode in which the viewer should be opened.
+            If the mode is `update`, the viewer is opened in edit mode.
+            All other modes lead to the viewer being opened in read-only
+            mode.
+
+        Returns
+        -------
+        string
+            A caption of the scene of the edition,
+            with possibly a frame with the 3D viewer showing the scene.
+            The result is wrapped in a HTML string.
+        """
+        Mongo = self.Mongo
+        Viewers = self.Viewers
+        Wrap = self.Wrap
+
+        (viewer, sceneFile) = self.getViewInfo(edition)
+        version = Viewers.check(viewer, version)
+
+        if action is None:
+            action = "read"
+
+        (editionId, edition) = Mongo.get("edition", edition)
+
+        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
 
     def getMywork(self):
         """Get the list of relevant projects, editions and users.
@@ -111,26 +164,8 @@ class Content(Datamodel):
         -------
         string
         """
-        Settings = self.Settings
         Mongo = self.Mongo
-        Auth = self.Auth
-
-        User = Auth.myDetails()
-
-        H = Settings.H
-        authSettings = Settings.auth
-        roles = authSettings.roles
-
-        mail = User.email or "no email"
-        myRole = roles.site[User.role]
-
-        wrapped = [
-            H.h(1, "My details"),
-            H.p(H.b(User.nickname)),
-            H.p(H.code(mail)),
-            H.p(myRole),
-        ]
-        wrapped.append(H.h(1, "My projects and editions"))
+        Wrap = self.Wrap
 
         userList = Mongo.getList("user")
         projectList = Mongo.getList("project")
@@ -142,97 +177,30 @@ class Content(Datamodel):
         projects = {x._id: x for x in projectList}
         editions = {x._id: x for x in editionList}
 
-        for x in editionList:
-            eId = x._id
-            pId = x.projectId
-            projects[pId].setdefault("editions", {})[eId] = x
+        for record in editionList:
+            eId = record._id
+            pId = record.projectId
+            projects[pId].setdefault("editions", {})[eId] = record
 
-        for x in projectLinks:
-            role = x.role
+        for record in projectLinks:
+            role = record.role
             if role:
-                u = x.user
-                pId = x.projectId
-                p = projects[pId]
-                p.setdefault("users", {}).setdefault(role, []).append(u)
+                u = record.user
+                uRecord = users[u]
+                pId = record.projectId
+                pRecord = projects[pId]
+                pRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
 
-        for x in editionLinks:
-            role = x.role
+        for record in editionLinks:
+            role = record.role
             if role:
-                u = x.user
-                eId = x.editionId
-                e = editions[eId]
-                e.setdefault("users", {}).setdefault(role, []).append(u)
+                u = record.user
+                uRecord = users[u]
+                eId = record.editionId
+                eRecord = editions[eId]
+                eRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
 
-        def wrapProject(p):
-            status = "public" if p.isVisible else "hidden"
-            statusCls = "public" if p.isVisible else "wip"
-            return H.div(
-                [
-                    H.div(
-                        [
-                            H.div(status, cls=statusCls),
-                            H.div(p.title, cls="ptitle"),
-                            H.div(
-                                "no users"
-                                if p.users is None
-                                else [wrapUser(*u) for u in p.users],
-                                cls="pusers",
-                            ),
-                        ],
-                        cls="phead",
-                    ),
-                    H.div(
-                        "no editions"
-                        if p.editions is None
-                        else [wrapEdition(e) for e in p.editions],
-                        cls="peditions",
-                    ),
-                ],
-                cls="pentry",
-            )
-
-        def wrapEdition(e):
-            status = "public" if p.isVisible else "hidden"
-            statusCls = "public" if p.isVisible else "wip"
-            return H.div(
-                [
-                    H.div(
-                        [
-                            H.div(status, cls=statusCls),
-                            H.div(p.title, cls="ptitle"),
-                            H.div(
-                                "no users"
-                                if p.users is None
-                                else [wrapUser(*u) for u in p.users],
-                                cls="pusers",
-                            ),
-                        ],
-                        cls="phead",
-                    ),
-                    H.div(
-                        "no editions"
-                        if p.editions is None
-                        else [wrapEdition(e) for e in p.editions],
-                        cls="peditions",
-                    ),
-                ],
-                cls="pentry",
-            )
-
-        def wrapUser(user, role):
-            userInfo = users[user]
-            name = userInfo.nickname
-            return H.div(name, cls=f"user {role}")
-
-        return H.div(
-            [
-                wrapProject(p)
-                for p in sorted(
-                    projectList, key=lambda p: (1 if p.isVisible else 0, p.title, p._id)
-                )
-            ],
-            cls="plist",
-        )
+        return Wrap.projectsAdmin(projects, editions, users)
 
     def insertProject(self):
         Mongo = self.Mongo
@@ -263,54 +231,6 @@ class Content(Datamodel):
             role="editor",
         )
         return projectId
-
-    def getEditions(self, project):
-        """Get the list of the editions of a project.
-
-        Well, only if the project is visible to the current user.
-        See `Content.getProjects()`.
-
-        Editions are each displayed by means of an icon and a title.
-        Both link to a landing page for the edition.
-
-        Parameters
-        ----------
-        project: string | ObjectId | AttrDict
-            The project in question.
-
-        Returns
-        -------
-        string
-            A list of captions of the editions of the project,
-            wrapped in a HTML string.
-        """
-        Settings = self.Settings
-        H = Settings.H
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        wrapped = []
-
-        (projectId, project) = Mongo.get("project", project)
-
-        for edition in Mongo.getList("edition", projectId=projectId):
-            editionId = edition._id
-            permitted = Auth.authorise("edition", record=edition, action="read")
-            if not permitted:
-                continue
-
-            title = edition.title
-
-            editionUrl = f"/edition/{editionId}"
-            button = self.actionButton("edition", edition, "delete")
-            visual = self.getUpload(edition, "iconEdition")
-            caption = self.getCaption(visual, title, button, editionUrl)
-            wrapped.append(caption)
-
-        wrapped.append(
-            H.p(self.actionButton("project", project, "create", insertTable="edition"))
-        )
-        return H.content(*wrapped)
 
     def insertEdition(self, project):
         Mongo = self.Mongo
@@ -370,91 +290,6 @@ class Content(Datamodel):
         sceneFile = authorTool.sceneFile
 
         return (viewer, sceneFile)
-
-    def getScene(self, edition, version=None, action=None):
-        """Get the scene of an edition of a project.
-
-        Well, only if the current user is authorised.
-
-        A scene is displayed by means of an icon and a row of buttons.
-
-        If action is not None, the scene is loaded in a specific version of the
-        viewer in a specific mode (`read` or `read`).
-        The edition knows which viewer to choose.
-
-        Which version and which mode are used is determined by the parameters.
-        If the parameters do not specify values, sensible defaults are chosen.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition in question.
-        version: string, optional None
-            The version of the chosen viewer that will be used.
-            If no version or a non-existing version are specified,
-            the latest existing version for that viewer will be chosen.
-        action: string, optional `read`
-            The mode in which the viewer should be opened.
-            If the mode is `update`, the viewer is opened in edit mode.
-            All other modes lead to the viewer being opened in read-only
-            mode.
-
-        Returns
-        -------
-        string
-            A caption of the scene of the edition,
-            with possibly a frame with the 3D viewer showing the scene.
-            The result is wrapped in a HTML string.
-        """
-        Settings = self.Settings
-        H = Settings.H
-        Mongo = self.Mongo
-        Auth = self.Auth
-        Viewers = self.Viewers
-
-        if action is None:
-            action = "read"
-
-        wrapped = []
-
-        (editionId, edition) = Mongo.get("edition", edition)
-        (viewer, sceneFile) = self.getViewInfo(edition)
-        actions = Auth.authorise("edition", edition)
-        if "read" not in actions:
-            return ""
-
-        version = Viewers.check(viewer, version)
-
-        wrapped = []
-
-        titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.actionButton("edition", edition, "delete")
-
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
-        title = H.span(titleText, cls="entrytitle")
-        content = f"""{frame}{title}{buttons}"""
-        caption = self.wrapCaption(content, button, active=True)
-
-        wrapped.append(caption)
-        return H.content(*wrapped)
-
-    def wrapCaption(self, content, button, active=False):
-        Settings = self.Settings
-        H = Settings.H
-
-        activeCls = "active" if active else ""
-        return H.div(
-            [H.div(content, cls=f"caption {activeCls}"), button], cls="captioncontent"
-        )
-
-    def getCaption(self, visual, titleText, button, url):
-        Settings = self.Settings
-        H = Settings.H
-
-        title = H.span(titleText, cls="entrytitle")
-        content = H.a(f"{visual}{title}", url, cls="entry")
-
-        return self.wrapCaption(content, button)
 
     def saveValue(self, table, record, key):
         """Saves a value of into a record.

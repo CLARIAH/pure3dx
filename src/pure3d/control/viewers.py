@@ -17,6 +17,10 @@ class Viewers:
         Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
         """
         self.Settings = Settings
         self.Messages = Messages
