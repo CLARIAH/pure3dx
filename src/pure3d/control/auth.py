@@ -31,7 +31,7 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authUser(self, task, table=None, record=None):
+    def authUser(self, task, table=None, record=None, otherUser=None, role=None):
         """Check whether a certain task related to the user table is allowed.
 
         Admins may see the list of users, project and edition users
@@ -44,50 +44,63 @@ class Auth(Users):
         per task there is a relevant table/record that should be passed:
 
         `my`: see the mywork tab and page.
-            *No relevant record needed.*
-            *No other user needed.*
+            *As relevant table/record the site table/record must be passed.*
+            *No other user/role needed.*
 
             Only admins and logged-in users will see the "My work" tab in navigation
             and the "My Work" page if they navigate to it.
 
-            A boolean is returned.
-
         `view`: see details of other users.
-            *The relevant record is either a project or an edition.*
+            *The relevant record is either the site or a project or an edition.*
 
-            Only admins and people in the same project/edition may see
-            the users in that item.
+            *No other user/role needs to be passed.*
 
-            A list of users is returned.
+            Admins may see all users.
+            If the site table/record is passed as the relevant record,
+            the role should be a site-wide role.
+            Only admins can see side-wide roles.
+
+            If the relevant record is a project,
+            the role should be a project role.
+
+            If the relevant record is an edition,
+            the role should be an edition role.
+
+            Only people that have a project/edition role may see
+            the other people in the same project/edition and their roles.
 
         `assign`:
-            Only for projects and unpublished editions: according to the
-            assignRules in `authorise.yaml`
+            *The relevant record is either a site or a project or an edition.*
 
-            *The relevant record is either a project or an edition.*
-            *The `otherUser` parameter is the assignee.
+            *The `otherUser` parameter is the assignee, and the *role* is the
+            role that the current user wants to assign to the assignee.*
 
-            We need the role of the assignee, because users cannot assign
-            more powerful users.
+            The question is "can the current user assign the role to the other
+            user with respect to the relevant record?".
 
-            A boolean is returned.
+            This question is answered by a boolean.
 
         Parameters
         ----------
         task: string
             The task to be executed
         table: string, optional None
-            the relevant table
+            the relevant table: `site` or `project` or `edition`;
+            is the table in which the
+            record sits relative to which the other user will be assigned a role.
         record: ObjectId | AttrDict, optional None
-            the relevant record
-        user: ObjectId | AttrDict, optional None
+            the relevant record;
+            it is the record relative to which the other user will be assigned a role.
+        user: string, optional None
             the other user
+        role: string, optional None
+            the role for the other user.
 
         Returns
         -------
         boolean
-            Whether the current user may execute the task in the given
-            context, affecting the other user.
+            Whether the current user may assign the other user the specified role
+            relative to the specified record.
         """
         Mongo = self.Mongo
         User = self.myDetails()
@@ -107,6 +120,9 @@ class Auth(Users):
         if task == "view":
             same = Mongo.getList(crossTable, crossField=recordId)
             return {r.userId for r in same}
+
+        if task == "assign":
+            pass
 
     def authorise(self, table, record, action=None, insertTable=None):
         """Check whether an action is allowed on data.
