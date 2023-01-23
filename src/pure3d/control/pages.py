@@ -87,7 +87,7 @@ class Pages:
         return self.page("projects", left=left)
 
     def mywork(self):
-        """The page with the list of users."""
+        """The page with the list of projects, editions, and users."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         items = Content.getMywork()
@@ -515,7 +515,7 @@ class Pages:
             ("home", "Home", True, True),
             ("about", "About", True, True),
             ("project", "3D Projects", True, True),
-            ("mywork", "My Work", True, Auth.authUser("tab")),
+            ("mywork", "My Work", True, Auth.authUser("my")),
             ("directory", "3D Directory", False, True),
             ("surpriseme", "Surprise Me", True, True),
             ("advancedsearch", "Advanced Search", False, True),

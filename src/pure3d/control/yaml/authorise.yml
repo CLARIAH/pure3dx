@@ -12,7 +12,7 @@ roles:
   site:
     null: not logged in
     guest: guest
-    user: authenticated user
+    user: user
     admin: administrator
   project:
     organiser: organiser

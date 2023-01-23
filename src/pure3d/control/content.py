@@ -93,7 +93,7 @@ class Content(Datamodel):
 
         (projectId, project) = Mongo.get("project", project)
 
-        return Wrap.editionsMain(project, Mongo.getList("edition"))
+        return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
 
     def getScene(self, edition, version=None, action=None):
         """Get the scene of an edition of a project.
@@ -166,6 +166,16 @@ class Content(Datamodel):
         """
         Mongo = self.Mongo
         Wrap = self.Wrap
+        Auth = self.Auth
+        User = Auth.myDetails()
+        user = User.user
+
+        if not Auth.authUser("my"):
+            Settings = self.Settings
+            H = Settings.H
+            return H.p(
+                "Log in to view the projects and editions that you are working on."
+            )
 
         userList = Mongo.getList("user")
         projectList = Mongo.getList("project")
@@ -177,30 +187,40 @@ class Content(Datamodel):
         projects = {x._id: x for x in projectList}
         editions = {x._id: x for x in editionList}
 
-        for record in editionList:
-            eId = record._id
-            pId = record.projectId
-            projects[pId].setdefault("editions", {})[eId] = record
+        myIds = AttrDict()
 
-        for record in projectLinks:
-            role = record.role
+        for eRecord in editionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            projects[pId].setdefault("editions", {})[eId] = eRecord
+
+        for pLink in projectLinks:
+            role = pLink.role
             if role:
-                u = record.user
+                u = pLink.user
                 uRecord = users[u]
-                pId = record.projectId
+                pId = pLink.projectId
                 pRecord = projects[pId]
                 pRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
+                if user == u:
+                    myIds.setdefault("project", set()).add(pId)
+                    for eId in pRecord.editions or []:
+                        myIds.setdefault("edition", set()).add(eId)
 
-        for record in editionLinks:
-            role = record.role
+        for eLink in editionLinks:
+            role = eLink.role
             if role:
-                u = record.user
+                u = eLink.user
                 uRecord = users[u]
-                eId = record.editionId
+                eId = eLink.editionId
                 eRecord = editions[eId]
+                pId = eRecord.projectId
                 eRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
+                if user == u:
+                    myIds.setdefault("project", set()).add(pId)
+                    myIds.setdefault("edition", set()).add(eId)
 
-        return Wrap.projectsAdmin(projects, editions, users)
+        return Wrap.projectsAdmin(projects, editions, users, myIds)
 
     def insertProject(self):
         Mongo = self.Mongo

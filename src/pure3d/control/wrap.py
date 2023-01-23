@@ -169,7 +169,7 @@ class Wrap:
         wrapped.append(caption)
         return H.content(*wrapped)
 
-    def projectsAdmin(self, projects, editions, users):
+    def projectsAdmin(self, projects, editions, users, myIds):
         """Produce a list of projects and editions for admin usage.
 
         This overview shows all projects and editions
@@ -197,6 +197,10 @@ class Wrap:
             and valued by the user records.
         users: dict
             All user records in the system, keyed by id.
+        myIds: AttrDict
+            All project and edition ids to which the current users as a relationship.
+            It is a dict with keys `project` and `edition` and the values are sets
+            of ids.
         """
         Settings = self.Settings
         Auth = self.Auth
@@ -209,26 +213,38 @@ class Wrap:
         pRoles = sorted(roles.project)
         eRoles = sorted(roles.edition)
 
-        mail = User.email or "no email"
-        myRole = roles.site[User.role]
+        def wrapUser(u):
+            name = u.nickname
+            mail = u.email or "no email"
+            myRole = roles.site[u.role]
 
-        wrapped = [
-            H.h(1, "My details"),
-            H.p(H.b(User.nickname)),
-            H.p(H.code(mail)),
-            H.p(myRole),
-        ]
-        wrapped.append(H.h(1, "My projects and editions"))
+            return H.div(
+                [
+                    H.div(name, cls="user"),
+                    H.div(mail, cls="email"),
+                    H.div(myRole, cls="role"),
+                ],
+                cls="udetails",
+            )
 
-        def wrapProject(p):
+        def wrapProject(p, myOnly=True):
             status = "public" if p.isVisible else "hidden"
             statusCls = "public" if p.isVisible else "wip"
+
+            theseEditions = sorted(
+                (
+                    e
+                    for e in p.editions.values()
+                    if not myOnly or e._id in (myIds.edition or set())
+                ),
+                key=lambda x: (x.title, x._id),
+            )
             return H.div(
                 [
                     H.div(
                         [
-                            H.div(status, cls=statusCls),
-                            H.div(p.title, cls="ptitle"),
+                            H.div(status, cls=f"pestatus {statusCls}"),
+                            H.a(p.title, f"project/{p._id}", cls="ptitle"),
                             H.div(
                                 "no users"
                                 if p.users is None
@@ -240,13 +256,8 @@ class Wrap:
                     ),
                     H.div(
                         "no editions"
-                        if p.editions is None
-                        else [
-                            wrapEdition(e)
-                            for e in sorted(
-                                p.editions.values(), key=lambda x: (x.title, x._id)
-                            )
-                        ],
+                        if len(theseEditions) == 0
+                        else [wrapEdition(e) for e in theseEditions],
                         cls="peditions",
                     ),
                 ],
@@ -255,11 +266,11 @@ class Wrap:
 
         def wrapEdition(e):
             status = "published" if e.isPublished else "in progress"
-            statusCls = "public" if e.isPublished else "wip"
+            statusCls = "published" if e.isPublished else "wip"
             return H.div(
                 [
-                    H.div(status, cls=statusCls),
-                    H.div(e.title, cls="etitle"),
+                    H.div(status, cls=f"pestatus {statusCls}"),
+                    H.a(e.title, f"edition/{e._id}", cls="etitle"),
                     H.div(
                         "no users" if e.users is None else wrapUsers(eRoles, e.users),
                         cls="eusers",
@@ -277,27 +288,55 @@ class Wrap:
                             H.nbsp
                             if users[role] is None
                             else [
-                                H.div(u.nickname, cls="user {role}")
+                                H.div(u.nickname, cls="user")
                                 for u in users[role]
                             ],
                             cls=f"users {role}",
                         ),
                     ],
-                    cls="users",
+                    cls="roleusers",
                 )
                 for role in itemRoles
             ]
 
-        return H.div(
-            [
-                wrapProject(p)
-                for p in sorted(
-                    projects.values(),
-                    key=lambda p: (1 if p.isVisible else 0, p.title, p._id),
-                )
-            ],
-            cls="plist",
+        if User.role == "admin":
+            usersAll = sorted(
+                users.values(), key=lambda x: (x.role, x.nickname, x.email, x._id)
+            )
+
+        projectsAll = sorted(
+            projects.values(), key=lambda x: (1 if x.isVisible else 0, x.title, x._id)
         )
+        projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
+
+        wrapped = [
+            H.h(1, "My details"),
+            wrapUser(User)
+        ]
+
+        wrapped.append(H.h(1, "My projects and editions"))
+        wrapped.append(
+            H.div([wrapProject(p) for p in projectsMy])
+            if len(projectsMy)
+            else H.div("You do not have specific roles w.r.t. projects and editions.")
+        )
+
+        if User.role == "admin":
+            wrapped.append(H.h(1, "All projects and editions"))
+            wrapped.append(
+                H.div([wrapProject(p, myOnly=False) for p in projectsAll])
+                if len(projectsAll)
+                else H.div("There are no projects and no editions")
+            )
+
+            wrapped.append(H.h(1, "Manage users"))
+            wrapped.append(
+                H.div([wrapUser(u) for u in usersAll])
+                if len(usersAll)
+                else H.div("There are no users")
+            )
+
+        return "".join(wrapped)
 
     def getCaption(self, visual, titleText, button, url):
         Settings = self.Settings

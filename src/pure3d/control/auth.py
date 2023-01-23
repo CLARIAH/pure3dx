@@ -43,12 +43,12 @@ class Auth(Users):
         The following tasks are defined;
         per task there is a relevant table/record that should be passed:
 
-        `tab`: see the users tab.
+        `my`: see the mywork tab and page.
             *No relevant record needed.*
             *No other user needed.*
 
-            Only admins and users that are associated to
-            any project/edition will see the "My work" tab in navigation.
+            Only admins and logged-in users will see the "My work" tab in navigation
+            and the "My Work" page if they navigate to it.
 
             A boolean is returned.
 
@@ -99,11 +99,8 @@ class Auth(Users):
 
         crossTable = f"{table}User"
 
-        if task == "tab":
-            return sum(
-                len(Mongo.getList(f"{table}User", user=user))
-                for table in ("project", "edition")
-            ) > 0
+        if task == "my":
+            return user is not None
 
         (recordId, record) = Mongo.get(table, record)
 
