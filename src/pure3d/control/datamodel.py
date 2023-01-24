@@ -525,9 +525,9 @@ class Field:
         if editable:
             keyRepUrl = "" if key is None else f"/{key}"
             saveUrl = f"/save/{table}/{recordId}{keyRepUrl}"
-            updateButton = self.actionButtonClient(table, "edit_update", key=key)
-            cancelButton = self.actionButtonClient(table, "edit_cancel", key=key)
-            saveButton = self.actionButtonClient(table, "edit_save", key=key)
+            updateButton = H.actionButton("edit_update")
+            cancelButton = H.actionButton("edit_cancel")
+            saveButton = H.actionButton("edit_save")
             msgs = H.div("", cls="editmsgs")
             editableContent = H.textarea(
                 "", cls="editcontent", saveurl=saveUrl, origValue=bare
@@ -570,26 +570,6 @@ class Field:
         )
 
         return H.div(fullContent, cls="editwidget") if editable else fullContent
-
-    def actionButtonClient(self, table, name, key=None, **atts):
-        """Generates an action button to be activated by client side Javascript.
-
-        It is assumed that the permission has already been checked.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-
-        """
-        Settings = self.Settings
-        H = Settings.H
-
-        href = "#"
-
-        fullCls = "button small"
-        return H.iconx(name, href=href, cls=fullCls, kind=name)
 
 
 class Upload:

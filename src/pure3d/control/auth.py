@@ -31,99 +31,6 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authUser(self, task, table=None, record=None, otherUser=None, role=None):
-        """Check whether a certain task related to the user table is allowed.
-
-        Admins may see the list of users, project and edition users
-        may see which other users are in the same project or edition
-        as they are, admins may assign project organisers,
-        project organisers may assign edition editors,
-        edition editors may assign edition readers.
-
-        The following tasks are defined;
-        per task there is a relevant table/record that should be passed:
-
-        `my`: see the mywork tab and page.
-            *As relevant table/record the site table/record must be passed.*
-            *No other user/role needed.*
-
-            Only admins and logged-in users will see the "My work" tab in navigation
-            and the "My Work" page if they navigate to it.
-
-        `view`: see details of other users.
-            *The relevant record is either the site or a project or an edition.*
-
-            *No other user/role needs to be passed.*
-
-            Admins may see all users.
-            If the site table/record is passed as the relevant record,
-            the role should be a site-wide role.
-            Only admins can see side-wide roles.
-
-            If the relevant record is a project,
-            the role should be a project role.
-
-            If the relevant record is an edition,
-            the role should be an edition role.
-
-            Only people that have a project/edition role may see
-            the other people in the same project/edition and their roles.
-
-        `assign`:
-            *The relevant record is either a site or a project or an edition.*
-
-            *The `otherUser` parameter is the assignee, and the *role* is the
-            role that the current user wants to assign to the assignee.*
-
-            The question is "can the current user assign the role to the other
-            user with respect to the relevant record?".
-
-            This question is answered by a boolean.
-
-        Parameters
-        ----------
-        task: string
-            The task to be executed
-        table: string, optional None
-            the relevant table: `site` or `project` or `edition`;
-            is the table in which the
-            record sits relative to which the other user will be assigned a role.
-        record: ObjectId | AttrDict, optional None
-            the relevant record;
-            it is the record relative to which the other user will be assigned a role.
-        user: string, optional None
-            the other user
-        role: string, optional None
-            the role for the other user.
-
-        Returns
-        -------
-        boolean
-            Whether the current user may assign the other user the specified role
-            relative to the specified record.
-        """
-        Mongo = self.Mongo
-        User = self.myDetails()
-        user = User.user
-        role = User.role
-
-        if role == "admin":
-            return True
-
-        crossTable = f"{table}User"
-
-        if task == "my":
-            return user is not None
-
-        (recordId, record) = Mongo.get(table, record)
-
-        if task == "view":
-            same = Mongo.getList(crossTable, crossField=recordId)
-            return {r.userId for r in same}
-
-        if task == "assign":
-            pass
-
     def authorise(self, table, record, action=None, insertTable=None):
         """Check whether an action is allowed on data.
 
@@ -320,10 +227,10 @@ class Auth(Users):
                 crossRecord = Mongo.getRecord(
                     relatedCrossTable, user=user, warn=False, **crit
                 )
-                extraRole = crossRecord.role
+                extraRoles = crossRecord.roles
 
-                if extraRole is not None:
-                    userRoles.add(extraRole)
+                if extraRoles is not None:
+                    userRoles |= set(extraRoles)
 
             elif kind == "master":
                 # if the action is create the given record is the master
@@ -343,10 +250,10 @@ class Auth(Users):
                 crossRecord = Mongo.getRecord(
                     relatedCrossTable, user=user, warn=False, **crit
                 )
-                extraRole = crossRecord.role
+                extraRoles = crossRecord.roles
 
-                if extraRole is not None:
-                    userRoles.add(extraRole)
+                if extraRoles is not None:
+                    userRoles |= set(extraRoles)
 
             elif kind == "detail":
                 # only relevant if recordId is given, because
@@ -369,7 +276,10 @@ class Auth(Users):
                 crit = {relatedIdField: {"$in": detailIds}}
                 crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
-                extraRoles = {crossRecord.role for crossRecord in crossRecords} - {None}
+                for crossRecord in crossRecords:
+                    extraRoles = crossRecord.roles
+                    if extraRoles is not None:
+                        userRoles |= set(extraRoles)
 
                 userRoles |= extraRoles
 

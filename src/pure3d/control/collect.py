@@ -374,7 +374,7 @@ class Collect:
                         xInfo = dict(
                             user=userByName[userName],
                             projectId=projectIdByName[projectName],
-                            role=role,
+                            roles=[role],
                         )
                         Mongo.insertRecord("projectUser", **xInfo)
             elif table == "edition":
@@ -384,6 +384,6 @@ class Collect:
                             xInfo = dict(
                                 user=userByName[userName],
                                 editionId=editionIdByName[projectName][editionName],
-                                role=role,
+                                roles=[role],
                             )
                             Mongo.insertRecord("editionUser", **xInfo)

@@ -170,7 +170,7 @@ class Content(Datamodel):
         User = Auth.myDetails()
         user = User.user
 
-        if not Auth.authUser("my"):
+        if not user:
             Settings = self.Settings
             H = Settings.H
             return H.p(
@@ -195,30 +195,37 @@ class Content(Datamodel):
             projects[pId].setdefault("editions", {})[eId] = eRecord
 
         for pLink in projectLinks:
-            role = pLink.role
-            if role:
+            roles = pLink.roles
+            if roles:
                 u = pLink.user
                 uRecord = users[u]
                 pId = pLink.projectId
                 pRecord = projects[pId]
-                pRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
+                pRecord.setdefault("users", {})
+
                 if user == u:
                     myIds.setdefault("project", set()).add(pId)
                     for eId in pRecord.editions or []:
                         myIds.setdefault("edition", set()).add(eId)
 
+                for role in roles:
+                    pRecord.users.setdefault(role, {})[u] = uRecord
+
         for eLink in editionLinks:
-            role = eLink.role
-            if role:
+            roles = eLink.roles
+            if roles:
                 u = eLink.user
                 uRecord = users[u]
                 eId = eLink.editionId
                 eRecord = editions[eId]
                 pId = eRecord.projectId
-                eRecord.setdefault("users", {}).setdefault(role, []).append(uRecord)
+
                 if user == u:
                     myIds.setdefault("project", set()).add(pId)
                     myIds.setdefault("edition", set()).add(eId)
+
+                for role in roles:
+                    eRecord.setdefault("users", {}).setdefault(role, {})[u] = uRecord
 
         return Wrap.projectsAdmin(projects, editions, users, myIds)
 

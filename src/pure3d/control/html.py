@@ -742,62 +742,88 @@ class HtmlElements:
             (text or "") + iconChar, addClass=addClass, **atts
         )
 
-    @staticmethod
-    def iframe(src, **atts):
-        """IFRAME.
+    def actionButton(self, name, kind=None, **atts):
+        """Generates an action button to be activated by client side Javascript.
 
-        An iframe, which is an empty element with an obligatory end tag.
-
-        Parameters
-        ----------
-        src: url
-            Source for the iframe.
-
-        Returns
-        -------
-        string(html)
-        """
-
-        return HtmlElement("iframe").wrap("", src=src, **atts)
-
-    def img(self, src, href=None, title=None, imgAtts={}, **atts):
-        """IMG.
-
-        Image element.
-
-        !!! note
-            The `atts` go to the outer element, which is either `<img>` if it is
-            not further wrapped, or `<a>`.
-            The `imgAtts` only go to the `<img>` element.
+        It is assumed that the permission has already been checked.
 
         Parameters
         ----------
-        src: url
-            The url of the image.
-        href: url, optional, `None`
-            The destination to navigate to if the image is clicked.
-            The images is then wrapped in an `<a>` element.
-            If missing, the image is not wrapped further.
-        title: string, optional, `None`
-            Tooltip.
-        imgAtts: dict, optional `{}`
-            Attributes that go to the `<img>` element.
+        H: object
+            The `control.html.HtmlElements` object
+
+        name: string
+            The name of the icon as displayed on the button
+
+        kind: string, optional None
+            The kind of the button, passed on in attribute `kind`, can be
+            used by Javascript to identify this button.
+            If `None`, the kind is set to the value of the `name` parameter.
 
         Returns
         -------
-        string(html)
-        """
+        string
+            The HTML of the button.
 
-        return (
-            self.a(
-                HtmlElement("img").wrap(E, src=src, **imgAtts),
-                href,
-                title=title,
-                **atts,
+        """
+        return self.iconx(name, href="#", cls="button small", kind=name, **atts)
+
+        @staticmethod
+        def iframe(src, **atts):
+            """IFRAME.
+
+            An iframe, which is an empty element with an obligatory end tag.
+
+            Parameters
+            ----------
+            src: url
+                Source for the iframe.
+
+            Returns
+            -------
+            string(html)
+            """
+
+            return HtmlElement("iframe").wrap("", src=src, **atts)
+
+        def img(self, src, href=None, title=None, imgAtts={}, **atts):
+            """IMG.
+
+            Image element.
+
+            !!! note
+                The `atts` go to the outer element, which is either `<img>` if it is
+                not further wrapped, or `<a>`.
+                The `imgAtts` only go to the `<img>` element.
+
+            Parameters
+            ----------
+            src: url
+                The url of the image.
+            href: url, optional, `None`
+                The destination to navigate to if the image is clicked.
+                The images is then wrapped in an `<a>` element.
+                If missing, the image is not wrapped further.
+            title: string, optional, `None`
+                Tooltip.
+            imgAtts: dict, optional `{}`
+                Attributes that go to the `<img>` element.
+
+            Returns
+            -------
+            string(html)
+            """
+
+            return (
+                self.a(
+                    HtmlElement("img").wrap(E, src=src, **imgAtts),
+                    href,
+                    title=title,
+                    **atts,
+                )
+                if href
+                else HtmlElement("img").wrap(E, src=src, title=title, **imgAtts, **atts)
             )
-            if href
-            else HtmlElement("img").wrap(E, src=src, title=title, **imgAtts, **atts)
-        )
 
     def input(self, material, tp, **atts):
         """INPUT.

@@ -503,7 +503,6 @@ class Pages:
             The HTML of the navigation.
         """
         Settings = self.Settings
-        Auth = self.Auth
         H = Settings.H
 
         # 1st column: url
@@ -515,7 +514,7 @@ class Pages:
             ("home", "Home", True, True),
             ("about", "About", True, True),
             ("project", "3D Projects", True, True),
-            ("mywork", "My Work", True, Auth.authUser("my")),
+            ("mywork", "My Work", True, True),
             ("directory", "3D Directory", False, True),
             ("surpriseme", "Surprise Me", True, True),
             ("advancedsearch", "Advanced Search", False, True),
