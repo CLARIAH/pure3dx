@@ -768,23 +768,23 @@ class HtmlElements:
         """
         return self.iconx(name, href="#", cls="button small", kind=name, **atts)
 
-        @staticmethod
-        def iframe(src, **atts):
-            """IFRAME.
+    @staticmethod
+    def iframe(src, **atts):
+        """IFRAME.
 
-            An iframe, which is an empty element with an obligatory end tag.
+        An iframe, which is an empty element with an obligatory end tag.
 
-            Parameters
-            ----------
-            src: url
-                Source for the iframe.
+        Parameters
+        ----------
+        src: url
+            Source for the iframe.
 
-            Returns
-            -------
-            string(html)
-            """
+        Returns
+        -------
+        string(html)
+        """
 
-            return HtmlElement("iframe").wrap("", src=src, **atts)
+        return HtmlElement("iframe").wrap("", src=src, **atts)
 
     def img(self, src, href=None, title=None, imgAtts={}, **atts):
         """IMG.

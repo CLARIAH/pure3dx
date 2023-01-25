@@ -11,4 +11,4 @@ viewers:
         prefix: "/webdav"
         element: voyager-story
         fileBase: voyager-story
-    defaultVersion: "0.21.1p"
+    defaultVersion: "0.24.0"
