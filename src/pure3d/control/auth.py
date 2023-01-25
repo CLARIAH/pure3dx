@@ -44,7 +44,7 @@ class Auth(Users):
 
         How do the authorisation rules work?
 
-        First we consider the site-wise role of the user: guest, user, or admin.
+        First we consider the site-wise role of the user: guest, user, admin, or root.
         If the action is allowed on that basis, we return True.
 
         If not, we look whether the user has additional roles with regard

@@ -4,6 +4,7 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
+from control.mywork import Mywork
 
 
 class Content(Datamodel):
@@ -164,70 +165,8 @@ class Content(Datamodel):
         -------
         string
         """
-        Mongo = self.Mongo
-        Wrap = self.Wrap
-        Auth = self.Auth
-        User = Auth.myDetails()
-        user = User.user
-
-        if not user:
-            Settings = self.Settings
-            H = Settings.H
-            return H.p(
-                "Log in to view the projects and editions that you are working on."
-            )
-
-        userList = Mongo.getList("user")
-        projectList = Mongo.getList("project")
-        editionList = Mongo.getList("edition")
-        projectLinks = Mongo.getList("projectUser")
-        editionLinks = Mongo.getList("editionUser")
-
-        users = {x.user: x for x in userList}
-        projects = {x._id: x for x in projectList}
-        editions = {x._id: x for x in editionList}
-
-        myIds = AttrDict()
-
-        for eRecord in editionList:
-            eId = eRecord._id
-            pId = eRecord.projectId
-            projects[pId].setdefault("editions", {})[eId] = eRecord
-
-        for pLink in projectLinks:
-            roles = pLink.roles
-            if roles:
-                u = pLink.user
-                uRecord = users[u]
-                pId = pLink.projectId
-                pRecord = projects[pId]
-                pRecord.setdefault("users", {})
-
-                if user == u:
-                    myIds.setdefault("project", set()).add(pId)
-                    for eId in pRecord.editions or []:
-                        myIds.setdefault("edition", set()).add(eId)
-
-                for role in roles:
-                    pRecord.users.setdefault(role, {})[u] = uRecord
-
-        for eLink in editionLinks:
-            roles = eLink.roles
-            if roles:
-                u = eLink.user
-                uRecord = users[u]
-                eId = eLink.editionId
-                eRecord = editions[eId]
-                pId = eRecord.projectId
-
-                if user == u:
-                    myIds.setdefault("project", set()).add(pId)
-                    myIds.setdefault("edition", set()).add(eId)
-
-                for role in roles:
-                    eRecord.setdefault("users", {}).setdefault(role, {})[u] = uRecord
-
-        return Wrap.projectsAdmin(projects, editions, users, myIds)
+        Admin = Mywork(self)
+        return Admin.wrap()
 
     def insertProject(self):
         Mongo = self.Mongo

@@ -29,13 +29,16 @@ authRules:
   site:
     create: {}
     read:
+      root: true
       admin: true
       user: true
       guest: true
       null: true
     update:
+      root: true
       admin: true
     delete:
+      root: true
       admin: true
 
   project:
@@ -48,14 +51,17 @@ authRules:
     create:
       true: {}
       false:
+        root: true
         admin: true
     read:
       true:
+        root: true
         admin: true
         user: true
         guest: true
         null: true
       false:
+        root: true
         admin: true
         organiser: true
         editor: true
@@ -67,6 +73,7 @@ authRules:
     delete:
       true: {}
       false:
+        root: true
         admin: true
 
   edition:
@@ -82,11 +89,13 @@ authRules:
         organiser: true
     read:
       true:
+        root: true
         admin: true
         user: true
         guest: true
         null: true
       false:
+        root: true
         admin: true
         organiser: true
         editor: true

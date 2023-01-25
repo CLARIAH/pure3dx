@@ -786,44 +786,44 @@ class HtmlElements:
 
             return HtmlElement("iframe").wrap("", src=src, **atts)
 
-        def img(self, src, href=None, title=None, imgAtts={}, **atts):
-            """IMG.
+    def img(self, src, href=None, title=None, imgAtts={}, **atts):
+        """IMG.
 
-            Image element.
+        Image element.
 
-            !!! note
-                The `atts` go to the outer element, which is either `<img>` if it is
-                not further wrapped, or `<a>`.
-                The `imgAtts` only go to the `<img>` element.
+        !!! note
+            The `atts` go to the outer element, which is either `<img>` if it is
+            not further wrapped, or `<a>`.
+            The `imgAtts` only go to the `<img>` element.
 
-            Parameters
-            ----------
-            src: url
-                The url of the image.
-            href: url, optional, `None`
-                The destination to navigate to if the image is clicked.
-                The images is then wrapped in an `<a>` element.
-                If missing, the image is not wrapped further.
-            title: string, optional, `None`
-                Tooltip.
-            imgAtts: dict, optional `{}`
-                Attributes that go to the `<img>` element.
+        Parameters
+        ----------
+        src: url
+            The url of the image.
+        href: url, optional, `None`
+            The destination to navigate to if the image is clicked.
+            The images is then wrapped in an `<a>` element.
+            If missing, the image is not wrapped further.
+        title: string, optional, `None`
+            Tooltip.
+        imgAtts: dict, optional `{}`
+            Attributes that go to the `<img>` element.
 
-            Returns
-            -------
-            string(html)
-            """
+        Returns
+        -------
+        string(html)
+        """
 
-            return (
-                self.a(
-                    HtmlElement("img").wrap(E, src=src, **imgAtts),
-                    href,
-                    title=title,
-                    **atts,
-                )
-                if href
-                else HtmlElement("img").wrap(E, src=src, title=title, **imgAtts, **atts)
+        return (
+            self.a(
+                HtmlElement("img").wrap(E, src=src, **imgAtts),
+                href,
+                title=title,
+                **atts,
             )
+            if href
+            else HtmlElement("img").wrap(E, src=src, title=title, **imgAtts, **atts)
+        )
 
     def input(self, material, tp, **atts):
         """INPUT.

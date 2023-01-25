@@ -22,6 +22,7 @@ icons:
   edit_cancel: "❌"
   edit_save: "✅"
   edit_update: "✎"
+  edit_assign: "♺"
   chain: "⚭"
   check: "✔︎"
   create: "✚"
@@ -46,3 +47,4 @@ iconTips:
   edit_cancel: "reset to last saved value"
   edit_save: "save and quit"
   edit_update: "edit this value"
+  edit_assign: "assign user role(s)"

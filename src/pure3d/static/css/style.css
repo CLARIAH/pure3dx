@@ -355,17 +355,29 @@ span.fileupload.iconedition img {
 .eentry:last-of-type {
   border-bottom-width: 0;
 }
-.pusers,.eusers {
+.susers,.pusers,.eusers {
   display: flex;
   flex-flow: column nowrap;
 }
-.roleusers {
-  width: 100%;
+.userroles {
   display: flex;
   flex-flow: row nowrap;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   margin-bottom: 0.5rem;
+}
+.users {
+  flex: 1 1 auto;
+  display: inline-flex;
+  flex-flow: row wrap;
+  align-items: flex-start;
+}
+.roles {
+  flex: 0 1 auto;
+  display: inline-flex;
+  flex-flow: column wrap;
+  align-items: flex-start;
+  width: 9em;
 }
 .role {
   flex: 0 0 auto;
@@ -380,12 +392,6 @@ span.fileupload.iconedition img {
   padding-right: 0.2rem;
   margin-left: 0.2rem;
   margin-right: 0.2rem;
-}
-.users {
-  flex: 1 1 auto;
-  display: inline-flex;
-  flex-flow: row wrap;
-  align-items: flex-start;
 }
 .user {
   flex: 0 1 auto;
