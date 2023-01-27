@@ -26,14 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L1-L233" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L1-L223" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import yaml
 import re
 from shutil import rmtree, copytree, copy
 
-from control.generic import AttrDict
+from control.generic import deepAttrDict
 
 
 THREE_EXT = {&#34;glb&#34;, &#34;gltf&#34;}
@@ -78,19 +78,19 @@ def readYaml(path, defaultEmpty=False):
         The path of the file on the file system.
     defaultEmpty: boolean, optional False
         What to do if the file does not exist.
-        If True, it returns an empty `control.generic.AttrDict`
+        If True, it returns an empty AttrDict
         otherwise False.
 
     Returns
     -------
-    `control.generic.AttrDict` or None
+    AttrDict | void
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
     if not os.path.isfile(path):
         return None
     with open(path) as fh:
         data = yaml.load(fh, Loader=yaml.FullLoader)
-    return AttrDict(data)
+    return deepAttrDict(data)
 
 
 def fileExists(path):
@@ -185,6 +185,30 @@ def listFiles(path, ext):
     return files
 
 
+def listFilesAccepted(path, accept, withExt=True):
+    &#34;&#34;&#34;The list of all files in a directory that match a certain accepted header.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    exts = [ext.strip() for ext in accept.split(&#34;,&#34;)]
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            for ext in exts:
+                nExt = len(ext)
+                if name.endswith(ext) and entry.is_file():
+                    fileName = name if withExt else name[0:-nExt]
+                    files.append(fileName)
+
+    return files
+
+
 def listImages(path):
     &#34;&#34;&#34;The list of all image files in a directory.
 
@@ -226,41 +250,7 @@ def list3d(path):
             if THREED_RE.match(name) and entry.is_file():
                 files.append(name)
 
-    return files
-
-
-def get3d(path, name=None):
-    &#34;&#34;&#34;Detect 3D files in a certain directory.
-
-    The directory is searched for files that have an extension that signals 3D data.
-    Optionally we restrict the search for files with a given base name.
-
-    Parameters
-    ----------
-    path: string
-        Directory in which the 3D files are looked up.
-    name: string, optionally None
-        If None, all files will be searched.
-        Otherwise this is the base name of the 3D files that we look for.
-
-    Returns
-    -------
-    dict
-        Keyed by base name, valued by extensions of existing 3D files in that directory.
-    &#34;&#34;&#34;
-
-    files = list3d(path)
-
-    matchingFiles = {}
-
-    for file in files:
-        (thisName, ext) = file.rsplit(&#34;.&#34;, 1)
-        if name is not None and name != thisName:
-            continue
-
-        matchingFiles.setdefault(thisName, []).append(ext)
-
-    return matchingFiles</code></pre>
+    return files</code></pre>
 </details>
 </section>
 <section>
@@ -279,7 +269,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L102-L109" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L102-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirCopy(pathSrc, pathDst):
     &#34;&#34;&#34;Copies a directory if it exists as directory.
@@ -299,7 +289,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L89-L92" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L89-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirExists(path):
     &#34;&#34;&#34;Whether a path exists as directory on the file system.
@@ -315,7 +305,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L112-L116" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L112-L116" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirMake(path):
     &#34;&#34;&#34;Creates a directory if it does not already exist as directory.
@@ -332,7 +322,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L95-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L95-L99" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirRemove(path):
     &#34;&#34;&#34;Removes a directory if it exists as directory.
@@ -350,7 +340,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L79-L86" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L79-L86" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileCopy(pathSrc, pathDst):
     &#34;&#34;&#34;Copies a file if it exists as file.
@@ -370,7 +360,7 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L66-L69" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L66-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileExists(path):
     &#34;&#34;&#34;Whether a path exists as file on the file system.
@@ -386,72 +376,13 @@ def get3d(path, name=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L72-L76" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L72-L76" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileRemove(path):
     &#34;&#34;&#34;Removes a file if it exists as file.
     &#34;&#34;&#34;
     if fileExists(path):
         os.remove(path)</code></pre>
-</details>
-</dd>
-<dt id="control.files.get3d"><code class="name flex">
-<span>def <span class="ident">get3d</span></span>(<span>path, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Detect 3D files in a certain directory.</p>
-<p>The directory is searched for files that have an extension that signals 3D data.
-Optionally we restrict the search for files with a given base name.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
-<dd>Directory in which the 3D files are looked up.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>string, optionally None</code></dt>
-<dd>If None, all files will be searched.
-Otherwise this is the base name of the 3D files that we look for.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>dict</code></dt>
-<dd>Keyed by base name, valued by extensions of existing 3D files in that directory.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L202-L233" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def get3d(path, name=None):
-    &#34;&#34;&#34;Detect 3D files in a certain directory.
-
-    The directory is searched for files that have an extension that signals 3D data.
-    Optionally we restrict the search for files with a given base name.
-
-    Parameters
-    ----------
-    path: string
-        Directory in which the 3D files are looked up.
-    name: string, optionally None
-        If None, all files will be searched.
-        Otherwise this is the base name of the 3D files that we look for.
-
-    Returns
-    -------
-    dict
-        Keyed by base name, valued by extensions of existing 3D files in that directory.
-    &#34;&#34;&#34;
-
-    files = list3d(path)
-
-    matchingFiles = {}
-
-    for file in files:
-        (thisName, ext) = file.rsplit(&#34;.&#34;, 1)
-        if name is not None and name != thisName:
-            continue
-
-        matchingFiles.setdefault(thisName, []).append(ext)
-
-    return matchingFiles</code></pre>
 </details>
 </dd>
 <dt id="control.files.list3d"><code class="name flex">
@@ -465,7 +396,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L180-L199" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L204-L223" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def list3d(path):
     &#34;&#34;&#34;The list of all 3D files in a directory.
@@ -498,7 +429,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L119-L135" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L119-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listDirs(path):
     &#34;&#34;&#34;The list of all subdirectories in a directory.
@@ -528,7 +459,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L138-L155" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L138-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFiles(path, ext):
     &#34;&#34;&#34;The list of all files in a directory with a certain extension.
@@ -550,6 +481,41 @@ case variants.</p></div>
     return files</code></pre>
 </details>
 </dd>
+<dt id="control.files.listFilesAccepted"><code class="name flex">
+<span>def <span class="ident">listFilesAccepted</span></span>(<span>path, accept, withExt=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The list of all files in a directory that match a certain accepted header.</p>
+<p>If the directory does not exist, the empty list is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L158-L179" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def listFilesAccepted(path, accept, withExt=True):
+    &#34;&#34;&#34;The list of all files in a directory that match a certain accepted header.
+
+    If the directory does not exist, the empty list is returned.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    exts = [ext.strip() for ext in accept.split(&#34;,&#34;)]
+
+    with os.scandir(path) as dh:
+        for entry in dh:
+            name = entry.name
+            for ext in exts:
+                nExt = len(ext)
+                if name.endswith(ext) and entry.is_file():
+                    fileName = name if withExt else name[0:-nExt]
+                    files.append(fileName)
+
+    return files</code></pre>
+</details>
+</dd>
 <dt id="control.files.listImages"><code class="name flex">
 <span>def <span class="ident">listImages</span></span>(<span>path)</span>
 </code></dt>
@@ -561,7 +527,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L158-L177" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L182-L201" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listImages(path):
     &#34;&#34;&#34;The list of all image files in a directory.
@@ -609,7 +575,7 @@ If the file does not exist, the empty string is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L16-L39" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L16-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readPath(filePath):
     &#34;&#34;&#34;Reads the (textual) contents of a file.
@@ -648,16 +614,18 @@ If the file does not exist, the empty string is returned.</dd>
 <dd>The path of the file on the file system.</dd>
 <dt><strong><code>defaultEmpty</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>What to do if the file does not exist.
-If True, it returns an empty <code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code>
+If True, it returns an empty AttrDict
 otherwise False.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code> or None
-The data content of the yaml file if it exists.</p></div>
+<dl>
+<dt><code>AttrDict | void</code></dt>
+<dd>The data content of the yaml file if it exists.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/files.py#L42-L63" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/files.py#L42-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readYaml(path, defaultEmpty=False):
     &#34;&#34;&#34;Reads a yaml file.
@@ -668,19 +636,19 @@ The data content of the yaml file if it exists.</p></div>
         The path of the file on the file system.
     defaultEmpty: boolean, optional False
         What to do if the file does not exist.
-        If True, it returns an empty `control.generic.AttrDict`
+        If True, it returns an empty AttrDict
         otherwise False.
 
     Returns
     -------
-    `control.generic.AttrDict` or None
+    AttrDict | void
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
     if not os.path.isfile(path):
         return None
     with open(path) as fh:
         data = yaml.load(fh, Loader=yaml.FullLoader)
-    return AttrDict(data)</code></pre>
+    return deepAttrDict(data)</code></pre>
 </details>
 </dd>
 </dl>
@@ -755,10 +723,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.files.fileCopy" href="#control.files.fileCopy">fileCopy</a></code></li>
 <li><code><a title="control.files.fileExists" href="#control.files.fileExists">fileExists</a></code></li>
 <li><code><a title="control.files.fileRemove" href="#control.files.fileRemove">fileRemove</a></code></li>
-<li><code><a title="control.files.get3d" href="#control.files.get3d">get3d</a></code></li>
 <li><code><a title="control.files.list3d" href="#control.files.list3d">list3d</a></code></li>
 <li><code><a title="control.files.listDirs" href="#control.files.listDirs">listDirs</a></code></li>
 <li><code><a title="control.files.listFiles" href="#control.files.listFiles">listFiles</a></code></li>
+<li><code><a title="control.files.listFilesAccepted" href="#control.files.listFilesAccepted">listFilesAccepted</a></code></li>
 <li><code><a title="control.files.listImages" href="#control.files.listImages">listImages</a></code></li>
 <li><code><a title="control.files.readPath" href="#control.files.readPath">readPath</a></code></li>
 <li><code><a title="control.files.readYaml" href="#control.files.readYaml">readYaml</a></code></li>

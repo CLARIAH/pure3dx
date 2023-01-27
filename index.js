@@ -64,18 +64,24 @@ INDEX=[
 {
 "ref":"control.auth.Auth",
 "url":2,
-"doc":"All about authorised data access. This class knows users because it is based on the Users class. This class also knows content, and decides whether the current user is authorised to perform certain actions on content in question. It is instantiated by a singleton object. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Content: object Singleton instance of  control.content.Content ."
+"doc":"All about authorised data access. This class knows users because it is based on the Users class. This class also knows content, and decides whether the current user is authorised to perform certain actions on content in question. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Content: object Singleton instance of  control.content.Content ."
+},
+{
+"ref":"control.auth.Auth.authUser",
+"url":2,
+"doc":"Check whether a certain task related to the user table is allowed. Admins may see the list of users, project and edition users may see which other users are in the same project or edition as they are, admins may assign project organisers, project organisers may assign edition editors, edition editors may assign edition readers. The following tasks are defined; per task there is a relevant table/record that should be passed:  tab : see the users tab.  No relevant record needed.  No other user needed. Only admins and users that are associated to any project/edition will see the \"My work\" tab in navigation. A boolean is returned.  view : see details of other users.  The relevant record is either a project or an edition. Only admins and people in the same project/edition may see the users in that item. A list of users is returned.  assign : Only for projects and unpublished editions: according to the assignRules in  authorise.yaml  The relevant record is either a project or an edition.  The  otherUser parameter is the assignee. We need the role of the assignee, because users cannot assign more powerful users. A boolean is returned. Parameters      task: string The task to be executed table: string, optional None the relevant table record: ObjectId | AttrDict, optional None the relevant record user: ObjectId | AttrDict, optional None the other user Returns    - boolean Whether the current user may execute the task in the given context, affecting the other user.",
+"func":1
 },
 {
 "ref":"control.auth.Auth.authorise",
 "url":2,
-"doc":"Gather the access conditions for the relevant record or table. Parameters      table: string, optional None the table that is being used recordId: ObjectId The id of the record that is being accessed, if any. projectId: ObjectId Only relevant if recordId is None. If passed, the new record to be created will belong to this project action: string, optional None If None, returns all permitted actions on the record in question, otherwise whether the indicated action is permitted. If recordId is None, it is assumed that the action is  create , and a boolean is returned. Returns    - set | boolean If  recordId is None: whether the user is allowed to insert a new record in  table . Otherwise: if  action is passed: whether the user is allowed to perform that action on the record in question. Otherwise: the set of actions that the user may perform on this record.",
+"doc":"Check whether an action is allowed on data. The \"create\" action is a bit special, because we do not have any record to start with. In this case  table and  record should point to the master record, and  insertTable should have the table that will contain the new record. If the action is anything else,  tabale and  record refer to the relevant record, and  insertTable should not be passed. How do the authorisation rules work? First we consider the site-wise role of the user: guest, user, or admin. If the action is allowed on that basis, we return True. If not, we look whether the user has additional roles with regard to the record in question, or with any of its master records. If so, we apply the rules for those cases and see whether the action is permitted. Then we have the possibility that a record is in a certain state, e.g. projects may be visible or invisible, editions may be published or unpublished. For each of these states we have separate rules, so we inspect the states of the records and master records in order to select the appropriate rules. Parameters      table: string the relevant table; for  create actions it is the master table of the table in which a record will be inserted. record: ObjectId | AttrDict The id of the record that is being accessed or the record itself; for  create actions it is the master record to which a new record will be created as a detail. action: string, optional None The action for which permission is asked. insertTable: string Only relevant for \"create\" actions. The detail table in which the new record will be inserted. Returns    - boolean | dict For other actions: a boolean whether action is allowed. If no action is passed: dict keyed by the allowed actions, the values are true. Actions with a falsy permission (False or the empty set) are not included in the dict. So, to test whether any action is allowed, it suffices to test whether  action in result ",
 "func":1
 },
 {
 "ref":"control.auth.Auth.makeSafe",
 "url":2,
-"doc":"Changes an action into an allowed action if needed. This function 'demotes' an action to an allowed action if the action itself is not allowed. In practice, if the action is  update or  delete , but that is not allowed, it is changed into  read . If  read itself is not allowed, None is returned. Parameters      table: string The table in which the record exists. recordId: ObjectId The id of the record. action: string An intended action. Returns    - string or None The resulting safe action.",
+"doc":"Changes an update action into a read action if needed. This function 'demotes' an \"update: to a \"read\" if the \"update\" is not allowed. If \"read\" itself is not allowed, None is returned. If any other action tahn \"update\" or \"read\" is passed, None is returned. Parameters      table: string The table in which the record exists. record: ObjectId | AttrDict The id of the record or the record itself. action: string An intended action. Returns    - string | void The resulting safe action.",
 "func":1
 },
 {
@@ -87,13 +93,13 @@ INDEX=[
 {
 "ref":"control.auth.Auth.login",
 "url":3,
-"doc":"Log in a user. Logging in has several main steps: 1. redirecting to a private page, for which login is required 2. obtaining the authentication results when the user visits that page 3. storing the relevant user data When we log in test users, we can skip the first step, because we already know everything about the test user on the basis of the information in the request that brought us here. So, we find out if we have to log in a test user or a user that must be authenticated through oidc. We only log in a test user if we are in test mode and the user's sub is passed in the request. Returns    - response A redirect. When logging in in test mode, the redirect is to  referrer (the url we came from). Otherwise it is to a url that triggers an oidc login procedure. To that page we pass the referrer as part of the url, so that after login the user can be redirected to the original referrer.",
+"doc":"Log in a user. Logging in has several main steps: 1. redirecting to a private page, for which login is required 2. obtaining the authentication results when the user visits that page 3. storing the relevant user data When we log in test users, we can skip the first step, because we already know everything about the test user on the basis of the information in the request that brought us here. So, we find out if we have to log in a test user or a user that must be authenticated through oidc. We only log in a test user if we are in test mode and the user's \"sub\" is passed in the request. Returns    - response A redirect. When logging in in test mode, the redirect is to  referrer (the url we came from). Otherwise it is to a url that triggers an oidc login procedure. To that page we pass the referrer as part of the url, so that after login the user can be redirected to the original referrer.",
 "func":1
 },
 {
 "ref":"control.auth.Auth.afterLogin",
 "url":3,
-"doc":"Logs in a user. When this function starts operating, the user has been through the login process provided by the authentication service. We can now find the user's sub and additional attributes in the request context. We use that information to lookup the user in the MongoDb users table. If the user does not exists, we add a new user record, with this sub and these attributes, and role  user . If the user does exists, we check whether we have to update his attributes. If the attributes found in MongoDb differ from those supplied by the authentication service, we update the MongoDb values on the basis of the provider values. Parameters      referrer: string url where we came from. Returns    - response A redirect to the referrer, with a status 302 if the log in was successful or 303 if not.",
+"doc":"Logs in a user. When this function starts operating, the user has been through the login process provided by the authentication service. We can now find the user's \"sub\" and additional attributes in the request context. We use that information to lookup the user in the MongoDb users table. If the user does not exists, we add a new user record, with this \"sub\" and these attributes, and role  user . If the user does exists, we check whether we have to update his attributes. If the attributes found in MongoDb differ from those supplied by the authentication service, we update the MongoDb values on the basis of the provider values. Parameters      referrer: string url where we came from. Returns    - response A redirect to the referrer, with a status 302 if the log in was successful or 303 if not.",
 "func":1
 },
 {
@@ -111,13 +117,13 @@ INDEX=[
 {
 "ref":"control.auth.Auth.myDetails",
 "url":3,
-"doc":"Who is the currently authenticated user? The  __User member is inspected: does it contain an sub? If so, that is taken as proof that we have a valid user. Returns    - dict Otherwise a copy of the complete __User record is returned. unless there is no  sub member in the current user, then the empty dictionary is returned.",
+"doc":"Who is the currently authenticated user? The  __User member is inspected: does it contain a field called  user ? If so, that is taken as proof that we have a valid user. Returns    - dict Otherwise a copy of the complete __User record is returned. unless there is no  user member in the current user, then the empty dictionary is returned.",
 "func":1
 },
 {
 "ref":"control.auth.Auth.getUser",
 "url":3,
-"doc":"Obtain the sub of the currently logged in user from the request info. It works for test users and normal users. Parameters      fromArg: boolean, optional False If True, the test user is not read from the session, but from a request argument. This is used during the login procedure of test users. Returns    - boolean, boolean, string Whether we are in test mode. Whether the user is a test user. The sub of the user",
+"doc":"Obtain the \"sub\" of the currently logged in user from the request info. It works for test users and normal users. Parameters      fromArg: boolean, optional False If True, the test user is not read from the session, but from a request argument. This is used during the login procedure of test users. Returns    - boolean, boolean, string Whether we are in test mode. Whether the user is a test user. The \"sub\" of the user",
 "func":1
 },
 {
@@ -151,7 +157,7 @@ INDEX=[
 {
 "ref":"control.files.readYaml",
 "url":4,
-"doc":"Reads a yaml file. Parameters      filePath: string The path of the file on the file system. defaultEmpty: boolean, optional False What to do if the file does not exist. If True, it returns an empty  control.generic.AttrDict otherwise False. Returns    -  control.generic.AttrDict or None The data content of the yaml file if it exists.",
+"doc":"Reads a yaml file. Parameters      filePath: string The path of the file on the file system. defaultEmpty: boolean, optional False What to do if the file does not exist. If True, it returns an empty AttrDict otherwise False. Returns    - AttrDict | void The data content of the yaml file if it exists.",
 "func":1
 },
 {
@@ -209,6 +215,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.files.listFilesAccepted",
+"url":4,
+"doc":"The list of all files in a directory that match a certain accepted header. If the directory does not exist, the empty list is returned.",
+"func":1
+},
+{
 "ref":"control.files.listImages",
 "url":4,
 "doc":"The list of all image files in a directory. If the directory does not exist, the empty list is returned. An image is a file with extension .png, .jpg, .jpeg or any of its case variants.",
@@ -221,12 +233,6 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.files.get3d",
-"url":4,
-"doc":"Detect 3D files in a certain directory. The directory is searched for files that have an extension that signals 3D data. Optionally we restrict the search for files with a given base name. Parameters      path: string Directory in which the 3D files are looked up. name: string, optionally None If None, all files will be searched. Otherwise this is the base name of the 3D files that we look for. Returns    - dict Keyed by base name, valued by extensions of existing 3D files in that directory.",
-"func":1
-},
-{
 "ref":"control.collect",
 "url":5,
 "doc":""
@@ -234,7 +240,7 @@ INDEX=[
 {
 "ref":"control.collect.Collect",
 "url":5,
-"doc":"Provides initial data collection into MongoDb. Normally, this does not have to run, since the MongoDb is persistent. Only when the MongoDb of the Pure3D app is fresh, or when the MongoDb is out of sync with the data on the filesystem it must be initialized. It reads:  configuration data of the app,  project data on the file system  workflow data on the file system  3D-viewer code on file system The project-, workflow, and viewer data should be placed on the same share in the file system, by a provision step that is done on the host. The data for the supported viewers is in repo  pure3d-data , under  viewers . For testing, there is  exampledata in the same  pure3d-data repo. The provision step should copy the contents of  exampledata to the  data directory of this repo ( pure3dx ). If data collection is triggered in test mode, the user table will be wiped, and the test users present in the example data will be imported. Otherwise the user table will be left unchanged. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
+"doc":"Provides initial data collection into MongoDb. Normally, this does not have to run, since the MongoDb is persistent. Only when the MongoDb of the Pure3D app is fresh, or when the MongoDb is out of sync with the data on the filesystem it must be initialized. It reads:  configuration data of the app,  project data on the file system  workflow data on the file system  3D-viewer code on file system The project-, workflow, and viewer data should be placed on the same share in the file system, by a provision step that is done on the host. The data for the supported viewers is in repo  pure3d-data , under  viewers . For testing, there is  exampledata in the same  pure3d-data repo. The provision step should copy the contents of  exampledata to the  data directory of this repo ( pure3dx ). If data collection is triggered in test mode, the user table will be wiped, and the test users present in the example data will be imported. Otherwise the user table will be left unchanged. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
 },
 {
 "ref":"control.collect.Collect.trigger",
@@ -275,19 +281,13 @@ INDEX=[
 {
 "ref":"control.collect.Collect.doEditions",
 "url":5,
-"doc":"Collects data belonging to the editions of a project. Parameters      projectInPath: string Path on the filesystem to the input directory of this project projectOutPath: string Path on the filesystem to the destination directory of this project projectId: ObjectId MongoId of the project to collect.",
+"doc":"Collects data belonging to the editions of a project. Parameters      projectInPath: string Path on the filesystem to the input directory of this project projectOutPath: string Path on the filesystem to the destination directory of this project projectName: String Name of the project to collect.",
 "func":1
 },
 {
 "ref":"control.collect.Collect.doEdition",
 "url":5,
-"doc":"Collects data belonging to a specific edition. Parameters      projectId: ObjectId MongoId of the project to which the edition belongs. editionsInPath: string Path on the filesystem to the editions input directory within this project. editionsOutPath: string Path on the filesystem to the editions working directory within this project. editionName: string Directory name of the edition to collect.",
-"func":1
-},
-{
-"ref":"control.collect.Collect.doScenes",
-"url":5,
-"doc":"Collects data belonging to the scenes of an edition. Parameters      editionInPath: string Path on the filesystem to the input directory of this edition editionOutPath: string Path on the filesystem to the destination directory of this edition projectId: ObjectId MongoId of the project to collect. editionId: ObjectId MongoId of the edition to collect.",
+"doc":"Collects data belonging to a specific edition. Parameters      projectName: String Name of the project to which the edition belongs. editionsInPath: string Path on the filesystem to the editions input directory within this project. editionsOutPath: string Path on the filesystem to the editions working directory within this project. editionName: string Directory name of the edition to collect.",
 "func":1
 },
 {
@@ -304,7 +304,41 @@ INDEX=[
 {
 "ref":"control.editsessions.EditSessions",
 "url":6,
-"doc":"Managing edit sessions of users. This class has methods to create and delete edit sessions for users, which guard them from overwriting each other's data. Edit sessions prevent users from editing the same piece of content, in particular it prevents multiple  edit -mode 3D viewers being active with the same scene. It is instantiated by a singleton object. Parameters      Mongo: object Singleton instance of  control.mongo.Mongo ."
+"doc":"Managing edit sessions of users. This class has methods to create and delete edit sessions for users, which guard them from overwriting each other's data. Edit sessions prevent users from editing the same piece of content, in particular it prevents multiple  edit -mode 3D viewers being active with the same scene. It is instantiated by a singleton object.  What are edit sessions? First of all, this machinery is only called upon if the user is  authorised to edit the relevant piece of content. Whether an authorised user may proceed depends on whether the content in question is not currently being edited by an other user. The idea is that content may only be modified (updated/deleted) if it is guarded by an edit session. An edit session is a MongoDb record that holds a user id and fields that specify a piece of content, and a time stamp. The timestamp counts as the start of the session. When users are done, the edit session is deleted. The idea is, that before a user is granted edit access to content, it is checked first whether there is an existing edit session for that user and that content. If so, edit access is not granted. If there is no such editsession, access is granted, and a new editsession is made. Whenever the user terminates the editing action, the editsession is deleted. A user can also save withoout terminating the edit action. In that case the timestamp is set to the current time. Editsessions will be removed after a certain amount of time. So, editsessions contain:  a user specification  a content specification  a time specification  User specification : when a session is created, the _id of the current user is stored in the userId field of the editSession record.  Content specification : we need to specify content in MongoDb records and on the file system.  ! caution \"Disclaimer\" We do not attempt to make a water-tight locking system, because the situation is a bit complex, due to the fact that most file system content is edited through a 3rd party 3D viewer (currently: Voyager-Story). Moreover, there may be multiple scenes for a single 3D model, and these scenes may refer to the same articles, although every scene contains its own metadata of the articles. In this fuzzy situation we choose a rather coarse mode of action:  at most one Voyager-Story is allowed to be fired up per edition;  file actions are guarded together with the mongo records that are also affected by those actions. That means that content specifications boil down to:   table : the name of the collection in which the meta data record sits   recordId : the id of the record in which the metadata sits We list all possible non-mongo actions and indicate the corresponding content specifications (the id values are imaginary):   viewer sessions that allow editing actions :  table=\"edition\" recordId=\"176ba\"   icon file changes   site level :  table=\"site\" recordId=\"954fe\"   project level :  table=\"project\" recordId=\"065af\"   edition level :  table=\"edition\" recordId=\"176ba\"   model file changes  table=\"edition\" recordId=\"176ba\"   scene file changes  table=\"edition\" recordId=\"176ba\"  ! note \"scene locks are edition wide\" Even if you want to change an icon of a single scene, you need a full edition-level edit session.  Expiring edit sessions Edit sessions expire if the user is done with the action for which they needed the session. But sometimes users forget to finalise their actions, and for those cases we need something that prevents edit sessions to be immortal. We let the server expire sessions that reach their expiration time. When edit sessions have expired this way, other users may claim editsessions for that content. Expiration does not delete the session, but flags it as terminated. Only when another uses asks for a new edit session with the same content specs, the terminated session is deleted, after which a new one is created for that other user. If the original user, who has not saved his material in time, tries to save content guarded by a terminated session, it will be allowed if the expired session still exists. Because in that case no other user has claimed an editsession for the content, and hence no other user has modified it. But if the terminated session has been deleted because of a new edit session by another user, the original user will be notified when he attempts to save. The user cannot proceed, the only thing he can do is to copy the content to the clipboard, try to obtain a new session, and paste the content in that session. If a user tries to save content without there being a corresponding edit session. Parameters      Mongo: object Singleton instance of  control.mongo.Mongo . Auth: object Singleton instance of  control.auth.Auth ."
+},
+{
+"ref":"control.editsessions.EditSessions.EXPIRATION",
+"url":6,
+"doc":""
+},
+{
+"ref":"control.editsessions.EditSessions.EXPIRATION_VIEWER",
+"url":6,
+"doc":""
+},
+{
+"ref":"control.editsessions.EditSessions.lookup",
+"url":6,
+"doc":"Look up an edit session. Parameters      table: string The table of the edited material recordId: ObjectId The id of the record of the edited material Returns    - ObjectId | void If the editsession has been found, the id of that session, otherwise None",
+"func":1
+},
+{
+"ref":"control.editsessions.EditSessions.create",
+"url":6,
+"doc":"Create or extend an edit session of a field in a record for the current user. The system can create new editsessions or extend existing editsessions. Creation is needed when the user wants to start editing a piece of content that he was not already editing. Extending is needed when a user is editing a piece of content and performs a save, while continuing editing the content. Parameters      table: string The table of the edited material recordId: ObjectId The id of the record of the edited material session: boolean, optional False Whether the editsession is for a viewer session or for something else. This has only influence on the amount of time after which the session expires. extend: boolean, optional False If called with  extend=False a new editsession is required, otherwise an existing edit session is timestamped with the current time. Returns    - boolean Whether the operation succeeded. False means that the user should not get the opportunity to continue the edit action.",
+"func":1
+},
+{
+"ref":"control.editsessions.EditSessions.terminates",
+"url":6,
+"doc":"Delete an edit session. Parameters      table: string The table of the edited material recordId: ObjectId The id of the record of the edited material Returns    - void",
+"func":1
+},
+{
+"ref":"control.editsessions.EditSessions.timeout",
+"url":6,
+"doc":"Terminate all outdated edit sessions. An outdated editsession is one whose timestamp lies too far in the past. For sessions that correspond to a viewer session, this amount is given in the class member  EXPIRATION_VIEWER . For other sessions it is given by the much shorter  EXPIRATION . This method should be called every minute or so.",
+"func":1
 },
 {
 "ref":"control.config",
@@ -407,7 +441,7 @@ INDEX=[
 {
 "ref":"control.users.Users",
 "url":3,
-"doc":"All about users and the current user. This class has methods to login/logout a user, to retrieve the data of the currently logged in user, and to query the users table in MongoDb. It is instantiated by a singleton object. This object has a member  __User that contains the data of the current user if there is a current user. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
+"doc":"All about users and the current user. This class has methods to login/logout a user, to retrieve the data of the currently logged in user, and to query the users table in MongoDb. It is instantiated by a singleton object. This object has a member  __User that contains the data of the current user if there is a current user. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
 },
 {
 "ref":"control.users.Users.addAuthenticator",
@@ -418,13 +452,13 @@ INDEX=[
 {
 "ref":"control.users.Users.login",
 "url":3,
-"doc":"Log in a user. Logging in has several main steps: 1. redirecting to a private page, for which login is required 2. obtaining the authentication results when the user visits that page 3. storing the relevant user data When we log in test users, we can skip the first step, because we already know everything about the test user on the basis of the information in the request that brought us here. So, we find out if we have to log in a test user or a user that must be authenticated through oidc. We only log in a test user if we are in test mode and the user's sub is passed in the request. Returns    - response A redirect. When logging in in test mode, the redirect is to  referrer (the url we came from). Otherwise it is to a url that triggers an oidc login procedure. To that page we pass the referrer as part of the url, so that after login the user can be redirected to the original referrer.",
+"doc":"Log in a user. Logging in has several main steps: 1. redirecting to a private page, for which login is required 2. obtaining the authentication results when the user visits that page 3. storing the relevant user data When we log in test users, we can skip the first step, because we already know everything about the test user on the basis of the information in the request that brought us here. So, we find out if we have to log in a test user or a user that must be authenticated through oidc. We only log in a test user if we are in test mode and the user's \"sub\" is passed in the request. Returns    - response A redirect. When logging in in test mode, the redirect is to  referrer (the url we came from). Otherwise it is to a url that triggers an oidc login procedure. To that page we pass the referrer as part of the url, so that after login the user can be redirected to the original referrer.",
 "func":1
 },
 {
 "ref":"control.users.Users.afterLogin",
 "url":3,
-"doc":"Logs in a user. When this function starts operating, the user has been through the login process provided by the authentication service. We can now find the user's sub and additional attributes in the request context. We use that information to lookup the user in the MongoDb users table. If the user does not exists, we add a new user record, with this sub and these attributes, and role  user . If the user does exists, we check whether we have to update his attributes. If the attributes found in MongoDb differ from those supplied by the authentication service, we update the MongoDb values on the basis of the provider values. Parameters      referrer: string url where we came from. Returns    - response A redirect to the referrer, with a status 302 if the log in was successful or 303 if not.",
+"doc":"Logs in a user. When this function starts operating, the user has been through the login process provided by the authentication service. We can now find the user's \"sub\" and additional attributes in the request context. We use that information to lookup the user in the MongoDb users table. If the user does not exists, we add a new user record, with this \"sub\" and these attributes, and role  user . If the user does exists, we check whether we have to update his attributes. If the attributes found in MongoDb differ from those supplied by the authentication service, we update the MongoDb values on the basis of the provider values. Parameters      referrer: string url where we came from. Returns    - response A redirect to the referrer, with a status 302 if the log in was successful or 303 if not.",
 "func":1
 },
 {
@@ -442,13 +476,13 @@ INDEX=[
 {
 "ref":"control.users.Users.myDetails",
 "url":3,
-"doc":"Who is the currently authenticated user? The  __User member is inspected: does it contain an sub? If so, that is taken as proof that we have a valid user. Returns    - dict Otherwise a copy of the complete __User record is returned. unless there is no  sub member in the current user, then the empty dictionary is returned.",
+"doc":"Who is the currently authenticated user? The  __User member is inspected: does it contain a field called  user ? If so, that is taken as proof that we have a valid user. Returns    - dict Otherwise a copy of the complete __User record is returned. unless there is no  user member in the current user, then the empty dictionary is returned.",
 "func":1
 },
 {
 "ref":"control.users.Users.getUser",
 "url":3,
-"doc":"Obtain the sub of the currently logged in user from the request info. It works for test users and normal users. Parameters      fromArg: boolean, optional False If True, the test user is not read from the session, but from a request argument. This is used during the login procedure of test users. Returns    - boolean, boolean, string Whether we are in test mode. Whether the user is a test user. The sub of the user",
+"doc":"Obtain the \"sub\" of the currently logged in user from the request info. It works for test users and normal users. Parameters      fromArg: boolean, optional False If True, the test user is not read from the session, but from a request argument. This is used during the login procedure of test users. Returns    - boolean, boolean, string Whether we are in test mode. Whether the user is a test user. The \"sub\" of the user",
 "func":1
 },
 {
@@ -476,18 +510,24 @@ INDEX=[
 {
 "ref":"control.mongo.Mongo",
 "url":8,
-"doc":"CRUD interface to content in the MongoDb database. This class has methods to connect to a MongoDb database, to query its data, to create, update and delete data. It is instantiated by a singleton object.  ! note \"string versus ObjectId\" Some functions execute MongoDb statements, based on parameters whose values are MongoDb identifiers. These should be objects in the class  bson.objectid.ObjectId . However, in many cases these ids enter the app as strings. In this module, such strings will be cast to proper ObjectIds, provided they are recognizable as values in a field whose name is  _id or ends with  Id . Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages ."
+"doc":"CRUD interface to content in the MongoDb database. This class has methods to connect to a MongoDb database, to query its data, to create, update and delete data. It is instantiated by a singleton object.  ! note \"string versus ObjectId\" Some functions execute MongoDb statements, based on parameters whose values are MongoDb identifiers. These should be objects in the class  bson.objectid.ObjectId . However, in many cases these ids enter the app as strings. In this module, such strings will be cast to proper ObjectIds, provided they are recognizable as values in a field whose name is  _id or ends with  Id . Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages ."
 },
 {
 "ref":"control.mongo.Mongo.cast",
 "url":8,
-"doc":"Try to cast the value as an ObjectId. Paramaters      value:string The value to cast, normally a string representation of a BSON ObjectId. Returns    - ObjectId | None The corresponding BSON ObjectId if the input is a valid representation of such an id, otherwise  None .",
+"doc":"Try to cast the value as an ObjectId. Paramaters      value:string The value to cast, normally a string representation of a BSON ObjectId. Returns    - ObjectId | void The corresponding BSON ObjectId if the input is a valid representation of such an id, otherwise  None .",
+"func":1
+},
+{
+"ref":"control.mongo.Mongo.isId",
+"url":8,
+"doc":"Test whether a value is an ObjectId Parameters      value: any The value to test Returns    - boolean Whether the value is an objectId",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.connect",
 "url":8,
-"doc":"Make connection with MongoDb if there is no connection yet. The connection details come from  control.config.Config.Settings . After a successful connection attempt, the connection handle is stored in the  client and  mongo members of the Mongo object. When a connection handle exists, this method does nothing.",
+"doc":"Make connection with MongoDb if there is no connection yet. The connection details come from  control.config.Config.Settings . After a successful connection attempt, the connection handle is stored in the  client and  db members of the Mongo object. When a connection handle exists, this method does nothing.",
 "func":1
 },
 {
@@ -497,39 +537,51 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.mongo.Mongo.checkCollection",
+"ref":"control.mongo.Mongo.collections",
 "url":8,
-"doc":"Make sure that a collection exists and (optionally) that it is empty. Parameters      table: string The name of the collection. If no such collection exists, it will be created. reset: boolean, optional False If True, and the collection existed before, it will be cleared. Note that the collection will not be deleted, but all its documents will be deleted.",
+"doc":"List the existent collections in the database. Returns    - list The names of the collections.",
+"func":1
+},
+{
+"ref":"control.mongo.Mongo.clearCollection",
+"url":8,
+"doc":"Make sure that a collection exists and that it is empty. Parameters      table: string The name of the collection. If no such collection exists, it will be created. delete: boolean, optional False If True, and the collection existed before, it will be deleted. If False, the collection will be cleared, i.e. all its documents get deleted, but the table remains.",
+"func":1
+},
+{
+"ref":"control.mongo.Mongo.get",
+"url":8,
+"doc":"Get the record and recordId if only one of them is specified. If the record is specified by id, the id maybe an ObjectId or a string, which will then be cast to an ObjectId. Parameters      table: string The table in which the record can be found record: string | ObjectID | AttrDict | void Either the id of the record, or the record itself. Returns    - tuple  ObjectId: the id of the record  AttrDict: the record itself If  record is None, both members of the tuple are None",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.getRecord",
 "url":8,
-"doc":"Get a single document from a collection. Parameters      table: string The name of the collection from which we want to retrieve a single record. warn: boolean, optional True If True, warn if there is no record satisfying the criteria. criteria: dict A set of criteria to narrow down the search. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  findOne . Returns    -  control.generic.AttrDict The single document found, or an empty  control.generic.AttrDict if no document satisfies the criteria.",
+"doc":"Get a single document from a collection. Parameters      table: string The name of the collection from which we want to retrieve a single record. warn: boolean, optional True If True, warn if there is no record satisfying the criteria. stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control. criteria: dict A set of criteria to narrow down the search. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  findOne . Returns    - AttrDict The single document found, or an empty AttrDict if no document satisfies the criteria.",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.getList",
 "url":8,
-"doc":"Get a list of documents from a collection. Parameters      table: string The name of the collection from which we want to retrieve records. criteria: dict A set of criteria to narrow down the search. Returns    - list of  control.generic.AttrDict The list of documents found, empty if no documents are found. Each document is cast to an AttrDict.",
+"doc":"Get a list of documents from a collection. Parameters      table: string The name of the collection from which we want to retrieve records. stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control. criteria: dict A set of criteria to narrow down the search. Returns    - list of AttrDict The list of documents found, empty if no documents are found. Each document is cast to an AttrDict.",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.updateRecord",
 "url":8,
-"doc":"Updates a single document from a collection. Parameters      table: string The name of the collection in which we want to update a single record. updates: dict The fields that must be updated with the values they must get warn: boolean, optional True If True, warn if there is no record satisfying the criteria. criteria: dict A set of criteria to narrow down the selection. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  updateOne . Returns    - boolean Whether the update was successful",
+"doc":"Updates a single document from a collection. Parameters      table: string The name of the collection in which we want to update a single record. updates: dict The fields that must be updated with the values they must get criteria: dict A set of criteria to narrow down the selection. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  updateOne . Returns    - boolean Whether the update was successful",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.insertRecord",
 "url":8,
-"doc":"Inserts a new record in a table. Parameters      table: string The table in which the record will be inserted.  fields: dict The field names and their contents to populate the new record with. Returns    - ObjectId The id of the newly inserted record, or None if the record could not be inserted.",
+"doc":"Inserts a new record in a table. Parameters      table: string The table in which the record will be inserted. stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control.  fields: dict The field names and their contents to populate the new record with. Returns    - ObjectId The id of the newly inserted record, or None if the record could not be inserted.",
 "func":1
 },
 {
 "ref":"control.mongo.Mongo.execute",
 "url":8,
-"doc":"Executes a MongoDb command and returns the result. Parameters      table: string The collection on which to perform the command. command: string The built-in MongoDb command. Note that the Python interface requires you to write camelCase commands with underscores. So the Mongo command  findOne should be passed as  find_one . args: list Any number of additional arguments that the command requires. kwargs: list Any number of additional keyword arguments that the command requires. Returns    - any Whatever the MongoDb command returns. If the command fails, an error message is issued and None is returned.",
+"doc":"Executes a MongoDb command and returns the result. Parameters      table: string The collection on which to perform the command. command: string The built-in MongoDb command. Note that the Python interface requires you to write camelCase commands with underscores. So the Mongo command  findOne should be passed as  find_one . args: list Any number of additional arguments that the command requires. stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control. kwargs: list Any number of additional keyword arguments that the command requires. Returns    - any Whatever the MongoDb command returns. If the command fails, an error message is issued and None is returned.",
 "func":1
 },
 {
@@ -538,19 +590,19 @@ INDEX=[
 "doc":""
 },
 {
-"ref":"control.flask.initializing",
+"ref":"control.flask.appInitializing",
 "url":9,
 "doc":"Whether the flask web app is already running. It is False during the initialization code in the app factory before the flask app is delivered.",
 "func":1
 },
 {
-"ref":"control.flask.make",
+"ref":"control.flask.appMake",
 "url":9,
 "doc":"Create the Flask app.",
 "func":1
 },
 {
-"ref":"control.flask.template",
+"ref":"control.flask.renderTemplate",
 "url":9,
 "doc":"Renders a template. Parameters      template: string The name of the template, without extension. kwargs: dict The variables with values to fill in into the template. Returns    - object The response with as content the filled template.",
 "func":1
@@ -568,7 +620,7 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.flask.send",
+"ref":"control.flask.sendFile",
 "url":9,
 "doc":"Send a file as a response. It is assumed that  path exists as a readable file on the file system. The function will add headers based on the file extension. Parameters      path: string The file to be transferred in an HTTP response. Returns    - object The HTTP response",
 "func":1
@@ -580,7 +632,7 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.flask.stop",
+"ref":"control.flask.appStop",
 "url":9,
 "doc":"Stop the request with a 404.",
 "func":1
@@ -594,7 +646,7 @@ INDEX=[
 {
 "ref":"control.flask.sessionGet",
 "url":9,
-"doc":"Gets a variable from the session. Parameters      name: string The name of the variable. Returns    - string or None The value of the variable, if it exists, else None.",
+"doc":"Gets a variable from the session. Parameters      name: string The name of the variable. Returns    - string | void The value of the variable, if it exists, else None.",
 "func":1
 },
 {
@@ -604,19 +656,19 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.flask.method",
+"ref":"control.flask.requestMethod",
 "url":9,
 "doc":"Get the request method.",
 "func":1
 },
 {
-"ref":"control.flask.arg",
+"ref":"control.flask.requestArg",
 "url":9,
-"doc":"Get the value of a request arg. Parameters      name: string The name of the arg. Returns    - string or None The value of the arg, if it is defined, else the None.",
+"doc":"Get the value of a request arg. Parameters      name: string The name of the arg. Returns    - string | void The value of the arg, if it is defined, else the None.",
 "func":1
 },
 {
-"ref":"control.flask.data",
+"ref":"control.flask.requestData",
 "url":9,
 "doc":"Get the request data. Returns    - bytes Useful for uploaded files.",
 "func":1
@@ -639,9 +691,21 @@ INDEX=[
 "doc":""
 },
 {
+"ref":"control.generic.now",
+"url":10,
+"doc":"The current moment in time as a isolike string value. Strips everything after the decimal point, (milliseconds and timezone).",
+"func":1
+},
+{
 "ref":"control.generic.AttrDict",
 "url":10,
 "doc":"Turn a dict into an object with attributes. If non-existing attributes are accessed for reading,  None is returned. See: https: stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute And: https: stackoverflow.com/questions/16237659/python-how-to-implement-getattr (especially the remark that >  __getattr__ is only used for missing attribute lookup ) We also need to define the  __missing__ method in case we access the underlying dict by means of keys, like  xxx[\"yyy\"] rather then by attribute like  xxx.yyy ."
+},
+{
+"ref":"control.generic.deepAttrDict",
+"url":10,
+"doc":"Turn a dict into an AttrDict, recursively. Parameters      info: any The input dictionary. We assume that it is a data structure built by tuple, list, set, frozenset, dict and atomic types such as int, str, bool. We assume there are no user defined objects in it, and no generators and functions. Returns    - AttrDict An AttrDict containing the same info as the input dict, but where each value of type dict is turned into an AttrDict.",
+"func":1
 },
 {
 "ref":"control.html",
@@ -688,39 +752,39 @@ INDEX=[
 "doc":"Wrap specific HTML elements and patterns.  ! note Nearly all elements accept an arbitrary supply of attributes in the  atts parameter, which will not further be documented."
 },
 {
-"ref":"control.html.HtmlElements.he",
-"url":11,
-"doc":"Escape HTML characters. The following characters will be replaced by entities:   &   .",
-"func":1
-},
-{
 "ref":"control.html.HtmlElements.amp",
 "url":11,
-"doc":"",
-"func":1
+"doc":""
 },
 {
 "ref":"control.html.HtmlElements.lt",
 "url":11,
-"doc":"",
-"func":1
+"doc":""
 },
 {
 "ref":"control.html.HtmlElements.gt",
 "url":11,
-"doc":"",
-"func":1
+"doc":""
 },
 {
 "ref":"control.html.HtmlElements.apos",
 "url":11,
-"doc":"",
-"func":1
+"doc":""
 },
 {
 "ref":"control.html.HtmlElements.quot",
 "url":11,
-"doc":"",
+"doc":""
+},
+{
+"ref":"control.html.HtmlElements.nbsp",
+"url":11,
+"doc":""
+},
+{
+"ref":"control.html.HtmlElements.he",
+"url":11,
+"doc":"Escape HTML characters. The following characters will be replaced by entities:   &   .",
 "func":1
 },
 {
@@ -732,7 +796,7 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.wrapValue",
 "url":11,
-"doc":"Wraps one or more values in elements. The value is recursively joined into elements. The at the outermost level the result is wrapped in a single outer element. All nested values are wrapped in inner elements. If the value is None, a bare empty string is returned. The structure of elements reflects the structure of the value. Parameters      value: string | iterable Every argument in  value may be None, a string, or an iterable. outerElem: string, optional \"div\" The single element at the outermost level outerArgs: list, optional [] Arguments for the outer element. outerAtts: dict, optional {} Attributes for the outer element. innerElem: string, optional \"span\" The elements at all deeper levels innerArgs: list, optional [] Arguments for the inner elements. innerAtts: dict, optional {} Attributes for the inner elements. Returns    - string(html)",
+"doc":"Wraps one or more values in elements. The value is recursively joined into elements. The value at the outermost level the result is wrapped in a single outer element. All nested values are wrapped in inner elements. If the value is None, a bare empty string is returned. The structure of elements reflects the structure of the value. Parameters      value: string | iterable Every argument in  value may be None, a string, or an iterable. outerElem: string, optional \"div\" The single element at the outermost level outerArgs: list, optional [] Arguments for the outer element. outerAtts: dict, optional {} Attributes for the outer element. innerElem: string, optional \"span\" The elements at all deeper levels innerArgs: list, optional [] Arguments for the inner elements. innerAtts: dict, optional {} Attributes for the inner elements. Returns    - string(html)",
 "func":1
 },
 {
@@ -745,6 +809,12 @@ INDEX=[
 "ref":"control.html.HtmlElements.a",
 "url":11,
 "doc":"A. Hyperlink. Parameters      material: string | iterable Text of the link. href: url Destination of the link. Returns    - string(html)",
+"func":1
+},
+{
+"ref":"control.html.HtmlElements.b",
+"url":11,
+"doc":"B. Bold element. Parameters      material: string | iterable Returns    - string(html)",
 "func":1
 },
 {
@@ -762,7 +832,13 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.button",
 "url":11,
-"doc":"BUTTON. A clickable butto Parameters      material: string | iterable What is displayed on the button. tp: The type of the button, e.g.  submit or  button Returns    - string(html)",
+"doc":"BUTTON. A clickable button Parameters      material: string | iterable What is displayed on the button. tp: The type of the button, e.g.  submit or  button Returns    - string(html)",
+"func":1
+},
+{
+"ref":"control.html.HtmlElements.code",
+"url":11,
+"doc":"CODE. Code element. Parameters      material: string | iterable Returns    - string(html)",
 "func":1
 },
 {
@@ -786,7 +862,7 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.detailx",
 "url":11,
-"doc":"detailx. Collapsible details pseudo element. Unlike the HTML  details element, this one allows separate open and close controls. There is no summary.  ! warning The  icon names must be listed in the web.yaml config file under the key  icons . The icon itself is a Unicode character.  ! hint The  atts go to the outermost  div of the result. Parameters      icons: string | (string, string) Names of the icons that open and close the element. itemkey: string Identifier for reference from Javascript. openAtts: dict, optinal,  {} Attributes for the open icon. closeAtts: dict, optinal,  {} Attributes for the close icon. Returns    - string(html)",
+"doc":"detailx. Collapsible details pseudo element. Unlike the HTML  details element, this one allows separate open and close controls. There is no summary.  ! warning The  icon names must be listed in the web.yaml config file under the key  icons . The icon itself is a Unicode character.  ! hint The  atts go to the outermost  div of the result. Parameters      detailIcons: string | (string, string) Names of the icons that open and close the element. itemkey: string Identifier for reference from Javascript. openAtts: dict, optinal,  {} Attributes for the open icon. closeAtts: dict, optinal,  {} Attributes for the close icon. Returns    - string(html)",
 "func":1
 },
 {
@@ -820,15 +896,21 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.html.HtmlElements.i",
+"url":11,
+"doc":"I. Italic element. Parameters      material: string | iterable Returns    - string(html)",
+"func":1
+},
+{
 "ref":"control.html.HtmlElements.icon",
 "url":11,
-"doc":"icon. Pseudo element for an icon.  ! warning The  icon names must be listed in the authorise.yaml config file under the key  icons . The icon itself is a Unicode character. Parameters      icon: string Name of the icon. asChar: boolean, optional,  False If  True , just output the icon character. Otherwise, wrap it in a    with all attributes that might have been passed. Returns    - string(html)",
+"doc":"icon. Pseudo element for an icon.  ! warning The  icon names must be listed in the settings.yml config file under the key  icons . The icon itself is a Unicode character. Parameters      icon: string Name of the icon. text: string, optional,  None Extra text that will be placed in front of the icon. asChar: boolean, optional,  False If  True , just output the icon character. Otherwise, wrap it in a    with all attributes that might have been passed. Returns    - string(html)",
 "func":1
 },
 {
 "ref":"control.html.HtmlElements.iconx",
 "url":11,
-"doc":"iconx. Pseudo element for a clickable icon. It will be wrapped in an    .  element or a  if  href is  None . If  href is the empty string, the element will still be wrapped in an    element, but without a  href attribute.  ! warning The  icon names must be listed in the web.yaml config file under the key  icons . The icon itself is a Unicode character. Parameters      icon: string Name of the icon. href: url, optional,  None Destination of the icon when clicked. Will be left out when equal to the empty string. Returns    - string(html)",
+"doc":"iconx. Pseudo element for a clickable icon. It will be wrapped in an    .  element or a  if  href is  None . If  href is the empty string, the element will still be wrapped in an    element, but without a  href attribute.  ! warning The  icon names must be listed in the settings.yml config file under the key  icons . The icon itself is a Unicode character. Parameters      icon: string Name of the icon. text: string, optional,  None Extra text that will be placed in front of the icon. href: url, optional,  None Destination of the icon when clicked. Will be left out when equal to the empty string. Returns    - string(html)",
 "func":1
 },
 {
@@ -852,7 +934,7 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.finput",
 "url":11,
-"doc":"INPUT type=\"file\". The input element for uploading files. Parameters      fileName: string The name of the currently existing file. If there is not yet a file pass the empty string. accept: string MIME type of uploaded file saveUrl: string The url to which the resulting file should be posted. cls: string, optional  CSS class for the button title: string, optional  tooltip for the button Returns    - string(html)",
+"doc":"INPUT type=\"file\". The input element for uploading files. If the user does not have  update permission, only information about currently uploaded file(s) is presented. But if the user does have upload permission, there will be an additional control to update a new file and there will be controls to delete existing files. Parameters      content: list or tuple The widget handles to cases:  1 single file with a prescribed name.  no prescribed name, lists all files that match the  accept parameter. In the first case,  content is a tuple consisting of  file name  whether the file exists  a url to load the file as image, or None In the second case,  content is a list containing a tuple for each file:  file name  a url to load the file as image, or None And in this case, all files exist. In both cases, a delete control will be added to each file, if allowed. If an image url is present, the contents of the file will be displayed as an img element. accept: string MIME type of uploaded file mayChange: boolean Whether the user is allowed to upload new files and delete existing files. saveUrl: string The url to which the resulting file should be posted. deleteUrl: string The url to use to delete a file, with the understanding that the file name should be appended to it. caption: string basis for tooltips for the upload and delete buttons cls: string, optional  CSS class for the outer element buttonCls: string, optional  CSS class for the buttons wrapped: boolean, optional True Whether the content should be wrapped in a container element. If so, the container element carries a class attribute filled with  cls , and all attributes specified in the  atts argument. This generates a new widget on the page. If False, only the content is passed. Use this if the content of an existing widget has changed and must be inserted in that widget. The outer element of the widget is not changed. Returns    - string(html)",
 "func":1
 },
 {
@@ -888,7 +970,7 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.table",
 "url":11,
-"doc":"TABLE. The table element. Parameters      headers, rows: iterables of iterables An iterable of rows. Each row is a tuple: an iterable of cells, and a CSS class for the row. Each cell is a tuple: material for the cell, and a CSS class for the cell.  ! note Cells in normal rows are wrapped in    , cells in header rows go into    . Returns    - string(html)",
+"doc":"TABLE. The table element. Parameters      headers, rows: iterables of iterables An iterable of rows. Each row is a tuple: an iterable of cells, and a dict of atts for the row. Each cell is a tuple: material for the cell, and a dict of atts for the cell.  ! note Cells in normal rows are wrapped in    , cells in header rows go into    . Returns    - string(html)",
 "func":1
 },
 {
@@ -900,13 +982,13 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements.wrapTable",
 "url":11,
-"doc":"Rows and cells. Parameters      data: iterable of iterables. Rows and cells within them, both with CSS classes. td: function Funnction for wrapping the cells, typically boiling down to wrapping them in either    or    elements. Returns    - string(html)",
+"doc":"Rows and cells. Parameters      data: iterable of iterables. Rows and cells within them, both with dicts of atts. td: function Funnction for wrapping the cells, typically boiling down to wrapping them in either    or    elements. Returns    - string(html)",
 "func":1
 },
 {
 "ref":"control.html.asString",
 "url":11,
-"doc":"Join an iterable of strings or iterables into a string. And if the value is already a string, return it, and if it is  None return the empty string. The material is recursively joined into a string. Parameters      material: string | iterable Every argument in  material may be None, a string, or an iterable. tight: boolean, optional False If True, all material will be joined tightly, with no intervening string. Otherwise, all pieces will be joined with a newline. Returns    - string(html)",
+"doc":"Join an iterable of strings or iterables into a string. And if the value is already a string, return it, and if it is  None return the empty string. The material is recursively joined into a string. Parameters      value: string | iterable | void Every argument in  value may be None, a string, or an iterable. tight: boolean, optional False If True, all material will be joined tightly, with no intervening string. Otherwise, all pieces will be joined with a newline. Returns    - string(html)",
 "func":1
 },
 {
@@ -923,12 +1005,24 @@ INDEX=[
 {
 "ref":"control.datamodel.Datamodel",
 "url":12,
-"doc":"Datamodel related operations. This class has methods to manipulate various pieces of content in the data sources, and hand it over to higher level objects. It can find out dependencies between related records, and it knows a thing or two about fields. It is instantiated by a singleton object. It has a method which is a factory for  control.datamodel.Field objects, which deal with individual fields. Likewise it has a factory function for  control.datamodel.Upload objects, which deal with file uploads. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
+"doc":"Datamodel related operations. This class has methods to manipulate various pieces of content in the data sources, and hand it over to higher level objects. It can find out dependencies between related records, and it knows a thing or two about fields. It is instantiated by a singleton object. It has a method which is a factory for  control.datamodel.Field objects, which deal with individual fields. Likewise it has a factory function for  control.datamodel.Upload objects, which deal with file uploads. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
+},
+{
+"ref":"control.datamodel.Datamodel.relevant",
+"url":12,
+"doc":"Get a relevant record and the table to which it belongs. A relevant record is either a project record, or an edition record, or the one and only site record. If all optional parameters are None, we look for the site record. If the project parameter is not None, we look for the project record. This is the inverse of  context() . Paramenters      - project: string | ObjectId | AttrDict, optional None The project whose record we need. edition: string | ObjectId | AttrDict, optional None The edition whose record we need. Returns    - tuple  table: string; the table in which the record is found  record id: string; the id of the record  record: AttrDict; the record itself If both project and edition are not None",
+"func":1
+},
+{
+"ref":"control.datamodel.Datamodel.context",
+"url":12,
+"doc":"Get the context of a record. Get the project and edition records to which the record belongs. Parameters      table: string The table in which the record sits. record: string The record. This is the inverse of  relevant() . Returns    - tuple of tuple  (site, project, record) where the members are either None, or a full record",
+"func":1
 },
 {
 "ref":"control.datamodel.Datamodel.getDetailRecords",
 "url":12,
-"doc":"Retrieve the detail records of a master record. It finds all records that have a field containing an id of the given master record. Details are not retrieved recursively, only the direct details of a master are fetched. Parameters      masterTable: string The name of the table in which the master record lives. masterId: ObjectId The id of the master record. Returns    - AttrDict The list of detail records, categorized by detail table in which they occur. The detail tables are the keys, the lists of records in those tables are the values. If the master record cannot be found or if there are no detail records, the empty dict is returned.",
+"doc":"Retrieve the detail records of a master record. It finds all records that have a field containing an id of the given master record. Details are not retrieved recursively, only the direct details of a master are fetched. Parameters      masterTable: string The name of the table in which the master record lives. master: string | ObjectId | AttrDict The master record. Returns    - AttrDict The list of detail records, categorized by detail table in which they occur. The detail tables are the keys, the lists of records in those tables are the values. If the master record cannot be found or if there are no detail records, the empty dict is returned.",
 "func":1
 },
 {
@@ -938,9 +1032,33 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.datamodel.Datamodel.getFieldObject",
+"url":12,
+"doc":"Get a field object. Parameters      key: string The key of the field object Returns    - object | void The field object found under the given key, if present, otherwise None",
+"func":1
+},
+{
 "ref":"control.datamodel.Datamodel.makeUpload",
 "url":12,
-"doc":"Make a file upload object and registers it. An instance of class  control.datamodel.Upload is created, geared to this particular field.  ! note \"Idempotent\" If the Upload object is already registered, nothing is done. Parameters      key: string Identifier for the upload. The configuration for this upload will be retrieved using this key. The new upload object will be stored under this key. Returns    - object The resulting Upload object. It is also added to the  uploadObjects member.",
+"doc":"Make a file upload object and registers it. An instance of class  control.datamodel.Upload is created, geared to this particular field.  ! note \"Idempotent\" If the Upload object is already registered, nothing is done. Parameters      key: string Identifier for the upload. The configuration for this upload will be retrieved using this key. The new upload object will be stored under this key. fileName: string, optional None If present, it indicates that the uploaded file will have this prescribed name. A file name for an upload object may also have been specified in the datamodel configuration. Returns    - object The resulting Upload object. It is also added to the  uploadObjects member.",
+"func":1
+},
+{
+"ref":"control.datamodel.Datamodel.getUploadConfig",
+"url":12,
+"doc":"Get an upload config. Parameters      key: string The key of the upload config Returns    - object | void The upload config found under the given key and file name, if present, otherwise None",
+"func":1
+},
+{
+"ref":"control.datamodel.Datamodel.getUploadObject",
+"url":12,
+"doc":"Get an upload object. Parameters      key: string The key of the upload object fileName: string, optional None The file name of the upload object. If not passed, the file name is derived from the config of the key. Returns    - object | void The upload object found under the given key and file name, if present, otherwise None",
+"func":1
+},
+{
+"ref":"control.datamodel.Datamodel.actionButton",
+"url":12,
+"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button.",
 "func":1
 },
 {
@@ -951,19 +1069,25 @@ INDEX=[
 {
 "ref":"control.datamodel.Field.logical",
 "url":12,
-"doc":"Give the logical value of the field in a record. Parameters      record: AttrDict or dict The record in which the field value is stored. Returns    - any: Whatever the value is that we find for that field. No conversion/casting to other types will be performed. If the field is not present, returns None, without warning.",
+"doc":"Give the logical value of the field in a record. Parameters      record: string | ObjectId | AttrDict The record in which the field value is stored. Returns    - any: Whatever the value is that we find for that field. No conversion/casting to other types will be performed. If the field is not present, returns None, without warning.",
 "func":1
 },
 {
 "ref":"control.datamodel.Field.bare",
 "url":12,
-"doc":"Give the bare string value of the field in a record. Parameters      record: AttrDict or dict The record in which the field value is stored. Returns    - string: Whatever the value is that we find for that field, converted to string. If the field is not present, returns the empty string, without warning.",
+"doc":"Give the bare string value of the field in a record. Parameters      record: string | ObjectId | AttrDict The record in which the field value is stored. Returns    - string: Whatever the value is that we find for that field, converted to string. If the field is not present, returns the empty string, without warning.",
 "func":1
 },
 {
 "ref":"control.datamodel.Field.formatted",
 "url":12,
-"doc":"Give the formatted value of the field in a record. Optionally also puts a caption and/or an edit control. The value retrieved is (recursively) wrapped in HTML, steered by additional argument, as in  control.html.HtmlElements.wrapValue . be applied. If the type is 'text', multiple values will simply be concatenated with newlines in between, and no extra classes will be applied. Instead, a markdown formatter is applied to the result. For other types: If the value is an iterable, each individual value is wrapped in a span to which an (other) extra CSS class may be applied. Parameters      table: string The table from which the record is taken record: AttrDict or dict The record in which the field value is stored. level: integer, optional None The heading level in which a caption will be placed. If None, no caption will be placed. If 0, the caption will be placed in a span. button: string, optional  An optional edit button. outerCls: string optional \"fieldouter\" If given, an extra CSS class for the outer element that wraps the total value. Only relevant if the type is not 'text' innerCls: string optional \"fieldinner\" If given, an extra CSS class for the inner elements that wrap parts of the value. Only relevant if the type is not 'text' Returns    - string: Whatever the value is that we find for that field, converted to HTML. If the field is not present, returns the empty string, without warning.",
+"doc":"Give the formatted value of the field in a record. Optionally also puts a caption and/or an edit control. The value retrieved is (recursively) wrapped in HTML, steered by additional argument, as in  control.html.HtmlElements.wrapValue . be applied. If the type is 'text', multiple values will simply be concatenated with newlines in between, and no extra classes will be applied. Instead, a markdown formatter is applied to the result. For other types: If the value is an iterable, each individual value is wrapped in a span to which an (other) extra CSS class may be applied. Parameters      table: string The table from which the record is taken record: string | ObjectId | AttrDict The record in which the field value is stored. level: integer, optional None The heading level in which a caption will be placed. If None, no caption will be placed. If 0, the caption will be placed in a span. editable: boolean, optional False Whether the field is editable by the current user. If so, edit controls are provided. outerCls: string optional \"fieldouter\" If given, an extra CSS class for the outer element that wraps the total value. Only relevant if the type is not 'text' innerCls: string optional \"fieldinner\" If given, an extra CSS class for the inner elements that wrap parts of the value. Only relevant if the type is not 'text' Returns    - string: Whatever the value is that we find for that field, converted to HTML. If the field is not present, returns the empty string, without warning.",
+"func":1
+},
+{
+"ref":"control.datamodel.Field.actionButtonClient",
+"url":12,
+"doc":"Generates an action button to be activated by client side Javascript. It is assumed that the permission has already been checked. Parameters      Returns    -",
 "func":1
 },
 {
@@ -994,24 +1118,18 @@ INDEX=[
 {
 "ref":"control.datamodel.Upload",
 "url":12,
-"doc":"Handle upload business. An upload is like a field of type 'file'. The name of the uploaded file is stored in a record in MongoDb. The contents of the file is stored on the file system. A Upload object does not correspond with an individual field in a record. It represents a  column , i.e. a set of fields with the same name in all records of a collection. First of all there is a method to retrieve the file name of an upload from a specific record. Then there are methods to deliver those values, either bare or formatted, to produce widgets to upload or delete the corresponding files. How to do this is steered by the specification of the upload by keys and values that are stored in this object. All upload access should be guarded by the authorisation rules. Parameters      kwargs: dict Field configuration arguments. The following parts of the field configuration should be present:  table ,  field and  relative ."
+"doc":"Handle upload business. An upload is like a field of type 'file'. The name of the uploaded file is stored in a record in MongoDb. The contents of the file is stored on the file system. A Upload object does not correspond with an individual field in a record. It represents a  column , i.e. a set of fields with the same name in all records of a collection. First of all there is a method to retrieve the file name of an upload from a specific record. Then there are methods to deliver those values, either bare or formatted, to produce widgets to upload or delete the corresponding files. How to do this is steered by the specification of the upload by keys and values that are stored in this object. All upload access should be guarded by the authorisation rules. Parameters      kwargs: dict Upload configuration arguments. The following parts of the upload configuration should be present:  table ,  accept , while  caption ,  fileName ,  show are optional."
 },
 {
-"ref":"control.datamodel.Upload.bare",
+"ref":"control.datamodel.Upload.getDir",
 "url":12,
-"doc":"Give the bare file name as stored in a record in MongoDb. Parameters      record: AttrDict The record in which the file name is stored. Returns    - string: Whatever the value is that we find. If the field is not present, returns None, without warning.",
-"func":1
-},
-{
-"ref":"control.datamodel.Upload.getPath",
-"url":12,
-"doc":"Give the path to the file in question. The path can be used to build the static url and the save url. It does not contain the file name. If the path is non-empty, a \"/\" will be appended.",
+"doc":"Give the path to the file in question. The path can be used to build the static url and the save url. It does not contain the file name. If the path is non-empty, a \"/\" will be appended. Parameters      record: string | ObjectId | AttrDict The record relevant to the upload",
 "func":1
 },
 {
 "ref":"control.datamodel.Upload.formatted",
 "url":12,
-"doc":"Give the formatted value of a file field in a record. Optionally also puts an upload control. Parameters      record: AttrDict or dict The record in which the field value is stored. mayChange: boolean, optional False Whether the file may be changed. If so, an upload widget is supplied, wich contains a a delete button. Returns    - string: Whatever the value is that we find for that field, converted to HTML. If the field is not present, returns the empty string, without warning.",
+"doc":"Give the formatted value of a file field in a record. Optionally also puts an upload control. Parameters      record: string | ObjectId | AttrDict The record relevant to the upload mayChange: boolean, optional False Whether the file may be changed. If so, an upload widget is supplied, wich contains a a delete button. bust: string, optional None If not None, the image url of the file whose name is passed in  bust is made unique by adding the current time to it. This is a cache buster. wrapped: boolean, optional True Whether the content should be wrapped in a container element. See  control.html.HtmlElements.finput() . Returns    - string The name of the uploaded file(s) and/or an upload control.",
 "func":1
 },
 {
@@ -1022,17 +1140,7 @@ INDEX=[
 {
 "ref":"control.datamodel.Upload.table",
 "url":12,
-"doc":"The table in which the file name should be placed."
-},
-{
-"ref":"control.datamodel.Upload.field",
-"url":12,
-"doc":"The field in which the file name should be placed."
-},
-{
-"ref":"control.datamodel.Upload.relative",
-"url":12,
-"doc":"Indicates the directory where the actual file will be saved. Possibe values:   site : top level of the working data directory of the site   project : project directory of the project in question   edition : edition directory of the project in question If left out, the value will be derived from  table ."
+"doc":"Indicates the directory where the actual file will be saved. Possibe values:   site : top level of the working data directory of the site   project : project directory of the project in question   edition : edition directory of the project in question"
 },
 {
 "ref":"control.datamodel.Upload.accept",
@@ -1043,6 +1151,16 @@ INDEX=[
 "ref":"control.datamodel.Upload.caption",
 "url":12,
 "doc":"The text to display on the upload button."
+},
+{
+"ref":"control.datamodel.Upload.multiple",
+"url":12,
+"doc":"Whether multiple files of this type may be uploaded."
+},
+{
+"ref":"control.datamodel.Upload.fileName",
+"url":12,
+"doc":"The name of the file once it is uploaded. The file name for the upload can be passed when the file name is known in advance. In that case, a file that is uploaded in this upload widget, will get this as prescribed file name, regardless of the file name in the upload request. Without a file name, the upload widget will show all existing files conforming to the  accept setting, and will have a control to upload a new file."
 },
 {
 "ref":"control.datamodel.Upload.show",
@@ -1084,7 +1202,13 @@ INDEX=[
 {
 "ref":"control.pages.Pages",
 "url":14,
-"doc":"Making responses that can be displayed as web pages. This class has methods that correspond to routes in the app, for which they get the data (using  control.content.Content ), which gets then wrapped in HTML. It is instantiated by a singleton object. Most methods generate a response that contains the content of a complete page. For those methods we do not document the return value. Some methods return something different. If so, it the return value will be documented. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Viewers: object Singleton instance of  control.viewers.Viewers . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Content: object Singleton instance of  control.content.Content . Auth: object Singleton instance of  control.auth.Auth ."
+"doc":"Making responses that can be displayed as web pages. This class has methods that correspond to routes in the app, for which they get the data (using  control.content.Content ), which gets then wrapped in HTML. It is instantiated by a singleton object. Most methods generate a response that contains the content of a complete page. For those methods we do not document the return value. Some methods return something different. If so, it the return value will be documented. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Viewers: object Singleton instance of  control.viewers.Viewers . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Collect: object Singleton instance of  control.collect.Collect . Content: object Singleton instance of  control.content.Content . Auth: object Singleton instance of  control.auth.Auth ."
+},
+{
+"ref":"control.pages.Pages.collect",
+"url":14,
+"doc":"Data reset: collect the example data again.",
+"func":1
 },
 {
 "ref":"control.pages.Pages.home",
@@ -1111,6 +1235,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.pages.Pages.mywork",
+"url":14,
+"doc":"The page with the list of users.",
+"func":1
+},
+{
 "ref":"control.pages.Pages.projectInsert",
 "url":14,
 "doc":"Inserts a project and shows the new project.",
@@ -1119,37 +1249,25 @@ INDEX=[
 {
 "ref":"control.pages.Pages.project",
 "url":14,
-"doc":"The landing page of a project. Parameters      projectId: ObjectId The project in question.",
+"doc":"The landing page of a project. Parameters      project: string | ObjectId | AttrDict The project in question.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.editionInsert",
 "url":14,
-"doc":"Inserts an edition into a project and shows the new edition. Parameters      projectId: ObjectId The project to which the edition belongs.",
+"doc":"Inserts an edition into a project and shows the new edition. Parameters      project: string | ObjectId | AttrDict The project to which the edition belongs.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.edition",
 "url":14,
-"doc":"The landing page of an edition. This page contains a list of scenes. One of these scenes will be loaded in a 3D viewer. It is dependent on defaults which scene in which viewer/version/mode. Parameters      editionId: ObjectId The edition in question. From the edition record we can find the project too.",
-"func":1
-},
-{
-"ref":"control.pages.Pages.scene",
-"url":14,
-"doc":"The landing page of an edition, but with a scene marked as active. This page contains a list of scenes. One of these scenes is chosen as the active scene and will be loaded in a 3D viewer. It is dependent on the parameters and/or defaults in which viewer/version/mode. Parameters      sceneId: ObjectId The active scene in question. From the scene record we can find the edition and the project too. viewer: string or None The viewer to use. version: string or None The version to use. action: string or None The mode in which the viewer is to be used ( view or  edit ).",
-"func":1
-},
-{
-"ref":"control.pages.Pages.sceneInsert",
-"url":14,
-"doc":"Inserts a scene into an edition and shows the new scene. Parameters      projectId: ObjectId The project to which the scene belongs. editionId: ObjectId The edition to which the scene belongs.",
+"doc":"The landing page of an edition, possibly with a scene marked as active. An edition knows the scene it should display and the viewer that was used to create the scene. If action is not None, its value determines which viewer will be loaded in the 3D viewer. It is dependent on the parameters and/or defaults in which viewer/version/mode. If version is not None, this will override the default version. Parameters      edition: string | ObjectId | AttrDict The editionin quesion. From the edition record we can find the project too. version: string, optional None The viewer version to use. action: string, optional None The mode in which the viewer is to be used ( read or  update ).",
 "func":1
 },
 {
 "ref":"control.pages.Pages.viewerFrame",
 "url":14,
-"doc":"The page loaded in an iframe where a 3D viewer operates. Parameters      sceneId: ObjectId The scene that is shown. viewer: string or None The viewer to use. version: string or None The version to use. action: string or None The mode in which the viewer is to be used ( view or  edit ).",
+"doc":"The page loaded in an iframe where a 3D viewer operates. Parameters      edition: string | ObjectId | AttrDict The edition that is shown. viewer: string | None The viewer to use. version: string | None The version to use. action: string | None The mode in which the viewer is to be used ( view or  edit ).",
 "func":1
 },
 {
@@ -1159,21 +1277,27 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.pages.Pages.dataProjects",
+"ref":"control.pages.Pages.fileData",
 "url":14,
-"doc":"Data content requested directly from the file repository. This is  the material requested by the viewers: the scene json itself and additional resources, that are part of the user contributed content that is under control of the viewer: annotations, media, etc.  icons for the site, projects, and editions Parameters      path: string Path on the file system under the data directory where the resource resides. The path is relative to the project, and, if given, the edition. projectId: ObjectId, optional None The id of a project under which the resource is to be found. If None, it is site-wide material. editionId: ObjectId, optional None If not None, the name of an edition under which the resource is to be found. Returns    - response The response consists of the contents of the file plus headers derived from the path. If the file does not exists, a 404 is returned.",
+"doc":"Data content requested directly from the file repository. This is  the material requested by the viewers: the scene json itself and additional resources, that are part of the user contributed content that is under control of the viewer: annotations, media, etc.  icons for the site, projects, and editions Parameters      path: string Path on the file system under the data directory where the resource resides. The path is relative to the project, and, if given, the edition. project: string | ObjectId | AttrDict The id of a project under which the resource is to be found. If None, it is site-wide material. edition: string | ObjectId | AttrDict If not None, the name of an edition under which the resource is to be found. Returns    - response The response consists of the contents of the file plus headers derived from the path. If the file does not exists, a 404 is returned.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.upload",
 "url":14,
-"doc":"",
+"doc":"Upload a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload key: string The key of the upload givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if is None, the file will be saved with the name from the request.",
+"func":1
+},
+{
+"ref":"control.pages.Pages.deleteFile",
+"url":14,
+"doc":"Delete a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload key: string The key of the upload givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if is None, the file will be saved with the name from the request.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.authWebdav",
 "url":14,
-"doc":"Authorises a webdav request. When a viewer makes a WebDAV request to the server, that request is first checked here for authorisation. See  control.webdavapp.dispatchWebdav() . Parameters      projectId: ObjectId The project in question. editionId: ObjectId The edition in question. path: string The path relative to the directory of the edition. action: string The operation that the WebDAV request wants to do on the data ( view or  edit ). Returns    - boolean Whether the action is permitted on ths data by the current user.",
+"doc":"Authorises a webdav request. When a viewer makes a WebDAV request to the server, that request is first checked here for authorisation. See  control.webdavapp.dispatchWebdav() . Parameters      edition: string | ObjectId | AttrDict The edition in question. path: string The path relative to the directory of the edition. action: string The operation that the WebDAV request wants to do on the data ( view or  edit ). Returns    - boolean Whether the action is permitted on ths data by the current user.",
 "func":1
 },
 {
@@ -1189,33 +1313,9 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.pages.Pages.scenes",
-"url":14,
-"doc":"Workhorse for  Pages.edition() and  Pages.scene() . The common part between the two functions mentioned.",
-"func":1
-},
-{
 "ref":"control.pages.Pages.navigation",
 "url":14,
 "doc":"Generates the navigation controls. Especially the tab bar. Parameters      url: string Initial part of the url on the basis of which one of the tabs can be made active. Returns    - string The HTML of the navigation.",
-"func":1
-},
-{
-"ref":"control.pages.Pages.breadCrumb",
-"url":14,
-"doc":"Makes a link to the landing page of a project. Parameters      projectId: ObjectId The project in question.",
-"func":1
-},
-{
-"ref":"control.pages.Pages.putValues",
-"url":14,
-"doc":"Puts several pieces of metadata on the web page. Parameters      fieldSpecs: string  , -separated list of fieldSpecs projectId: ObjectId, optional None The project in question. editionId: ObjectId, optional None The edition in question. Returns    - string The join of the individual results of retrieving metadata value.",
-"func":1
-},
-{
-"ref":"control.pages.Pages.putUpload",
-"url":14,
-"doc":"Puts a file upload control on a page. Parameters      key: string the key that identifies the kind of upload projectId: ObjectId, optional None The project in question. editionId: ObjectId, optional None The edition in question. cls: string, optional None An extra CSS class for the control Returns    - string A control that shows the file and possibly provides an upload/delete control for it.",
 "func":1
 },
 {
@@ -1226,7 +1326,7 @@ INDEX=[
 {
 "ref":"control.content.Content",
 "url":15,
-"doc":"Retrieving content from database and file system. This class has methods to retrieve various pieces of content from the data sources, and hand it over to the  control.pages.Pages class that will compose a response out of it. It is instantiated by a singleton object. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Viewers: object Singleton instance of  control.viewers.Viewers . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
+"doc":"Retrieving content from database and file system. This class has methods to retrieve various pieces of content from the data sources, and hand it over to the  control.pages.Pages class that will compose a response out of it. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Viewers: object Singleton instance of  control.viewers.Viewers . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
 },
 {
 "ref":"control.content.Content.addAuth",
@@ -1247,6 +1347,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.content.Content.getMywork",
+"url":15,
+"doc":"Get the list of relevant projects, editions and users. Admin users get the list of all users. Normal users get the list of users associated with  the project of which they are organiser  the editions of which they are editor or reviewer Guests and not-logged-in users cannot see any user. If the user has rights to modify the association between users and projects/editions, he will get the controls to do so. Returns    - string",
+"func":1
+},
+{
 "ref":"control.content.Content.insertProject",
 "url":15,
 "doc":"",
@@ -1255,7 +1361,7 @@ INDEX=[
 {
 "ref":"control.content.Content.getEditions",
 "url":15,
-"doc":"Get the list of the editions of a project. Well, only if the project is visible to the current user. See  Content.getProjects() . Editions are each displayed by means of an icon and a title. Both link to a landing page for the edition. Parameters      projectId: ObjectId The project in question. Returns    - string A list of captions of the editions of the project, wrapped in a HTML string.",
+"doc":"Get the list of the editions of a project. Well, only if the project is visible to the current user. See  Content.getProjects() . Editions are each displayed by means of an icon and a title. Both link to a landing page for the edition. Parameters      project: string | ObjectId | AttrDict The project in question. Returns    - string A list of captions of the editions of the project, wrapped in a HTML string.",
 "func":1
 },
 {
@@ -1265,15 +1371,15 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.content.Content.getScenes",
+"ref":"control.content.Content.getViewInfo",
 "url":15,
-"doc":"Get the list of the scenes of an edition of a project. Well, only if the project is visible to the current user. See  Content.getProjects() . Scenes are each displayed by means of an icon a title and a row of buttons. The title is the file name (without the  .json extension) of the scene. Both link to a landing page for the edition. One of the scenes is made  active , i.e. it is loaded in a specific version of a viewer in a specific mode ( view or  edit ). Which scene is loaded in which viewer and version in which mode, is determined by the parameters. If the parameters do not specify values, sensible defaults are chosen. Parameters      projectId: ObjectId The project in question. editionId: ObjectId The edition in question. sceneId: ObjectId, optional None The active scene. If None the default scene is chosen. A scene record specifies whether that scene is the default scene for that edition. viewer: string, optional None The viewer to be used for the 3D viewing. It should be a supported viewer. If None, the default viewer is chosen. The list of those viewers is in the  yaml/viewers.yml file, which also specifies what the default viewer is. version: string, optional None The version of the chosen viewer that will be used. If no version or a non-existing version are specified, the latest existing version for that viewer will be chosen. action: string, optional  view The mode in which the viewer should be opened. If the mode is  edit , the viewer is opened in edit mode. All other modes lead to the viewer being opened in read-only mode. Returns    - string A list of captions of the scenes of the edition, with one caption replaced by a 3D viewer showing the scene. The list is wrapped in a HTML string.",
+"doc":"Gets viewer-related info that an edition is made with. Parameters      edition: string | ObjectId | AttrDict The edition record. Returns    - tuple of string  The name of the viewer  The name of the scene",
 "func":1
 },
 {
-"ref":"control.content.Content.insertScene",
+"ref":"control.content.Content.getScene",
 "url":15,
-"doc":"",
+"doc":"Get the scene of an edition of a project. Well, only if the current user is authorised. A scene is displayed by means of an icon and a row of buttons. If action is not None, the scene is loaded in a specific version of the viewer in a specific mode ( read or  read ). The edition knows which viewer to choose. Which version and which mode are used is determined by the parameters. If the parameters do not specify values, sensible defaults are chosen. Parameters      edition: string | ObjectId | AttrDict The edition in question. version: string, optional None The version of the chosen viewer that will be used. If no version or a non-existing version are specified, the latest existing version for that viewer will be chosen. action: string, optional  read The mode in which the viewer should be opened. If the mode is  update , the viewer is opened in edit mode. All other modes lead to the viewer being opened in read-only mode. Returns    - string A caption of the scene of the edition, with possibly a frame with the 3D viewer showing the scene. The result is wrapped in a HTML string.",
 "func":1
 },
 {
@@ -1289,15 +1395,27 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.content.Content.saveValue",
+"url":15,
+"doc":"Saves a value of into a record. A record contains a document, which is a (nested) dict. A value is inserted somewhere (deep) in that dict. The value is given by the request. Where exactly is given by a path that is stored in the field information, which is accessible by the key. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict | void The relevant record. key: string an identifier for the meta data field. Returns    - dict Contains the following keys:   status : whether the save action was successful   msgs : messages issued during the process",
+"func":1
+},
+{
 "ref":"control.content.Content.getValue",
 "url":15,
-"doc":"Retrieve a metadata value. Metadata sits in a big, potentially deeply nested dictionary of keys and values. These locations are known to the system (based on  fields.yml ). This function retrieves the information from those known locations. If a value is in fact composed of multiple values, it will be handled accordingly. Parameters      key: an identifier for the meta data field. projectId: ObjectId, optional None The project whose metadata we need. If it is None, we are at the site level. editionId: ObjectId, optional None The edition whose metadata we need. If it is None, we need metadata of a project or outer metadata. bare: boolean, optional None Get the bare value, without HTML wrapping and without buttons. Returns    - string It is assumed that the metadata value that is addressed exists. If not, we return the empty string.",
+"doc":"Retrieve a metadata value. Metadata sits in a big, potentially deeply nested dictionary of keys and values. These locations are known to the system (based on  fields.yml ). This function retrieves the information from those known locations. If a value is in fact composed of multiple values, it will be handled accordingly. If the user may edit the value, an edit button is added. Parameters      key: string an identifier for the meta data field. table: string The relevant table. record: string | ObjectId | AttrDict | void The relevant record. level: string, optional None The heading level with which the value should be formatted.   0 : No heading level   None : no formatting at all bare: boolean, optional None Get the bare value, without HTML wrapping and without buttons. Returns    - string It is assumed that the metadata value that is addressed exists. If not, we return the empty string.",
+"func":1
+},
+{
+"ref":"control.content.Content.getValues",
+"url":15,
+"doc":"Puts several pieces of metadata on the web page. Parameters      fieldSpecs: string  , -separated list of fieldSpecs table: string The relevant table record: string | ObjectId | AttrDict | void The relevant record Returns    - string The join of the individual results of retrieving metadata value.",
 "func":1
 },
 {
 "ref":"control.content.Content.getUpload",
 "url":15,
-"doc":"Display the name and/or upload controls of an uploaded file. The user may to upload model files and scene files to an edition, and various png files as icons for projects, edtions, and scenes. Here we produce the control to do so. Only if the user has  update authorisation, an upload/delete widget will be returned. Parameters      key: an identifier for the upload field. projectId: ObjectId, optional None The project in question. If it is None, we are at the site level. editionId: ObjectId, optional None The edition in question. If it is None, we are at the project level or site level. sceneId: ObjectId, optional None The scene in question. If it is None, we are at the edition, project, or site level. Returns    - string The name of the file that is currently present, or the indication that no file is present. If the user has edit permission for the edition, we display widgets to upload a new file or to delete the existing file.",
+"doc":"Display the name and/or upload controls of an uploaded file. The user may upload model files and a scene file to an edition, and various png files as icons for projects, edtions, and scenes. Here we produce the control to do so. Only if the user has  update authorisation, an upload/delete widget will be returned. Parameters      record: string | ObjectId | AttrDict | void The relevant record. key: string an identifier for the upload field. fileName: string, optional None If present, it indicates that the uploaded file will have this prescribed name. A file name for an upload object may also have been specified in the datamodel configuration. bust: string, optional None If not None, the image url of the file whose name is passed in  bust is made unique by adding the current time to it. That will bust the cache for the image, so that uploaded images replace the existing images. This is useful when this function is called to provide udated content for an file upload widget after it has been used to successfully upload a file. The file name of the uploaded file is known, and that is the one that gets a cache buster appended. wrapped: boolean, optional True Whether the content should be wrapped in a container element. See  control.html.HtmlElements.finput() . Returns    - string The name of the file that is currently present, or the indication that no file is present. If the user has edit permission for the edition, we display widgets to upload a new file or to delete the existing file.",
 "func":1
 },
 {
@@ -1309,31 +1427,43 @@ INDEX=[
 {
 "ref":"control.content.Content.getData",
 "url":15,
-"doc":"Gets a data file from the file system. All data files are located under a specific directory on the server. This is the data directory. Below that the files are organized by projects and editions. Parameters      path: string The path of the data file within project/edition directory within the data directory. projectId: ObjectId, optional None The id of the project in question. editionId: ObjectId, optional None The id of the edition in question. Returns    - string The full path of the data file, if it exists. Otherwise, we raise an error that will lead to a 404 response.",
+"doc":"Gets a data file from the file system. All data files are located under a specific directory on the server. This is the data directory. Below that the files are organized by projects and editions. Projects and editions corresponds to records in tables in MongoDB. Parameters      path: string The path of the data file within site/project/edition directory within the data directory. project: string | ObjectId | AttrDict The id of the project in question. edition: string | ObjectId | AttrDict The id of the edition in question. Returns    - string The full path of the data file, if it exists. Otherwise, we raise an error that will lead to a 404 response.",
 "func":1
 },
 {
-"ref":"control.content.Content.getItem",
+"ref":"control.content.Content.breadCrumb",
 "url":15,
-"doc":"Get a all information about an item. The item can be a project, edition, or scene. The information about that item is a record in MongoDb. possibly additional files on the file system. Parameters      table: string The name of the table from which to fetch an item  args,  kwargs: any Additional arguments to select the item's record from MongoDB Returns    - AttrDict the contents of the item's record in MongoDB",
+"doc":"Makes a link to the landing page of a project. Parameters      project: string | ObjectId | AttrDict The project in question.",
 "func":1
 },
 {
-"ref":"control.content.Content.actionButton",
+"ref":"control.content.Content.saveFile",
 "url":15,
-"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records. Parameters      action: string, optional None The type of action that will be performed if the button triggered. table: string the table to which the action applies; recordId: ObjectId, optional None the record in question projectId: ObjectId, optional None The project in question, if any. Needed to determine whether a press on the button is permitted. editionId: ObjectId, optional None The edition in question, if any. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a metadata field that is stored inside the record. From the key, the value can be found.",
+"doc":"Saves a file in the context given by a record. Parameters      record: string | ObjectId | AttrDict | void The relevant record. key: string The upload key path: string The path from the context directory to the file fileName: string Name of the file to be saved as mentioned in the request. givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if None, the file will be saved with the name from the request. Return    response A json response with the status of the save operation:  a boolean: whether the save succeeded  a message: messages to display  content: new content for an upload control (only if successful)",
 "func":1
 },
 {
-"ref":"control.content.Content.save",
+"ref":"control.content.Content.deleteFile",
 "url":15,
-"doc":"",
+"doc":"Deletes a file in the context given by a record. Parameters      record: string | ObjectId | AttrDict | void The relevant record. key: string The upload key path: string The path from the context directory to the file fileName: string Name of the file to be saved as mentioned in the request. givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if None, the file will be saved with the name from the request. Return    response A json response with the status of the save operation:  a boolean: whether the save succeeded  a message: messages to display  content: new content for an upload control (only if successful)",
+"func":1
+},
+{
+"ref":"control.content.Content.relevant",
+"url":12,
+"doc":"Get a relevant record and the table to which it belongs. A relevant record is either a project record, or an edition record, or the one and only site record. If all optional parameters are None, we look for the site record. If the project parameter is not None, we look for the project record. This is the inverse of  context() . Paramenters      - project: string | ObjectId | AttrDict, optional None The project whose record we need. edition: string | ObjectId | AttrDict, optional None The edition whose record we need. Returns    - tuple  table: string; the table in which the record is found  record id: string; the id of the record  record: AttrDict; the record itself If both project and edition are not None",
+"func":1
+},
+{
+"ref":"control.content.Content.context",
+"url":12,
+"doc":"Get the context of a record. Get the project and edition records to which the record belongs. Parameters      table: string The table in which the record sits. record: string The record. This is the inverse of  relevant() . Returns    - tuple of tuple  (site, project, record) where the members are either None, or a full record",
 "func":1
 },
 {
 "ref":"control.content.Content.getDetailRecords",
 "url":12,
-"doc":"Retrieve the detail records of a master record. It finds all records that have a field containing an id of the given master record. Details are not retrieved recursively, only the direct details of a master are fetched. Parameters      masterTable: string The name of the table in which the master record lives. masterId: ObjectId The id of the master record. Returns    - AttrDict The list of detail records, categorized by detail table in which they occur. The detail tables are the keys, the lists of records in those tables are the values. If the master record cannot be found or if there are no detail records, the empty dict is returned.",
+"doc":"Retrieve the detail records of a master record. It finds all records that have a field containing an id of the given master record. Details are not retrieved recursively, only the direct details of a master are fetched. Parameters      masterTable: string The name of the table in which the master record lives. master: string | ObjectId | AttrDict The master record. Returns    - AttrDict The list of detail records, categorized by detail table in which they occur. The detail tables are the keys, the lists of records in those tables are the values. If the master record cannot be found or if there are no detail records, the empty dict is returned.",
 "func":1
 },
 {
@@ -1343,9 +1473,33 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.content.Content.getFieldObject",
+"url":12,
+"doc":"Get a field object. Parameters      key: string The key of the field object Returns    - object | void The field object found under the given key, if present, otherwise None",
+"func":1
+},
+{
 "ref":"control.content.Content.makeUpload",
 "url":12,
-"doc":"Make a file upload object and registers it. An instance of class  control.datamodel.Upload is created, geared to this particular field.  ! note \"Idempotent\" If the Upload object is already registered, nothing is done. Parameters      key: string Identifier for the upload. The configuration for this upload will be retrieved using this key. The new upload object will be stored under this key. Returns    - object The resulting Upload object. It is also added to the  uploadObjects member.",
+"doc":"Make a file upload object and registers it. An instance of class  control.datamodel.Upload is created, geared to this particular field.  ! note \"Idempotent\" If the Upload object is already registered, nothing is done. Parameters      key: string Identifier for the upload. The configuration for this upload will be retrieved using this key. The new upload object will be stored under this key. fileName: string, optional None If present, it indicates that the uploaded file will have this prescribed name. A file name for an upload object may also have been specified in the datamodel configuration. Returns    - object The resulting Upload object. It is also added to the  uploadObjects member.",
+"func":1
+},
+{
+"ref":"control.content.Content.getUploadConfig",
+"url":12,
+"doc":"Get an upload config. Parameters      key: string The key of the upload config Returns    - object | void The upload config found under the given key and file name, if present, otherwise None",
+"func":1
+},
+{
+"ref":"control.content.Content.getUploadObject",
+"url":12,
+"doc":"Get an upload object. Parameters      key: string The key of the upload object fileName: string, optional None The file name of the upload object. If not passed, the file name is derived from the config of the key. Returns    - object | void The upload object found under the given key and file name, if present, otherwise None",
+"func":1
+},
+{
+"ref":"control.content.Content.actionButton",
+"url":12,
+"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button.",
 "func":1
 },
 {
@@ -1356,7 +1510,13 @@ INDEX=[
 {
 "ref":"control.messages.Messages",
 "url":16,
-"doc":"Sending messages to the user and the server log. This class is instantiated by a singleton object. It has methods to issue messages to the screen of the webuser and to the log for the sysadmin. They distinguish themselves by the  severity :  debug ,  info ,  warning ,  error . There is also  plain , a leaner variant of  info . All those methods have two optional parameters:  logmsg and  msg . The behaviors of these methods are described in detail in the  Messages.message() function.  ! hint \"What to disclose?\" You can pass both parameters, which gives you the opportunity to make a sensible distinction between what you tell the web user (not much) and what you send to the log (the gory details). Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings . onFlask: boolean, optional True If False, mo messages will be sent to the screen of the webuser, instead those messages end up in the log. This is useful in the initial processing that takes place before the flask app is started."
+"doc":"Sending messages to the user and the server log. This class is instantiated by a singleton object. It has methods to issue messages to the screen of the webuser and to the log for the sysadmin. They distinguish themselves by the  severity :  debug ,  info ,  warning ,  error . There is also  plain , a leaner variant of  info . All those methods have two optional parameters:  logmsg and  msg . The behaviors of these methods are described in detail in the  Messages.message() function.  ! hint \"What to disclose?\" You can pass both parameters, which gives you the opportunity to make a sensible distinction between what you tell the web user (not much) and what you send to the log (the gory details). Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
+},
+{
+"ref":"control.messages.Messages.setFlask",
+"url":16,
+"doc":"Enables messaging to the web interface.",
+"func":1
 },
 {
 "ref":"control.messages.Messages.debugAdd",
@@ -1397,8 +1557,19 @@ INDEX=[
 {
 "ref":"control.messages.Messages.message",
 "url":16,
-"doc":"Workhorse to issue a message in a variety of ways. It can issue log messages and screen messages. Parameters      tp: string The severity of the message. There is a fixed number of types:   debug Messages are prepended with  DEBUG:  . Log messages go to stderr. Messages will only show up on the web page if the app runs in debug mode.   plain Messages are not prepended with anything. Log messages go to standard output.   info Messages are prepended with  INFO:  . Log messages go to standard output.   warning Messages are prepended with  WARNING:  . Log messages go to standard error.   error Messages are prepended with  ERROR:  . Log messages go to standard error. It also raises an exception, which will lead to a 404 response (if flask is running, that is). msg: string, optional None If not None, it is the contents of a screen message. Ths happens by the built-in  flash method of Flask. logmsg: string, optional None If not None, it is the contents of a log message.",
+"doc":"Workhorse to issue a message in a variety of ways. It can issue log messages and screen messages. Messages passed in  msg go to the web interface, the ones passed in  logmsg go to the log. If there is not yet a web interface,  msg messages are suppressed if there is also a  logmsg , otherwise they will be directed to the log as well. Parameters      tp: string The severity of the message. There is a fixed number of types:   debug Messages are prepended with  DEBUG:  . Log messages go to stderr. Messages will only show up on the web page if the app runs in debug mode.   plain Messages are not prepended with anything. Log messages go to standard output.   info Messages are prepended with  INFO:  . Log messages go to standard output.   warning Messages are prepended with  WARNING:  . Log messages go to standard error.   error Messages are prepended with  ERROR:  . Log messages go to standard error. It also raises an exception, which will lead to a 404 response (if flask is running, that is). But this stopping can be prevented by passing  stop=False . msg: string | void If not None, it is the contents of a screen message. This happens by the built-in  flash method of Flask. logmsg: string | void If not None, it is the contents of a log message. stop: boolean, optional True If False, an error message will not lead to a stop.",
 "func":1
+},
+{
+"ref":"control.messages.Messages.client",
+"url":16,
+"doc":"Adds javascript code whose execution displays a message. Parameters      tp, msg: string, string As in  message() replace: boolean, optional False If True, clears all previous messages. Returns    - dict an onclick attribute that can be added to a link element.",
+"func":1
+},
+{
+"ref":"control.messages.Messages.onFlask",
+"url":16,
+"doc":"Whether the webserver is running. If False, mo messages will be sent to the screen of the webuser, instead those messages end up in the log. This is useful in the initial processing that takes place before the flask app is started."
 },
 {
 "ref":"control.environment",
@@ -1408,7 +1579,7 @@ INDEX=[
 {
 "ref":"control.environment.var",
 "url":17,
-"doc":"Retrieves the value of an environment variable. Parameters      name: string The name of the environment variable Returns    - string or None If the variable does not exist, None is returned.",
+"doc":"Retrieves the value of an environment variable. Parameters      name: string The name of the environment variable Returns    - string | void If the variable does not exist, None is returned.",
 "func":1
 },
 {
@@ -1419,7 +1590,7 @@ INDEX=[
 {
 "ref":"control.app.appFactory",
 "url":18,
-"doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the onses starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects:  control.generic.AttrDict a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
+"doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the onses starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
 "func":1
 },
 {
@@ -1430,7 +1601,7 @@ INDEX=[
 {
 "ref":"control.viewers.Viewers",
 "url":19,
-"doc":"Knowledge of the installed 3D viewers. This class knows which (versions of) viewers are installed, and has the methods to invoke them. It is instantiated by a singleton object. Parameters      Settings:  control.generic.AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
+"doc":"Knowledge of the installed 3D viewers. This class knows which (versions of) viewers are installed, and has the methods to invoke them. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
 },
 {
 "ref":"control.viewers.Viewers.addAuth",
@@ -1441,19 +1612,19 @@ INDEX=[
 {
 "ref":"control.viewers.Viewers.check",
 "url":19,
-"doc":"Checks whether a viewer version exists. Given a viewer and a version, it is looked up whether the code is present. If not, reasonable defaults returned instead by default. Parameters      viewer: string The viewer in question. version: string The version of the viewer in question. fail: boolean, optional False If true, returns True or False, depending on whther the given viewer-version combination is supported. Returns    - tuple or boolean The viewer and version are returned unmodified if that viewer version is supported. If the viewer is supported, but not the version, the default version of that viewer is taken, if there is a default version, otherwise the latest supported version. If the viewer is not supported, the default viewer is taken. See the  fail parameter above.",
+"doc":"Checks whether a viewer version exists. Given a viewer and a version, it is looked up whether the code is present. If not, reasonable defaults returned instead by default. Parameters      viewer: string The viewer in question. version: string The version of the viewer in question. Returns    - string | void The version is returned unmodified if that viewer version is supported. If the viewer is supported, but not the version, the default version of that viewer is taken, if there is a default version, otherwise the latest supported version. If the viewer is not supported, None is returned.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getFrame",
 "url":19,
-"doc":"Produces a set of buttons to launch 3D viewers for a scene. Parameters      sceneId: ObjectId The scene in question. actions: iterable of string The actions for which we have to create buttons. Typically  read and possibly also  update . viewerActive: string or None The viewer in which the scene is currently loaded, if any, otherwise None versionActive: string or None The version of the viewer in which the scene is currently loaded, if any, otherwise None actionActive: string or None The mode in which the scene is currently loaded in the viewer ( read or  update ), if any, otherwise None Returns    - string The HTML that represents the buttons.",
+"doc":"Produces a set of buttons to launch 3D viewers for a scene. Parameters      edition: string | ObjectId | AttrDict The edition in question. actions: iterable of string The actions for which we have to create buttons. Typically  read and possibly also  update . viewer: string The viewer in which the scene is currently loaded. versionActive: string | void The version of the viewer in which the scene is currently loaded, if any, otherwise None actionActive: string | void The mode in which the scene is currently loaded in the viewer ( read or  update ), if any, otherwise None Returns    - string The HTML that represents the buttons.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.genHtml",
 "url":19,
-"doc":"Generates the HTML for the viewer page that is loaded in an iframe. When a scene is loaded in a viewer, it happens in an iframe. Here we generate the complete HTML for such an iframe. Parameters      urlBase: string The first part of the root url that is given to the viewer. The viewer code uses this to retrieve additional information. The root url will be completed with the  action and the  viewer . sceneName: string The name of the scene in the file system. The viewer will find the scene json file by this name. viewer: string The chosen viewer. version: string The chosen version of the viewer. action: string The chosen mode in which the viewer is launched ( read or  update ). Returns    - string The HTML for the iframe.",
+"doc":"Generates the HTML for the viewer page that is loaded in an iframe. When a scene is loaded in a viewer, it happens in an iframe. Here we generate the complete HTML for such an iframe. Parameters      urlBase: string The first part of the root url that is given to the viewer. The viewer code uses this to retrieve additional information. The root url will be completed with the  action and the  viewer . sceneFile: string The name of the scene file in the file system. viewer: string The chosen viewer. version: string The chosen version of the viewer. action: string The chosen mode in which the viewer is launched ( read or  update ). Returns    - string The HTML for the iframe.",
 "func":1
 },
 {
@@ -1476,7 +1647,7 @@ INDEX=[
 {
 "ref":"control.prepare.prepare",
 "url":20,
-"doc":"Prepares the way for setting up the Flask webapp. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin   control.mongo.Mongo : higher-level commands to the MongoDb   control.viewers.Viewers : support the third party 3D viewers   control.datamodel.Datamodel : factory for handling fields   control.content.Content : retrieve all data that needs to be displayed   control.auth.Auth : compute the permission of the current user to access content   control.pages.Pages : high-level functions that distribute content over the page  ! note \"Should be run once!\" These objects are used in several web apps:  the main web app  a copy of the main app that is enriched with the webdav functionality However, these objects should be initialized once, before either app starts, and the same objects should be passed to both invocations of the factory functions that make them ( control.app.appFactory ). The invocations are done in  control.webdavapp.appFactory . Parameters      trivial: boolean, optional False If True, skips the initialization of most objects. Useful if the pure3d app container should run without doing anything. This happens when we just want to start the container and run shell commands inside it, for example after a complicated refactoring when the flask app has too many bugs. Returns    -  control.generic.AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
+"doc":"Prepares the way for setting up the Flask webapp. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin   control.mongo.Mongo : higher-level commands to the MongoDb   control.viewers.Viewers : support the third party 3D viewers   control.datamodel.Datamodel : factory for handling fields   control.content.Content : retrieve all data that needs to be displayed   control.auth.Auth : compute the permission of the current user to access content   control.pages.Pages : high-level functions that distribute content over the page  ! note \"Should be run once!\" These objects are used in several web apps:  the main web app  a copy of the main app that is enriched with the webdav functionality However, these objects should be initialized once, before either app starts, and the same objects should be passed to both invocations of the factory functions that make them ( control.app.appFactory ). The invocations are done in  control.webdavapp.appFactory . Parameters      trivial: boolean, optional False If True, skips the initialization of most objects. Useful if the pure3d app container should run without doing anything. This happens when we just want to start the container and run shell commands inside it, for example after a complicated refactoring when the flask app has too many bugs. Returns    - AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
 "func":1
 }
 ]

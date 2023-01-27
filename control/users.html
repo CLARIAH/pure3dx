@@ -26,27 +26,28 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L1-L531" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L1-L537" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.generic import AttrDict
 from control.flask import (
-    arg,
+    requestArg,
     sessionPop,
     sessionGet,
     sessionSet,
     getReferrer,
     redirectStatus,
 )
-from control.html import HtmlElements as H
 
 
-PROVIDER_ATTS = tuple(
-    &#34;&#34;&#34;
+PROVIDER_ATTS = {
+    x: x
+    for x in &#34;&#34;&#34;
     sub
     email
     nickname
 &#34;&#34;&#34;.strip().split()
-)
+}
+PROVIDER_ATTS[&#34;sub&#34;] = &#34;user&#34;
 
 
 class Users:
@@ -64,7 +65,7 @@ class Users:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -82,7 +83,7 @@ class Users:
 
         If there is no current user, it has no members.
 
-        Otherwise, it has member `sub`, the sub of the current user.
+        Otherwise, it has member `user`, the &#34;sub&#34; of the current user.
         It may also have additional members, such as `name` and `role`.
         &#34;&#34;&#34;
 
@@ -122,7 +123,7 @@ class Users:
         So, we find out if we have to log in a test user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user&#39;s sub
+        We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
@@ -153,7 +154,7 @@ class Users:
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         return (
-            self.__loginTest(referrer, arg(&#34;user&#34;))
+            self.__loginTest(referrer, requestArg(&#34;user&#34;))
             if isTestUser
             else self.__loginOidc(referrer)
         )
@@ -164,11 +165,11 @@ class Users:
         When this function starts operating, the user has been through the login
         process provided by the authentication service.
 
-        We can now find the user&#39;s sub and additional attributes in the request
+        We can now find the user&#39;s &#34;sub&#34; and additional attributes in the request
         context.
 
         We use that information to lookup the user in the MongoDb users table.
-        If the user does not exists, we add a new user record, with this sub and
+        If the user does not exists, we add a new user record, with this &#34;sub&#34; and
         these attributes, and role `user`.
 
         If the user does exists, we check whether we have to update his attributes.
@@ -285,21 +286,21 @@ class Users:
     def myDetails(self):
         &#34;&#34;&#34;Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain an sub?
+        The `__User` member is inspected: does it contain a field called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
             Otherwise a copy of the complete __User record is returned.
-            unless there is no `sub` member in the current user, then
+            unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         &#34;&#34;&#34;
         User = self.__User
-        return AttrDict(**User) if &#34;sub&#34; in User else AttrDict({})
+        return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})
 
     def getUser(self, fromArg=False):
-        &#34;&#34;&#34;Obtain the sub of the currently logged in user from the request info.
+        &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
         It works for test users and normal users.
 
@@ -315,7 +316,7 @@ class Users:
         boolean, boolean, string
             Whether we are in test mode.
             Whether the user is a test user.
-            The sub of the user
+            The &#34;sub&#34; of the user
         &#34;&#34;&#34;
         oidc = self.oidc
         Settings = self.Settings
@@ -325,7 +326,7 @@ class Users:
         isTestUser = None
 
         if testMode:
-            user = arg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
+            user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
             if user:
                 isTestUser = True
 
@@ -355,6 +356,8 @@ class Users:
             HTML of the list of buttons for test users, with the button
             for the current user styled as active.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
 
         (testMode, isTestUser, userActive) = self.getUser()
@@ -389,10 +392,10 @@ class Users:
 
             enabled = not userActive or isTestUser
             for record in sorted(
-                Mongo.getList(&#34;users&#34;, isTest=True),
+                Mongo.getList(&#34;user&#34;, isTest=True),
                 key=lambda r: r.nickname,
             ):
-                user = record.sub
+                user = record.user
                 name = record.nickname
                 role = self.presentRole(record.role)
 
@@ -453,7 +456,7 @@ class Users:
         referrer: string
             url where we came from.
         user: string
-            The sub of the test user that we must log in as.
+            The &#34;sub&#34; of the test user that we must log in as.
 
         Returns
         -------
@@ -498,14 +501,14 @@ class Users:
         Mongo = self.Mongo
         User = self.__User
 
-        record = Mongo.getRecord(&#34;users&#34;, sub=user)
+        record = Mongo.getRecord(&#34;user&#34;, user=user)
 
         if not record:
             Messages.warning(msg=&#34;Unknown user&#34;, logmsg=f&#34;Unknown user {user}&#34;)
             return False
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
@@ -514,14 +517,14 @@ class Users:
     def __findUser(self, user, update=False):
         &#34;&#34;&#34;Lookup user data in the MongoDb users collection.
 
-        The user is looked up by the `sub` field.
+        The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from
         the identity provider.
 
         Parameters
         ----------
         user: string
-            The `sub` of by which a user is looked up, if not None.
+            The `user` of by which a user is looked up, if not None.
         update: boolean, optional False
 
         Returns
@@ -535,29 +538,32 @@ class Users:
         oidc = self.oidc
         User = self.__User
 
-        record = Mongo.getRecord(&#34;users&#34;, sub=user, warn=False)
+        record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
         newUser = None
 
         if not record:
-            newUser = {att: oidc.user_getfield(att) for att in PROVIDER_ATTS}
-            userId = Mongo.insertRecord(&#34;users&#34;, role=&#34;user&#34;, **newUser)
-            record = Mongo.getRecord(&#34;users&#34;, _id=userId)
+            newUser = {
+                att: oidc.user_getfield(oidcAtt)
+                for (oidcAtt, att) in PROVIDER_ATTS.items()
+            }
+            userId = Mongo.insertRecord(&#34;user&#34;, role=&#34;user&#34;, **newUser)
+            record = Mongo.getRecord(&#34;user&#34;, _id=userId)
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
         if update and not newUser:
             changes = {}
-            for att in PROVIDER_ATTS:
+            for (oidcAtt, att) in PROVIDER_ATTS.items():
                 orig = User[att]
-                new = oidc.user_getfield(att)
+                new = oidc.user_getfield(oidcAtt)
                 if new is not None and orig != new:
                     changes[att] = new
                     User[att] = new
             if changes:
-                Mongo.updateRecord(&#34;users&#34;, changes, sub=User.sub)
+                Mongo.updateRecord(&#34;user&#34;, changes, user=User.user)
         return True</code></pre>
 </details>
 </section>
@@ -584,7 +590,7 @@ and to query the users table in MongoDb.</p>
 user if there is a current user.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
@@ -595,7 +601,7 @@ user if there is a current user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L22-L531" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L23-L537" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Users:
     def __init__(self, Settings, Messages, Mongo):
@@ -612,7 +618,7 @@ user if there is a current user.</p>
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -630,7 +636,7 @@ user if there is a current user.</p>
 
         If there is no current user, it has no members.
 
-        Otherwise, it has member `sub`, the sub of the current user.
+        Otherwise, it has member `user`, the &#34;sub&#34; of the current user.
         It may also have additional members, such as `name` and `role`.
         &#34;&#34;&#34;
 
@@ -670,7 +676,7 @@ user if there is a current user.</p>
         So, we find out if we have to log in a test user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user&#39;s sub
+        We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
@@ -701,7 +707,7 @@ user if there is a current user.</p>
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         return (
-            self.__loginTest(referrer, arg(&#34;user&#34;))
+            self.__loginTest(referrer, requestArg(&#34;user&#34;))
             if isTestUser
             else self.__loginOidc(referrer)
         )
@@ -712,11 +718,11 @@ user if there is a current user.</p>
         When this function starts operating, the user has been through the login
         process provided by the authentication service.
 
-        We can now find the user&#39;s sub and additional attributes in the request
+        We can now find the user&#39;s &#34;sub&#34; and additional attributes in the request
         context.
 
         We use that information to lookup the user in the MongoDb users table.
-        If the user does not exists, we add a new user record, with this sub and
+        If the user does not exists, we add a new user record, with this &#34;sub&#34; and
         these attributes, and role `user`.
 
         If the user does exists, we check whether we have to update his attributes.
@@ -833,21 +839,21 @@ user if there is a current user.</p>
     def myDetails(self):
         &#34;&#34;&#34;Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain an sub?
+        The `__User` member is inspected: does it contain a field called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
             Otherwise a copy of the complete __User record is returned.
-            unless there is no `sub` member in the current user, then
+            unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         &#34;&#34;&#34;
         User = self.__User
-        return AttrDict(**User) if &#34;sub&#34; in User else AttrDict({})
+        return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})
 
     def getUser(self, fromArg=False):
-        &#34;&#34;&#34;Obtain the sub of the currently logged in user from the request info.
+        &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
         It works for test users and normal users.
 
@@ -863,7 +869,7 @@ user if there is a current user.</p>
         boolean, boolean, string
             Whether we are in test mode.
             Whether the user is a test user.
-            The sub of the user
+            The &#34;sub&#34; of the user
         &#34;&#34;&#34;
         oidc = self.oidc
         Settings = self.Settings
@@ -873,7 +879,7 @@ user if there is a current user.</p>
         isTestUser = None
 
         if testMode:
-            user = arg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
+            user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
             if user:
                 isTestUser = True
 
@@ -903,6 +909,8 @@ user if there is a current user.</p>
             HTML of the list of buttons for test users, with the button
             for the current user styled as active.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        H = Settings.H
         Mongo = self.Mongo
 
         (testMode, isTestUser, userActive) = self.getUser()
@@ -937,10 +945,10 @@ user if there is a current user.</p>
 
             enabled = not userActive or isTestUser
             for record in sorted(
-                Mongo.getList(&#34;users&#34;, isTest=True),
+                Mongo.getList(&#34;user&#34;, isTest=True),
                 key=lambda r: r.nickname,
             ):
-                user = record.sub
+                user = record.user
                 name = record.nickname
                 role = self.presentRole(record.role)
 
@@ -1001,7 +1009,7 @@ user if there is a current user.</p>
         referrer: string
             url where we came from.
         user: string
-            The sub of the test user that we must log in as.
+            The &#34;sub&#34; of the test user that we must log in as.
 
         Returns
         -------
@@ -1046,14 +1054,14 @@ user if there is a current user.</p>
         Mongo = self.Mongo
         User = self.__User
 
-        record = Mongo.getRecord(&#34;users&#34;, sub=user)
+        record = Mongo.getRecord(&#34;user&#34;, user=user)
 
         if not record:
             Messages.warning(msg=&#34;Unknown user&#34;, logmsg=f&#34;Unknown user {user}&#34;)
             return False
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
@@ -1062,14 +1070,14 @@ user if there is a current user.</p>
     def __findUser(self, user, update=False):
         &#34;&#34;&#34;Lookup user data in the MongoDb users collection.
 
-        The user is looked up by the `sub` field.
+        The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from
         the identity provider.
 
         Parameters
         ----------
         user: string
-            The `sub` of by which a user is looked up, if not None.
+            The `user` of by which a user is looked up, if not None.
         update: boolean, optional False
 
         Returns
@@ -1083,29 +1091,32 @@ user if there is a current user.</p>
         oidc = self.oidc
         User = self.__User
 
-        record = Mongo.getRecord(&#34;users&#34;, sub=user, warn=False)
+        record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
         newUser = None
 
         if not record:
-            newUser = {att: oidc.user_getfield(att) for att in PROVIDER_ATTS}
-            userId = Mongo.insertRecord(&#34;users&#34;, role=&#34;user&#34;, **newUser)
-            record = Mongo.getRecord(&#34;users&#34;, _id=userId)
+            newUser = {
+                att: oidc.user_getfield(oidcAtt)
+                for (oidcAtt, att) in PROVIDER_ATTS.items()
+            }
+            userId = Mongo.insertRecord(&#34;user&#34;, role=&#34;user&#34;, **newUser)
+            record = Mongo.getRecord(&#34;user&#34;, _id=userId)
 
         User.clear()
-        for att in PROVIDER_ATTS:
+        for att in PROVIDER_ATTS.values():
             User[att] = record[att]
         User.role = record.role
 
         if update and not newUser:
             changes = {}
-            for att in PROVIDER_ATTS:
+            for (oidcAtt, att) in PROVIDER_ATTS.items():
                 orig = User[att]
-                new = oidc.user_getfield(att)
+                new = oidc.user_getfield(oidcAtt)
                 if new is not None and orig != new:
                     changes[att] = new
                     User[att] = new
             if changes:
-                Mongo.updateRecord(&#34;users&#34;, changes, sub=User.sub)
+                Mongo.updateRecord(&#34;user&#34;, changes, user=User.user)
         return True</code></pre>
 </details>
 <h3>Subclasses</h3>
@@ -1140,7 +1151,7 @@ Flask-OIDC authenticator.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L63-L77" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L64-L78" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuthenticator(self, oidc):
     &#34;&#34;&#34;Adds the object that gives access to authentication methods.
@@ -1166,10 +1177,10 @@ Flask-OIDC authenticator.</dd>
 <div class="desc"><p>Logs in a user.</p>
 <p>When this function starts operating, the user has been through the login
 process provided by the authentication service.</p>
-<p>We can now find the user's sub and additional attributes in the request
+<p>We can now find the user's "sub" and additional attributes in the request
 context.</p>
 <p>We use that information to lookup the user in the MongoDb users table.
-If the user does not exists, we add a new user record, with this sub and
+If the user does not exists, we add a new user record, with this "sub" and
 these attributes, and role <code>user</code>.</p>
 <p>If the user does exists, we check whether we have to update his attributes.
 If the attributes found in MongoDb differ from those supplied by the
@@ -1189,7 +1200,7 @@ successful or 303 if not.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L131-L182" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L132-L183" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def afterLogin(self, referrer):
     &#34;&#34;&#34;Logs in a user.
@@ -1197,11 +1208,11 @@ successful or 303 if not.</dd>
     When this function starts operating, the user has been through the login
     process provided by the authentication service.
 
-    We can now find the user&#39;s sub and additional attributes in the request
+    We can now find the user&#39;s &#34;sub&#34; and additional attributes in the request
     context.
 
     We use that information to lookup the user in the MongoDb users table.
-    If the user does not exists, we add a new user record, with this sub and
+    If the user does not exists, we add a new user record, with this &#34;sub&#34; and
     these attributes, and role `user`.
 
     If the user does exists, we check whether we have to update his attributes.
@@ -1249,7 +1260,7 @@ successful or 303 if not.</dd>
 <span>def <span class="ident">getUser</span></span>(<span>self, fromArg=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Obtain the sub of the currently logged in user from the request info.</p>
+<div class="desc"><p>Obtain the "sub" of the currently logged in user from the request info.</p>
 <p>It works for test users and normal users.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
@@ -1263,15 +1274,15 @@ This is used during the login procedure of test users.</dd>
 <dt><code>boolean, boolean, string</code></dt>
 <dd>Whether we are in test mode.
 Whether the user is a test user.
-The sub of the user</dd>
+The "sub" of the user</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L271-L307" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L272-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUser(self, fromArg=False):
-    &#34;&#34;&#34;Obtain the sub of the currently logged in user from the request info.
+    &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
     It works for test users and normal users.
 
@@ -1287,7 +1298,7 @@ The sub of the user</dd>
     boolean, boolean, string
         Whether we are in test mode.
         Whether the user is a test user.
-        The sub of the user
+        The &#34;sub&#34; of the user
     &#34;&#34;&#34;
     oidc = self.oidc
     Settings = self.Settings
@@ -1297,7 +1308,7 @@ The sub of the user</dd>
     isTestUser = None
 
     if testMode:
-        user = arg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
+        user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
         if user:
             isTestUser = True
 
@@ -1329,7 +1340,7 @@ we only check who is the currently logged in user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L223-L253" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L224-L254" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identify(self):
     &#34;&#34;&#34;Make sure who is the current user.
@@ -1380,7 +1391,7 @@ we already know everything about the test user on the basis of the
 information in the request that brought us here.</p>
 <p>So, we find out if we have to log in a test user or a user that must be
 authenticated through oidc.</p>
-<p>We only log in a test user if we are in test mode and the user's sub
+<p>We only log in a test user if we are in test mode and the user's "sub"
 is passed in the request.</p>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1394,7 +1405,7 @@ can be redirected to the original referrer.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L79-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L80-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def login(self):
     &#34;&#34;&#34;Log in a user.
@@ -1412,7 +1423,7 @@ can be redirected to the original referrer.</dd>
     So, we find out if we have to log in a test user or a user that must be
     authenticated through oidc.
 
-    We only log in a test user if we are in test mode and the user&#39;s sub
+    We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
     is passed in the request.
 
     Returns
@@ -1443,7 +1454,7 @@ can be redirected to the original referrer.</dd>
         return redirectStatus(f&#34;/{referrer}&#34;, False)
 
     return (
-        self.__loginTest(referrer, arg(&#34;user&#34;))
+        self.__loginTest(referrer, requestArg(&#34;user&#34;))
         if isTestUser
         else self.__loginOidc(referrer)
     )</code></pre>
@@ -1465,7 +1476,7 @@ After logging out, we redirect to the home page.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L184-L221" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L185-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logout(self):
     &#34;&#34;&#34;Logs off the current user.
@@ -1512,35 +1523,35 @@ After logging out, we redirect to the home page.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Who is the currently authenticated user?</p>
-<p>The <code>__User</code> member is inspected: does it contain an sub?
+<p>The <code>__User</code> member is inspected: does it contain a field called <code>user</code>?
 If so, that is taken as proof that we have a valid user.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>dict</code></dt>
 <dd>Otherwise a copy of the complete __User record is returned.
-unless there is no <code>sub</code> member in the current user, then
+unless there is no <code>user</code> member in the current user, then
 the empty dictionary is returned.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L255-L269" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L256-L270" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def myDetails(self):
     &#34;&#34;&#34;Who is the currently authenticated user?
 
-    The `__User` member is inspected: does it contain an sub?
+    The `__User` member is inspected: does it contain a field called `user`?
     If so, that is taken as proof that we have a valid user.
 
     Returns
     -------
     dict
         Otherwise a copy of the complete __User record is returned.
-        unless there is no `sub` member in the current user, then
+        unless there is no `user` member in the current user, then
         the empty dictionary is returned.
     &#34;&#34;&#34;
     User = self.__User
-    return AttrDict(**User) if &#34;sub&#34; in User else AttrDict({})</code></pre>
+    return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})</code></pre>
 </details>
 </dd>
 <dt id="control.users.Users.presentRole"><code class="name flex">
@@ -1562,7 +1573,7 @@ If no representation can be found, the internal name is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L395-L411" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L398-L414" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def presentRole(self, role):
     &#34;&#34;&#34;Finds the interface representation of a role.
@@ -1603,7 +1614,7 @@ for the current user styled as active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/users.py#L309-L393" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/users.py#L310-L396" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrapLogin(self):
     &#34;&#34;&#34;Generate HTML for the login widget.
@@ -1624,6 +1635,8 @@ for the current user styled as active.</dd>
         HTML of the list of buttons for test users, with the button
         for the current user styled as active.
     &#34;&#34;&#34;
+    Settings = self.Settings
+    H = Settings.H
     Mongo = self.Mongo
 
     (testMode, isTestUser, userActive) = self.getUser()
@@ -1658,10 +1671,10 @@ for the current user styled as active.</dd>
 
         enabled = not userActive or isTestUser
         for record in sorted(
-            Mongo.getList(&#34;users&#34;, isTest=True),
+            Mongo.getList(&#34;user&#34;, isTest=True),
             key=lambda r: r.nickname,
         ):
-            user = record.sub
+            user = record.user
             name = record.nickname
             role = self.presentRole(record.role)
 

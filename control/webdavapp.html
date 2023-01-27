@@ -26,13 +26,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L1-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L1-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from wsgidav.wsgidav_app import WsgiDAVApp
 
 from control.prepare import prepare
 from control.app import appFactory as appFactoryMain
-from control.flask import make
+from control.flask import appMake
 
 
 def getWebdavApp(objects):
@@ -128,7 +128,7 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
 
 
 def appFactoryMaster():
-    app = make(__name__)
+    app = appMake(__name__)
     return app
 
 
@@ -187,7 +187,7 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L105-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L105-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory():
     &#34;&#34;&#34;Make a WebDAV enabled app.
@@ -224,10 +224,10 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L100-L102" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L100-L102" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactoryMaster():
-    app = make(__name__)
+    app = appMake(__name__)
     return app</code></pre>
 </details>
 </dd>
@@ -274,7 +274,7 @@ A WEBDav server.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L31-L97" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L31-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
     &#34;&#34;&#34;Combines the main app with the webdavapp.
@@ -356,7 +356,7 @@ and configure it here.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getWebdavApp(objects):
     &#34;&#34;&#34;Configure a webapp that provides WebDAV.

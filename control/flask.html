@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L1-L240" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L1-L240" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 
@@ -50,7 +50,7 @@ PROTOCOL_RE = re.compile(
 )
 
 
-def initializing():
+def appInitializing():
     &#34;&#34;&#34;Whether the flask web app is already running.
 
     It is False during the initialization code in the app factory
@@ -59,12 +59,12 @@ def initializing():
     return var(&#34;WERKZEUG_RUN_MAIN&#34;) is None
 
 
-def make(*args, **kwargs):
+def appMake(*args, **kwargs):
     &#34;&#34;&#34;Create the Flask app.&#34;&#34;&#34;
     return Flask(*args, **kwargs)
 
 
-def template(template, **kwargs):
+def renderTemplate(template, **kwargs):
     &#34;&#34;&#34;Renders a template.
 
     Parameters
@@ -102,7 +102,7 @@ def response(data):
     return make_response(data)
 
 
-def send(path):
+def sendFile(path):
     &#34;&#34;&#34;Send a file as a response.
 
     It is assumed that `path` exists as a readable file
@@ -146,7 +146,7 @@ def redirectStatus(url, good):
     return redirect(url, code=code)
 
 
-def stop():
+def appStop():
     &#34;&#34;&#34;Stop the request with a 404.&#34;&#34;&#34;
     abort(404)
 
@@ -179,7 +179,7 @@ def sessionGet(name):
 
     Returns
     -------
-    string or None
+    string | void
         The value of the variable, if it exists,
         else None.
     &#34;&#34;&#34;
@@ -203,12 +203,12 @@ def sessionSet(name, value):
     session[name] = value
 
 
-def method():
+def requestMethod():
     &#34;&#34;&#34;Get the request method.&#34;&#34;&#34;
     return request.method
 
 
-def arg(name):
+def requestArg(name):
     &#34;&#34;&#34;Get the value of a request arg.
 
     Parameters
@@ -218,14 +218,14 @@ def arg(name):
 
     Returns
     -------
-    string or None
+    string | void
         The value of the arg, if it is defined,
         else the None.
     &#34;&#34;&#34;
     return request.args.get(name, None)
 
 
-def data():
+def requestData():
     &#34;&#34;&#34;Get the request data.
 
     Returns
@@ -277,70 +277,55 @@ def getReferrer():
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="control.flask.arg"><code class="name flex">
-<span>def <span class="ident">arg</span></span>(<span>name)</span>
+<dt id="control.flask.appInitializing"><code class="name flex">
+<span>def <span class="ident">appInitializing</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get the value of a request arg.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the arg.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code> or <code>None</code></dt>
-<dd>The value of the arg, if it is defined,
-else the None.</dd>
-</dl></div>
+<div class="desc"><p>Whether the flask web app is already running.</p>
+<p>It is False during the initialization code in the app factory
+before the flask app is delivered.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L181-L195" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L23-L29" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def arg(name):
-    &#34;&#34;&#34;Get the value of a request arg.
+<pre><code class="python">def appInitializing():
+    &#34;&#34;&#34;Whether the flask web app is already running.
 
-    Parameters
-    ----------
-    name: string
-        The name of the arg.
-
-    Returns
-    -------
-    string or None
-        The value of the arg, if it is defined,
-        else the None.
+    It is False during the initialization code in the app factory
+    before the flask app is delivered.
     &#34;&#34;&#34;
-    return request.args.get(name, None)</code></pre>
+    return var(&#34;WERKZEUG_RUN_MAIN&#34;) is None</code></pre>
 </details>
 </dd>
-<dt id="control.flask.data"><code class="name flex">
-<span>def <span class="ident">data</span></span>(<span>)</span>
+<dt id="control.flask.appMake"><code class="name flex">
+<span>def <span class="ident">appMake</span></span>(<span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get the request data.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>bytes</code></dt>
-<dd>&nbsp;</dd>
-</dl>
-<p>Useful for uploaded files.</p></div>
+<div class="desc"><p>Create the Flask app.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L198-L207" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L32-L34" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def data():
-    &#34;&#34;&#34;Get the request data.
-
-    Returns
-    -------
-    bytes
-
-    Useful for uploaded files.
-    &#34;&#34;&#34;
-    return request.get_data(cache=False)</code></pre>
+<pre><code class="python">def appMake(*args, **kwargs):
+    &#34;&#34;&#34;Create the Flask app.&#34;&#34;&#34;
+    return Flask(*args, **kwargs)</code></pre>
+</details>
+</dd>
+<dt id="control.flask.appStop"><code class="name flex">
+<span>def <span class="ident">appStop</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stop the request with a 404.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L119-L121" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def appStop():
+    &#34;&#34;&#34;Stop the request with a 404.&#34;&#34;&#34;
+    abort(404)</code></pre>
 </details>
 </dd>
 <dt id="control.flask.flashMsg"><code class="name flex">
@@ -351,7 +336,7 @@ else the None.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L55-L56" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L55-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def flashMsg(*args, **kwargs):
     flash(*args, **kwargs)</code></pre>
@@ -381,7 +366,7 @@ before we remove the prefix.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L214-L240" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L214-L240" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getReferrer():
     &#34;&#34;&#34;Get the referrer from the request.
@@ -412,57 +397,6 @@ before we remove the prefix.</p>
     return &#34;/&#34; if path == referrer else path</code></pre>
 </details>
 </dd>
-<dt id="control.flask.initializing"><code class="name flex">
-<span>def <span class="ident">initializing</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Whether the flask web app is already running.</p>
-<p>It is False during the initialization code in the app factory
-before the flask app is delivered.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L23-L29" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def initializing():
-    &#34;&#34;&#34;Whether the flask web app is already running.
-
-    It is False during the initialization code in the app factory
-    before the flask app is delivered.
-    &#34;&#34;&#34;
-    return var(&#34;WERKZEUG_RUN_MAIN&#34;) is None</code></pre>
-</details>
-</dd>
-<dt id="control.flask.make"><code class="name flex">
-<span>def <span class="ident">make</span></span>(<span>*args, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Create the Flask app.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L32-L34" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def make(*args, **kwargs):
-    &#34;&#34;&#34;Create the Flask app.&#34;&#34;&#34;
-    return Flask(*args, **kwargs)</code></pre>
-</details>
-</dd>
-<dt id="control.flask.method"><code class="name flex">
-<span>def <span class="ident">method</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get the request method.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L176-L178" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def method():
-    &#34;&#34;&#34;Get the request method.&#34;&#34;&#34;
-    return request.method</code></pre>
-</details>
-</dd>
 <dt id="control.flask.redirectStatus"><code class="name flex">
 <span>def <span class="ident">redirectStatus</span></span>(<span>url, good)</span>
 </code></dt>
@@ -484,7 +418,7 @@ an error</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L96-L116" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L96-L116" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def redirectStatus(url, good):
     &#34;&#34;&#34;Redirect.
@@ -509,6 +443,127 @@ an error</p>
     return redirect(url, code=code)</code></pre>
 </details>
 </dd>
+<dt id="control.flask.renderTemplate"><code class="name flex">
+<span>def <span class="ident">renderTemplate</span></span>(<span>template, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Renders a template.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>template</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the template, without extension.</dd>
+<dt><strong><code>kwargs</code></strong> :&ensp;<code>dict</code></dt>
+<dd>The variables with values to fill in into the template.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>object</code></dt>
+<dd>The response with as content the filled template.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L37-L52" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def renderTemplate(template, **kwargs):
+    &#34;&#34;&#34;Renders a template.
+
+    Parameters
+    ----------
+    template: string
+        The name of the template, without extension.
+    kwargs: dict
+        The variables with values to fill in into the template.
+
+    Returns
+    -------
+    object
+        The response with as content the filled template.
+    &#34;&#34;&#34;
+    return render_template(f&#34;{template}.html&#34;, **kwargs)</code></pre>
+</details>
+</dd>
+<dt id="control.flask.requestArg"><code class="name flex">
+<span>def <span class="ident">requestArg</span></span>(<span>name)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the value of a request arg.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the arg.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string | void</code></dt>
+<dd>The value of the arg, if it is defined,
+else the None.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L181-L195" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def requestArg(name):
+    &#34;&#34;&#34;Get the value of a request arg.
+
+    Parameters
+    ----------
+    name: string
+        The name of the arg.
+
+    Returns
+    -------
+    string | void
+        The value of the arg, if it is defined,
+        else the None.
+    &#34;&#34;&#34;
+    return request.args.get(name, None)</code></pre>
+</details>
+</dd>
+<dt id="control.flask.requestData"><code class="name flex">
+<span>def <span class="ident">requestData</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the request data.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>bytes</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>Useful for uploaded files.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L198-L207" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def requestData():
+    &#34;&#34;&#34;Get the request data.
+
+    Returns
+    -------
+    bytes
+
+    Useful for uploaded files.
+    &#34;&#34;&#34;
+    return request.get_data(cache=False)</code></pre>
+</details>
+</dd>
+<dt id="control.flask.requestMethod"><code class="name flex">
+<span>def <span class="ident">requestMethod</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the request method.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L176-L178" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def requestMethod():
+    &#34;&#34;&#34;Get the request method.&#34;&#34;&#34;
+    return request.method</code></pre>
+</details>
+</dd>
 <dt id="control.flask.response"><code class="name flex">
 <span>def <span class="ident">response</span></span>(<span>data)</span>
 </code></dt>
@@ -527,7 +582,7 @@ an error</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L59-L72" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L59-L72" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def response(data):
     &#34;&#34;&#34;Wrap data in a response.
@@ -545,8 +600,8 @@ an error</p>
     return make_response(data)</code></pre>
 </details>
 </dd>
-<dt id="control.flask.send"><code class="name flex">
-<span>def <span class="ident">send</span></span>(<span>path)</span>
+<dt id="control.flask.sendFile"><code class="name flex">
+<span>def <span class="ident">sendFile</span></span>(<span>path)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Send a file as a response.</p>
@@ -567,9 +622,9 @@ extension.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L75-L93" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L75-L93" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def send(path):
+<pre><code class="python">def sendFile(path):
     &#34;&#34;&#34;Send a file as a response.
 
     It is assumed that `path` exists as a readable file
@@ -602,14 +657,14 @@ extension.</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>string</code> or <code>None</code></dt>
+<dt><code>string | void</code></dt>
 <dd>The value of the variable, if it exists,
 else None.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L142-L156" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L142-L156" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sessionGet(name):
     &#34;&#34;&#34;Gets a variable from the session.
@@ -621,7 +676,7 @@ else None.</dd>
 
     Returns
     -------
-    string or None
+    string | void
         The value of the variable, if it exists,
         else None.
     &#34;&#34;&#34;
@@ -646,7 +701,7 @@ else None.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L124-L139" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L124-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sessionPop(name):
     &#34;&#34;&#34;Pops a variable from the session.
@@ -686,7 +741,7 @@ else None.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L159-L173" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L159-L173" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sessionSet(name, value):
     &#34;&#34;&#34;Sets a session variable to a value.
@@ -705,61 +760,6 @@ else None.</dd>
     session[name] = value</code></pre>
 </details>
 </dd>
-<dt id="control.flask.stop"><code class="name flex">
-<span>def <span class="ident">stop</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Stop the request with a 404.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L119-L121" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def stop():
-    &#34;&#34;&#34;Stop the request with a 404.&#34;&#34;&#34;
-    abort(404)</code></pre>
-</details>
-</dd>
-<dt id="control.flask.template"><code class="name flex">
-<span>def <span class="ident">template</span></span>(<span>template, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Renders a template.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>template</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the template, without extension.</dd>
-<dt><strong><code>kwargs</code></strong> :&ensp;<code>dict</code></dt>
-<dd>The variables with values to fill in into the template.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>object</code></dt>
-<dd>The response with as content the filled template.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L37-L52" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def template(template, **kwargs):
-    &#34;&#34;&#34;Renders a template.
-
-    Parameters
-    ----------
-    template: string
-        The name of the template, without extension.
-    kwargs: dict
-        The variables with values to fill in into the template.
-
-    Returns
-    -------
-    object
-        The response with as content the filled template.
-    &#34;&#34;&#34;
-    return render_template(f&#34;{template}.html&#34;, **kwargs)</code></pre>
-</details>
-</dd>
 <dt id="control.flask.values"><code class="name flex">
 <span>def <span class="ident">values</span></span>(<span>)</span>
 </code></dt>
@@ -768,7 +768,7 @@ else None.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/flask.py#L210-L211" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/flask.py#L210-L211" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def values():
     return request.values</code></pre>
@@ -839,21 +839,21 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="control.flask.arg" href="#control.flask.arg">arg</a></code></li>
-<li><code><a title="control.flask.data" href="#control.flask.data">data</a></code></li>
+<li><code><a title="control.flask.appInitializing" href="#control.flask.appInitializing">appInitializing</a></code></li>
+<li><code><a title="control.flask.appMake" href="#control.flask.appMake">appMake</a></code></li>
+<li><code><a title="control.flask.appStop" href="#control.flask.appStop">appStop</a></code></li>
 <li><code><a title="control.flask.flashMsg" href="#control.flask.flashMsg">flashMsg</a></code></li>
 <li><code><a title="control.flask.getReferrer" href="#control.flask.getReferrer">getReferrer</a></code></li>
-<li><code><a title="control.flask.initializing" href="#control.flask.initializing">initializing</a></code></li>
-<li><code><a title="control.flask.make" href="#control.flask.make">make</a></code></li>
-<li><code><a title="control.flask.method" href="#control.flask.method">method</a></code></li>
 <li><code><a title="control.flask.redirectStatus" href="#control.flask.redirectStatus">redirectStatus</a></code></li>
+<li><code><a title="control.flask.renderTemplate" href="#control.flask.renderTemplate">renderTemplate</a></code></li>
+<li><code><a title="control.flask.requestArg" href="#control.flask.requestArg">requestArg</a></code></li>
+<li><code><a title="control.flask.requestData" href="#control.flask.requestData">requestData</a></code></li>
+<li><code><a title="control.flask.requestMethod" href="#control.flask.requestMethod">requestMethod</a></code></li>
 <li><code><a title="control.flask.response" href="#control.flask.response">response</a></code></li>
-<li><code><a title="control.flask.send" href="#control.flask.send">send</a></code></li>
+<li><code><a title="control.flask.sendFile" href="#control.flask.sendFile">sendFile</a></code></li>
 <li><code><a title="control.flask.sessionGet" href="#control.flask.sessionGet">sessionGet</a></code></li>
 <li><code><a title="control.flask.sessionPop" href="#control.flask.sessionPop">sessionPop</a></code></li>
 <li><code><a title="control.flask.sessionSet" href="#control.flask.sessionSet">sessionSet</a></code></li>
-<li><code><a title="control.flask.stop" href="#control.flask.stop">stop</a></code></li>
-<li><code><a title="control.flask.template" href="#control.flask.template">template</a></code></li>
 <li><code><a title="control.flask.values" href="#control.flask.values">values</a></code></li>
 </ul>
 </li>

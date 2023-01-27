@@ -26,23 +26,21 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L1-L386" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L1-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.files import (
     listDirs,
     listFiles,
-    get3d,
+    list3d,
     readYaml,
+    fileExists,
     dirMake,
     dirRemove,
     dirCopy,
     fileCopy,
 )
 from control.environment import var
-from control.flask import initializing
-
-ICON_FILE = &#34;icon.png&#34;
-FAVICON_FILE = &#34;favicon.ico&#34;
+from control.flask import appInitializing
 
 
 class Collect:
@@ -77,7 +75,7 @@ class Collect:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -112,7 +110,7 @@ class Collect:
         &#34;&#34;&#34;
         doCollect = var(&#34;docollect&#34;) == &#34;v&#34;
 
-        return initializing() and doCollect
+        return appInitializing() and doCollect
 
     def fetch(self):
         &#34;&#34;&#34;Performs a data collection.&#34;&#34;&#34;
@@ -137,24 +135,26 @@ class Collect:
         Settings = self.Settings
         Mongo = self.Mongo
 
-        for table in (
-            &#34;meta&#34;,
-            &#34;projects&#34;,
-            &#34;editions&#34;,
-            &#34;scenes&#34;,
-            &#34;users&#34;,
-            &#34;projectUsers&#34;,
-        ):
-            Mongo.checkCollection(table, reset=True)
+        tables = Settings.datamodel.tables
 
-        if Settings.testMode:
-            Mongo.checkCollection(&#34;users&#34;, reset=True)
+        collections = set(Mongo.collections())
+
+        for table in collections:
+            if table not in tables:
+                Mongo.clearCollection(table, delete=True)
+
+        for table in tables:
+            Mongo.clearCollection(table, delete=False)
 
     def doOuter(self):
         &#34;&#34;&#34;Collects data not belonging to specific projects.&#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
 
+        iconFile = Settings.iconFile
+        faviconFile = Settings.faviconFile
+        siteCrit = Settings.siteCrit
         importDir = self.importDir
         workingDir = self.workingDir
 
@@ -169,21 +169,23 @@ class Collect:
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
-        Mongo.insertRecord(&#34;meta&#34;, name=&#34;site&#34;, icon=ICON_FILE, **meta)
+        siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
+        self.siteId = siteId
 
-        fileCopy(f&#34;{importDir}/{ICON_FILE}&#34;, f&#34;{workingDir}/{ICON_FILE}&#34;)
-        fileCopy(f&#34;{importDir}/{FAVICON_FILE}&#34;, f&#34;{workingDir}/{FAVICON_FILE}&#34;)
+        fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+        fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)
 
     def doProjects(self):
         &#34;&#34;&#34;Collects data belonging to projects.&#34;&#34;&#34;
         importDir = self.importDir
         workingDir = self.workingDir
 
-        projectsInPath = f&#34;{importDir}/projects&#34;
-        projectsOutPath = f&#34;{workingDir}/projects&#34;
+        projectsInPath = f&#34;{importDir}/project&#34;
+        projectsOutPath = f&#34;{workingDir}/project&#34;
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
+        self.editionIdByName = {}
 
         projectNames = listDirs(projectsInPath)
 
@@ -202,10 +204,13 @@ class Collect:
         projectName: string
             Directory name of the project to collect.
         &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        siteId = self.siteId
         projectIdByName = self.projectIdByName
 
+        iconFile = Settings.iconFile
         projectInPath = f&#34;{projectsInPath}/{projectName}&#34;
 
         meta = {}
@@ -217,20 +222,20 @@ class Collect:
 
         title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
 
-        projectInfo = dict(title=title, icon=ICON_FILE, **meta)
+        projectInfo = dict(title=title, siteId=siteId, **meta)
 
-        projectId = Mongo.insertRecord(&#34;projects&#34;, **projectInfo)
+        projectId = Mongo.insertRecord(&#34;project&#34;, **projectInfo)
         projectIdByName[projectName] = projectId
 
         Messages.plain(logmsg=f&#34;PROJECT {projectName} =&gt; {projectId}&#34;)
 
         projectOutPath = f&#34;{projectsOutPath}/{projectId}&#34;
         dirMake(projectOutPath)
-        fileCopy(f&#34;{projectInPath}/{ICON_FILE}&#34;, f&#34;{projectOutPath}/{ICON_FILE}&#34;)
+        fileCopy(f&#34;{projectInPath}/{iconFile}&#34;, f&#34;{projectOutPath}/{iconFile}&#34;)
 
-        self.doEditions(projectInPath, projectOutPath, projectId)
+        self.doEditions(projectInPath, projectOutPath, projectName)
 
-    def doEditions(self, projectInPath, projectOutPath, projectId):
+    def doEditions(self, projectInPath, projectOutPath, projectName):
         &#34;&#34;&#34;Collects data belonging to the editions of a project.
 
         Parameters
@@ -239,24 +244,24 @@ class Collect:
             Path on the filesystem to the input directory of this project
         projectOutPath: string
             Path on the filesystem to the destination directory of this project
-        projectId: ObjectId
-            MongoId of the project to collect.
+        projectName: String
+            Name of the project to collect.
         &#34;&#34;&#34;
-        editionsInPath = f&#34;{projectInPath}/editions&#34;
-        editionsOutPath = f&#34;{projectOutPath}/editions&#34;
+        editionsInPath = f&#34;{projectInPath}/edition&#34;
+        editionsOutPath = f&#34;{projectOutPath}/edition&#34;
 
         editionNames = listDirs(editionsInPath)
 
         for editionName in editionNames:
-            self.doEdition(projectId, editionsInPath, editionsOutPath, editionName)
+            self.doEdition(projectName, editionsInPath, editionsOutPath, editionName)
 
-    def doEdition(self, projectId, editionsInPath, editionsOutPath, editionName):
+    def doEdition(self, projectName, editionsInPath, editionsOutPath, editionName):
         &#34;&#34;&#34;Collects data belonging to a specific edition.
 
         Parameters
         ----------
-        projectId: ObjectId
-            MongoId of the project to which the edition belongs.
+        projectName: String
+            Name of the project to which the edition belongs.
         editionsInPath: string
             Path on the filesystem to the editions input directory
             within this project.
@@ -266,9 +271,14 @@ class Collect:
         editionName: string
             Directory name of the edition to collect.
         &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        iconFile = Settings.iconFile
+        projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
+        projectId = projectIdByName[projectName]
         editionInPath = f&#34;{editionsInPath}/{editionName}&#34;
 
         meta = {}
@@ -279,87 +289,40 @@ class Collect:
             meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
         title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+        authorTool = meta.get(&#34;settings&#34;, {}).get(&#34;authorTool&#34;, {})
+        sceneFile = authorTool.sceneFile
 
-        modelFile = None
+        sceneInFile = f&#34;{editionInPath}/{sceneFile}&#34;
 
-        modelFiles = get3d(editionInPath, &#34;model&#34;)
+        if not fileExists(sceneInFile):
+            Messages.plain(logmsg=&#34;\t\tNo scene file&#34;)
 
-        if len(modelFiles) == 0:
-            Messages.plain(logmsg=&#34;\t\tNo model&#34;)
-        else:
-            extensions = modelFiles[&#34;model&#34;]
-            if len(extensions) &gt; 1:
-                Messages.plain(
-                    logmsg=f&#34;\t\tMultiple extensions for model: {&#39;, &#39;.join(extensions)}&#34;
-                )
-            else:
-                modelExt = extensions[0]
-                modelFile = f&#34;model.{modelExt.lower()}&#34;
+        modelFiles = list3d(editionInPath)
+        nFiles = len(modelFiles)
 
-        editionInfo = dict(
-            title=title, projectId=projectId, model=modelFile, icon=ICON_FILE, **meta
-        )
-        editionId = Mongo.insertRecord(&#34;editions&#34;, **editionInfo)
+        if nFiles == 0:
+            Messages.plain(logmsg=&#34;\t\tNo models&#34;)
+
+        editionRecord = dict(title=title, projectId=projectId, **meta)
+        editionId = Mongo.insertRecord(&#34;edition&#34;, **editionRecord)
+        editionIdByName.setdefault(projectName, {})[editionName] = editionId
 
         Messages.plain(logmsg=f&#34;\tEDITION {editionName} =&gt; {editionId}&#34;)
 
         editionOutPath = f&#34;{editionsOutPath}/{editionId}&#34;
         dirMake(editionOutPath)
-        fileCopy(f&#34;{editionInPath}/{ICON_FILE}&#34;, f&#34;{editionOutPath}/{ICON_FILE}&#34;)
 
-        if modelFile is not None:
-            modelFileIn = f&#34;{editionInPath}/model.{modelExt}&#34;
-            modelFileOut = f&#34;{editionOutPath}/{modelFile}&#34;
-            fileCopy(modelFileIn, modelFileOut)
-
-        self.doScenes(editionInPath, editionOutPath, projectId, editionId)
-
-    def doScenes(self, editionInPath, editionOutPath, projectId, editionId):
-        &#34;&#34;&#34;Collects data belonging to the scenes of an edition.
-
-        Parameters
-        ----------
-        editionInPath: string
-            Path on the filesystem to the input directory of this edition
-        editionOutPath: string
-            Path on the filesystem to the destination directory of this edition
-        projectId: ObjectId
-            MongoId of the project to collect.
-        editionId: ObjectId
-            MongoId of the edition to collect.
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        scenes = listFiles(editionInPath, &#34;.json&#34;)
-
-        sceneDefault = None
-
-        for scene in scenes:
-            Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
-
-            default = sceneDefault is None and scene == &#34;intro&#34;
-            if default:
-                sceneDefault = scene
-
-            sceneFile = f&#34;{scene}.json&#34;
-            sceneIcon = f&#34;{scene}.png&#34;
-
-            sceneInfo = dict(
-                name=scene,
-                scene=sceneFile,
-                icon=sceneIcon,
-                editionId=editionId,
-                projectId=projectId,
-                default=default,
-            )
-            Mongo.insertRecord(&#34;scenes&#34;, **sceneInfo)
-            sceneInPath = f&#34;{editionInPath}/{sceneFile}&#34;
-            sceneOutPath = f&#34;{editionOutPath}/{sceneFile}&#34;
-            fileCopy(sceneInPath, sceneOutPath)
-            iconInPath = f&#34;{editionInPath}/{sceneIcon}&#34;
-            iconOutPath = f&#34;{editionOutPath}/{sceneIcon}&#34;
-            fileCopy(iconInPath, iconOutPath)
+        for (label, files) in (
+            (&#34;scene&#34;, [sceneFile]),
+            (&#34;model&#34;, modelFiles),
+            (&#34;icon&#34;, [iconFile]),
+        ):
+            Messages.plain(logmsg=f&#34;\t\t\t{label}:&#34;)
+            for file in files:
+                Messages.plain(logmsg=f&#34;\t\t\t\t{file}&#34;)
+                fileIn = f&#34;{editionInPath}/{file}&#34;
+                fileOut = f&#34;{editionOutPath}/{file}&#34;
+                fileCopy(fileIn, fileOut)
 
         articlesInPath = f&#34;{editionInPath}/articles&#34;
         articlesOutPath = f&#34;{editionOutPath}/articles&#34;
@@ -377,43 +340,81 @@ class Collect:
         importDir = self.importDir
 
         projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
         workflowDir = f&#34;{importDir}/workflow&#34;
         workflowPath = f&#34;{workflowDir}/init.yml&#34;
         workflow = readYaml(workflowPath, defaultEmpty=True)
-        users = workflow[&#34;users&#34;]
-        projectUsers = workflow[&#34;projectUsers&#34;]
-        projectStatus = workflow[&#34;projectStatus&#34;]
+        userRole = workflow[&#34;userRole&#34;]
+        status = workflow[&#34;status&#34;]
 
         userByName = {}
 
-        for (userName, role) in users.items():
-            sub = f&#34;{userName:0&gt;16}&#34;
-            userInfo = dict(
-                nickname=userName,
-                sub=sub,
-                role=role,
-                isTest=True,
-            )
-            Mongo.insertRecord(&#34;users&#34;, **userInfo)
-            userByName[userName] = sub
+        for (table, statusInfo) in status.items():
+            field = statusInfo[&#34;field&#34;]
+            values = statusInfo[&#34;values&#34;]
+            tableRep = table.upper()
 
-        for (projectName, isPublished) in projectStatus.items():
-            Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
-            Mongo.updateRecord(
-                &#34;projects&#34;,
-                dict(isPublished=isPublished),
-                _id=projectIdByName[projectName],
-            )
+            for (outerName, outerValue) in values.items():
+                if table == &#34;project&#34;:
+                    Messages.plain(
+                        logmsg=(f&#34;{tableRep} {outerName} {field}: {outerValue}&#34;)
+                    )
+                    Mongo.updateRecord(
+                        table,
+                        {field: outerValue},
+                        _id=projectIdByName[outerName],
+                    )
+                elif table == &#34;edition&#34;:
+                    for (innerName, innerValue) in outerValue.items():
+                        Messages.plain(
+                            logmsg=(
+                                f&#34;{tableRep} {outerName}-{innerName}&#34;
+                                f&#34; {field}: {innerValue}&#34;
+                            )
+                        )
+                        Mongo.updateRecord(
+                            table,
+                            {field: innerValue},
+                            _id=editionIdByName[outerName][innerName],
+                        )
 
-        for (projectName, projectUsrs) in projectUsers.items():
-            for (userName, role) in projectUsrs.items():
-                xInfo = dict(
-                    user=userByName[userName],
-                    projectId=projectIdByName[projectName],
+        for (table, tableUsers) in userRole.items():
+            if table != &#34;site&#34;:
+                continue
+            for (userName, role) in tableUsers.items():
+                user = f&#34;{userName:0&gt;16}&#34;
+                userInfo = dict(
+                    nickname=userName,
+                    user=user,
                     role=role,
+                    isTest=True,
                 )
-                Mongo.insertRecord(&#34;projectUsers&#34;, **xInfo)</code></pre>
+                Mongo.insertRecord(&#34;user&#34;, **userInfo)
+                userByName[userName] = user
+
+        for (table, tableUsers) in userRole.items():
+            if table == &#34;site&#34;:
+                continue
+            elif table == &#34;project&#34;:
+                for (projectName, userInfo) in tableUsers.items():
+                    for (userName, role) in userInfo.items():
+                        xInfo = dict(
+                            user=userByName[userName],
+                            projectId=projectIdByName[projectName],
+                            role=role,
+                        )
+                        Mongo.insertRecord(&#34;projectUser&#34;, **xInfo)
+            elif table == &#34;edition&#34;:
+                for (projectName, editionInfo) in tableUsers.items():
+                    for (editionName, userInfo) in editionInfo.items():
+                        for (userName, role) in userInfo.items():
+                            xInfo = dict(
+                                user=userByName[userName],
+                                editionId=editionIdByName[projectName][editionName],
+                                role=role,
+                            )
+                            Mongo.insertRecord(&#34;editionUser&#34;, **xInfo)</code></pre>
 </details>
 </section>
 <section>
@@ -453,7 +454,7 @@ and the test users present in the example data will be imported.</p>
 <p>Otherwise the user table will be left unchanged.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
@@ -464,7 +465,7 @@ and the test users present in the example data will be imported.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L18-L386" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L16-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Collect:
     def __init__(self, Settings, Messages, Mongo):
@@ -498,7 +499,7 @@ and the test users present in the example data will be imported.</p>
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -533,7 +534,7 @@ and the test users present in the example data will be imported.</p>
         &#34;&#34;&#34;
         doCollect = var(&#34;docollect&#34;) == &#34;v&#34;
 
-        return initializing() and doCollect
+        return appInitializing() and doCollect
 
     def fetch(self):
         &#34;&#34;&#34;Performs a data collection.&#34;&#34;&#34;
@@ -558,24 +559,26 @@ and the test users present in the example data will be imported.</p>
         Settings = self.Settings
         Mongo = self.Mongo
 
-        for table in (
-            &#34;meta&#34;,
-            &#34;projects&#34;,
-            &#34;editions&#34;,
-            &#34;scenes&#34;,
-            &#34;users&#34;,
-            &#34;projectUsers&#34;,
-        ):
-            Mongo.checkCollection(table, reset=True)
+        tables = Settings.datamodel.tables
 
-        if Settings.testMode:
-            Mongo.checkCollection(&#34;users&#34;, reset=True)
+        collections = set(Mongo.collections())
+
+        for table in collections:
+            if table not in tables:
+                Mongo.clearCollection(table, delete=True)
+
+        for table in tables:
+            Mongo.clearCollection(table, delete=False)
 
     def doOuter(self):
         &#34;&#34;&#34;Collects data not belonging to specific projects.&#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
 
+        iconFile = Settings.iconFile
+        faviconFile = Settings.faviconFile
+        siteCrit = Settings.siteCrit
         importDir = self.importDir
         workingDir = self.workingDir
 
@@ -590,21 +593,23 @@ and the test users present in the example data will be imported.</p>
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
-        Mongo.insertRecord(&#34;meta&#34;, name=&#34;site&#34;, icon=ICON_FILE, **meta)
+        siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
+        self.siteId = siteId
 
-        fileCopy(f&#34;{importDir}/{ICON_FILE}&#34;, f&#34;{workingDir}/{ICON_FILE}&#34;)
-        fileCopy(f&#34;{importDir}/{FAVICON_FILE}&#34;, f&#34;{workingDir}/{FAVICON_FILE}&#34;)
+        fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+        fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)
 
     def doProjects(self):
         &#34;&#34;&#34;Collects data belonging to projects.&#34;&#34;&#34;
         importDir = self.importDir
         workingDir = self.workingDir
 
-        projectsInPath = f&#34;{importDir}/projects&#34;
-        projectsOutPath = f&#34;{workingDir}/projects&#34;
+        projectsInPath = f&#34;{importDir}/project&#34;
+        projectsOutPath = f&#34;{workingDir}/project&#34;
         dirRemove(projectsOutPath)
 
         self.projectIdByName = {}
+        self.editionIdByName = {}
 
         projectNames = listDirs(projectsInPath)
 
@@ -623,10 +628,13 @@ and the test users present in the example data will be imported.</p>
         projectName: string
             Directory name of the project to collect.
         &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        siteId = self.siteId
         projectIdByName = self.projectIdByName
 
+        iconFile = Settings.iconFile
         projectInPath = f&#34;{projectsInPath}/{projectName}&#34;
 
         meta = {}
@@ -638,20 +646,20 @@ and the test users present in the example data will be imported.</p>
 
         title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
 
-        projectInfo = dict(title=title, icon=ICON_FILE, **meta)
+        projectInfo = dict(title=title, siteId=siteId, **meta)
 
-        projectId = Mongo.insertRecord(&#34;projects&#34;, **projectInfo)
+        projectId = Mongo.insertRecord(&#34;project&#34;, **projectInfo)
         projectIdByName[projectName] = projectId
 
         Messages.plain(logmsg=f&#34;PROJECT {projectName} =&gt; {projectId}&#34;)
 
         projectOutPath = f&#34;{projectsOutPath}/{projectId}&#34;
         dirMake(projectOutPath)
-        fileCopy(f&#34;{projectInPath}/{ICON_FILE}&#34;, f&#34;{projectOutPath}/{ICON_FILE}&#34;)
+        fileCopy(f&#34;{projectInPath}/{iconFile}&#34;, f&#34;{projectOutPath}/{iconFile}&#34;)
 
-        self.doEditions(projectInPath, projectOutPath, projectId)
+        self.doEditions(projectInPath, projectOutPath, projectName)
 
-    def doEditions(self, projectInPath, projectOutPath, projectId):
+    def doEditions(self, projectInPath, projectOutPath, projectName):
         &#34;&#34;&#34;Collects data belonging to the editions of a project.
 
         Parameters
@@ -660,24 +668,24 @@ and the test users present in the example data will be imported.</p>
             Path on the filesystem to the input directory of this project
         projectOutPath: string
             Path on the filesystem to the destination directory of this project
-        projectId: ObjectId
-            MongoId of the project to collect.
+        projectName: String
+            Name of the project to collect.
         &#34;&#34;&#34;
-        editionsInPath = f&#34;{projectInPath}/editions&#34;
-        editionsOutPath = f&#34;{projectOutPath}/editions&#34;
+        editionsInPath = f&#34;{projectInPath}/edition&#34;
+        editionsOutPath = f&#34;{projectOutPath}/edition&#34;
 
         editionNames = listDirs(editionsInPath)
 
         for editionName in editionNames:
-            self.doEdition(projectId, editionsInPath, editionsOutPath, editionName)
+            self.doEdition(projectName, editionsInPath, editionsOutPath, editionName)
 
-    def doEdition(self, projectId, editionsInPath, editionsOutPath, editionName):
+    def doEdition(self, projectName, editionsInPath, editionsOutPath, editionName):
         &#34;&#34;&#34;Collects data belonging to a specific edition.
 
         Parameters
         ----------
-        projectId: ObjectId
-            MongoId of the project to which the edition belongs.
+        projectName: String
+            Name of the project to which the edition belongs.
         editionsInPath: string
             Path on the filesystem to the editions input directory
             within this project.
@@ -687,9 +695,14 @@ and the test users present in the example data will be imported.</p>
         editionName: string
             Directory name of the edition to collect.
         &#34;&#34;&#34;
+        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        iconFile = Settings.iconFile
+        projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
+        projectId = projectIdByName[projectName]
         editionInPath = f&#34;{editionsInPath}/{editionName}&#34;
 
         meta = {}
@@ -700,87 +713,40 @@ and the test users present in the example data will be imported.</p>
             meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
         title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+        authorTool = meta.get(&#34;settings&#34;, {}).get(&#34;authorTool&#34;, {})
+        sceneFile = authorTool.sceneFile
 
-        modelFile = None
+        sceneInFile = f&#34;{editionInPath}/{sceneFile}&#34;
 
-        modelFiles = get3d(editionInPath, &#34;model&#34;)
+        if not fileExists(sceneInFile):
+            Messages.plain(logmsg=&#34;\t\tNo scene file&#34;)
 
-        if len(modelFiles) == 0:
-            Messages.plain(logmsg=&#34;\t\tNo model&#34;)
-        else:
-            extensions = modelFiles[&#34;model&#34;]
-            if len(extensions) &gt; 1:
-                Messages.plain(
-                    logmsg=f&#34;\t\tMultiple extensions for model: {&#39;, &#39;.join(extensions)}&#34;
-                )
-            else:
-                modelExt = extensions[0]
-                modelFile = f&#34;model.{modelExt.lower()}&#34;
+        modelFiles = list3d(editionInPath)
+        nFiles = len(modelFiles)
 
-        editionInfo = dict(
-            title=title, projectId=projectId, model=modelFile, icon=ICON_FILE, **meta
-        )
-        editionId = Mongo.insertRecord(&#34;editions&#34;, **editionInfo)
+        if nFiles == 0:
+            Messages.plain(logmsg=&#34;\t\tNo models&#34;)
+
+        editionRecord = dict(title=title, projectId=projectId, **meta)
+        editionId = Mongo.insertRecord(&#34;edition&#34;, **editionRecord)
+        editionIdByName.setdefault(projectName, {})[editionName] = editionId
 
         Messages.plain(logmsg=f&#34;\tEDITION {editionName} =&gt; {editionId}&#34;)
 
         editionOutPath = f&#34;{editionsOutPath}/{editionId}&#34;
         dirMake(editionOutPath)
-        fileCopy(f&#34;{editionInPath}/{ICON_FILE}&#34;, f&#34;{editionOutPath}/{ICON_FILE}&#34;)
 
-        if modelFile is not None:
-            modelFileIn = f&#34;{editionInPath}/model.{modelExt}&#34;
-            modelFileOut = f&#34;{editionOutPath}/{modelFile}&#34;
-            fileCopy(modelFileIn, modelFileOut)
-
-        self.doScenes(editionInPath, editionOutPath, projectId, editionId)
-
-    def doScenes(self, editionInPath, editionOutPath, projectId, editionId):
-        &#34;&#34;&#34;Collects data belonging to the scenes of an edition.
-
-        Parameters
-        ----------
-        editionInPath: string
-            Path on the filesystem to the input directory of this edition
-        editionOutPath: string
-            Path on the filesystem to the destination directory of this edition
-        projectId: ObjectId
-            MongoId of the project to collect.
-        editionId: ObjectId
-            MongoId of the edition to collect.
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        scenes = listFiles(editionInPath, &#34;.json&#34;)
-
-        sceneDefault = None
-
-        for scene in scenes:
-            Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
-
-            default = sceneDefault is None and scene == &#34;intro&#34;
-            if default:
-                sceneDefault = scene
-
-            sceneFile = f&#34;{scene}.json&#34;
-            sceneIcon = f&#34;{scene}.png&#34;
-
-            sceneInfo = dict(
-                name=scene,
-                scene=sceneFile,
-                icon=sceneIcon,
-                editionId=editionId,
-                projectId=projectId,
-                default=default,
-            )
-            Mongo.insertRecord(&#34;scenes&#34;, **sceneInfo)
-            sceneInPath = f&#34;{editionInPath}/{sceneFile}&#34;
-            sceneOutPath = f&#34;{editionOutPath}/{sceneFile}&#34;
-            fileCopy(sceneInPath, sceneOutPath)
-            iconInPath = f&#34;{editionInPath}/{sceneIcon}&#34;
-            iconOutPath = f&#34;{editionOutPath}/{sceneIcon}&#34;
-            fileCopy(iconInPath, iconOutPath)
+        for (label, files) in (
+            (&#34;scene&#34;, [sceneFile]),
+            (&#34;model&#34;, modelFiles),
+            (&#34;icon&#34;, [iconFile]),
+        ):
+            Messages.plain(logmsg=f&#34;\t\t\t{label}:&#34;)
+            for file in files:
+                Messages.plain(logmsg=f&#34;\t\t\t\t{file}&#34;)
+                fileIn = f&#34;{editionInPath}/{file}&#34;
+                fileOut = f&#34;{editionOutPath}/{file}&#34;
+                fileCopy(fileIn, fileOut)
 
         articlesInPath = f&#34;{editionInPath}/articles&#34;
         articlesOutPath = f&#34;{editionOutPath}/articles&#34;
@@ -798,43 +764,81 @@ and the test users present in the example data will be imported.</p>
         importDir = self.importDir
 
         projectIdByName = self.projectIdByName
+        editionIdByName = self.editionIdByName
 
         workflowDir = f&#34;{importDir}/workflow&#34;
         workflowPath = f&#34;{workflowDir}/init.yml&#34;
         workflow = readYaml(workflowPath, defaultEmpty=True)
-        users = workflow[&#34;users&#34;]
-        projectUsers = workflow[&#34;projectUsers&#34;]
-        projectStatus = workflow[&#34;projectStatus&#34;]
+        userRole = workflow[&#34;userRole&#34;]
+        status = workflow[&#34;status&#34;]
 
         userByName = {}
 
-        for (userName, role) in users.items():
-            sub = f&#34;{userName:0&gt;16}&#34;
-            userInfo = dict(
-                nickname=userName,
-                sub=sub,
-                role=role,
-                isTest=True,
-            )
-            Mongo.insertRecord(&#34;users&#34;, **userInfo)
-            userByName[userName] = sub
+        for (table, statusInfo) in status.items():
+            field = statusInfo[&#34;field&#34;]
+            values = statusInfo[&#34;values&#34;]
+            tableRep = table.upper()
 
-        for (projectName, isPublished) in projectStatus.items():
-            Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
-            Mongo.updateRecord(
-                &#34;projects&#34;,
-                dict(isPublished=isPublished),
-                _id=projectIdByName[projectName],
-            )
+            for (outerName, outerValue) in values.items():
+                if table == &#34;project&#34;:
+                    Messages.plain(
+                        logmsg=(f&#34;{tableRep} {outerName} {field}: {outerValue}&#34;)
+                    )
+                    Mongo.updateRecord(
+                        table,
+                        {field: outerValue},
+                        _id=projectIdByName[outerName],
+                    )
+                elif table == &#34;edition&#34;:
+                    for (innerName, innerValue) in outerValue.items():
+                        Messages.plain(
+                            logmsg=(
+                                f&#34;{tableRep} {outerName}-{innerName}&#34;
+                                f&#34; {field}: {innerValue}&#34;
+                            )
+                        )
+                        Mongo.updateRecord(
+                            table,
+                            {field: innerValue},
+                            _id=editionIdByName[outerName][innerName],
+                        )
 
-        for (projectName, projectUsrs) in projectUsers.items():
-            for (userName, role) in projectUsrs.items():
-                xInfo = dict(
-                    user=userByName[userName],
-                    projectId=projectIdByName[projectName],
+        for (table, tableUsers) in userRole.items():
+            if table != &#34;site&#34;:
+                continue
+            for (userName, role) in tableUsers.items():
+                user = f&#34;{userName:0&gt;16}&#34;
+                userInfo = dict(
+                    nickname=userName,
+                    user=user,
                     role=role,
+                    isTest=True,
                 )
-                Mongo.insertRecord(&#34;projectUsers&#34;, **xInfo)</code></pre>
+                Mongo.insertRecord(&#34;user&#34;, **userInfo)
+                userByName[userName] = user
+
+        for (table, tableUsers) in userRole.items():
+            if table == &#34;site&#34;:
+                continue
+            elif table == &#34;project&#34;:
+                for (projectName, userInfo) in tableUsers.items():
+                    for (userName, role) in userInfo.items():
+                        xInfo = dict(
+                            user=userByName[userName],
+                            projectId=projectIdByName[projectName],
+                            role=role,
+                        )
+                        Mongo.insertRecord(&#34;projectUser&#34;, **xInfo)
+            elif table == &#34;edition&#34;:
+                for (projectName, editionInfo) in tableUsers.items():
+                    for (editionName, userInfo) in editionInfo.items():
+                        for (userName, role) in userInfo.items():
+                            xInfo = dict(
+                                user=userByName[userName],
+                                editionId=editionIdByName[projectName][editionName],
+                                role=role,
+                            )
+                            Mongo.insertRecord(&#34;editionUser&#34;, **xInfo)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -851,7 +855,7 @@ and then filled from the example data.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L97-L121" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L95-L117" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearDb(self):
     &#34;&#34;&#34;Clears selected collections in the MongoDb.
@@ -866,29 +870,27 @@ and then filled from the example data.</p></div>
     Settings = self.Settings
     Mongo = self.Mongo
 
-    for table in (
-        &#34;meta&#34;,
-        &#34;projects&#34;,
-        &#34;editions&#34;,
-        &#34;scenes&#34;,
-        &#34;users&#34;,
-        &#34;projectUsers&#34;,
-    ):
-        Mongo.checkCollection(table, reset=True)
+    tables = Settings.datamodel.tables
 
-    if Settings.testMode:
-        Mongo.checkCollection(&#34;users&#34;, reset=True)</code></pre>
+    collections = set(Mongo.collections())
+
+    for table in collections:
+        if table not in tables:
+            Mongo.clearCollection(table, delete=True)
+
+    for table in tables:
+        Mongo.clearCollection(table, delete=False)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doEdition"><code class="name flex">
-<span>def <span class="ident">doEdition</span></span>(<span>self, projectId, editionsInPath, editionsOutPath, editionName)</span>
+<span>def <span class="ident">doEdition</span></span>(<span>self, projectName, editionsInPath, editionsOutPath, editionName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Collects data belonging to a specific edition.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
-<dd>MongoId of the project to which the edition belongs.</dd>
+<dt><strong><code>projectName</code></strong> :&ensp;<code>String</code></dt>
+<dd>Name of the project to which the edition belongs.</dd>
 <dt><strong><code>editionsInPath</code></strong> :&ensp;<code>string</code></dt>
 <dd>Path on the filesystem to the editions input directory
 within this project.</dd>
@@ -901,15 +903,15 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L223-L285" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L228-L300" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def doEdition(self, projectId, editionsInPath, editionsOutPath, editionName):
+<pre><code class="python">def doEdition(self, projectName, editionsInPath, editionsOutPath, editionName):
     &#34;&#34;&#34;Collects data belonging to a specific edition.
 
     Parameters
     ----------
-    projectId: ObjectId
-        MongoId of the project to which the edition belongs.
+    projectName: String
+        Name of the project to which the edition belongs.
     editionsInPath: string
         Path on the filesystem to the editions input directory
         within this project.
@@ -919,9 +921,14 @@ within this project.</dd>
     editionName: string
         Directory name of the edition to collect.
     &#34;&#34;&#34;
+    Settings = self.Settings
     Messages = self.Messages
     Mongo = self.Mongo
+    iconFile = Settings.iconFile
+    projectIdByName = self.projectIdByName
+    editionIdByName = self.editionIdByName
 
+    projectId = projectIdByName[projectName]
     editionInPath = f&#34;{editionsInPath}/{editionName}&#34;
 
     meta = {}
@@ -932,44 +939,49 @@ within this project.</dd>
         meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
     title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, editionName)
+    authorTool = meta.get(&#34;settings&#34;, {}).get(&#34;authorTool&#34;, {})
+    sceneFile = authorTool.sceneFile
 
-    modelFile = None
+    sceneInFile = f&#34;{editionInPath}/{sceneFile}&#34;
 
-    modelFiles = get3d(editionInPath, &#34;model&#34;)
+    if not fileExists(sceneInFile):
+        Messages.plain(logmsg=&#34;\t\tNo scene file&#34;)
 
-    if len(modelFiles) == 0:
-        Messages.plain(logmsg=&#34;\t\tNo model&#34;)
-    else:
-        extensions = modelFiles[&#34;model&#34;]
-        if len(extensions) &gt; 1:
-            Messages.plain(
-                logmsg=f&#34;\t\tMultiple extensions for model: {&#39;, &#39;.join(extensions)}&#34;
-            )
-        else:
-            modelExt = extensions[0]
-            modelFile = f&#34;model.{modelExt.lower()}&#34;
+    modelFiles = list3d(editionInPath)
+    nFiles = len(modelFiles)
 
-    editionInfo = dict(
-        title=title, projectId=projectId, model=modelFile, icon=ICON_FILE, **meta
-    )
-    editionId = Mongo.insertRecord(&#34;editions&#34;, **editionInfo)
+    if nFiles == 0:
+        Messages.plain(logmsg=&#34;\t\tNo models&#34;)
+
+    editionRecord = dict(title=title, projectId=projectId, **meta)
+    editionId = Mongo.insertRecord(&#34;edition&#34;, **editionRecord)
+    editionIdByName.setdefault(projectName, {})[editionName] = editionId
 
     Messages.plain(logmsg=f&#34;\tEDITION {editionName} =&gt; {editionId}&#34;)
 
     editionOutPath = f&#34;{editionsOutPath}/{editionId}&#34;
     dirMake(editionOutPath)
-    fileCopy(f&#34;{editionInPath}/{ICON_FILE}&#34;, f&#34;{editionOutPath}/{ICON_FILE}&#34;)
 
-    if modelFile is not None:
-        modelFileIn = f&#34;{editionInPath}/model.{modelExt}&#34;
-        modelFileOut = f&#34;{editionOutPath}/{modelFile}&#34;
-        fileCopy(modelFileIn, modelFileOut)
+    for (label, files) in (
+        (&#34;scene&#34;, [sceneFile]),
+        (&#34;model&#34;, modelFiles),
+        (&#34;icon&#34;, [iconFile]),
+    ):
+        Messages.plain(logmsg=f&#34;\t\t\t{label}:&#34;)
+        for file in files:
+            Messages.plain(logmsg=f&#34;\t\t\t\t{file}&#34;)
+            fileIn = f&#34;{editionInPath}/{file}&#34;
+            fileOut = f&#34;{editionOutPath}/{file}&#34;
+            fileCopy(fileIn, fileOut)
 
-    self.doScenes(editionInPath, editionOutPath, projectId, editionId)</code></pre>
+    articlesInPath = f&#34;{editionInPath}/articles&#34;
+    articlesOutPath = f&#34;{editionOutPath}/articles&#34;
+    Messages.plain(logmsg=&#34;\t\tARTICLES&#34;)
+    dirCopy(articlesInPath, articlesOutPath)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doEditions"><code class="name flex">
-<span>def <span class="ident">doEditions</span></span>(<span>self, projectInPath, projectOutPath, projectId)</span>
+<span>def <span class="ident">doEditions</span></span>(<span>self, projectInPath, projectOutPath, projectName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Collects data belonging to the editions of a project.</p>
@@ -979,15 +991,15 @@ within this project.</dd>
 <dd>Path on the filesystem to the input directory of this project</dd>
 <dt><strong><code>projectOutPath</code></strong> :&ensp;<code>string</code></dt>
 <dd>Path on the filesystem to the destination directory of this project</dd>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
-<dd>MongoId of the project to collect.</dd>
+<dt><strong><code>projectName</code></strong> :&ensp;<code>String</code></dt>
+<dd>Name of the project to collect.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L203-L221" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L208-L226" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def doEditions(self, projectInPath, projectOutPath, projectId):
+<pre><code class="python">def doEditions(self, projectInPath, projectOutPath, projectName):
     &#34;&#34;&#34;Collects data belonging to the editions of a project.
 
     Parameters
@@ -996,16 +1008,16 @@ within this project.</dd>
         Path on the filesystem to the input directory of this project
     projectOutPath: string
         Path on the filesystem to the destination directory of this project
-    projectId: ObjectId
-        MongoId of the project to collect.
+    projectName: String
+        Name of the project to collect.
     &#34;&#34;&#34;
-    editionsInPath = f&#34;{projectInPath}/editions&#34;
-    editionsOutPath = f&#34;{projectOutPath}/editions&#34;
+    editionsInPath = f&#34;{projectInPath}/edition&#34;
+    editionsOutPath = f&#34;{projectOutPath}/edition&#34;
 
     editionNames = listDirs(editionsInPath)
 
     for editionName in editionNames:
-        self.doEdition(projectId, editionsInPath, editionsOutPath, editionName)</code></pre>
+        self.doEdition(projectName, editionsInPath, editionsOutPath, editionName)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doOuter"><code class="name flex">
@@ -1016,13 +1028,17 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L123-L145" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L119-L146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doOuter(self):
     &#34;&#34;&#34;Collects data not belonging to specific projects.&#34;&#34;&#34;
+    Settings = self.Settings
     Messages = self.Messages
     Mongo = self.Mongo
 
+    iconFile = Settings.iconFile
+    faviconFile = Settings.faviconFile
+    siteCrit = Settings.siteCrit
     importDir = self.importDir
     workingDir = self.workingDir
 
@@ -1037,10 +1053,11 @@ within this project.</dd>
     for metaFile in metaFiles:
         meta[metaFile] = readYaml(f&#34;{metaDir}/{metaFile}.yml&#34;, defaultEmpty=True)
 
-    Mongo.insertRecord(&#34;meta&#34;, name=&#34;site&#34;, icon=ICON_FILE, **meta)
+    siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
+    self.siteId = siteId
 
-    fileCopy(f&#34;{importDir}/{ICON_FILE}&#34;, f&#34;{workingDir}/{ICON_FILE}&#34;)
-    fileCopy(f&#34;{importDir}/{FAVICON_FILE}&#34;, f&#34;{workingDir}/{FAVICON_FILE}&#34;)</code></pre>
+    fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+    fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doProject"><code class="name flex">
@@ -1060,7 +1077,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L163-L201" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L165-L206" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doProject(self, projectsInPath, projectsOutPath, projectName):
     &#34;&#34;&#34;Collects data belonging to a specific project.
@@ -1074,10 +1091,13 @@ within this project.</dd>
     projectName: string
         Directory name of the project to collect.
     &#34;&#34;&#34;
+    Settings = self.Settings
     Messages = self.Messages
     Mongo = self.Mongo
+    siteId = self.siteId
     projectIdByName = self.projectIdByName
 
+    iconFile = Settings.iconFile
     projectInPath = f&#34;{projectsInPath}/{projectName}&#34;
 
     meta = {}
@@ -1089,18 +1109,18 @@ within this project.</dd>
 
     title = meta.get(&#34;dc&#34;, {}).get(&#34;title&#34;, projectName)
 
-    projectInfo = dict(title=title, icon=ICON_FILE, **meta)
+    projectInfo = dict(title=title, siteId=siteId, **meta)
 
-    projectId = Mongo.insertRecord(&#34;projects&#34;, **projectInfo)
+    projectId = Mongo.insertRecord(&#34;project&#34;, **projectInfo)
     projectIdByName[projectName] = projectId
 
     Messages.plain(logmsg=f&#34;PROJECT {projectName} =&gt; {projectId}&#34;)
 
     projectOutPath = f&#34;{projectsOutPath}/{projectId}&#34;
     dirMake(projectOutPath)
-    fileCopy(f&#34;{projectInPath}/{ICON_FILE}&#34;, f&#34;{projectOutPath}/{ICON_FILE}&#34;)
+    fileCopy(f&#34;{projectInPath}/{iconFile}&#34;, f&#34;{projectOutPath}/{iconFile}&#34;)
 
-    self.doEditions(projectInPath, projectOutPath, projectId)</code></pre>
+    self.doEditions(projectInPath, projectOutPath, projectName)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doProjects"><code class="name flex">
@@ -1111,97 +1131,24 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L147-L161" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L148-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doProjects(self):
     &#34;&#34;&#34;Collects data belonging to projects.&#34;&#34;&#34;
     importDir = self.importDir
     workingDir = self.workingDir
 
-    projectsInPath = f&#34;{importDir}/projects&#34;
-    projectsOutPath = f&#34;{workingDir}/projects&#34;
+    projectsInPath = f&#34;{importDir}/project&#34;
+    projectsOutPath = f&#34;{workingDir}/project&#34;
     dirRemove(projectsOutPath)
 
     self.projectIdByName = {}
+    self.editionIdByName = {}
 
     projectNames = listDirs(projectsInPath)
 
     for projectName in projectNames:
         self.doProject(projectsInPath, projectsOutPath, projectName)</code></pre>
-</details>
-</dd>
-<dt id="control.collect.Collect.doScenes"><code class="name flex">
-<span>def <span class="ident">doScenes</span></span>(<span>self, editionInPath, editionOutPath, projectId, editionId)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Collects data belonging to the scenes of an edition.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>editionInPath</code></strong> :&ensp;<code>string</code></dt>
-<dd>Path on the filesystem to the input directory of this edition</dd>
-<dt><strong><code>editionOutPath</code></strong> :&ensp;<code>string</code></dt>
-<dd>Path on the filesystem to the destination directory of this edition</dd>
-<dt><strong><code>projectId</code></strong> :&ensp;<code>ObjectId</code></dt>
-<dd>MongoId of the project to collect.</dd>
-<dt><strong><code>editionId</code></strong> :&ensp;<code>ObjectId</code></dt>
-<dd>MongoId of the edition to collect.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L287-L337" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def doScenes(self, editionInPath, editionOutPath, projectId, editionId):
-    &#34;&#34;&#34;Collects data belonging to the scenes of an edition.
-
-    Parameters
-    ----------
-    editionInPath: string
-        Path on the filesystem to the input directory of this edition
-    editionOutPath: string
-        Path on the filesystem to the destination directory of this edition
-    projectId: ObjectId
-        MongoId of the project to collect.
-    editionId: ObjectId
-        MongoId of the edition to collect.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-
-    scenes = listFiles(editionInPath, &#34;.json&#34;)
-
-    sceneDefault = None
-
-    for scene in scenes:
-        Messages.plain(logmsg=f&#34;\t\tSCENE {scene}&#34;)
-
-        default = sceneDefault is None and scene == &#34;intro&#34;
-        if default:
-            sceneDefault = scene
-
-        sceneFile = f&#34;{scene}.json&#34;
-        sceneIcon = f&#34;{scene}.png&#34;
-
-        sceneInfo = dict(
-            name=scene,
-            scene=sceneFile,
-            icon=sceneIcon,
-            editionId=editionId,
-            projectId=projectId,
-            default=default,
-        )
-        Mongo.insertRecord(&#34;scenes&#34;, **sceneInfo)
-        sceneInPath = f&#34;{editionInPath}/{sceneFile}&#34;
-        sceneOutPath = f&#34;{editionOutPath}/{sceneFile}&#34;
-        fileCopy(sceneInPath, sceneOutPath)
-        iconInPath = f&#34;{editionInPath}/{sceneIcon}&#34;
-        iconOutPath = f&#34;{editionOutPath}/{sceneIcon}&#34;
-        fileCopy(iconInPath, iconOutPath)
-
-    articlesInPath = f&#34;{editionInPath}/articles&#34;
-    articlesOutPath = f&#34;{editionOutPath}/articles&#34;
-    Messages.plain(logmsg=&#34;\t\tARTICLES&#34;)
-    dirCopy(articlesInPath, articlesOutPath)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.doWorkflow"><code class="name flex">
@@ -1216,7 +1163,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L339-L386" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L302-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doWorkflow(self):
     &#34;&#34;&#34;Collects workflow information from yaml files.
@@ -1229,43 +1176,81 @@ within this project.</dd>
     importDir = self.importDir
 
     projectIdByName = self.projectIdByName
+    editionIdByName = self.editionIdByName
 
     workflowDir = f&#34;{importDir}/workflow&#34;
     workflowPath = f&#34;{workflowDir}/init.yml&#34;
     workflow = readYaml(workflowPath, defaultEmpty=True)
-    users = workflow[&#34;users&#34;]
-    projectUsers = workflow[&#34;projectUsers&#34;]
-    projectStatus = workflow[&#34;projectStatus&#34;]
+    userRole = workflow[&#34;userRole&#34;]
+    status = workflow[&#34;status&#34;]
 
     userByName = {}
 
-    for (userName, role) in users.items():
-        sub = f&#34;{userName:0&gt;16}&#34;
-        userInfo = dict(
-            nickname=userName,
-            sub=sub,
-            role=role,
-            isTest=True,
-        )
-        Mongo.insertRecord(&#34;users&#34;, **userInfo)
-        userByName[userName] = sub
+    for (table, statusInfo) in status.items():
+        field = statusInfo[&#34;field&#34;]
+        values = statusInfo[&#34;values&#34;]
+        tableRep = table.upper()
 
-    for (projectName, isPublished) in projectStatus.items():
-        Messages.plain(logmsg=f&#34;PROJECT {projectName} published: {isPublished}&#34;)
-        Mongo.updateRecord(
-            &#34;projects&#34;,
-            dict(isPublished=isPublished),
-            _id=projectIdByName[projectName],
-        )
+        for (outerName, outerValue) in values.items():
+            if table == &#34;project&#34;:
+                Messages.plain(
+                    logmsg=(f&#34;{tableRep} {outerName} {field}: {outerValue}&#34;)
+                )
+                Mongo.updateRecord(
+                    table,
+                    {field: outerValue},
+                    _id=projectIdByName[outerName],
+                )
+            elif table == &#34;edition&#34;:
+                for (innerName, innerValue) in outerValue.items():
+                    Messages.plain(
+                        logmsg=(
+                            f&#34;{tableRep} {outerName}-{innerName}&#34;
+                            f&#34; {field}: {innerValue}&#34;
+                        )
+                    )
+                    Mongo.updateRecord(
+                        table,
+                        {field: innerValue},
+                        _id=editionIdByName[outerName][innerName],
+                    )
 
-    for (projectName, projectUsrs) in projectUsers.items():
-        for (userName, role) in projectUsrs.items():
-            xInfo = dict(
-                user=userByName[userName],
-                projectId=projectIdByName[projectName],
+    for (table, tableUsers) in userRole.items():
+        if table != &#34;site&#34;:
+            continue
+        for (userName, role) in tableUsers.items():
+            user = f&#34;{userName:0&gt;16}&#34;
+            userInfo = dict(
+                nickname=userName,
+                user=user,
                 role=role,
+                isTest=True,
             )
-            Mongo.insertRecord(&#34;projectUsers&#34;, **xInfo)</code></pre>
+            Mongo.insertRecord(&#34;user&#34;, **userInfo)
+            userByName[userName] = user
+
+    for (table, tableUsers) in userRole.items():
+        if table == &#34;site&#34;:
+            continue
+        elif table == &#34;project&#34;:
+            for (projectName, userInfo) in tableUsers.items():
+                for (userName, role) in userInfo.items():
+                    xInfo = dict(
+                        user=userByName[userName],
+                        projectId=projectIdByName[projectName],
+                        role=role,
+                    )
+                    Mongo.insertRecord(&#34;projectUser&#34;, **xInfo)
+        elif table == &#34;edition&#34;:
+            for (projectName, editionInfo) in tableUsers.items():
+                for (editionName, userInfo) in editionInfo.items():
+                    for (userName, role) in userInfo.items():
+                        xInfo = dict(
+                            user=userByName[userName],
+                            editionId=editionIdByName[projectName][editionName],
+                            role=role,
+                        )
+                        Mongo.insertRecord(&#34;editionUser&#34;, **xInfo)</code></pre>
 </details>
 </dd>
 <dt id="control.collect.Collect.fetch"><code class="name flex">
@@ -1276,7 +1261,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L87-L95" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L85-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fetch(self):
     &#34;&#34;&#34;Performs a data collection.&#34;&#34;&#34;
@@ -1307,7 +1292,7 @@ just before Flask started running.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/collect.py#L68-L85" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L66-L83" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def trigger(self):
     &#34;&#34;&#34;Determines whether data collection should be done.
@@ -1326,7 +1311,7 @@ just before Flask started running.</p></div>
     &#34;&#34;&#34;
     doCollect = var(&#34;docollect&#34;) == &#34;v&#34;
 
-    return initializing() and doCollect</code></pre>
+    return appInitializing() and doCollect</code></pre>
 </details>
 </dd>
 </dl>
@@ -1403,7 +1388,6 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.collect.Collect.doOuter" href="#control.collect.Collect.doOuter">doOuter</a></code></li>
 <li><code><a title="control.collect.Collect.doProject" href="#control.collect.Collect.doProject">doProject</a></code></li>
 <li><code><a title="control.collect.Collect.doProjects" href="#control.collect.Collect.doProjects">doProjects</a></code></li>
-<li><code><a title="control.collect.Collect.doScenes" href="#control.collect.Collect.doScenes">doScenes</a></code></li>
 <li><code><a title="control.collect.Collect.doWorkflow" href="#control.collect.Collect.doWorkflow">doWorkflow</a></code></li>
 <li><code><a title="control.collect.Collect.fetch" href="#control.collect.Collect.fetch">fetch</a></code></li>
 <li><code><a title="control.collect.Collect.trigger" href="#control.collect.Collect.trigger">trigger</a></code></li>

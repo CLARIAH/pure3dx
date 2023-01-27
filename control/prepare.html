@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/prepare.py#L1-L102" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/prepare.py#L1-L103" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
@@ -81,7 +81,7 @@ def prepare(trivial=False):
 
     Returns
     -------
-    `control.generic.AttrDict`
+    AttrDict
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 
@@ -98,7 +98,7 @@ def prepare(trivial=False):
         Pages = None
         AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Settings = ConfigCls(MessagesCls(None)).Settings
         Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
@@ -106,17 +106,18 @@ def prepare(trivial=False):
         if Collect.trigger():
             Collect.fetch()
 
-        Viewers = ViewersCls(Settings, Messages)
+        Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
-        EditSessions = EditSessionsCls(Mongo)
+        EditSessions = EditSessionsCls(Mongo, Auth)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
+        Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,
@@ -180,13 +181,15 @@ inside it, for example after a complicated refactoring when the flask app has
 too many bugs.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code>
-A dictionary keyed by the names of the singleton objects and valued
-by the singleton objects themselves.</p></div>
+<dl>
+<dt><code>AttrDict</code></dt>
+<dd>A dictionary keyed by the names of the singleton objects and valued
+by the singleton objects themselves.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/prepare.py#L14-L102" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/prepare.py#L14-L103" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prepare(trivial=False):
     &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
@@ -228,7 +231,7 @@ by the singleton objects themselves.</p></div>
 
     Returns
     -------
-    `control.generic.AttrDict`
+    AttrDict
         A dictionary keyed by the names of the singleton objects and valued
         by the singleton objects themselves.
 
@@ -245,7 +248,7 @@ by the singleton objects themselves.</p></div>
         Pages = None
         AuthOidc = None
     else:
-        Settings = ConfigCls(MessagesCls(None, onFlask=False)).Settings
+        Settings = ConfigCls(MessagesCls(None)).Settings
         Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
@@ -253,17 +256,18 @@ by the singleton objects themselves.</p></div>
         if Collect.trigger():
             Collect.fetch()
 
-        Viewers = ViewersCls(Settings, Messages)
+        Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Content = ContentCls(Settings, Viewers, Messages, Mongo)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
-        EditSessions = EditSessionsCls(Mongo)
+        EditSessions = EditSessionsCls(Mongo, Auth)
 
         Content.addAuth(Auth)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
+        Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,

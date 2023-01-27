@@ -26,9 +26,9 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/app.py#L1-L208" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/app.py#L1-L190" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from control.flask import make, stop, method, initializing, send
+<pre><code class="python">from control.flask import appMake, appStop, requestMethod, appInitializing
 
 
 def appFactory(objects):
@@ -48,7 +48,7 @@ def appFactory(objects):
 
     Parameters
     ----------
-    objects: `control.generic.AttrDict`
+    objects
         a slew of objects that set up the toolkit with which the app works:
         settings, messaging and logging, MongoDb connection, 3d viewer support,
         higher level objects that can fetch chunks of content and distribute
@@ -63,14 +63,13 @@ def appFactory(objects):
 
     Settings = objects.Settings
     Messages = objects.Messages
-    Mongo = objects.Mongo
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
-    Pages = objects.Pages
     Content = objects.Content
+    Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = make(__name__, static_folder=&#34;../static&#34;)
+    app = appMake(__name__, static_folder=&#34;../static&#34;)
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
@@ -78,13 +77,12 @@ def appFactory(objects):
 
     @app.before_request
     def identify():
-        if not initializing():
+        if not appInitializing():
             Auth.identify()
 
     @app.route(&#34;/favicon.ico&#34;)
     def favicon():
-        favicon = Content.getData(&#34;favicon.ico&#34;)
-        return send(favicon)
+        return Pages.fileData(&#34;favicon.ico&#34;)
 
     @app.route(&#34;/login&#34;)
     def login():
@@ -100,10 +98,13 @@ def appFactory(objects):
     def logout():
         return Auth.logout()
 
+    @app.route(&#34;/reset&#34;)
+    def reset():
+        return Pages.reset()
+
     @app.route(&#34;/collect&#34;)
     def collect():
-        objects.Collect.fetch()
-        return Pages.home()
+        return Pages.collect()
 
     @app.route(&#34;/&#34;)
     @app.route(&#34;/home&#34;)
@@ -118,108 +119,89 @@ def appFactory(objects):
     def surpriseme():
         return Pages.surprise()
 
-    @app.route(&#34;/projects&#34;)
+    @app.route(&#34;/project&#34;)
     def projects():
         return Pages.projects()
 
-    @app.route(&#34;/projects/create&#34;)
+    @app.route(&#34;/mywork&#34;)
+    def mywork():
+        return Pages.mywork()
+
+    @app.route(&#34;/project/create&#34;)
     def projectInsert():
         return Pages.projectInsert()
 
-    @app.route(&#34;/projects/&lt;string:projectId&gt;&#34;)
-    def project(projectId):
-        return Pages.project(Mongo.cast(projectId))
+    @app.route(&#34;/project/&lt;string:project&gt;&#34;)
+    def project(project):
+        return Pages.project(project)
 
-    @app.route(&#34;/projects/&lt;string:projectId&gt;/editions/create&#34;)
-    def editionInsert(projectId):
-        return Pages.editionInsert(Mongo.cast(projectId))
+    @app.route(&#34;/project/&lt;string:project&gt;/edition/create&#34;)
+    def editionInsert(project):
+        return Pages.editionInsert(project)
 
-    @app.route(&#34;/editions/&lt;string:editionId&gt;&#34;)
-    def edition(editionId):
-        return Pages.edition(Mongo.cast(editionId))
+    @app.route(&#34;/edition/&lt;string:edition&gt;&#34;, defaults=dict(version=None, action=None))
+    @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;&#34;, defaults=dict(action=None))
+    @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;)
+    def edition(edition, version, action):
+        return Pages.edition(edition, version=version, action=action)
 
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;&#34;,
-        defaults=dict(viewer=None, version=None, action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;&#34;,
-        defaults=dict(version=None, action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;/&lt;string:version&gt;&#34;,
-        defaults=dict(action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;,
-    )
-    def scene(sceneId, viewer, version, action):
-        return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
-
-    @app.route(&#34;/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/scenes/create&#34;)
-    def sceneInsert(projectId, editionId):
-        return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
-
-    @app.route(
-        &#34;/viewer/&lt;string:viewer&gt;/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:sceneId&gt;&#34;
-    )
-    def viewerFrame(sceneId, viewer, version, action):
-        return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
+    @app.route(&#34;/viewer/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:edition&gt;&#34;)
+    def viewerFrame(version=None, action=None, edition=None):
+        return Pages.viewerFrame(edition, version, action)
 
     @app.route(&#34;/data/viewers/&lt;path:path&gt;&#34;)
     def viewerResource(path):
         return Pages.viewerResource(path)
 
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&#34;,
+        &#34;/data/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&#34;,
         defaults=dict(path=None),
     )
+    @app.route(&#34;/data/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&lt;path:path&gt;&#34;)
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&lt;path:path&gt;&#34;,
+        &#34;/data/project/&lt;string:project&gt;/&#34;, defaults=dict(edition=None, path=None)
     )
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/&#34;,
-        defaults=dict(editionId=None, path=None),
+        &#34;/data/project/&lt;string:project&gt;/&lt;path:path&gt;&#34;, defaults=dict(edition=None)
     )
-    @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/&lt;path:path&gt;&#34;,
-        defaults=dict(editionId=None),
-    )
-    @app.route(
-        &#34;/data/&#34;,
-        defaults=dict(projectId=None, editionId=None, path=None),
-    )
-    @app.route(
-        &#34;/data/&lt;path:path&gt;&#34;,
-        defaults=dict(projectId=None, editionId=None),
-    )
-    def dataProjects(projectId, editionId, path):
-        return Pages.dataProjects(
-            path, projectId=Mongo.cast(projectId), editionId=Mongo.cast(editionId)
-        )
+    @app.route(&#34;/data/&#34;, defaults=dict(project=None, edition=None, path=None))
+    @app.route(&#34;/data/&lt;path:path&gt;&#34;, defaults=dict(project=None, edition=None))
+    def fileData(project=None, edition=None, path=None):
+        return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
-        &#34;/upload/&lt;string:table&gt;/&lt;string:recordId&gt;/&lt;string:field&gt;/&lt;path:path&gt;&#34;,
+        &#34;/upload/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;,
         methods=[&#34;POST&#34;],
     )
-    def upload(table, recordId, field, path):
-        return Pages.upload(table, Mongo.cast(recordId), field, path)
+    def upload(record, key, givenFileName, path):
+        if givenFileName == &#34;-&#34;:
+            givenFileName = None
+        return Pages.upload(record, key, path, givenFileName=givenFileName)
 
     @app.route(
-        &#34;/auth/webdav/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&#34;,
+        &#34;/deletefile/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;
+    )
+    def deleteFile(record, key, givenFileName, path):
+        if givenFileName == &#34;-&#34;:
+            givenFileName = None
+        return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
+
+    @app.route(&#34;/save/&lt;string:table&gt;/&lt;string:record&gt;/&lt;string:key&gt;&#34;, methods=[&#34;POST&#34;])
+    def saveValue(table, record, key):
+        return Content.saveValue(table, record, key)
+
+    @app.route(
+        &#34;/auth/webdav/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&#34;,
         defaults=dict(path=None),
         methods=tuple(webdavMethods),
     )
     @app.route(
-        &#34;/auth/webdav/projects/&lt;string:projectId&gt;/editions/&#34;
-        &#34;&lt;string:editionId&gt;/&lt;path:path&gt;&#34;,
+        &#34;/auth/webdav/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&lt;path:path&gt;&#34;,
         methods=tuple(webdavMethods),
     )
-    def authWebdav(projectId, editionId, path):
-        action = webdavMethods[method()]
-        return Pages.authWebdav(
-            Mongo.cast(projectId), Mongo.cast(editionId), path, action
-        )
+    def authWebdav(project, edition, path):
+        action = webdavMethods[requestMethod()]
+        return Pages.authWebdav(edition, path, action)
 
     @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
@@ -229,7 +211,7 @@ def appFactory(objects):
     @app.route(&#34;/cannot/webdav/&lt;path:path&gt;&#34;)
     def nowebdav(path):
         Messages.warning(logmsg=f&#34;Unauthorized webdav access: {path}&#34;)
-        stop()
+        appStop()
 
     @app.route(&#34;/&lt;path:path&gt;&#34;)
     def remaining(path):
@@ -263,7 +245,7 @@ See also <code><a title="control.webdavapp" href="webdavapp.html">control.webdav
 </div>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>objects</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>objects</code></strong></dt>
 <dd>a slew of objects that set up the toolkit with which the app works:
 settings, messaging and logging, MongoDb connection, 3d viewer support,
 higher level objects that can fetch chunks of content and distribute
@@ -277,7 +259,7 @@ it over the web page.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/app.py#L4-L208" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/app.py#L4-L190" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory(objects):
     &#34;&#34;&#34;Sets up the main flask app.
@@ -296,7 +278,7 @@ it over the web page.</dd>
 
     Parameters
     ----------
-    objects: `control.generic.AttrDict`
+    objects
         a slew of objects that set up the toolkit with which the app works:
         settings, messaging and logging, MongoDb connection, 3d viewer support,
         higher level objects that can fetch chunks of content and distribute
@@ -311,14 +293,13 @@ it over the web page.</dd>
 
     Settings = objects.Settings
     Messages = objects.Messages
-    Mongo = objects.Mongo
     Auth = objects.Auth
     AuthOidc = objects.AuthOidc
-    Pages = objects.Pages
     Content = objects.Content
+    Pages = objects.Pages
     webdavMethods = Settings.webdavMethods
 
-    app = make(__name__, static_folder=&#34;../static&#34;)
+    app = appMake(__name__, static_folder=&#34;../static&#34;)
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
@@ -326,13 +307,12 @@ it over the web page.</dd>
 
     @app.before_request
     def identify():
-        if not initializing():
+        if not appInitializing():
             Auth.identify()
 
     @app.route(&#34;/favicon.ico&#34;)
     def favicon():
-        favicon = Content.getData(&#34;favicon.ico&#34;)
-        return send(favicon)
+        return Pages.fileData(&#34;favicon.ico&#34;)
 
     @app.route(&#34;/login&#34;)
     def login():
@@ -348,10 +328,13 @@ it over the web page.</dd>
     def logout():
         return Auth.logout()
 
+    @app.route(&#34;/reset&#34;)
+    def reset():
+        return Pages.reset()
+
     @app.route(&#34;/collect&#34;)
     def collect():
-        objects.Collect.fetch()
-        return Pages.home()
+        return Pages.collect()
 
     @app.route(&#34;/&#34;)
     @app.route(&#34;/home&#34;)
@@ -366,108 +349,89 @@ it over the web page.</dd>
     def surpriseme():
         return Pages.surprise()
 
-    @app.route(&#34;/projects&#34;)
+    @app.route(&#34;/project&#34;)
     def projects():
         return Pages.projects()
 
-    @app.route(&#34;/projects/create&#34;)
+    @app.route(&#34;/mywork&#34;)
+    def mywork():
+        return Pages.mywork()
+
+    @app.route(&#34;/project/create&#34;)
     def projectInsert():
         return Pages.projectInsert()
 
-    @app.route(&#34;/projects/&lt;string:projectId&gt;&#34;)
-    def project(projectId):
-        return Pages.project(Mongo.cast(projectId))
+    @app.route(&#34;/project/&lt;string:project&gt;&#34;)
+    def project(project):
+        return Pages.project(project)
 
-    @app.route(&#34;/projects/&lt;string:projectId&gt;/editions/create&#34;)
-    def editionInsert(projectId):
-        return Pages.editionInsert(Mongo.cast(projectId))
+    @app.route(&#34;/project/&lt;string:project&gt;/edition/create&#34;)
+    def editionInsert(project):
+        return Pages.editionInsert(project)
 
-    @app.route(&#34;/editions/&lt;string:editionId&gt;&#34;)
-    def edition(editionId):
-        return Pages.edition(Mongo.cast(editionId))
+    @app.route(&#34;/edition/&lt;string:edition&gt;&#34;, defaults=dict(version=None, action=None))
+    @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;&#34;, defaults=dict(action=None))
+    @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;)
+    def edition(edition, version, action):
+        return Pages.edition(edition, version=version, action=action)
 
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;&#34;,
-        defaults=dict(viewer=None, version=None, action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;&#34;,
-        defaults=dict(version=None, action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;/&lt;string:version&gt;&#34;,
-        defaults=dict(action=None),
-    )
-    @app.route(
-        &#34;/scenes/&lt;string:sceneId&gt;/&lt;string:viewer&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;,
-    )
-    def scene(sceneId, viewer, version, action):
-        return Pages.scene(Mongo.cast(sceneId), viewer, version, action)
-
-    @app.route(&#34;/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/scenes/create&#34;)
-    def sceneInsert(projectId, editionId):
-        return Pages.sceneInsert(Mongo.cast(projectId), Mongo.cast(editionId))
-
-    @app.route(
-        &#34;/viewer/&lt;string:viewer&gt;/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:sceneId&gt;&#34;
-    )
-    def viewerFrame(sceneId, viewer, version, action):
-        return Pages.viewerFrame(Mongo.cast(sceneId), viewer, version, action)
+    @app.route(&#34;/viewer/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:edition&gt;&#34;)
+    def viewerFrame(version=None, action=None, edition=None):
+        return Pages.viewerFrame(edition, version, action)
 
     @app.route(&#34;/data/viewers/&lt;path:path&gt;&#34;)
     def viewerResource(path):
         return Pages.viewerResource(path)
 
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&#34;,
+        &#34;/data/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&#34;,
         defaults=dict(path=None),
     )
+    @app.route(&#34;/data/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&lt;path:path&gt;&#34;)
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&lt;path:path&gt;&#34;,
+        &#34;/data/project/&lt;string:project&gt;/&#34;, defaults=dict(edition=None, path=None)
     )
     @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/&#34;,
-        defaults=dict(editionId=None, path=None),
+        &#34;/data/project/&lt;string:project&gt;/&lt;path:path&gt;&#34;, defaults=dict(edition=None)
     )
-    @app.route(
-        &#34;/data/projects/&lt;string:projectId&gt;/&lt;path:path&gt;&#34;,
-        defaults=dict(editionId=None),
-    )
-    @app.route(
-        &#34;/data/&#34;,
-        defaults=dict(projectId=None, editionId=None, path=None),
-    )
-    @app.route(
-        &#34;/data/&lt;path:path&gt;&#34;,
-        defaults=dict(projectId=None, editionId=None),
-    )
-    def dataProjects(projectId, editionId, path):
-        return Pages.dataProjects(
-            path, projectId=Mongo.cast(projectId), editionId=Mongo.cast(editionId)
-        )
+    @app.route(&#34;/data/&#34;, defaults=dict(project=None, edition=None, path=None))
+    @app.route(&#34;/data/&lt;path:path&gt;&#34;, defaults=dict(project=None, edition=None))
+    def fileData(project=None, edition=None, path=None):
+        return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
-        &#34;/upload/&lt;string:table&gt;/&lt;string:recordId&gt;/&lt;string:field&gt;/&lt;path:path&gt;&#34;,
+        &#34;/upload/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;,
         methods=[&#34;POST&#34;],
     )
-    def upload(table, recordId, field, path):
-        return Pages.upload(table, Mongo.cast(recordId), field, path)
+    def upload(record, key, givenFileName, path):
+        if givenFileName == &#34;-&#34;:
+            givenFileName = None
+        return Pages.upload(record, key, path, givenFileName=givenFileName)
 
     @app.route(
-        &#34;/auth/webdav/projects/&lt;string:projectId&gt;/editions/&lt;string:editionId&gt;/&#34;,
+        &#34;/deletefile/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;
+    )
+    def deleteFile(record, key, givenFileName, path):
+        if givenFileName == &#34;-&#34;:
+            givenFileName = None
+        return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
+
+    @app.route(&#34;/save/&lt;string:table&gt;/&lt;string:record&gt;/&lt;string:key&gt;&#34;, methods=[&#34;POST&#34;])
+    def saveValue(table, record, key):
+        return Content.saveValue(table, record, key)
+
+    @app.route(
+        &#34;/auth/webdav/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&#34;,
         defaults=dict(path=None),
         methods=tuple(webdavMethods),
     )
     @app.route(
-        &#34;/auth/webdav/projects/&lt;string:projectId&gt;/editions/&#34;
-        &#34;&lt;string:editionId&gt;/&lt;path:path&gt;&#34;,
+        &#34;/auth/webdav/project/&lt;string:project&gt;/edition/&lt;string:edition&gt;/&lt;path:path&gt;&#34;,
         methods=tuple(webdavMethods),
     )
-    def authWebdav(projectId, editionId, path):
-        action = webdavMethods[method()]
-        return Pages.authWebdav(
-            Mongo.cast(projectId), Mongo.cast(editionId), path, action
-        )
+    def authWebdav(project, edition, path):
+        action = webdavMethods[requestMethod()]
+        return Pages.authWebdav(edition, path, action)
 
     @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
@@ -477,7 +441,7 @@ it over the web page.</dd>
     @app.route(&#34;/cannot/webdav/&lt;path:path&gt;&#34;)
     def nowebdav(path):
         Messages.warning(logmsg=f&#34;Unauthorized webdav access: {path}&#34;)
-        stop()
+        appStop()
 
     @app.route(&#34;/&lt;path:path&gt;&#34;)
     def remaining(path):

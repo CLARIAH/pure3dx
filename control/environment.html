@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/environment.py#L1-L17" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/environment.py#L1-L17" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 
@@ -41,7 +41,7 @@ def var(name):
 
     Returns
     -------
-    string or None
+    string | void
         If the variable does not exist, None is returned.
     &#34;&#34;&#34;
     return os.environ.get(name, None)</code></pre>
@@ -66,13 +66,13 @@ def var(name):
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>string</code> or <code>None</code></dt>
+<dt><code>string | void</code></dt>
 <dd>If the variable does not exist, None is returned.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/environment.py#L4-L17" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/environment.py#L4-L17" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def var(name):
     &#34;&#34;&#34;Retrieves the value of an environment variable.
@@ -84,7 +84,7 @@ def var(name):
 
     Returns
     -------
-    string or None
+    string | void
         If the variable does not exist, None is returned.
     &#34;&#34;&#34;
     return os.environ.get(name, None)</code></pre>

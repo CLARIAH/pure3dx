@@ -26,12 +26,12 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L1-L598" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L1-L924" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from markdown import markdown
 
-from control.generic import AttrDict
-from control.html import HtmlElements as H
+from control.generic import AttrDict, now
+from control.files import fileExists, listFilesAccepted
 
 
 class Datamodel:
@@ -54,7 +54,7 @@ class Datamodel:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -68,14 +68,98 @@ class Datamodel:
         self.Mongo = Mongo
 
         datamodel = Settings.datamodel
-        self.masterConfig = datamodel.master
+        self.detailMaster = datamodel.detailMaster
+        self.masterDetail = datamodel.masterDetail
         self.linkConfig = datamodel.link
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-    def getDetailRecords(self, masterTable, masterId):
+    def relevant(self, project=None, edition=None):
+        &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
+
+        A relevant record is either a project record, or an edition record,
+        or the one and only site record.
+
+        If all optional parameters are None, we look for the site record.
+        If the project parameter is not None, we look for the project record.
+
+        This is the inverse of `context()`.
+
+        Paramenters
+        -----------
+        project: string | ObjectId | AttrDict, optional None
+            The project whose record we need.
+        edition: string | ObjectId | AttrDict, optional None
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple
+            * table: string; the table in which the record is found
+            * record id: string; the id of the record
+            * record: AttrDict; the record itself
+
+            If both project and edition are not None
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        if edition is not None:
+            table = &#34;edition&#34;
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
+            table = &#34;project&#34;
+            (recordId, record) = Mongo.get(table, project)
+        else:
+            table = &#34;site&#34;
+            siteCrit = Settings.siteCrit
+            record = Mongo.getRecord(table, **siteCrit)
+            recordId = record._id
+
+        return (table, recordId, record)
+
+    def context(self, table, record):
+        &#34;&#34;&#34;Get the context of a record.
+
+        Get the project and edition records to which the record belongs.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record sits.
+        record: string
+            The record.
+
+        This is the inverse of `relevant()`.
+
+        Returns
+        -------
+        tuple of tuple
+            * (site, project, record)
+            where the members are either None, or a full record
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+
+        (recordId, record) = Mongo.get(table, record)
+
+        if table == &#34;site&#34;:
+            (editionId, edition) = (None, None)
+            (projectId, project) = (None, None)
+            (siteId, site) = (recordId, record)
+        elif table == &#34;project&#34;:
+            (editionId, edition) = (None, None)
+            (projectId, project) = (recordId, record)
+            (siteId, site) = Mongo.get(&#34;site&#34;, record.siteId)
+        elif table == &#34;edition&#34;:
+            (editionId, edition) = (recordId, record)
+            (projectId, project) = Mongo.get(&#34;project&#34;, record.projectId)
+            (siteId, site) = Mongo.get(&#34;site&#34;, project.siteId)
+
+        return (siteId, site, projectId, project, editionId, edition)
+
+    def getDetailRecords(self, masterTable, master):
         &#34;&#34;&#34;Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
@@ -88,8 +172,8 @@ class Datamodel:
         ----------
         masterTable: string
             The name of the table in which the master record lives.
-        masterId: ObjectId
-            The id of the master record.
+        master: string | ObjectId | AttrDict
+            The master record.
 
         Returns
         -------
@@ -101,18 +185,20 @@ class Datamodel:
             records, the empty dict is returned.
         &#34;&#34;&#34;
         Mongo = self.Mongo
-        masterConfig = self.masterConfig
+        masterDetail = self.masterDetail
 
-        detailTables = masterConfig.get(masterTable, [])
+        detailTable = masterDetail[masterTable]
+        if detailTable is None:
+            return AttrDict()
 
-        crit = {f&#34;{masterTable.rstrip(&#39;s&#39;)}Id&#34;: masterId}
+        (masterId, master) = Mongo.get(masterTable, master)
+        crit = {f&#34;{masterTable}Id&#34;: masterId}
 
         detailRecords = AttrDict()
 
-        for detailTable in detailTables:
-            details = Mongo.getList(detailTable, **crit)
-            if len(details):
-                detailRecords[detailTable] = details
+        details = Mongo.getList(detailTable, **crit)
+        if len(details):
+            detailRecords[detailTable] = details
 
         return detailRecords
 
@@ -154,11 +240,26 @@ class Datamodel:
         if fieldsConfig is None:
             Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
 
-        fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
+        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
 
-    def makeUpload(self, key):
+    def getFieldObject(self, key):
+        &#34;&#34;&#34;Get a field object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the field object
+
+        Returns
+        -------
+        object | void
+            The field object found under the given key, if present, otherwise None
+        &#34;&#34;&#34;
+        return self.fieldObjects[key]
+
+    def makeUpload(self, key, fileName=None):
         &#34;&#34;&#34;Make a file upload object and registers it.
 
         An instance of class `control.datamodel.Upload` is created,
@@ -173,6 +274,11 @@ class Datamodel:
             Identifier for the upload.
             The configuration for this upload will be retrieved using this key.
             The new upload object will be stored under this key.
+        fileName: string, optional None
+            If present, it indicates that the uploaded file will have this prescribed
+            name.
+            A file name for an upload object may also have been specified in
+            the datamodel configuration.
 
         Returns
         -------
@@ -183,8 +289,12 @@ class Datamodel:
         Settings = self.Settings
 
         uploadObjects = self.uploadObjects
+        uploadsConfig = self.uploadsConfig
 
-        uploadObject = uploadObjects[key]
+        if fileName is None:
+            fileName = uploadsConfig.get(key, AttrDict()).fileName
+
+        uploadObject = uploadObjects[(key, fileName)]
         if uploadObject:
             return uploadObject
 
@@ -192,17 +302,169 @@ class Datamodel:
         Mongo = self.Mongo
         uploadsConfig = self.uploadsConfig
 
-        uploadsConfig = uploadsConfig[key]
+        uploadsConfig = AttrDict(**uploadsConfig[key])
         if uploadsConfig is None:
             Messages.error(logmsg=f&#34;Unknown upload key &#39;{key}&#39;&#34;)
+        if fileName is not None:
+            uploadsConfig[&#34;fileName&#34;] = fileName
 
         uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
-        uploadObjects[key] = uploadObject
+        uploadObjects[(key, fileName)] = uploadObject
         return uploadObject
+
+    def getUploadConfig(self, key):
+        &#34;&#34;&#34;Get an upload config.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload config
+
+        Returns
+        -------
+        object | void
+            The upload config found under the given key and file name, if
+            present, otherwise None
+        &#34;&#34;&#34;
+        return self.uploadsConfig[key]
+
+    def getUploadObject(self, key, fileName=None):
+        &#34;&#34;&#34;Get an upload object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload object
+        fileName: string, optional None
+            The file name of the upload object.
+            If not passed, the file name is derived from the config of the key.
+
+        Returns
+        -------
+        object | void
+            The upload object found under the given key and file name, if
+            present, otherwise None
+        &#34;&#34;&#34;
+        if fileName is None:
+            fileName = self.uploadsConfig[key].fileName
+        return self.uploadObjects[(key, fileName)]
+
+    def actionButton(
+        self,
+        table,
+        record,
+        action,
+        permitted=None,
+        insertTable=None,
+        key=None,
+        href=None,
+    ):
+        &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        !!! note &#34;Delete buttons&#34;
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
+        !!! note &#34;Create buttons&#34;
+            When placing a create button, the relevant record acts as the master
+            record, to which the newly created record will be added as a detail.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict
+            The relevant record.
+        action: string
+            The type of action that will be performed if the button triggered.
+        permitted: boolean, optional None
+            If the permission for the action is already known before calling
+            this function, it is passed here.
+            If this parameter is None, we&#39;ll compute the permission.
+        insertTable: string, optional None
+            If the action is &#34;create&#34;, this is the table in which a record
+            get inserted. The `table` and `record` arguments are then
+            supposed to specify the *master* record of the newly inserted record.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a field that is stored inside the
+            record.
+        href: string, optional None
+            If present, contains the href attribute for the button.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = (
+            Auth.authorise(table, record, action=action, insertTable=insertTable)
+            if permitted is None
+            else permitted
+        )
+
+        if not permitted:
+            return &#34;&#34;
+
+        Settings = self.Settings
+        H = Settings.H
+        actions = Settings.auth.actions
+
+        disable = False
+        report = &#34;&#34;
+
+        if action == &#34;delete&#34;:
+            details = self.getDetailRecords(table, record)
+            if len(details):
+                disable = True
+                detailContent = []
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                    detailRep = detailTable + plural
+                    detailContent.append(f&#34;&#34;&#34;{nDetails}{H.nbsp}{detailRep}&#34;&#34;&#34;)
+
+                report = H.div(
+                    [
+                        H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
+
+        actionInfo = actions.get(action, {})
+        name = actionInfo.name
+        keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+
+        if disable:
+            href = None
+            cls = &#34;disabled&#34;
+            can = &#34;Cannot&#34;
+        else:
+            cls = &#34;&#34;
+            can = &#34;&#34;
+
+        if action == &#34;create&#34;:
+            href = f&#34;/{table}/{recordId}/{insertTable}/create&#34; if href is None else href
+            tip = f&#34;{name} new {insertTable}&#34;
+        else:
+            href = f&#34;/{table}/{recordId}{keyRepUrl}/{action}&#34; if href is None else href
+            tip = f&#34;{can}{name}{keyRepTip} this {table}&#34;
+
+        fullCls = f&#34;button small {cls}&#34;
+        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
 
 
 class Field:
-    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
         &#34;&#34;&#34;Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -232,6 +494,7 @@ class Field:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+        self.Datamodel = Datamodel
 
         self.key = key
         &#34;&#34;&#34;The identifier of this field within the app.
@@ -285,7 +548,7 @@ class Field:
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -315,7 +578,7 @@ class Field:
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -332,7 +595,7 @@ class Field:
         table,
         record,
         level=None,
-        button=&#34;&#34;,
+        editable=False,
         outerCls=&#34;fieldouter&#34;,
         innerCls=&#34;fieldinner&#34;,
     ):
@@ -357,14 +620,15 @@ class Field:
         ----------
         table: string
             The table from which the record is taken
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
             If 0, the caption will be placed in a span.
-        button: string, optional &#34;&#34;
-            An optional edit button.
+        editable: boolean, optional False
+            Whether the field is editable by the current user.
+            If so, edit controls are provided.
         outerCls: string optional &#34;fieldouter&#34;
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not &#39;text&#39;
@@ -378,32 +642,60 @@ class Field:
             Whatever the value is that we find for that field, converted to HTML.
             If the field is not present, returns the empty string, without warning.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        H = Settings.H
+
+        (recordId, record) = Mongo.get(table, record)
+
         tp = self.tp
         caption = self.caption
+        key = self.key
 
-        logical = self.logical(record)
+        bare = self.bare(record)
 
         if tp == &#34;text&#34;:
-            content = markdown(H.content(logical), tight=False)
+            readonlyContent = markdown(bare, tight=False)
         else:
-            content = H.wrapValue(
-                logical,
+            readonlyContent = H.wrapValue(
+                bare,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
                 innerAtts=dict(cls=innerCls),
             )
-        sep = &#34;&amp;nbsp;&#34; if button else &#34;&#34;
-
-        content = f&#34;{button}{sep}{content}&#34;
+        if editable:
+            keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+            saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
+            updateButton = self.actionButtonClient(table, &#34;edit_update&#34;, key=key)
+            cancelButton = self.actionButtonClient(table, &#34;edit_cancel&#34;, key=key)
+            saveButton = self.actionButtonClient(table, &#34;edit_save&#34;, key=key)
+            msgs = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+            editableContent = H.textarea(
+                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+            )
+            content = &#34;&#34;.join(
+                [
+                    H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
+                    H.nbsp,
+                    editableContent,
+                    updateButton,
+                    saveButton,
+                    cancelButton,
+                    msgs,
+                ]
+            )
+        else:
+            content = readonlyContent
 
         if level is not None:
             if &#34;{value}&#34; in caption:
-                kind = table.rstrip(&#34;s&#34;)
-                heading = caption.format(kind=kind, value=content)
-                content = &#34;&#34;
+                theCaption = caption.format(kind=table, value=content)
+                inCaption = True
             else:
-                heading = caption
+                theCaption = caption
+                inCaption = False
 
             if level == 0:
                 elem = &#34;span&#34;
@@ -411,9 +703,36 @@ class Field:
             else:
                 elem = &#34;h&#34;
                 lv = [level]
-            heading = H.elem(elem, *lv, heading)
+            theCaption = H.elem(elem, *lv, theCaption)
+        else:
+            theCaption = &#34;&#34;
+            inCaption = False
 
-        return heading + content
+        fullContent = (&#34;&#34; if inCaption else theCaption) + (
+            theCaption if inCaption else content
+        )
+
+        return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent
+
+    def actionButtonClient(self, table, name, key=None, **atts):
+        &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        H = Settings.H
+
+        href = &#34;#&#34;
+
+        fullCls = &#34;button small&#34;
+        return H.iconx(name, href=href, cls=fullCls, kind=name)
 
 
 class Upload:
@@ -442,9 +761,10 @@ class Upload:
         Parameters
         ----------
         kwargs: dict
-            Field configuration arguments.
-            The following parts of the field configuration
-            should be present: `table`, `field` and `relative`.
+            Upload configuration arguments.
+            The following parts of the upload configuration
+            should be present: `table`, `accept`, while `caption`, `fileName`,
+            `show` are optional.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
@@ -455,15 +775,7 @@ class Upload:
         &#34;&#34;&#34;The identifier of this upload within the app.
         &#34;&#34;&#34;
 
-        self.table = None
-        &#34;&#34;&#34;The table in which the file name should be placed.
-        &#34;&#34;&#34;
-
-        self.field = None
-        &#34;&#34;&#34;The field in which the file name should be placed.
-        &#34;&#34;&#34;
-
-        self.relative = None
+        self.table = kwargs.get(&#34;table&#34;, None)
         &#34;&#34;&#34;Indicates the directory where the actual file will be saved.
 
         Possibe values:
@@ -471,19 +783,35 @@ class Upload:
         * `site`: top level of the working data directory of the site
         * `project`: project directory of the project in question
         * `edition`: edition directory of the project in question
-
-        If left out, the value will be derived from `table`.
         &#34;&#34;&#34;
 
-        self.accept = None
+        self.accept = kwargs.get(&#34;accept&#34;, None)
         &#34;&#34;&#34;The file types that the field accepts.
         &#34;&#34;&#34;
 
-        self.caption = None
+        self.caption = kwargs.get(&#34;caption&#34;, f&#34;{self.table} ({self.accept})&#34;)
         &#34;&#34;&#34;The text to display on the upload button.
         &#34;&#34;&#34;
 
-        self.show = None
+        self.multiple = kwargs.get(&#34;multiple&#34;, False)
+        &#34;&#34;&#34;Whether multiple files of this type may be uploaded.
+        &#34;&#34;&#34;
+
+        self.fileName = kwargs.get(&#34;fileName&#34;, None)
+        &#34;&#34;&#34;The name of the file once it is uploaded.
+
+        The file name for the upload can be passed when the file name
+        is known in advance.
+        In that case, a file that is uploaded in this upload widget,
+        will get this as prescribed file name, regardless of the file name in the
+        upload request.
+
+        Without a file name, the upload widget will show all existing files
+        conforming to the `accept` setting, and will have a control to upload a
+        new file.
+        &#34;&#34;&#34;
+
+        self.show = kwargs.get(&#34;show&#34;, False)
         &#34;&#34;&#34;Whether to show the contents of the file.
 
         This is typically the case when the file is an image to be presented
@@ -500,131 +828,129 @@ class Upload:
 
         good = True
 
-        table = getattr(self, &#34;table&#34;, None)
-        field = getattr(self, &#34;field&#34;, None)
-        accept = getattr(self, &#34;accept&#34;, None)
-
-        for arg in (&#34;table&#34;, &#34;field&#34;, &#34;relative&#34;, &#34;accept&#34;, &#34;caption&#34;, &#34;show&#34;):
+        for arg in (&#34;table&#34;, &#34;accept&#34;):
             if getattr(self, arg, None) is None:
-                if arg == &#34;relative&#34; and table is not None:
-                    setattr(self, arg, table.removesuffix(&#34;s&#34;))
-                elif arg == &#34;caption&#34;:
-                    setattr(self, arg, f&#34;{table}-{field}-{accept}&#34;)
-                elif arg == &#34;show&#34;:
-                    setattr(self, arg, False)
-                else:
-                    Messages.error(logmsg=f&#34;Missing info in Upload spec: {arg}&#34;)
-                    good = False
+                Messages.error(logmsg=f&#34;Missing info in Upload spec: {arg}&#34;)
+                good = False
 
         if not good:
             quit()
 
-    def bare(self, record):
-        &#34;&#34;&#34;Give the bare file name as stored in a record in MongoDb.
-
-        Parameters
-        ----------
-        record: AttrDict
-            The record in which the file name is stored.
-
-        Returns
-        -------
-        string:
-            Whatever the value is that we find.
-            If the field is not present, returns None, without warning.
-        &#34;&#34;&#34;
-        field = self.field
-
-        return record[field]
-
-    def getPath(self, record):
+    def getDir(self, record):
         &#34;&#34;&#34;Give the path to the file in question.
 
         The path can be used to build the static url and the save url.
 
         It does not contain the file name.
         If the path is non-empty, a &#34;/&#34; will be appended.
+
+        Parameters
+        ----------
+        record: string | ObjectId | AttrDict
+            The record relevant to the upload
         &#34;&#34;&#34;
         table = self.table
-        relative = self.relative
-
         recordId = record._id
-        projectId = recordId if table == &#34;projects&#34; else record.projectId
-        editionId = recordId if table == &#34;editions&#34; else record.editionId
+
+        projectId = (
+            recordId
+            if table == &#34;project&#34;
+            else record.projectId
+            if table == &#34;edition&#34;
+            else None
+        )
+        editionId = recordId if table == &#34;edition&#34; else None
 
         path = (
             &#34;&#34;
-            if relative == &#34;site&#34;
-            else f&#34;projects/{projectId}&#34;
-            if relative == &#34;project&#34;
-            else f&#34;projects/{projectId}/editions/{editionId}&#34;
-            if relative == &#34;edition&#34;
+            if table == &#34;site&#34;
+            else f&#34;project/{projectId}&#34;
+            if table == &#34;project&#34;
+            else f&#34;project/{projectId}/edition/{editionId}&#34;
+            if table == &#34;edition&#34;
             else None
         )
         sep = &#34;/&#34; if path else &#34;&#34;
         return f&#34;{path}{sep}&#34;
 
-    def formatted(self, record, mayChange=False):
+    def formatted(self, record, mayChange=False, bust=None, wrapped=True):
         &#34;&#34;&#34;Give the formatted value of a file field in a record.
 
         Optionally also puts an upload control.
 
         Parameters
         ----------
-        record: AttrDict or dict
-            The record in which the field value is stored.
+        record: string | ObjectId | AttrDict
+            The record relevant to the upload
         mayChange: boolean, optional False
             Whether the file may be changed.
             If so, an upload widget is supplied, wich contains a a delete button.
+        bust: string, optional None
+            If not None, the image url of the file whose name is passed in
+            `bust` is made unique by adding the current time to it.
+            This is a cache buster.
+        wrapped: boolean, optional True
+            Whether the content should be wrapped in a container element.
+            See `control.html.HtmlElements.finput()`.
 
         Returns
         -------
-        string:
-            Whatever the value is that we find for that field, converted to HTML.
-            If the field is not present, returns the empty string, without warning.
+        string
+            The name of the uploaded file(s) and/or an upload control.
         &#34;&#34;&#34;
-
-        fileName = self.bare(record)
-
-        Messages = self.Messages
+        Settings = self.Settings
+        H = Settings.H
+        workingDir = Settings.workingDir
 
         key = self.key
-        table = self.table
-        field = self.field
-        relative = self.relative
+        fileName = self.fileName
         accept = self.accept
         caption = self.caption
         show = self.show
 
-        title = f&#34;click to upload a {caption}&#34;
-
         recordId = record._id
 
-        fid = f&#34;{table}/{recordId}/{field}&#34;
+        fileNameRep = &#34;-&#34; if fileName is None else fileName
+        fid = f&#34;{recordId}/{key}/{fileNameRep}&#34;
 
-        path = self.getPath(record)
-        if path is None:
-            Messages.warning(
-                logmsg=f&#34;Wrong file path for upload {key} based on relative {relative}&#34;,
-                msg=&#34;The location for this file cannot be determined&#34;,
+        path = self.getDir(record)
+        sep = &#34;/&#34; if path else &#34;&#34;
+        fullDir = f&#34;{workingDir}{sep}{path}&#34;
+        saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
+        deleteUrl = f&#34;/deletefile/{fid}{sep}{path}&#34;.rstrip(&#34;/&#34;) + &#34;/&#34;
+
+        if fileName is None:
+            content = []
+            for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
+                buster = (
+                    f&#34;?v={now()}&#34;
+                    if show and bust is not None and bust == fileNm
+                    else &#34;&#34;
+                )
+                item = [fileNm, f&#34;/data/{path}{fileNm}{buster}&#34; if show else None]
+                content.append(item)
+        else:
+            buster = (
+                f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
+            )
+            fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+            exists = fileExists(fullPath)
+            content = (
+                fileName,
+                exists,
+                f&#34;/data/{path}{fileName}{buster}&#34; if show else None,
             )
 
-        if show:
-            staticUrl = f&#34;/data/{path}{fileName}&#34;
-            img = H.img(staticUrl, fid=fid)
-        else:
-            img = &#34;&#34;
-
-        visual = img or H.span(fileName, cls=&#34;fieldinner&#34;)
-
-        if not mayChange:
-            return visual
-
-        sep = &#34;/&#34; if path else &#34;&#34;
-        saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
-
-        return H.content(
-            visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+        return H.finput(
+            content,
+            accept,
+            mayChange,
+            saveUrl,
+            deleteUrl,
+            caption,
+            wrapped=wrapped,
+            buttonCls=&#34;button small&#34;,
+            cls=f&#34;{key.lower()}&#34;,
         )</code></pre>
 </details>
 </section>
@@ -654,7 +980,7 @@ which deal with individual fields.</p>
 which deal with file uploads.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
@@ -665,7 +991,7 @@ which deal with file uploads.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L7-L171" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L7-L433" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
@@ -687,7 +1013,7 @@ which deal with file uploads.</p>
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
         Messages: object
@@ -701,14 +1027,98 @@ which deal with file uploads.</p>
         self.Mongo = Mongo
 
         datamodel = Settings.datamodel
-        self.masterConfig = datamodel.master
+        self.detailMaster = datamodel.detailMaster
+        self.masterDetail = datamodel.masterDetail
         self.linkConfig = datamodel.link
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-    def getDetailRecords(self, masterTable, masterId):
+    def relevant(self, project=None, edition=None):
+        &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
+
+        A relevant record is either a project record, or an edition record,
+        or the one and only site record.
+
+        If all optional parameters are None, we look for the site record.
+        If the project parameter is not None, we look for the project record.
+
+        This is the inverse of `context()`.
+
+        Paramenters
+        -----------
+        project: string | ObjectId | AttrDict, optional None
+            The project whose record we need.
+        edition: string | ObjectId | AttrDict, optional None
+            The edition whose record we need.
+
+        Returns
+        -------
+        tuple
+            * table: string; the table in which the record is found
+            * record id: string; the id of the record
+            * record: AttrDict; the record itself
+
+            If both project and edition are not None
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        if edition is not None:
+            table = &#34;edition&#34;
+            (recordId, record) = Mongo.get(table, edition)
+        elif project is not None:
+            table = &#34;project&#34;
+            (recordId, record) = Mongo.get(table, project)
+        else:
+            table = &#34;site&#34;
+            siteCrit = Settings.siteCrit
+            record = Mongo.getRecord(table, **siteCrit)
+            recordId = record._id
+
+        return (table, recordId, record)
+
+    def context(self, table, record):
+        &#34;&#34;&#34;Get the context of a record.
+
+        Get the project and edition records to which the record belongs.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the record sits.
+        record: string
+            The record.
+
+        This is the inverse of `relevant()`.
+
+        Returns
+        -------
+        tuple of tuple
+            * (site, project, record)
+            where the members are either None, or a full record
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+
+        (recordId, record) = Mongo.get(table, record)
+
+        if table == &#34;site&#34;:
+            (editionId, edition) = (None, None)
+            (projectId, project) = (None, None)
+            (siteId, site) = (recordId, record)
+        elif table == &#34;project&#34;:
+            (editionId, edition) = (None, None)
+            (projectId, project) = (recordId, record)
+            (siteId, site) = Mongo.get(&#34;site&#34;, record.siteId)
+        elif table == &#34;edition&#34;:
+            (editionId, edition) = (recordId, record)
+            (projectId, project) = Mongo.get(&#34;project&#34;, record.projectId)
+            (siteId, site) = Mongo.get(&#34;site&#34;, project.siteId)
+
+        return (siteId, site, projectId, project, editionId, edition)
+
+    def getDetailRecords(self, masterTable, master):
         &#34;&#34;&#34;Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
@@ -721,8 +1131,8 @@ which deal with file uploads.</p>
         ----------
         masterTable: string
             The name of the table in which the master record lives.
-        masterId: ObjectId
-            The id of the master record.
+        master: string | ObjectId | AttrDict
+            The master record.
 
         Returns
         -------
@@ -734,18 +1144,20 @@ which deal with file uploads.</p>
             records, the empty dict is returned.
         &#34;&#34;&#34;
         Mongo = self.Mongo
-        masterConfig = self.masterConfig
+        masterDetail = self.masterDetail
 
-        detailTables = masterConfig.get(masterTable, [])
+        detailTable = masterDetail[masterTable]
+        if detailTable is None:
+            return AttrDict()
 
-        crit = {f&#34;{masterTable.rstrip(&#39;s&#39;)}Id&#34;: masterId}
+        (masterId, master) = Mongo.get(masterTable, master)
+        crit = {f&#34;{masterTable}Id&#34;: masterId}
 
         detailRecords = AttrDict()
 
-        for detailTable in detailTables:
-            details = Mongo.getList(detailTable, **crit)
-            if len(details):
-                detailRecords[detailTable] = details
+        details = Mongo.getList(detailTable, **crit)
+        if len(details):
+            detailRecords[detailTable] = details
 
         return detailRecords
 
@@ -787,11 +1199,26 @@ which deal with file uploads.</p>
         if fieldsConfig is None:
             Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
 
-        fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
+        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
         fieldObjects[key] = fieldObject
         return fieldObject
 
-    def makeUpload(self, key):
+    def getFieldObject(self, key):
+        &#34;&#34;&#34;Get a field object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the field object
+
+        Returns
+        -------
+        object | void
+            The field object found under the given key, if present, otherwise None
+        &#34;&#34;&#34;
+        return self.fieldObjects[key]
+
+    def makeUpload(self, key, fileName=None):
         &#34;&#34;&#34;Make a file upload object and registers it.
 
         An instance of class `control.datamodel.Upload` is created,
@@ -806,6 +1233,11 @@ which deal with file uploads.</p>
             Identifier for the upload.
             The configuration for this upload will be retrieved using this key.
             The new upload object will be stored under this key.
+        fileName: string, optional None
+            If present, it indicates that the uploaded file will have this prescribed
+            name.
+            A file name for an upload object may also have been specified in
+            the datamodel configuration.
 
         Returns
         -------
@@ -816,8 +1248,12 @@ which deal with file uploads.</p>
         Settings = self.Settings
 
         uploadObjects = self.uploadObjects
+        uploadsConfig = self.uploadsConfig
 
-        uploadObject = uploadObjects[key]
+        if fileName is None:
+            fileName = uploadsConfig.get(key, AttrDict()).fileName
+
+        uploadObject = uploadObjects[(key, fileName)]
         if uploadObject:
             return uploadObject
 
@@ -825,13 +1261,165 @@ which deal with file uploads.</p>
         Mongo = self.Mongo
         uploadsConfig = self.uploadsConfig
 
-        uploadsConfig = uploadsConfig[key]
+        uploadsConfig = AttrDict(**uploadsConfig[key])
         if uploadsConfig is None:
             Messages.error(logmsg=f&#34;Unknown upload key &#39;{key}&#39;&#34;)
+        if fileName is not None:
+            uploadsConfig[&#34;fileName&#34;] = fileName
 
         uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
-        uploadObjects[key] = uploadObject
-        return uploadObject</code></pre>
+        uploadObjects[(key, fileName)] = uploadObject
+        return uploadObject
+
+    def getUploadConfig(self, key):
+        &#34;&#34;&#34;Get an upload config.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload config
+
+        Returns
+        -------
+        object | void
+            The upload config found under the given key and file name, if
+            present, otherwise None
+        &#34;&#34;&#34;
+        return self.uploadsConfig[key]
+
+    def getUploadObject(self, key, fileName=None):
+        &#34;&#34;&#34;Get an upload object.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload object
+        fileName: string, optional None
+            The file name of the upload object.
+            If not passed, the file name is derived from the config of the key.
+
+        Returns
+        -------
+        object | void
+            The upload object found under the given key and file name, if
+            present, otherwise None
+        &#34;&#34;&#34;
+        if fileName is None:
+            fileName = self.uploadsConfig[key].fileName
+        return self.uploadObjects[(key, fileName)]
+
+    def actionButton(
+        self,
+        table,
+        record,
+        action,
+        permitted=None,
+        insertTable=None,
+        key=None,
+        href=None,
+    ):
+        &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+        The button, when pressed, will lead to an action on certain content.
+        It will be checked first if that action is allowed for the current user.
+        If not the button will not be shown.
+
+        !!! note &#34;Delete buttons&#34;
+            Even if a user is authorised to delete a record,
+            it is not allowed to delete master records if its detail records
+            still exist.
+            In that case, no delete button is displayed. Instead we display a count
+            of detail records.
+
+        !!! note &#34;Create buttons&#34;
+            When placing a create button, the relevant record acts as the master
+            record, to which the newly created record will be added as a detail.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        record: string | ObjectId | AttrDict
+            The relevant record.
+        action: string
+            The type of action that will be performed if the button triggered.
+        permitted: boolean, optional None
+            If the permission for the action is already known before calling
+            this function, it is passed here.
+            If this parameter is None, we&#39;ll compute the permission.
+        insertTable: string, optional None
+            If the action is &#34;create&#34;, this is the table in which a record
+            get inserted. The `table` and `record` arguments are then
+            supposed to specify the *master* record of the newly inserted record.
+            Needed to determine whether a press on the button is permitted.
+        key: string, optional None
+            If present, it identifies a field that is stored inside the
+            record.
+        href: string, optional None
+            If present, contains the href attribute for the button.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = (
+            Auth.authorise(table, record, action=action, insertTable=insertTable)
+            if permitted is None
+            else permitted
+        )
+
+        if not permitted:
+            return &#34;&#34;
+
+        Settings = self.Settings
+        H = Settings.H
+        actions = Settings.auth.actions
+
+        disable = False
+        report = &#34;&#34;
+
+        if action == &#34;delete&#34;:
+            details = self.getDetailRecords(table, record)
+            if len(details):
+                disable = True
+                detailContent = []
+                for (detailTable, detailRecords) in details.items():
+                    nDetails = len(detailRecords)
+                    plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                    detailRep = detailTable + plural
+                    detailContent.append(f&#34;&#34;&#34;{nDetails}{H.nbsp}{detailRep}&#34;&#34;&#34;)
+
+                report = H.div(
+                    [
+                        H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                        for thisContent in detailContent
+                    ]
+                )
+                report = H.br() + report
+
+        actionInfo = actions.get(action, {})
+        name = actionInfo.name
+        keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+
+        if disable:
+            href = None
+            cls = &#34;disabled&#34;
+            can = &#34;Cannot&#34;
+        else:
+            cls = &#34;&#34;
+            can = &#34;&#34;
+
+        if action == &#34;create&#34;:
+            href = f&#34;/{table}/{recordId}/{insertTable}/create&#34; if href is None else href
+            tip = f&#34;{name} new {insertTable}&#34;
+        else:
+            href = f&#34;/{table}/{recordId}{keyRepUrl}/{action}&#34; if href is None else href
+            tip = f&#34;{can}{name}{keyRepTip} this {table}&#34;
+
+        fullCls = f&#34;button small {cls}&#34;
+        return H.iconx(action, href=href, title=tip, cls=fullCls) + report</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -839,8 +1427,240 @@ which deal with file uploads.</p>
 </ul>
 <h3>Methods</h3>
 <dl>
+<dt id="control.datamodel.Datamodel.actionButton"><code class="name flex">
+<span>def <span class="ident">actionButton</span></span>(<span>self, table, record, action, permitted=None, insertTable=None, key=None, href=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Puts a button on the interface, if that makes sense.</p>
+<p>The button, when pressed, will lead to an action on certain content.
+It will be checked first if that action is allowed for the current user.
+If not the button will not be shown.</p>
+<div class="admonition note">
+<p class="admonition-title">Delete buttons</p>
+<p>Even if a user is authorised to delete a record,
+it is not allowed to delete master records if its detail records
+still exist.
+In that case, no delete button is displayed. Instead we display a count
+of detail records.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Create buttons</p>
+<p>When placing a create button, the relevant record acts as the master
+record, to which the newly created record will be added as a detail.</p>
+</div>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The relevant table.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The relevant record.</dd>
+<dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
+<dd>The type of action that will be performed if the button triggered.</dd>
+<dt><strong><code>permitted</code></strong> :&ensp;<code>boolean</code>, optional <code>None</code></dt>
+<dd>If the permission for the action is already known before calling
+this function, it is passed here.
+If this parameter is None, we'll compute the permission.</dd>
+<dt><strong><code>insertTable</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If the action is "create", this is the table in which a record
+get inserted. The <code>table</code> and <code>record</code> arguments are then
+supposed to specify the <em>master</em> record of the newly inserted record.
+Needed to determine whether a press on the button is permitted.</dd>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If present, it identifies a field that is stored inside the
+record.</dd>
+<dt><strong><code>href</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If present, contains the href attribute for the button.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L322-L433" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def actionButton(
+    self,
+    table,
+    record,
+    action,
+    permitted=None,
+    insertTable=None,
+    key=None,
+    href=None,
+):
+    &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
+
+    The button, when pressed, will lead to an action on certain content.
+    It will be checked first if that action is allowed for the current user.
+    If not the button will not be shown.
+
+    !!! note &#34;Delete buttons&#34;
+        Even if a user is authorised to delete a record,
+        it is not allowed to delete master records if its detail records
+        still exist.
+        In that case, no delete button is displayed. Instead we display a count
+        of detail records.
+
+    !!! note &#34;Create buttons&#34;
+        When placing a create button, the relevant record acts as the master
+        record, to which the newly created record will be added as a detail.
+
+    Parameters
+    ----------
+    table: string
+        The relevant table.
+    record: string | ObjectId | AttrDict
+        The relevant record.
+    action: string
+        The type of action that will be performed if the button triggered.
+    permitted: boolean, optional None
+        If the permission for the action is already known before calling
+        this function, it is passed here.
+        If this parameter is None, we&#39;ll compute the permission.
+    insertTable: string, optional None
+        If the action is &#34;create&#34;, this is the table in which a record
+        get inserted. The `table` and `record` arguments are then
+        supposed to specify the *master* record of the newly inserted record.
+        Needed to determine whether a press on the button is permitted.
+    key: string, optional None
+        If present, it identifies a field that is stored inside the
+        record.
+    href: string, optional None
+        If present, contains the href attribute for the button.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    (recordId, record) = Mongo.get(table, record)
+
+    permitted = (
+        Auth.authorise(table, record, action=action, insertTable=insertTable)
+        if permitted is None
+        else permitted
+    )
+
+    if not permitted:
+        return &#34;&#34;
+
+    Settings = self.Settings
+    H = Settings.H
+    actions = Settings.auth.actions
+
+    disable = False
+    report = &#34;&#34;
+
+    if action == &#34;delete&#34;:
+        details = self.getDetailRecords(table, record)
+        if len(details):
+            disable = True
+            detailContent = []
+            for (detailTable, detailRecords) in details.items():
+                nDetails = len(detailRecords)
+                plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
+                detailRep = detailTable + plural
+                detailContent.append(f&#34;&#34;&#34;{nDetails}{H.nbsp}{detailRep}&#34;&#34;&#34;)
+
+            report = H.div(
+                [
+                    H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
+                    for thisContent in detailContent
+                ]
+            )
+            report = H.br() + report
+
+    actionInfo = actions.get(action, {})
+    name = actionInfo.name
+    keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
+    keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+
+    if disable:
+        href = None
+        cls = &#34;disabled&#34;
+        can = &#34;Cannot&#34;
+    else:
+        cls = &#34;&#34;
+        can = &#34;&#34;
+
+    if action == &#34;create&#34;:
+        href = f&#34;/{table}/{recordId}/{insertTable}/create&#34; if href is None else href
+        tip = f&#34;{name} new {insertTable}&#34;
+    else:
+        href = f&#34;/{table}/{recordId}{keyRepUrl}/{action}&#34; if href is None else href
+        tip = f&#34;{can}{name}{keyRepTip} this {table}&#34;
+
+    fullCls = f&#34;button small {cls}&#34;
+    return H.iconx(action, href=href, title=tip, cls=fullCls) + report</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.context"><code class="name flex">
+<span>def <span class="ident">context</span></span>(<span>self, table, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the context of a record.</p>
+<p>Get the project and edition records to which the record belongs.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The table in which the record sits.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>string</code></dt>
+<dd>The record.</dd>
+</dl>
+<p>This is the inverse of <code>relevant()</code>.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> of <code>tuple</code></dt>
+<dd>
+<ul>
+<li>(site, project, record)
+where the members are either None, or a full record</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L93-L130" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def context(self, table, record):
+    &#34;&#34;&#34;Get the context of a record.
+
+    Get the project and edition records to which the record belongs.
+
+    Parameters
+    ----------
+    table: string
+        The table in which the record sits.
+    record: string
+        The record.
+
+    This is the inverse of `relevant()`.
+
+    Returns
+    -------
+    tuple of tuple
+        * (site, project, record)
+        where the members are either None, or a full record
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+
+    (recordId, record) = Mongo.get(table, record)
+
+    if table == &#34;site&#34;:
+        (editionId, edition) = (None, None)
+        (projectId, project) = (None, None)
+        (siteId, site) = (recordId, record)
+    elif table == &#34;project&#34;:
+        (editionId, edition) = (None, None)
+        (projectId, project) = (recordId, record)
+        (siteId, site) = Mongo.get(&#34;site&#34;, record.siteId)
+    elif table == &#34;edition&#34;:
+        (editionId, edition) = (recordId, record)
+        (projectId, project) = Mongo.get(&#34;project&#34;, record.projectId)
+        (siteId, site) = Mongo.get(&#34;site&#34;, project.siteId)
+
+    return (siteId, site, projectId, project, editionId, edition)</code></pre>
+</details>
+</dd>
 <dt id="control.datamodel.Datamodel.getDetailRecords"><code class="name flex">
-<span>def <span class="ident">getDetailRecords</span></span>(<span>self, masterTable, masterId)</span>
+<span>def <span class="ident">getDetailRecords</span></span>(<span>self, masterTable, master)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Retrieve the detail records of a master record.</p>
@@ -852,8 +1672,8 @@ of a master are fetched.</p>
 <dl>
 <dt><strong><code>masterTable</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the table in which the master record lives.</dd>
-<dt><strong><code>masterId</code></strong> :&ensp;<code>ObjectId</code></dt>
-<dd>The id of the master record.</dd>
+<dt><strong><code>master</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The master record.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -867,9 +1687,9 @@ records, the empty dict is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L48-L87" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L132-L173" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getDetailRecords(self, masterTable, masterId):
+<pre><code class="python">def getDetailRecords(self, masterTable, master):
     &#34;&#34;&#34;Retrieve the detail records of a master record.
 
     It finds all records that have a field containing an id of the
@@ -882,8 +1702,8 @@ records, the empty dict is returned.</dd>
     ----------
     masterTable: string
         The name of the table in which the master record lives.
-    masterId: ObjectId
-        The id of the master record.
+    master: string | ObjectId | AttrDict
+        The master record.
 
     Returns
     -------
@@ -895,20 +1715,142 @@ records, the empty dict is returned.</dd>
         records, the empty dict is returned.
     &#34;&#34;&#34;
     Mongo = self.Mongo
-    masterConfig = self.masterConfig
+    masterDetail = self.masterDetail
 
-    detailTables = masterConfig.get(masterTable, [])
+    detailTable = masterDetail[masterTable]
+    if detailTable is None:
+        return AttrDict()
 
-    crit = {f&#34;{masterTable.rstrip(&#39;s&#39;)}Id&#34;: masterId}
+    (masterId, master) = Mongo.get(masterTable, master)
+    crit = {f&#34;{masterTable}Id&#34;: masterId}
 
     detailRecords = AttrDict()
 
-    for detailTable in detailTables:
-        details = Mongo.getList(detailTable, **crit)
-        if len(details):
-            detailRecords[detailTable] = details
+    details = Mongo.getList(detailTable, **crit)
+    if len(details):
+        detailRecords[detailTable] = details
 
     return detailRecords</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getFieldObject"><code class="name flex">
+<span>def <span class="ident">getFieldObject</span></span>(<span>self, key)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a field object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dd>The key of the field object</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>object | void</code></dt>
+<dd>The field object found under the given key, if present, otherwise None</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L217-L230" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getFieldObject(self, key):
+    &#34;&#34;&#34;Get a field object.
+
+    Parameters
+    ----------
+    key: string
+        The key of the field object
+
+    Returns
+    -------
+    object | void
+        The field object found under the given key, if present, otherwise None
+    &#34;&#34;&#34;
+    return self.fieldObjects[key]</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getUploadConfig"><code class="name flex">
+<span>def <span class="ident">getUploadConfig</span></span>(<span>self, key)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get an upload config.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dd>The key of the upload config</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>object | void</code></dt>
+<dd>The upload config found under the given key and file name, if
+present, otherwise None</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L285-L299" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getUploadConfig(self, key):
+    &#34;&#34;&#34;Get an upload config.
+
+    Parameters
+    ----------
+    key: string
+        The key of the upload config
+
+    Returns
+    -------
+    object | void
+        The upload config found under the given key and file name, if
+        present, otherwise None
+    &#34;&#34;&#34;
+    return self.uploadsConfig[key]</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getUploadObject"><code class="name flex">
+<span>def <span class="ident">getUploadObject</span></span>(<span>self, key, fileName=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get an upload object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dd>The key of the upload object</dd>
+<dt><strong><code>fileName</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>The file name of the upload object.
+If not passed, the file name is derived from the config of the key.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>object | void</code></dt>
+<dd>The upload object found under the given key and file name, if
+present, otherwise None</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L301-L320" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getUploadObject(self, key, fileName=None):
+    &#34;&#34;&#34;Get an upload object.
+
+    Parameters
+    ----------
+    key: string
+        The key of the upload object
+    fileName: string, optional None
+        The file name of the upload object.
+        If not passed, the file name is derived from the config of the key.
+
+    Returns
+    -------
+    object | void
+        The upload object found under the given key and file name, if
+        present, otherwise None
+    &#34;&#34;&#34;
+    if fileName is None:
+        fileName = self.uploadsConfig[key].fileName
+    return self.uploadObjects[(key, fileName)]</code></pre>
 </details>
 </dd>
 <dt id="control.datamodel.Datamodel.makeField"><code class="name flex">
@@ -938,7 +1880,7 @@ It is also added to the <code>fieldObjects</code> member.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L89-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L175-L215" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeField(self, key):
     &#34;&#34;&#34;Make a field object and registers it.
@@ -978,13 +1920,13 @@ It is also added to the <code>fieldObjects</code> member.</dd>
     if fieldsConfig is None:
         Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
 
-    fieldObject = Field(Settings, Messages, Mongo, key, **fieldsConfig)
+    fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
     fieldObjects[key] = fieldObject
     return fieldObject</code></pre>
 </details>
 </dd>
 <dt id="control.datamodel.Datamodel.makeUpload"><code class="name flex">
-<span>def <span class="ident">makeUpload</span></span>(<span>self, key)</span>
+<span>def <span class="ident">makeUpload</span></span>(<span>self, key, fileName=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Make a file upload object and registers it.</p>
@@ -1000,6 +1942,11 @@ geared to this particular field.</p>
 <dd>Identifier for the upload.
 The configuration for this upload will be retrieved using this key.
 The new upload object will be stored under this key.</dd>
+<dt><strong><code>fileName</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If present, it indicates that the uploaded file will have this prescribed
+name.
+A file name for an upload object may also have been specified in
+the datamodel configuration.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1010,9 +1957,9 @@ It is also added to the <code>uploadObjects</code> member.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L131-L171" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L232-L283" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def makeUpload(self, key):
+<pre><code class="python">def makeUpload(self, key, fileName=None):
     &#34;&#34;&#34;Make a file upload object and registers it.
 
     An instance of class `control.datamodel.Upload` is created,
@@ -1027,6 +1974,11 @@ It is also added to the <code>uploadObjects</code> member.</dd>
         Identifier for the upload.
         The configuration for this upload will be retrieved using this key.
         The new upload object will be stored under this key.
+    fileName: string, optional None
+        If present, it indicates that the uploaded file will have this prescribed
+        name.
+        A file name for an upload object may also have been specified in
+        the datamodel configuration.
 
     Returns
     -------
@@ -1037,8 +1989,12 @@ It is also added to the <code>uploadObjects</code> member.</dd>
     Settings = self.Settings
 
     uploadObjects = self.uploadObjects
+    uploadsConfig = self.uploadsConfig
 
-    uploadObject = uploadObjects[key]
+    if fileName is None:
+        fileName = uploadsConfig.get(key, AttrDict()).fileName
+
+    uploadObject = uploadObjects[(key, fileName)]
     if uploadObject:
         return uploadObject
 
@@ -1046,20 +2002,99 @@ It is also added to the <code>uploadObjects</code> member.</dd>
     Mongo = self.Mongo
     uploadsConfig = self.uploadsConfig
 
-    uploadsConfig = uploadsConfig[key]
+    uploadsConfig = AttrDict(**uploadsConfig[key])
     if uploadsConfig is None:
         Messages.error(logmsg=f&#34;Unknown upload key &#39;{key}&#39;&#34;)
+    if fileName is not None:
+        uploadsConfig[&#34;fileName&#34;] = fileName
 
     uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
-    uploadObjects[key] = uploadObject
+    uploadObjects[(key, fileName)] = uploadObject
     return uploadObject</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.relevant"><code class="name flex">
+<span>def <span class="ident">relevant</span></span>(<span>self, project=None, edition=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a relevant record and the table to which it belongs.</p>
+<p>A relevant record is either a project record, or an edition record,
+or the one and only site record.</p>
+<p>If all optional parameters are None, we look for the site record.
+If the project parameter is not None, we look for the project record.</p>
+<p>This is the inverse of <code>context()</code>.</p>
+<h2 id="paramenters">Paramenters</h2>
+<p>project: string | ObjectId | AttrDict, optional None
+The project whose record we need.
+edition: string | ObjectId | AttrDict, optional None
+The edition whose record we need.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code></dt>
+<dd>
+<ul>
+<li>table: string; the table in which the record is found</li>
+<li>record id: string; the id of the record</li>
+<li>record: AttrDict; the record itself</li>
+</ul>
+<p>If both project and edition are not None</p>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L49-L91" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def relevant(self, project=None, edition=None):
+    &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
+
+    A relevant record is either a project record, or an edition record,
+    or the one and only site record.
+
+    If all optional parameters are None, we look for the site record.
+    If the project parameter is not None, we look for the project record.
+
+    This is the inverse of `context()`.
+
+    Paramenters
+    -----------
+    project: string | ObjectId | AttrDict, optional None
+        The project whose record we need.
+    edition: string | ObjectId | AttrDict, optional None
+        The edition whose record we need.
+
+    Returns
+    -------
+    tuple
+        * table: string; the table in which the record is found
+        * record id: string; the id of the record
+        * record: AttrDict; the record itself
+
+        If both project and edition are not None
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    Mongo = self.Mongo
+
+    if edition is not None:
+        table = &#34;edition&#34;
+        (recordId, record) = Mongo.get(table, edition)
+    elif project is not None:
+        table = &#34;project&#34;
+        (recordId, record) = Mongo.get(table, project)
+    else:
+        table = &#34;site&#34;
+        siteCrit = Settings.siteCrit
+        record = Mongo.getRecord(table, **siteCrit)
+        recordId = record._id
+
+    return (table, recordId, record)</code></pre>
 </details>
 </dd>
 </dl>
 </dd>
 <dt id="control.datamodel.Field"><code class="flex name class">
 <span>class <span class="ident">Field</span></span>
-<span>(</span><span>Settings, Messages, Mongo, key, **kwargs)</span>
+<span>(</span><span>Settings, Messages, Mongo, Datamodel, key, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Handle field business.</p>
@@ -1084,10 +2119,10 @@ are not present, defaults will be provided.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L174-L386" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L436-L705" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Field:
-    def __init__(self, Settings, Messages, Mongo, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
         &#34;&#34;&#34;Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -1117,6 +2152,7 @@ are not present, defaults will be provided.</dd>
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+        self.Datamodel = Datamodel
 
         self.key = key
         &#34;&#34;&#34;The identifier of this field within the app.
@@ -1170,7 +2206,7 @@ are not present, defaults will be provided.</dd>
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -1200,7 +2236,7 @@ are not present, defaults will be provided.</dd>
 
         Parameters
         ----------
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -1217,7 +2253,7 @@ are not present, defaults will be provided.</dd>
         table,
         record,
         level=None,
-        button=&#34;&#34;,
+        editable=False,
         outerCls=&#34;fieldouter&#34;,
         innerCls=&#34;fieldinner&#34;,
     ):
@@ -1242,14 +2278,15 @@ are not present, defaults will be provided.</dd>
         ----------
         table: string
             The table from which the record is taken
-        record: AttrDict or dict
+        record: string | ObjectId | AttrDict
             The record in which the field value is stored.
         level: integer, optional None
             The heading level in which a caption will be placed.
             If None, no caption will be placed.
             If 0, the caption will be placed in a span.
-        button: string, optional &#34;&#34;
-            An optional edit button.
+        editable: boolean, optional False
+            Whether the field is editable by the current user.
+            If so, edit controls are provided.
         outerCls: string optional &#34;fieldouter&#34;
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not &#39;text&#39;
@@ -1263,32 +2300,60 @@ are not present, defaults will be provided.</dd>
             Whatever the value is that we find for that field, converted to HTML.
             If the field is not present, returns the empty string, without warning.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        Mongo = self.Mongo
+
+        H = Settings.H
+
+        (recordId, record) = Mongo.get(table, record)
+
         tp = self.tp
         caption = self.caption
+        key = self.key
 
-        logical = self.logical(record)
+        bare = self.bare(record)
 
         if tp == &#34;text&#34;:
-            content = markdown(H.content(logical), tight=False)
+            readonlyContent = markdown(bare, tight=False)
         else:
-            content = H.wrapValue(
-                logical,
+            readonlyContent = H.wrapValue(
+                bare,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
                 innerAtts=dict(cls=innerCls),
             )
-        sep = &#34;&amp;nbsp;&#34; if button else &#34;&#34;
-
-        content = f&#34;{button}{sep}{content}&#34;
+        if editable:
+            keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+            saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
+            updateButton = self.actionButtonClient(table, &#34;edit_update&#34;, key=key)
+            cancelButton = self.actionButtonClient(table, &#34;edit_cancel&#34;, key=key)
+            saveButton = self.actionButtonClient(table, &#34;edit_save&#34;, key=key)
+            msgs = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+            editableContent = H.textarea(
+                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+            )
+            content = &#34;&#34;.join(
+                [
+                    H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
+                    H.nbsp,
+                    editableContent,
+                    updateButton,
+                    saveButton,
+                    cancelButton,
+                    msgs,
+                ]
+            )
+        else:
+            content = readonlyContent
 
         if level is not None:
             if &#34;{value}&#34; in caption:
-                kind = table.rstrip(&#34;s&#34;)
-                heading = caption.format(kind=kind, value=content)
-                content = &#34;&#34;
+                theCaption = caption.format(kind=table, value=content)
+                inCaption = True
             else:
-                heading = caption
+                theCaption = caption
+                inCaption = False
 
             if level == 0:
                 elem = &#34;span&#34;
@@ -1296,9 +2361,36 @@ are not present, defaults will be provided.</dd>
             else:
                 elem = &#34;h&#34;
                 lv = [level]
-            heading = H.elem(elem, *lv, heading)
+            theCaption = H.elem(elem, *lv, theCaption)
+        else:
+            theCaption = &#34;&#34;
+            inCaption = False
 
-        return heading + content</code></pre>
+        fullContent = (&#34;&#34; if inCaption else theCaption) + (
+            theCaption if inCaption else content
+        )
+
+        return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent
+
+    def actionButtonClient(self, table, name, key=None, **atts):
+        &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        H = Settings.H
+
+        href = &#34;#&#34;
+
+        fullCls = &#34;button small&#34;
+        return H.iconx(name, href=href, cls=fullCls, kind=name)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -1340,6 +2432,40 @@ from an other collection (value lists).</p></div>
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="control.datamodel.Field.actionButtonClient"><code class="name flex">
+<span>def <span class="ident">actionButtonClient</span></span>(<span>self, table, name, key=None, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generates an action button to be activated by client side Javascript.</p>
+<p>It is assumed that the permission has already been checked.</p>
+<h2 id="parameters">Parameters</h2>
+<h2 id="returns">Returns</h2></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L687-L705" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def actionButtonClient(self, table, name, key=None, **atts):
+    &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+    It is assumed that the permission has already been checked.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    H = Settings.H
+
+    href = &#34;#&#34;
+
+    fullCls = &#34;button small&#34;
+    return H.iconx(name, href=href, cls=fullCls, kind=name)</code></pre>
+</details>
+</dd>
 <dt id="control.datamodel.Field.bare"><code class="name flex">
 <span>def <span class="ident">bare</span></span>(<span>self, record)</span>
 </code></dt>
@@ -1347,7 +2473,7 @@ from an other collection (value lists).</p></div>
 <div class="desc"><p>Give the bare string value of the field in a record.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code> or <code>dict</code></dt>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The record in which the field value is stored.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -1359,14 +2485,14 @@ If the field is not present, returns the empty string, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L283-L298" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L546-L561" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def bare(self, record):
     &#34;&#34;&#34;Give the bare string value of the field in a record.
 
     Parameters
     ----------
-    record: AttrDict or dict
+    record: string | ObjectId | AttrDict
         The record in which the field value is stored.
 
     Returns
@@ -1380,7 +2506,7 @@ If the field is not present, returns the empty string, without warning.</dd>
 </details>
 </dd>
 <dt id="control.datamodel.Field.formatted"><code class="name flex">
-<span>def <span class="ident">formatted</span></span>(<span>self, table, record, level=None, button='', outerCls='fieldouter', innerCls='fieldinner')</span>
+<span>def <span class="ident">formatted</span></span>(<span>self, table, record, level=None, editable=False, outerCls='fieldouter', innerCls='fieldinner')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Give the formatted value of the field in a record.</p>
@@ -1398,14 +2524,15 @@ to which an (other) extra CSS class may be applied.</p>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
 <dd>The table from which the record is taken</dd>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code> or <code>dict</code></dt>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The record in which the field value is stored.</dd>
 <dt><strong><code>level</code></strong> :&ensp;<code>integer</code>, optional <code>None</code></dt>
 <dd>The heading level in which a caption will be placed.
 If None, no caption will be placed.
 If 0, the caption will be placed in a span.</dd>
-<dt><strong><code>button</code></strong> :&ensp;<code>string</code>, optional <code>""</code></dt>
-<dd>An optional edit button.</dd>
+<dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether the field is editable by the current user.
+If so, edit controls are provided.</dd>
 <dt><strong><code>outerCls</code></strong> :&ensp;<code>string optional "fieldouter"</code></dt>
 <dd>If given, an extra CSS class for the outer element that wraps the total
 value. Only relevant if the type is not 'text'</dd>
@@ -1422,14 +2549,14 @@ If the field is not present, returns the empty string, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L300-L386" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L563-L685" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def formatted(
     self,
     table,
     record,
     level=None,
-    button=&#34;&#34;,
+    editable=False,
     outerCls=&#34;fieldouter&#34;,
     innerCls=&#34;fieldinner&#34;,
 ):
@@ -1454,14 +2581,15 @@ If the field is not present, returns the empty string, without warning.</dd>
     ----------
     table: string
         The table from which the record is taken
-    record: AttrDict or dict
+    record: string | ObjectId | AttrDict
         The record in which the field value is stored.
     level: integer, optional None
         The heading level in which a caption will be placed.
         If None, no caption will be placed.
         If 0, the caption will be placed in a span.
-    button: string, optional &#34;&#34;
-        An optional edit button.
+    editable: boolean, optional False
+        Whether the field is editable by the current user.
+        If so, edit controls are provided.
     outerCls: string optional &#34;fieldouter&#34;
         If given, an extra CSS class for the outer element that wraps the total
         value. Only relevant if the type is not &#39;text&#39;
@@ -1475,32 +2603,60 @@ If the field is not present, returns the empty string, without warning.</dd>
         Whatever the value is that we find for that field, converted to HTML.
         If the field is not present, returns the empty string, without warning.
     &#34;&#34;&#34;
+    Settings = self.Settings
+    Mongo = self.Mongo
+
+    H = Settings.H
+
+    (recordId, record) = Mongo.get(table, record)
+
     tp = self.tp
     caption = self.caption
+    key = self.key
 
-    logical = self.logical(record)
+    bare = self.bare(record)
 
     if tp == &#34;text&#34;:
-        content = markdown(H.content(logical), tight=False)
+        readonlyContent = markdown(bare, tight=False)
     else:
-        content = H.wrapValue(
-            logical,
+        readonlyContent = H.wrapValue(
+            bare,
             outerElem=&#34;span&#34;,
             outerAtts=dict(cls=outerCls),
             innerElem=&#34;span&#34;,
             innerAtts=dict(cls=innerCls),
         )
-    sep = &#34;&amp;nbsp;&#34; if button else &#34;&#34;
-
-    content = f&#34;{button}{sep}{content}&#34;
+    if editable:
+        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
+        saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
+        updateButton = self.actionButtonClient(table, &#34;edit_update&#34;, key=key)
+        cancelButton = self.actionButtonClient(table, &#34;edit_cancel&#34;, key=key)
+        saveButton = self.actionButtonClient(table, &#34;edit_save&#34;, key=key)
+        msgs = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+        editableContent = H.textarea(
+            &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+        )
+        content = &#34;&#34;.join(
+            [
+                H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
+                H.nbsp,
+                editableContent,
+                updateButton,
+                saveButton,
+                cancelButton,
+                msgs,
+            ]
+        )
+    else:
+        content = readonlyContent
 
     if level is not None:
         if &#34;{value}&#34; in caption:
-            kind = table.rstrip(&#34;s&#34;)
-            heading = caption.format(kind=kind, value=content)
-            content = &#34;&#34;
+            theCaption = caption.format(kind=table, value=content)
+            inCaption = True
         else:
-            heading = caption
+            theCaption = caption
+            inCaption = False
 
         if level == 0:
             elem = &#34;span&#34;
@@ -1508,9 +2664,16 @@ If the field is not present, returns the empty string, without warning.</dd>
         else:
             elem = &#34;h&#34;
             lv = [level]
-        heading = H.elem(elem, *lv, heading)
+        theCaption = H.elem(elem, *lv, theCaption)
+    else:
+        theCaption = &#34;&#34;
+        inCaption = False
 
-    return heading + content</code></pre>
+    fullContent = (&#34;&#34; if inCaption else theCaption) + (
+        theCaption if inCaption else content
+    )
+
+    return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent</code></pre>
 </details>
 </dd>
 <dt id="control.datamodel.Field.logical"><code class="name flex">
@@ -1520,7 +2683,7 @@ If the field is not present, returns the empty string, without warning.</dd>
 <div class="desc"><p>Give the logical value of the field in a record.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code> or <code>dict</code></dt>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The record in which the field value is stored.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -1533,14 +2696,14 @@ If the field is not present, returns None, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L253-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L516-L544" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logical(self, record):
     &#34;&#34;&#34;Give the logical value of the field in a record.
 
     Parameters
     ----------
-    record: AttrDict or dict
+    record: string | ObjectId | AttrDict
         The record in which the field value is stored.
 
     Returns
@@ -1590,14 +2753,15 @@ values that are stored in this object.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>kwargs</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Field configuration arguments.
-The following parts of the field configuration
-should be present: <code>table</code>, <code>field</code> and <code>relative</code>.</dd>
+<dd>Upload configuration arguments.
+The following parts of the upload configuration
+should be present: <code>table</code>, <code>accept</code>, while <code>caption</code>, <code>fileName</code>,
+<code>show</code> are optional.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L389-L598" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L708-L924" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Upload:
     def __init__(self, Settings, Messages, Mongo, key, **kwargs):
@@ -1625,9 +2789,10 @@ should be present: <code>table</code>, <code>field</code> and <code>relative</co
         Parameters
         ----------
         kwargs: dict
-            Field configuration arguments.
-            The following parts of the field configuration
-            should be present: `table`, `field` and `relative`.
+            Upload configuration arguments.
+            The following parts of the upload configuration
+            should be present: `table`, `accept`, while `caption`, `fileName`,
+            `show` are optional.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
@@ -1638,15 +2803,7 @@ should be present: <code>table</code>, <code>field</code> and <code>relative</co
         &#34;&#34;&#34;The identifier of this upload within the app.
         &#34;&#34;&#34;
 
-        self.table = None
-        &#34;&#34;&#34;The table in which the file name should be placed.
-        &#34;&#34;&#34;
-
-        self.field = None
-        &#34;&#34;&#34;The field in which the file name should be placed.
-        &#34;&#34;&#34;
-
-        self.relative = None
+        self.table = kwargs.get(&#34;table&#34;, None)
         &#34;&#34;&#34;Indicates the directory where the actual file will be saved.
 
         Possibe values:
@@ -1654,19 +2811,35 @@ should be present: <code>table</code>, <code>field</code> and <code>relative</co
         * `site`: top level of the working data directory of the site
         * `project`: project directory of the project in question
         * `edition`: edition directory of the project in question
-
-        If left out, the value will be derived from `table`.
         &#34;&#34;&#34;
 
-        self.accept = None
+        self.accept = kwargs.get(&#34;accept&#34;, None)
         &#34;&#34;&#34;The file types that the field accepts.
         &#34;&#34;&#34;
 
-        self.caption = None
+        self.caption = kwargs.get(&#34;caption&#34;, f&#34;{self.table} ({self.accept})&#34;)
         &#34;&#34;&#34;The text to display on the upload button.
         &#34;&#34;&#34;
 
-        self.show = None
+        self.multiple = kwargs.get(&#34;multiple&#34;, False)
+        &#34;&#34;&#34;Whether multiple files of this type may be uploaded.
+        &#34;&#34;&#34;
+
+        self.fileName = kwargs.get(&#34;fileName&#34;, None)
+        &#34;&#34;&#34;The name of the file once it is uploaded.
+
+        The file name for the upload can be passed when the file name
+        is known in advance.
+        In that case, a file that is uploaded in this upload widget,
+        will get this as prescribed file name, regardless of the file name in the
+        upload request.
+
+        Without a file name, the upload widget will show all existing files
+        conforming to the `accept` setting, and will have a control to upload a
+        new file.
+        &#34;&#34;&#34;
+
+        self.show = kwargs.get(&#34;show&#34;, False)
         &#34;&#34;&#34;Whether to show the contents of the file.
 
         This is typically the case when the file is an image to be presented
@@ -1683,131 +2856,129 @@ should be present: <code>table</code>, <code>field</code> and <code>relative</co
 
         good = True
 
-        table = getattr(self, &#34;table&#34;, None)
-        field = getattr(self, &#34;field&#34;, None)
-        accept = getattr(self, &#34;accept&#34;, None)
-
-        for arg in (&#34;table&#34;, &#34;field&#34;, &#34;relative&#34;, &#34;accept&#34;, &#34;caption&#34;, &#34;show&#34;):
+        for arg in (&#34;table&#34;, &#34;accept&#34;):
             if getattr(self, arg, None) is None:
-                if arg == &#34;relative&#34; and table is not None:
-                    setattr(self, arg, table.removesuffix(&#34;s&#34;))
-                elif arg == &#34;caption&#34;:
-                    setattr(self, arg, f&#34;{table}-{field}-{accept}&#34;)
-                elif arg == &#34;show&#34;:
-                    setattr(self, arg, False)
-                else:
-                    Messages.error(logmsg=f&#34;Missing info in Upload spec: {arg}&#34;)
-                    good = False
+                Messages.error(logmsg=f&#34;Missing info in Upload spec: {arg}&#34;)
+                good = False
 
         if not good:
             quit()
 
-    def bare(self, record):
-        &#34;&#34;&#34;Give the bare file name as stored in a record in MongoDb.
-
-        Parameters
-        ----------
-        record: AttrDict
-            The record in which the file name is stored.
-
-        Returns
-        -------
-        string:
-            Whatever the value is that we find.
-            If the field is not present, returns None, without warning.
-        &#34;&#34;&#34;
-        field = self.field
-
-        return record[field]
-
-    def getPath(self, record):
+    def getDir(self, record):
         &#34;&#34;&#34;Give the path to the file in question.
 
         The path can be used to build the static url and the save url.
 
         It does not contain the file name.
         If the path is non-empty, a &#34;/&#34; will be appended.
+
+        Parameters
+        ----------
+        record: string | ObjectId | AttrDict
+            The record relevant to the upload
         &#34;&#34;&#34;
         table = self.table
-        relative = self.relative
-
         recordId = record._id
-        projectId = recordId if table == &#34;projects&#34; else record.projectId
-        editionId = recordId if table == &#34;editions&#34; else record.editionId
+
+        projectId = (
+            recordId
+            if table == &#34;project&#34;
+            else record.projectId
+            if table == &#34;edition&#34;
+            else None
+        )
+        editionId = recordId if table == &#34;edition&#34; else None
 
         path = (
             &#34;&#34;
-            if relative == &#34;site&#34;
-            else f&#34;projects/{projectId}&#34;
-            if relative == &#34;project&#34;
-            else f&#34;projects/{projectId}/editions/{editionId}&#34;
-            if relative == &#34;edition&#34;
+            if table == &#34;site&#34;
+            else f&#34;project/{projectId}&#34;
+            if table == &#34;project&#34;
+            else f&#34;project/{projectId}/edition/{editionId}&#34;
+            if table == &#34;edition&#34;
             else None
         )
         sep = &#34;/&#34; if path else &#34;&#34;
         return f&#34;{path}{sep}&#34;
 
-    def formatted(self, record, mayChange=False):
+    def formatted(self, record, mayChange=False, bust=None, wrapped=True):
         &#34;&#34;&#34;Give the formatted value of a file field in a record.
 
         Optionally also puts an upload control.
 
         Parameters
         ----------
-        record: AttrDict or dict
-            The record in which the field value is stored.
+        record: string | ObjectId | AttrDict
+            The record relevant to the upload
         mayChange: boolean, optional False
             Whether the file may be changed.
             If so, an upload widget is supplied, wich contains a a delete button.
+        bust: string, optional None
+            If not None, the image url of the file whose name is passed in
+            `bust` is made unique by adding the current time to it.
+            This is a cache buster.
+        wrapped: boolean, optional True
+            Whether the content should be wrapped in a container element.
+            See `control.html.HtmlElements.finput()`.
 
         Returns
         -------
-        string:
-            Whatever the value is that we find for that field, converted to HTML.
-            If the field is not present, returns the empty string, without warning.
+        string
+            The name of the uploaded file(s) and/or an upload control.
         &#34;&#34;&#34;
-
-        fileName = self.bare(record)
-
-        Messages = self.Messages
+        Settings = self.Settings
+        H = Settings.H
+        workingDir = Settings.workingDir
 
         key = self.key
-        table = self.table
-        field = self.field
-        relative = self.relative
+        fileName = self.fileName
         accept = self.accept
         caption = self.caption
         show = self.show
 
-        title = f&#34;click to upload a {caption}&#34;
-
         recordId = record._id
 
-        fid = f&#34;{table}/{recordId}/{field}&#34;
+        fileNameRep = &#34;-&#34; if fileName is None else fileName
+        fid = f&#34;{recordId}/{key}/{fileNameRep}&#34;
 
-        path = self.getPath(record)
-        if path is None:
-            Messages.warning(
-                logmsg=f&#34;Wrong file path for upload {key} based on relative {relative}&#34;,
-                msg=&#34;The location for this file cannot be determined&#34;,
+        path = self.getDir(record)
+        sep = &#34;/&#34; if path else &#34;&#34;
+        fullDir = f&#34;{workingDir}{sep}{path}&#34;
+        saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
+        deleteUrl = f&#34;/deletefile/{fid}{sep}{path}&#34;.rstrip(&#34;/&#34;) + &#34;/&#34;
+
+        if fileName is None:
+            content = []
+            for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
+                buster = (
+                    f&#34;?v={now()}&#34;
+                    if show and bust is not None and bust == fileNm
+                    else &#34;&#34;
+                )
+                item = [fileNm, f&#34;/data/{path}{fileNm}{buster}&#34; if show else None]
+                content.append(item)
+        else:
+            buster = (
+                f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
+            )
+            fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+            exists = fileExists(fullPath)
+            content = (
+                fileName,
+                exists,
+                f&#34;/data/{path}{fileName}{buster}&#34; if show else None,
             )
 
-        if show:
-            staticUrl = f&#34;/data/{path}{fileName}&#34;
-            img = H.img(staticUrl, fid=fid)
-        else:
-            img = &#34;&#34;
-
-        visual = img or H.span(fileName, cls=&#34;fieldinner&#34;)
-
-        if not mayChange:
-            return visual
-
-        sep = &#34;/&#34; if path else &#34;&#34;
-        saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
-
-        return H.content(
-            visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+        return H.finput(
+            content,
+            accept,
+            mayChange,
+            saveUrl,
+            deleteUrl,
+            caption,
+            wrapped=wrapped,
+            buttonCls=&#34;button small&#34;,
+            cls=f&#34;{key.lower()}&#34;,
         )</code></pre>
 </details>
 <h3>Instance variables</h3>
@@ -1820,24 +2991,25 @@ should be present: <code>table</code>, <code>field</code> and <code>relative</co
 <dd>
 <div class="desc"><p>The text to display on the upload button.</p></div>
 </dd>
-<dt id="control.datamodel.Upload.field"><code class="name">var <span class="ident">field</span></code></dt>
+<dt id="control.datamodel.Upload.fileName"><code class="name">var <span class="ident">fileName</span></code></dt>
 <dd>
-<div class="desc"><p>The field in which the file name should be placed.</p></div>
+<div class="desc"><p>The name of the file once it is uploaded.</p>
+<p>The file name for the upload can be passed when the file name
+is known in advance.
+In that case, a file that is uploaded in this upload widget,
+will get this as prescribed file name, regardless of the file name in the
+upload request.</p>
+<p>Without a file name, the upload widget will show all existing files
+conforming to the <code>accept</code> setting, and will have a control to upload a
+new file.</p></div>
 </dd>
 <dt id="control.datamodel.Upload.key"><code class="name">var <span class="ident">key</span></code></dt>
 <dd>
 <div class="desc"><p>The identifier of this upload within the app.</p></div>
 </dd>
-<dt id="control.datamodel.Upload.relative"><code class="name">var <span class="ident">relative</span></code></dt>
+<dt id="control.datamodel.Upload.multiple"><code class="name">var <span class="ident">multiple</span></code></dt>
 <dd>
-<div class="desc"><p>Indicates the directory where the actual file will be saved.</p>
-<p>Possibe values:</p>
-<ul>
-<li><code>site</code>: top level of the working data directory of the site</li>
-<li><code>project</code>: project directory of the project in question</li>
-<li><code>edition</code>: edition directory of the project in question</li>
-</ul>
-<p>If left out, the value will be derived from <code>table</code>.</p></div>
+<div class="desc"><p>Whether multiple files of this type may be uploaded.</p></div>
 </dd>
 <dt id="control.datamodel.Upload.show"><code class="name">var <span class="ident">show</span></code></dt>
 <dd>
@@ -1847,175 +3019,179 @@ as a logo.</p></div>
 </dd>
 <dt id="control.datamodel.Upload.table"><code class="name">var <span class="ident">table</span></code></dt>
 <dd>
-<div class="desc"><p>The table in which the file name should be placed.</p></div>
+<div class="desc"><p>Indicates the directory where the actual file will be saved.</p>
+<p>Possibe values:</p>
+<ul>
+<li><code>site</code>: top level of the working data directory of the site</li>
+<li><code>project</code>: project directory of the project in question</li>
+<li><code>edition</code>: edition directory of the project in question</li>
+</ul></div>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="control.datamodel.Upload.bare"><code class="name flex">
-<span>def <span class="ident">bare</span></span>(<span>self, record)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Give the bare file name as stored in a record in MongoDb.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code></dt>
-<dd>The record in which the file name is stored.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string:</code></dt>
-<dd>Whatever the value is that we find.
-If the field is not present, returns None, without warning.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L492-L508" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def bare(self, record):
-    &#34;&#34;&#34;Give the bare file name as stored in a record in MongoDb.
-
-    Parameters
-    ----------
-    record: AttrDict
-        The record in which the file name is stored.
-
-    Returns
-    -------
-    string:
-        Whatever the value is that we find.
-        If the field is not present, returns None, without warning.
-    &#34;&#34;&#34;
-    field = self.field
-
-    return record[field]</code></pre>
-</details>
-</dd>
 <dt id="control.datamodel.Upload.formatted"><code class="name flex">
-<span>def <span class="ident">formatted</span></span>(<span>self, record, mayChange=False)</span>
+<span>def <span class="ident">formatted</span></span>(<span>self, record, mayChange=False, bust=None, wrapped=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Give the formatted value of a file field in a record.</p>
 <p>Optionally also puts an upload control.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code> or <code>dict</code></dt>
-<dd>The record in which the field value is stored.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The record relevant to the upload</dd>
 <dt><strong><code>mayChange</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>Whether the file may be changed.
 If so, an upload widget is supplied, wich contains a a delete button.</dd>
+<dt><strong><code>bust</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If not None, the image url of the file whose name is passed in
+<code>bust</code> is made unique by adding the current time to it.
+This is a cache buster.</dd>
+<dt><strong><code>wrapped</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>Whether the content should be wrapped in a container element.
+See <code><a title="control.html.HtmlElements.finput" href="html.html#control.html.HtmlElements.finput">HtmlElements.finput()</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>string:</code></dt>
-<dd>Whatever the value is that we find for that field, converted to HTML.
-If the field is not present, returns the empty string, without warning.</dd>
+<dt><code>string</code></dt>
+<dd>The name of the uploaded file(s) and/or an upload control.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L537-L598" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L846-L924" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def formatted(self, record, mayChange=False):
+<pre><code class="python">def formatted(self, record, mayChange=False, bust=None, wrapped=True):
     &#34;&#34;&#34;Give the formatted value of a file field in a record.
 
     Optionally also puts an upload control.
 
     Parameters
     ----------
-    record: AttrDict or dict
-        The record in which the field value is stored.
+    record: string | ObjectId | AttrDict
+        The record relevant to the upload
     mayChange: boolean, optional False
         Whether the file may be changed.
         If so, an upload widget is supplied, wich contains a a delete button.
+    bust: string, optional None
+        If not None, the image url of the file whose name is passed in
+        `bust` is made unique by adding the current time to it.
+        This is a cache buster.
+    wrapped: boolean, optional True
+        Whether the content should be wrapped in a container element.
+        See `control.html.HtmlElements.finput()`.
 
     Returns
     -------
-    string:
-        Whatever the value is that we find for that field, converted to HTML.
-        If the field is not present, returns the empty string, without warning.
+    string
+        The name of the uploaded file(s) and/or an upload control.
     &#34;&#34;&#34;
-
-    fileName = self.bare(record)
-
-    Messages = self.Messages
+    Settings = self.Settings
+    H = Settings.H
+    workingDir = Settings.workingDir
 
     key = self.key
-    table = self.table
-    field = self.field
-    relative = self.relative
+    fileName = self.fileName
     accept = self.accept
     caption = self.caption
     show = self.show
 
-    title = f&#34;click to upload a {caption}&#34;
-
     recordId = record._id
 
-    fid = f&#34;{table}/{recordId}/{field}&#34;
+    fileNameRep = &#34;-&#34; if fileName is None else fileName
+    fid = f&#34;{recordId}/{key}/{fileNameRep}&#34;
 
-    path = self.getPath(record)
-    if path is None:
-        Messages.warning(
-            logmsg=f&#34;Wrong file path for upload {key} based on relative {relative}&#34;,
-            msg=&#34;The location for this file cannot be determined&#34;,
+    path = self.getDir(record)
+    sep = &#34;/&#34; if path else &#34;&#34;
+    fullDir = f&#34;{workingDir}{sep}{path}&#34;
+    saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
+    deleteUrl = f&#34;/deletefile/{fid}{sep}{path}&#34;.rstrip(&#34;/&#34;) + &#34;/&#34;
+
+    if fileName is None:
+        content = []
+        for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
+            buster = (
+                f&#34;?v={now()}&#34;
+                if show and bust is not None and bust == fileNm
+                else &#34;&#34;
+            )
+            item = [fileNm, f&#34;/data/{path}{fileNm}{buster}&#34; if show else None]
+            content.append(item)
+    else:
+        buster = (
+            f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
+        )
+        fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+        exists = fileExists(fullPath)
+        content = (
+            fileName,
+            exists,
+            f&#34;/data/{path}{fileName}{buster}&#34; if show else None,
         )
 
-    if show:
-        staticUrl = f&#34;/data/{path}{fileName}&#34;
-        img = H.img(staticUrl, fid=fid)
-    else:
-        img = &#34;&#34;
-
-    visual = img or H.span(fileName, cls=&#34;fieldinner&#34;)
-
-    if not mayChange:
-        return visual
-
-    sep = &#34;/&#34; if path else &#34;&#34;
-    saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
-
-    return H.content(
-        visual, H.finput(fileName, accept, saveUrl, show=show, fid=fid, title=title)
+    return H.finput(
+        content,
+        accept,
+        mayChange,
+        saveUrl,
+        deleteUrl,
+        caption,
+        wrapped=wrapped,
+        buttonCls=&#34;button small&#34;,
+        cls=f&#34;{key.lower()}&#34;,
     )</code></pre>
 </details>
 </dd>
-<dt id="control.datamodel.Upload.getPath"><code class="name flex">
-<span>def <span class="ident">getPath</span></span>(<span>self, record)</span>
+<dt id="control.datamodel.Upload.getDir"><code class="name flex">
+<span>def <span class="ident">getDir</span></span>(<span>self, record)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Give the path to the file in question.</p>
 <p>The path can be used to build the static url and the save url.</p>
 <p>It does not contain the file name.
-If the path is non-empty, a "/" will be appended.</p></div>
+If the path is non-empty, a "/" will be appended.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The record relevant to the upload</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/datamodel.py#L510-L535" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/datamodel.py#L809-L844" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getPath(self, record):
+<pre><code class="python">def getDir(self, record):
     &#34;&#34;&#34;Give the path to the file in question.
 
     The path can be used to build the static url and the save url.
 
     It does not contain the file name.
     If the path is non-empty, a &#34;/&#34; will be appended.
+
+    Parameters
+    ----------
+    record: string | ObjectId | AttrDict
+        The record relevant to the upload
     &#34;&#34;&#34;
     table = self.table
-    relative = self.relative
-
     recordId = record._id
-    projectId = recordId if table == &#34;projects&#34; else record.projectId
-    editionId = recordId if table == &#34;editions&#34; else record.editionId
+
+    projectId = (
+        recordId
+        if table == &#34;project&#34;
+        else record.projectId
+        if table == &#34;edition&#34;
+        else None
+    )
+    editionId = recordId if table == &#34;edition&#34; else None
 
     path = (
         &#34;&#34;
-        if relative == &#34;site&#34;
-        else f&#34;projects/{projectId}&#34;
-        if relative == &#34;project&#34;
-        else f&#34;projects/{projectId}/editions/{editionId}&#34;
-        if relative == &#34;edition&#34;
+        if table == &#34;site&#34;
+        else f&#34;project/{projectId}&#34;
+        if table == &#34;project&#34;
+        else f&#34;project/{projectId}/edition/{editionId}&#34;
+        if table == &#34;edition&#34;
         else None
     )
     sep = &#34;/&#34; if path else &#34;&#34;
@@ -2089,15 +3265,22 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="control.datamodel.Datamodel" href="#control.datamodel.Datamodel">Datamodel</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="control.datamodel.Datamodel.actionButton" href="#control.datamodel.Datamodel.actionButton">actionButton</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.context" href="#control.datamodel.Datamodel.context">context</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getDetailRecords" href="#control.datamodel.Datamodel.getDetailRecords">getDetailRecords</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getFieldObject" href="#control.datamodel.Datamodel.getFieldObject">getFieldObject</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getUploadConfig" href="#control.datamodel.Datamodel.getUploadConfig">getUploadConfig</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getUploadObject" href="#control.datamodel.Datamodel.getUploadObject">getUploadObject</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeField" href="#control.datamodel.Datamodel.makeField">makeField</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeUpload" href="#control.datamodel.Datamodel.makeUpload">makeUpload</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.relevant" href="#control.datamodel.Datamodel.relevant">relevant</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="control.datamodel.Field" href="#control.datamodel.Field">Field</a></code></h4>
 <ul class="two-column">
+<li><code><a title="control.datamodel.Field.actionButtonClient" href="#control.datamodel.Field.actionButtonClient">actionButtonClient</a></code></li>
 <li><code><a title="control.datamodel.Field.bare" href="#control.datamodel.Field.bare">bare</a></code></li>
 <li><code><a title="control.datamodel.Field.caption" href="#control.datamodel.Field.caption">caption</a></code></li>
 <li><code><a title="control.datamodel.Field.fieldPath" href="#control.datamodel.Field.fieldPath">fieldPath</a></code></li>
@@ -2112,13 +3295,12 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.datamodel.Upload" href="#control.datamodel.Upload">Upload</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.datamodel.Upload.accept" href="#control.datamodel.Upload.accept">accept</a></code></li>
-<li><code><a title="control.datamodel.Upload.bare" href="#control.datamodel.Upload.bare">bare</a></code></li>
 <li><code><a title="control.datamodel.Upload.caption" href="#control.datamodel.Upload.caption">caption</a></code></li>
-<li><code><a title="control.datamodel.Upload.field" href="#control.datamodel.Upload.field">field</a></code></li>
+<li><code><a title="control.datamodel.Upload.fileName" href="#control.datamodel.Upload.fileName">fileName</a></code></li>
 <li><code><a title="control.datamodel.Upload.formatted" href="#control.datamodel.Upload.formatted">formatted</a></code></li>
-<li><code><a title="control.datamodel.Upload.getPath" href="#control.datamodel.Upload.getPath">getPath</a></code></li>
+<li><code><a title="control.datamodel.Upload.getDir" href="#control.datamodel.Upload.getDir">getDir</a></code></li>
 <li><code><a title="control.datamodel.Upload.key" href="#control.datamodel.Upload.key">key</a></code></li>
-<li><code><a title="control.datamodel.Upload.relative" href="#control.datamodel.Upload.relative">relative</a></code></li>
+<li><code><a title="control.datamodel.Upload.multiple" href="#control.datamodel.Upload.multiple">multiple</a></code></li>
 <li><code><a title="control.datamodel.Upload.show" href="#control.datamodel.Upload.show">show</a></code></li>
 <li><code><a title="control.datamodel.Upload.table" href="#control.datamodel.Upload.table">table</a></code></li>
 </ul>

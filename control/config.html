@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L1-L458" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L1-L440" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
@@ -34,7 +34,7 @@ from subprocess import check_output
 from control.generic import AttrDict
 from control.files import dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
-from control.html import HtmlElements as H
+from control.html import HtmlElements
 
 
 class Config:
@@ -62,7 +62,9 @@ class Config:
         Messages.debugAdd(self)
         Messages.info(logmsg=&#34;CONFIG INIT&#34;)
         self.good = True
-        self.Settings = AttrDict()
+        Settings = AttrDict()
+        Settings.H = HtmlElements(Settings, Messages)
+        self.Settings = Settings
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
@@ -144,6 +146,7 @@ class Config:
         of the git repo that the running code is in.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
         repoDir = Settings.repoDir
 
         (long, short) = tuple(
@@ -335,15 +338,12 @@ class Config:
             self.good = False
             return
 
-        datamodelConfig = AttrDict()
-        Settings.datamodel = datamodelConfig
+        masterDetail = AttrDict()
+        for (detail, master) in datamodel.detailMaster.items():
+            masterDetail[master] = detail
+        datamodel.masterDetail = masterDetail
 
-        for (k, vDict) in datamodel.items():
-            v = AttrDict()
-            for (m, w) in vDict.items():
-                v[m] = AttrDict(w) if type(w) is dict else w
-
-            datamodelConfig[k] = v
+        Settings.datamodel = datamodel
 
     def checkAuth(self):
         &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
@@ -359,11 +359,14 @@ class Config:
             self.good = False
             return
 
-        auth = AttrDict()
-        Settings.auth = auth
+        Settings.auth = authData
 
-        for (k, v) in authData.items():
-            auth[k] = v
+        tableFromRole = AttrDict()
+        for (table, roles) in authData.roles.items():
+            for role in roles:
+                tableFromRole[role] = table
+
+        Settings.auth.tableFromRole = tableFromRole
 
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
@@ -391,13 +394,10 @@ class Config:
             self.good = False
             return
 
-        viewers = AttrDict()
-        viewerDefault = None
-
         viewerNames = listDirs(viewerDir)
 
         for viewerName in viewerNames:
-            if viewerName not in viewerSettings:
+            if viewerName not in viewerSettings.viewers:
                 Messages.warning(
                     logmsg=(
                         f&#34;Skipping viewer {viewerName}&#34;
@@ -405,13 +405,7 @@ class Config:
                     )
                 )
                 continue
-            viewerConfig = AttrDict(viewerSettings[viewerName])
-            viewerConfig.modes = AttrDict(
-                {
-                    action: AttrDict(actionInfo)
-                    for (action, actionInfo) in viewerConfig.modes.items()
-                }
-            )
+            viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
             versions = []
 
@@ -422,32 +416,8 @@ class Config:
 
             viewerConfig.versions = versions
 
-            default = viewerConfig.default
-            del viewerConfig[&#34;default&#34;]
-
-            if default:
-                if viewerDefault is not None:
-                    Messages.warning(
-                        logmsg=(
-                            f&#34;default viewer declaration {viewerName} overrides&#34;
-                            f&#34; previously declared default {viewerDefault}&#34;
-                        )
-                    )
-                viewerDefault = viewerName
-
-            viewers[viewerName] = viewerConfig
-        if viewerDefault is None:
-            Messages.error(
-                logmsg=(
-                    f&#34;None of the viewers is declared as default viewer&#34;
-                    f&#34; in {viewerSettingsFile}&#34;
-                )
-            )
-            self.good = False
-            return
-
-        Settings.viewerDefault = viewerDefault
-        Settings.viewers = viewers
+        Settings.viewers = viewerSettings.viewers
+        Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):
         &#34;&#34;&#34;Sets a banner for all pages.
@@ -462,6 +432,8 @@ class Config:
             `Settings` object.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
+        Messages = self.Messages
         wip = var(&#34;devstatus&#34;)
 
         banner = &#34;&#34;
@@ -477,13 +449,23 @@ class Config:
                     &#34;&#34;&#34;
                 )
             )
-            resetLink = H.a(
+            resetDataLink = H.a(
                 &#34;reset data&#34;,
                 &#34;/collect&#34;,
                 title=&#34;reset data to initial state&#34;,
                 cls=&#34;small&#34;,
+                **Messages.client(
+                    &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
+                ),
             )
-            banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+            issueLink = H.a(
+                &#34;issues&#34;,
+                &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
+                title=&#34;go to the issues on GitHub&#34;,
+                cls=&#34;large&#34;,
+                target=&#34;_blank&#34;,
+            )
+            banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
 
         Settings.banner = banner</code></pre>
 </details>
@@ -523,7 +505,7 @@ and no webserving will take place.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L10-L458" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L10-L440" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     def __init__(self, Messages):
@@ -550,7 +532,9 @@ and no webserving will take place.</p>
         Messages.debugAdd(self)
         Messages.info(logmsg=&#34;CONFIG INIT&#34;)
         self.good = True
-        self.Settings = AttrDict()
+        Settings = AttrDict()
+        Settings.H = HtmlElements(Settings, Messages)
+        self.Settings = Settings
         &#34;&#34;&#34;The actual configuration settings are stored here.
         &#34;&#34;&#34;
 
@@ -632,6 +616,7 @@ and no webserving will take place.</p>
         of the git repo that the running code is in.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
         repoDir = Settings.repoDir
 
         (long, short) = tuple(
@@ -823,15 +808,12 @@ and no webserving will take place.</p>
             self.good = False
             return
 
-        datamodelConfig = AttrDict()
-        Settings.datamodel = datamodelConfig
+        masterDetail = AttrDict()
+        for (detail, master) in datamodel.detailMaster.items():
+            masterDetail[master] = detail
+        datamodel.masterDetail = masterDetail
 
-        for (k, vDict) in datamodel.items():
-            v = AttrDict()
-            for (m, w) in vDict.items():
-                v[m] = AttrDict(w) if type(w) is dict else w
-
-            datamodelConfig[k] = v
+        Settings.datamodel = datamodel
 
     def checkAuth(self):
         &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
@@ -847,11 +829,14 @@ and no webserving will take place.</p>
             self.good = False
             return
 
-        auth = AttrDict()
-        Settings.auth = auth
+        Settings.auth = authData
 
-        for (k, v) in authData.items():
-            auth[k] = v
+        tableFromRole = AttrDict()
+        for (table, roles) in authData.roles.items():
+            for role in roles:
+                tableFromRole[role] = table
+
+        Settings.auth.tableFromRole = tableFromRole
 
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
@@ -879,13 +864,10 @@ and no webserving will take place.</p>
             self.good = False
             return
 
-        viewers = AttrDict()
-        viewerDefault = None
-
         viewerNames = listDirs(viewerDir)
 
         for viewerName in viewerNames:
-            if viewerName not in viewerSettings:
+            if viewerName not in viewerSettings.viewers:
                 Messages.warning(
                     logmsg=(
                         f&#34;Skipping viewer {viewerName}&#34;
@@ -893,13 +875,7 @@ and no webserving will take place.</p>
                     )
                 )
                 continue
-            viewerConfig = AttrDict(viewerSettings[viewerName])
-            viewerConfig.modes = AttrDict(
-                {
-                    action: AttrDict(actionInfo)
-                    for (action, actionInfo) in viewerConfig.modes.items()
-                }
-            )
+            viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
             versions = []
 
@@ -910,32 +886,8 @@ and no webserving will take place.</p>
 
             viewerConfig.versions = versions
 
-            default = viewerConfig.default
-            del viewerConfig[&#34;default&#34;]
-
-            if default:
-                if viewerDefault is not None:
-                    Messages.warning(
-                        logmsg=(
-                            f&#34;default viewer declaration {viewerName} overrides&#34;
-                            f&#34; previously declared default {viewerDefault}&#34;
-                        )
-                    )
-                viewerDefault = viewerName
-
-            viewers[viewerName] = viewerConfig
-        if viewerDefault is None:
-            Messages.error(
-                logmsg=(
-                    f&#34;None of the viewers is declared as default viewer&#34;
-                    f&#34; in {viewerSettingsFile}&#34;
-                )
-            )
-            self.good = False
-            return
-
-        Settings.viewerDefault = viewerDefault
-        Settings.viewers = viewers
+        Settings.viewers = viewerSettings.viewers
+        Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):
         &#34;&#34;&#34;Sets a banner for all pages.
@@ -950,6 +902,8 @@ and no webserving will take place.</p>
             `Settings` object.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
+        Messages = self.Messages
         wip = var(&#34;devstatus&#34;)
 
         banner = &#34;&#34;
@@ -965,13 +919,23 @@ and no webserving will take place.</p>
                     &#34;&#34;&#34;
                 )
             )
-            resetLink = H.a(
+            resetDataLink = H.a(
                 &#34;reset data&#34;,
                 &#34;/collect&#34;,
                 title=&#34;reset data to initial state&#34;,
                 cls=&#34;small&#34;,
+                **Messages.client(
+                    &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
+                ),
             )
-            banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+            issueLink = H.a(
+                &#34;issues&#34;,
+                &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
+                title=&#34;go to the issues on GitHub&#34;,
+                cls=&#34;large&#34;,
+                target=&#34;_blank&#34;,
+            )
+            banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
 
         Settings.banner = banner</code></pre>
 </details>
@@ -992,7 +956,7 @@ and no webserving will take place.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L318-L336" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L318-L339" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
     &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
@@ -1008,11 +972,14 @@ and no webserving will take place.</p>
         self.good = False
         return
 
-    auth = AttrDict()
-    Settings.auth = auth
+    Settings.auth = authData
 
-    for (k, v) in authData.items():
-        auth[k] = v</code></pre>
+    tableFromRole = AttrDict()
+    for (table, roles) in authData.roles.items():
+        for role in roles:
+            tableFromRole[role] = table
+
+    Settings.auth.tableFromRole = tableFromRole</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkBanner"><code class="name flex">
@@ -1031,7 +998,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L422-L458" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L392-L440" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkBanner(self):
     &#34;&#34;&#34;Sets a banner for all pages.
@@ -1046,6 +1013,8 @@ in progress.</p>
         `Settings` object.
     &#34;&#34;&#34;
     Settings = self.Settings
+    H = Settings.H
+    Messages = self.Messages
     wip = var(&#34;devstatus&#34;)
 
     banner = &#34;&#34;
@@ -1061,13 +1030,23 @@ in progress.</p>
                 &#34;&#34;&#34;
             )
         )
-        resetLink = H.a(
+        resetDataLink = H.a(
             &#34;reset data&#34;,
             &#34;/collect&#34;,
             title=&#34;reset data to initial state&#34;,
             cls=&#34;small&#34;,
+            **Messages.client(
+                &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
+            ),
         )
-        banner = H.div([content, resetLink], id=&#34;statusbanner&#34;)
+        issueLink = H.a(
+            &#34;issues&#34;,
+            &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
+            title=&#34;go to the issues on GitHub&#34;,
+            cls=&#34;large&#34;,
+            target=&#34;_blank&#34;,
+        )
+        banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
 
     Settings.banner = banner</code></pre>
 </details>
@@ -1080,7 +1059,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L166-L190" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L169-L193" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
     &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
@@ -1137,7 +1116,7 @@ on the interface.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L263-L316" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L266-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkDatamodel(self):
     &#34;&#34;&#34;Read the yaml file with table and field settings.
@@ -1184,15 +1163,12 @@ on the interface.</p></div>
         self.good = False
         return
 
-    datamodelConfig = AttrDict()
-    Settings.datamodel = datamodelConfig
+    masterDetail = AttrDict()
+    for (detail, master) in datamodel.detailMaster.items():
+        masterDetail[master] = detail
+    datamodel.masterDetail = masterDetail
 
-    for (k, vDict) in datamodel.items():
-        v = AttrDict()
-        for (m, w) in vDict.items():
-            v[m] = AttrDict(w) if type(w) is dict else w
-
-        datamodelConfig[k] = v</code></pre>
+    Settings.datamodel = datamodel</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkEnv"><code class="name flex">
@@ -1205,7 +1181,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L45-L67" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L47-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkEnv(self):
     &#34;&#34;&#34;Collect the relevant information.
@@ -1240,7 +1216,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L192-L222" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L195-L225" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
     &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
@@ -1285,7 +1261,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L224-L245" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L227-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -1319,7 +1295,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L69-L96" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L71-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
     &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
@@ -1361,7 +1337,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L133-L164" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L136-L167" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     &#34;&#34;&#34;Obtain a secret.
@@ -1405,7 +1381,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L247-L261" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L250-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
     &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
@@ -1434,7 +1410,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L110-L131" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L112-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     &#34;&#34;&#34;Get the current version of the pure3d app.
@@ -1443,6 +1419,7 @@ of the git repo that the running code is in.</p></div>
     of the git repo that the running code is in.
     &#34;&#34;&#34;
     Settings = self.Settings
+    H = Settings.H
     repoDir = Settings.repoDir
 
     (long, short) = tuple(
@@ -1468,7 +1445,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L338-L420" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L341-L390" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
     &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
@@ -1496,13 +1473,10 @@ of the git repo that the running code is in.</p></div>
         self.good = False
         return
 
-    viewers = AttrDict()
-    viewerDefault = None
-
     viewerNames = listDirs(viewerDir)
 
     for viewerName in viewerNames:
-        if viewerName not in viewerSettings:
+        if viewerName not in viewerSettings.viewers:
             Messages.warning(
                 logmsg=(
                     f&#34;Skipping viewer {viewerName}&#34;
@@ -1510,13 +1484,7 @@ of the git repo that the running code is in.</p></div>
                 )
             )
             continue
-        viewerConfig = AttrDict(viewerSettings[viewerName])
-        viewerConfig.modes = AttrDict(
-            {
-                action: AttrDict(actionInfo)
-                for (action, actionInfo) in viewerConfig.modes.items()
-            }
-        )
+        viewerConfig = viewerSettings.viewers[viewerName]
         viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
         versions = []
 
@@ -1527,32 +1495,8 @@ of the git repo that the running code is in.</p></div>
 
         viewerConfig.versions = versions
 
-        default = viewerConfig.default
-        del viewerConfig[&#34;default&#34;]
-
-        if default:
-            if viewerDefault is not None:
-                Messages.warning(
-                    logmsg=(
-                        f&#34;default viewer declaration {viewerName} overrides&#34;
-                        f&#34; previously declared default {viewerDefault}&#34;
-                    )
-                )
-            viewerDefault = viewerName
-
-        viewers[viewerName] = viewerConfig
-    if viewerDefault is None:
-        Messages.error(
-            logmsg=(
-                f&#34;None of the viewers is declared as default viewer&#34;
-                f&#34; in {viewerSettingsFile}&#34;
-            )
-        )
-        self.good = False
-        return
-
-    Settings.viewerDefault = viewerDefault
-    Settings.viewers = viewers</code></pre>
+    Settings.viewers = viewerSettings.viewers
+    Settings.viewerDefault = viewerSettings.default</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkWebdav"><code class="name flex">
@@ -1565,7 +1509,7 @@ depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/config.py#L98-L108" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L100-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkWebdav(self):
     &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.

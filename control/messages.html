@@ -26,12 +26,10 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L1-L174" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L1-L211" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
-from control.flask import stop, flashMsg
-
-from control.html import HtmlElements as H
+from control.flask import appStop, flashMsg
 
 
 class Messages:
@@ -60,17 +58,24 @@ class Messages:
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
-        onFlask: boolean, optional True
-            If False, mo messages will be sent to the screen of the webuser,
-            instead those messages end up in the log.
-            This is useful in the initial processing that takes place
-            before the flask app is started.
         &#34;&#34;&#34;
         self.Settings = Settings
-        self.onFlask = onFlask
+        self.onFlask = False
+        &#34;&#34;&#34;Whether the webserver is running.
+
+        If False, mo messages will be sent to the screen of the webuser,
+        instead those messages end up in the log.
+        This is useful in the initial processing that takes place
+        before the flask app is started.
+        &#34;&#34;&#34;
+
+    def setFlask(self):
+        &#34;&#34;&#34;Enables messaging to the web interface.
+        &#34;&#34;&#34;
+        self.onFlask = True
 
     def debugAdd(self, dest):
         &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -107,12 +112,12 @@ class Messages:
         &#34;&#34;&#34;
         self.message(&#34;debug&#34;, msg=msg, logmsg=logmsg)
 
-    def error(self, msg=None, logmsg=None):
+    def error(self, msg=None, logmsg=None, stop=True):
         &#34;&#34;&#34;Issue an error message.
 
         See `Messages.message()`
         &#34;&#34;&#34;
-        self.message(&#34;error&#34;, msg=msg, logmsg=logmsg)
+        self.message(&#34;error&#34;, msg=msg, logmsg=logmsg, stop=stop)
 
     def warning(self, msg=None, logmsg=None):
         &#34;&#34;&#34;Issue a warning message.
@@ -135,10 +140,16 @@ class Messages:
         &#34;&#34;&#34;
         self.message(&#34;plain&#34;, msg=msg, logmsg=logmsg)
 
-    def message(self, tp, msg, logmsg):
+    def message(self, tp, msg, logmsg, stop=True):
         &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
 
         It can issue log messages and screen messages.
+
+        Messages passed in `msg` go to the web interface, the ones
+        passed in `logmsg` go to the log.
+
+        If there is not yet a web interface, `msg` messages are suppressed if there
+        is also a `logmsg`, otherwise they will be directed to the log as well.
 
         Parameters
         ----------
@@ -169,26 +180,34 @@ class Messages:
               Log messages go to standard error.
               It also raises an exception, which will lead
               to a 404 response (if flask is running, that is).
+              But this stopping can be prevented by passing
+              `stop=False`.
 
-        msg: string, optional None
+        msg: string | void
             If not None, it is the contents of a screen message.
-            Ths happens by the built-in `flash` method of Flask.
-        logmsg: string, optional None
+            This happens by the built-in `flash` method of Flask.
+        logmsg: string | void
             If not None, it is the contents of a log message.
+        stop: boolean, optional True
+            If False, an error message will not lead to a stop.
+
         &#34;&#34;&#34;
         Settings = self.Settings
+        onFlask = self.onFlask
 
         stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
         label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
 
-        if Settings is None:
-            if msg is not None:
+        if not onFlask:
+            if msg is not None and logmsg is None:
                 stream.write(f&#34;{label}{msg}\n&#34;)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
             stream.flush()
         else:
             debugMode = Settings.debugMode
+            H = Settings.H
+
             if tp == &#34;debug&#34; and not debugMode:
                 return
 
@@ -200,8 +219,26 @@ class Messages:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
                 stream.flush()
 
-            if tp == &#34;error&#34; and self.onFlask:
-                stop()</code></pre>
+            if tp == &#34;error&#34; and onFlask and stop:
+                appStop()
+
+    def client(self, tp, message, replace=False):
+        &#34;&#34;&#34;Adds javascript code whose execution displays a message.
+
+        Parameters
+        ----------
+        tp, msg: string, string
+            As in `message()`
+        replace: boolean, optional False
+            If True, clears all previous messages.
+
+        Returns
+        -------
+        dict
+            an onclick attribute that can be added to a link element.
+        &#34;&#34;&#34;
+        replace = &#34;true&#34; if replace else &#34;false&#34;
+        return dict(onclick=f&#34;addMsg(&#39;{tp}&#39;, &#39;{message}&#39;, {replace});&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -237,19 +274,14 @@ web user (not much) and what you send to the log (the gory details).</p>
 </div>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>Settings</code></strong> :&ensp;<code><a title="control.generic.AttrDict" href="generic.html#control.generic.AttrDict">AttrDict</a></code></dt>
+<dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
-<dt><strong><code>onFlask</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
-<dd>If False, mo messages will be sent to the screen of the webuser,
-instead those messages end up in the log.
-This is useful in the initial processing that takes place
-before the flask app is started.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L7-L174" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L5-L211" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Messages:
     def __init__(self, Settings, onFlask=True):
@@ -277,17 +309,24 @@ before the flask app is started.</dd>
 
         Parameters
         ----------
-        Settings: `control.generic.AttrDict`
+        Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
-        onFlask: boolean, optional True
-            If False, mo messages will be sent to the screen of the webuser,
-            instead those messages end up in the log.
-            This is useful in the initial processing that takes place
-            before the flask app is started.
         &#34;&#34;&#34;
         self.Settings = Settings
-        self.onFlask = onFlask
+        self.onFlask = False
+        &#34;&#34;&#34;Whether the webserver is running.
+
+        If False, mo messages will be sent to the screen of the webuser,
+        instead those messages end up in the log.
+        This is useful in the initial processing that takes place
+        before the flask app is started.
+        &#34;&#34;&#34;
+
+    def setFlask(self):
+        &#34;&#34;&#34;Enables messaging to the web interface.
+        &#34;&#34;&#34;
+        self.onFlask = True
 
     def debugAdd(self, dest):
         &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -324,12 +363,12 @@ before the flask app is started.</dd>
         &#34;&#34;&#34;
         self.message(&#34;debug&#34;, msg=msg, logmsg=logmsg)
 
-    def error(self, msg=None, logmsg=None):
+    def error(self, msg=None, logmsg=None, stop=True):
         &#34;&#34;&#34;Issue an error message.
 
         See `Messages.message()`
         &#34;&#34;&#34;
-        self.message(&#34;error&#34;, msg=msg, logmsg=logmsg)
+        self.message(&#34;error&#34;, msg=msg, logmsg=logmsg, stop=stop)
 
     def warning(self, msg=None, logmsg=None):
         &#34;&#34;&#34;Issue a warning message.
@@ -352,10 +391,16 @@ before the flask app is started.</dd>
         &#34;&#34;&#34;
         self.message(&#34;plain&#34;, msg=msg, logmsg=logmsg)
 
-    def message(self, tp, msg, logmsg):
+    def message(self, tp, msg, logmsg, stop=True):
         &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
 
         It can issue log messages and screen messages.
+
+        Messages passed in `msg` go to the web interface, the ones
+        passed in `logmsg` go to the log.
+
+        If there is not yet a web interface, `msg` messages are suppressed if there
+        is also a `logmsg`, otherwise they will be directed to the log as well.
 
         Parameters
         ----------
@@ -386,26 +431,34 @@ before the flask app is started.</dd>
               Log messages go to standard error.
               It also raises an exception, which will lead
               to a 404 response (if flask is running, that is).
+              But this stopping can be prevented by passing
+              `stop=False`.
 
-        msg: string, optional None
+        msg: string | void
             If not None, it is the contents of a screen message.
-            Ths happens by the built-in `flash` method of Flask.
-        logmsg: string, optional None
+            This happens by the built-in `flash` method of Flask.
+        logmsg: string | void
             If not None, it is the contents of a log message.
+        stop: boolean, optional True
+            If False, an error message will not lead to a stop.
+
         &#34;&#34;&#34;
         Settings = self.Settings
+        onFlask = self.onFlask
 
         stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
         label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
 
-        if Settings is None:
-            if msg is not None:
+        if not onFlask:
+            if msg is not None and logmsg is None:
                 stream.write(f&#34;{label}{msg}\n&#34;)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
             stream.flush()
         else:
             debugMode = Settings.debugMode
+            H = Settings.H
+
             if tp == &#34;debug&#34; and not debugMode:
                 return
 
@@ -417,11 +470,81 @@ before the flask app is started.</dd>
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
                 stream.flush()
 
-            if tp == &#34;error&#34; and self.onFlask:
-                stop()</code></pre>
+            if tp == &#34;error&#34; and onFlask and stop:
+                appStop()
+
+    def client(self, tp, message, replace=False):
+        &#34;&#34;&#34;Adds javascript code whose execution displays a message.
+
+        Parameters
+        ----------
+        tp, msg: string, string
+            As in `message()`
+        replace: boolean, optional False
+            If True, clears all previous messages.
+
+        Returns
+        -------
+        dict
+            an onclick attribute that can be added to a link element.
+        &#34;&#34;&#34;
+        replace = &#34;true&#34; if replace else &#34;false&#34;
+        return dict(onclick=f&#34;addMsg(&#39;{tp}&#39;, &#39;{message}&#39;, {replace});&#34;)</code></pre>
 </details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="control.messages.Messages.onFlask"><code class="name">var <span class="ident">onFlask</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the webserver is running.</p>
+<p>If False, mo messages will be sent to the screen of the webuser,
+instead those messages end up in the log.
+This is useful in the initial processing that takes place
+before the flask app is started.</p></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
+<dt id="control.messages.Messages.client"><code class="name flex">
+<span>def <span class="ident">client</span></span>(<span>self, tp, message, replace=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds javascript code whose execution displays a message.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>tp</code></strong>, <strong><code>msg</code></strong> :&ensp;<code>string, string</code></dt>
+<dd>As in <code>message()</code></dd>
+<dt><strong><code>replace</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, clears all previous messages.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>an onclick attribute that can be added to a link element.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L195-L211" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def client(self, tp, message, replace=False):
+    &#34;&#34;&#34;Adds javascript code whose execution displays a message.
+
+    Parameters
+    ----------
+    tp, msg: string, string
+        As in `message()`
+    replace: boolean, optional False
+        If True, clears all previous messages.
+
+    Returns
+    -------
+    dict
+        an onclick attribute that can be added to a link element.
+    &#34;&#34;&#34;
+    replace = &#34;true&#34; if replace else &#34;false&#34;
+    return dict(onclick=f&#34;addMsg(&#39;{tp}&#39;, &#39;{message}&#39;, {replace});&#34;)</code></pre>
+</details>
+</dd>
 <dt id="control.messages.Messages.debug"><code class="name flex">
 <span>def <span class="ident">debug</span></span>(<span>self, msg=None, logmsg=None)</span>
 </code></dt>
@@ -431,7 +554,7 @@ before the flask app is started.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L73-L78" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L78-L83" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def debug(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a debug message.
@@ -459,7 +582,7 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L45-L71" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L50-L76" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def debugAdd(self, dest):
     &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -491,7 +614,7 @@ to Messages, you issue the statement</p>
 </details>
 </dd>
 <dt id="control.messages.Messages.error"><code class="name flex">
-<span>def <span class="ident">error</span></span>(<span>self, msg=None, logmsg=None)</span>
+<span>def <span class="ident">error</span></span>(<span>self, msg=None, logmsg=None, stop=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Issue an error message.</p>
@@ -499,14 +622,14 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L80-L85" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L85-L90" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def error(self, msg=None, logmsg=None):
+<pre><code class="python">def error(self, msg=None, logmsg=None, stop=True):
     &#34;&#34;&#34;Issue an error message.
 
     See `Messages.message()`
     &#34;&#34;&#34;
-    self.message(&#34;error&#34;, msg=msg, logmsg=logmsg)</code></pre>
+    self.message(&#34;error&#34;, msg=msg, logmsg=logmsg, stop=stop)</code></pre>
 </details>
 </dd>
 <dt id="control.messages.Messages.info"><code class="name flex">
@@ -518,7 +641,7 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L94-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L99-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def info(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a informational message.
@@ -529,11 +652,15 @@ to Messages, you issue the statement</p>
 </details>
 </dd>
 <dt id="control.messages.Messages.message"><code class="name flex">
-<span>def <span class="ident">message</span></span>(<span>self, tp, msg, logmsg)</span>
+<span>def <span class="ident">message</span></span>(<span>self, tp, msg, logmsg, stop=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Workhorse to issue a message in a variety of ways.</p>
 <p>It can issue log messages and screen messages.</p>
+<p>Messages passed in <code>msg</code> go to the web interface, the ones
+passed in <code>logmsg</code> go to the log.</p>
+<p>If there is not yet a web interface, <code>msg</code> messages are suppressed if there
+is also a <code>logmsg</code>, otherwise they will be directed to the log as well.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>tp</code></strong> :&ensp;<code>string</code></dt>
@@ -568,25 +695,35 @@ Log messages go to standard error.</p>
 Messages are prepended with <code>ERROR:</code>.
 Log messages go to standard error.
 It also raises an exception, which will lead
-to a 404 response (if flask is running, that is).</p>
+to a 404 response (if flask is running, that is).
+But this stopping can be prevented by passing
+<code>stop=False</code>.</p>
 </li>
 </ul>
 </dd>
-<dt><strong><code>msg</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dt><strong><code>msg</code></strong> :&ensp;<code>string | void</code></dt>
 <dd>If not None, it is the contents of a screen message.
-Ths happens by the built-in <code>flash</code> method of Flask.</dd>
-<dt><strong><code>logmsg</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+This happens by the built-in <code>flash</code> method of Flask.</dd>
+<dt><strong><code>logmsg</code></strong> :&ensp;<code>string | void</code></dt>
 <dd>If not None, it is the contents of a log message.</dd>
+<dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>If False, an error message will not lead to a stop.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L108-L174" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L113-L193" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def message(self, tp, msg, logmsg):
+<pre><code class="python">def message(self, tp, msg, logmsg, stop=True):
     &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
 
     It can issue log messages and screen messages.
+
+    Messages passed in `msg` go to the web interface, the ones
+    passed in `logmsg` go to the log.
+
+    If there is not yet a web interface, `msg` messages are suppressed if there
+    is also a `logmsg`, otherwise they will be directed to the log as well.
 
     Parameters
     ----------
@@ -617,26 +754,34 @@ Ths happens by the built-in <code>flash</code> method of Flask.</dd>
           Log messages go to standard error.
           It also raises an exception, which will lead
           to a 404 response (if flask is running, that is).
+          But this stopping can be prevented by passing
+          `stop=False`.
 
-    msg: string, optional None
+    msg: string | void
         If not None, it is the contents of a screen message.
-        Ths happens by the built-in `flash` method of Flask.
-    logmsg: string, optional None
+        This happens by the built-in `flash` method of Flask.
+    logmsg: string | void
         If not None, it is the contents of a log message.
+    stop: boolean, optional True
+        If False, an error message will not lead to a stop.
+
     &#34;&#34;&#34;
     Settings = self.Settings
+    onFlask = self.onFlask
 
     stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
     label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
 
-    if Settings is None:
-        if msg is not None:
+    if not onFlask:
+        if msg is not None and logmsg is None:
             stream.write(f&#34;{label}{msg}\n&#34;)
         if logmsg is not None:
             stream.write(f&#34;{label}{logmsg}\n&#34;)
         stream.flush()
     else:
         debugMode = Settings.debugMode
+        H = Settings.H
+
         if tp == &#34;debug&#34; and not debugMode:
             return
 
@@ -648,8 +793,8 @@ Ths happens by the built-in <code>flash</code> method of Flask.</dd>
             stream.write(f&#34;{label}{logmsg}\n&#34;)
             stream.flush()
 
-        if tp == &#34;error&#34; and self.onFlask:
-            stop()</code></pre>
+        if tp == &#34;error&#34; and onFlask and stop:
+            appStop()</code></pre>
 </details>
 </dd>
 <dt id="control.messages.Messages.plain"><code class="name flex">
@@ -661,7 +806,7 @@ Ths happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L101-L106" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L106-L111" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plain(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a informational message, without bells and whistles.
@@ -669,6 +814,22 @@ Ths happens by the built-in <code>flash</code> method of Flask.</dd>
     See `Messages.message()`
     &#34;&#34;&#34;
     self.message(&#34;plain&#34;, msg=msg, logmsg=logmsg)</code></pre>
+</details>
+</dd>
+<dt id="control.messages.Messages.setFlask"><code class="name flex">
+<span>def <span class="ident">setFlask</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Enables messaging to the web interface.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L45-L48" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def setFlask(self):
+    &#34;&#34;&#34;Enables messaging to the web interface.
+    &#34;&#34;&#34;
+    self.onFlask = True</code></pre>
 </details>
 </dd>
 <dt id="control.messages.Messages.warning"><code class="name flex">
@@ -680,7 +841,7 @@ Ths happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/43bd2e150961ad81f2af6575b1c8f269a7e20738/src/pure3d/control/messages.py#L87-L92" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L92-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def warning(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a warning message.
@@ -758,12 +919,15 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.messages.Messages" href="#control.messages.Messages">Messages</a></code></h4>
 <ul class="two-column">
+<li><code><a title="control.messages.Messages.client" href="#control.messages.Messages.client">client</a></code></li>
 <li><code><a title="control.messages.Messages.debug" href="#control.messages.Messages.debug">debug</a></code></li>
 <li><code><a title="control.messages.Messages.debugAdd" href="#control.messages.Messages.debugAdd">debugAdd</a></code></li>
 <li><code><a title="control.messages.Messages.error" href="#control.messages.Messages.error">error</a></code></li>
 <li><code><a title="control.messages.Messages.info" href="#control.messages.Messages.info">info</a></code></li>
 <li><code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">message</a></code></li>
+<li><code><a title="control.messages.Messages.onFlask" href="#control.messages.Messages.onFlask">onFlask</a></code></li>
 <li><code><a title="control.messages.Messages.plain" href="#control.messages.Messages.plain">plain</a></code></li>
+<li><code><a title="control.messages.Messages.setFlask" href="#control.messages.Messages.setFlask">setFlask</a></code></li>
 <li><code><a title="control.messages.Messages.warning" href="#control.messages.Messages.warning">warning</a></code></li>
 </ul>
 </li>
