@@ -17,6 +17,34 @@ class Mywork:
         If the user has rights to modify the association
         between users and projects/editions, he will get
         the controls to do so.
+
+        Upon initialization the project/edition/user data will be read
+        and assembled in a form ready for generating html.
+
+        ## Overview of assembled data
+
+        ### projects
+
+        All project records in the system, keyed by id.
+        If a project has editions, the editions are
+        available under key `editions` as a dict of edition records keyed by id.
+        If a project has users, the users are
+        available under key `users` as a dict keyed by user id
+        and valued by the user records.
+
+        If an edition has users, the users are
+        available under key `users` as a dict keyed by role and then by user id
+        and valued by a tuple of the user record and the list of his roles.
+
+        ### users
+
+        All user records in the system, keyed by id.
+
+        ### myIds
+
+        All project and edition ids to which the current user has a relationship.
+        It is a dict with keys `project` and `edition` and the values are sets
+        of ids.
         """
         self.Content = Content
 
@@ -291,41 +319,19 @@ class Mywork:
         return frozenset()
 
     def wrap(self):
-        """Produce a list of projects and editions for root/admin usage.
+        """Produce a list of projects and editions and users for root/admin usage.
 
-        This overview shows all projects and editions
+        The first overview shows all projects and editions
         with their associated users and roles.
 
-        Only items that the user may read are shown.
+        Only items that are relevant to the user are shown.
 
         If the user is authorised to change associations between
         users and items, they will be editable.
 
-        ## Overview of data
+        The second overview is for admin/roots only.
+        It shows a list of users and their site-wide roles, which can be changed.
 
-        ### projects
-
-        All project records in the system, keyed by id.
-        If a project has editions, the editions are
-        available under key `editions` as a dict of edition
-        records keyed by id.
-        If a project has users, the users are
-        available under key `users` as a dict keyed by role and then by user id
-        and valued by the user records.
-
-        If an edition has users, the users are
-        available under key `users` as a dict keyed by role and then by user id
-        and valued by the user records.
-
-        ### users
-
-        All user records in the system, keyed by id.
-
-        ### myIds
-
-        All project and edition ids to which the current users as a relationship.
-        It is a dict with keys `project` and `edition` and the values are sets
-        of ids.
         """
         H = self.H
         user = self.user
@@ -372,20 +378,35 @@ class Mywork:
             wrapped.append(H.h(1, "Manage users"))
             wrapped.append(H.div(self.wrapUsers(siteRoles), cls="susers"))
 
-        return "".join(wrapped)
+        return H.div(wrapped, cls="myadmin")
 
-    def wrapProject(self, p, myOnly=True):
+    def wrapProject(self, project, myOnly=True):
+        """Generate HTML for a project in admin view.
+
+        Parameters
+        ----------
+        project: AttrDict
+            A project record
+        myOnly: boolean, optional False
+            Whether to show only the editions in the project that are associated
+            with the current user.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
         H = self.H
         myIds = self.myIds
         projectRoles = self.projectRoles
 
-        status = "public" if p.isVisible else "hidden"
-        statusCls = "public" if p.isVisible else "wip"
+        status = "public" if project.isVisible else "hidden"
+        statusCls = "public" if project.isVisible else "wip"
 
         theseEditions = sorted(
             (
                 e
-                for e in p.editions.values()
+                for e in project.editions.values()
                 if not myOnly or e._id in (myIds.edition or set())
             ),
             key=lambda x: (x.title, x._id),
@@ -395,12 +416,13 @@ class Mywork:
                 H.div(
                     [
                         H.div(status, cls=f"pestatus {statusCls}"),
-                        H.a(p.title, f"project/{p._id}", cls="ptitle"),
+                        H.a(project.title, f"project/{project._id}", cls="ptitle"),
                         H.div(
                             self.wrapUsers(
                                 projectRoles,
                                 table="project",
-                                record=p,
+                                record=project,
+                                multiple=True,
                             ),
                             cls="pusers",
                         ),
@@ -417,26 +439,70 @@ class Mywork:
             cls="pentry",
         )
 
-    def wrapEdition(self, e):
+    def wrapEdition(self, edition):
+        """Generate HTML for an edition in admin view.
+
+        Parameters
+        ----------
+        edition: AttrDict
+            An edition record
+
+        Returns
+        -------
+        string
+            The HTML
+        """
         H = self.H
         editionRoles = self.editionRoles
 
-        status = "published" if e.isPublished else "in progress"
-        statusCls = "published" if e.isPublished else "wip"
+        status = "published" if edition.isPublished else "in progress"
+        statusCls = "published" if edition.isPublished else "wip"
         return H.div(
             [
                 H.div(status, cls=f"pestatus {statusCls}"),
-                H.a(e.title, f"edition/{e._id}", cls="etitle"),
+                H.a(edition.title, f"edition/{edition._id}", cls="etitle"),
                 H.div(
-                    self.wrapUsers(editionRoles, table="edition", record=e),
+                    self.wrapUsers(
+                        editionRoles, table="edition", record=edition, multiple=True
+                    ),
                     cls="eusers",
                 ),
             ],
             cls="eentry",
         )
 
-    def wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
-        H = self.H
+    def wrapUsers(
+        self, itemRoles, table=None, record=None, theseUsers=None, multiple=False
+    ):
+        """Generate HTML for a list of users.
+
+        It is dependent on the value of table/record whether it is about the users
+        of a specific project/edition or the site-wide users.
+
+        Parameters
+        ----------
+        itemRoles: dict
+            Dictionary keyed by the possible roles and valued by the description
+            of that role.
+        table: string, optional None
+            Either `project` or `edition`, indicates what users we are listing:
+            related to a project or to an edition.
+        record: AttrDict, optional None
+            If `table` is passed and not None, here is the specific project or edition
+            whose users should be listed.
+        theseUsers: dict, optional None
+            If table/record is not specified, you can specify users here.
+            If this parameter is also None, then all users in the system are taken.
+            Otherwise you have to specify a dict, keyed by user eppns and valued by
+            tuples consisting of a user record and a list of roles.
+        multiple: boolean, optional False
+            Whether users can have multiple roles of this kind.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
         users = self.users
 
         if record is None:
@@ -456,45 +522,132 @@ class Mywork:
             theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
         ):
             otherRoles = self.authUser(u, table=table, record=record)
-            button = (
-                H.div(
-                    H.actionButton("edit_assign") if otherRoles else H.nbsp,
-                    cls="rolebutton",
-                ),
-            )
             wrapped.append(
-                H.div(
-                    [
-                        H.div(uRecord.nickname, cls="user"),
-                        H.div(
-                            [H.div(role, cls="role") for role in roles],
-                            cls="roles",
-                        ),
-                        button,
-                        H.div(
-                            [H.div(role, cls="role") for role in otherRoles],
-                            cls="roles",
-                        ),
-                    ],
-                    cls="userroles",
+                self.wrapUser(
+                    u,
+                    uRecord,
+                    roles,
+                    otherRoles,
+                    itemRoles,
+                    table,
+                    record._id if record else None,
+                    multiple,
                 )
             )
 
         return "".join(wrapped)
 
-    def wrapUser(self, u):
-        H = self.H
-        siteRoles = self.siteRoles
+    def wrapUser(
+        self, u, uRecord, roles, otherRoles, itemRoles, table, recordId, multiple
+    ):
+        """Generate HTML for a single user and his roles.
 
-        name = u.nickname
-        mail = u.email or "no email"
-        role = siteRoles[u.role]
+        Parameters
+        ----------
+        u: string
+            The eppn of the user.
+        uRecord: AttrDict
+            The user record.
+        roles: list
+            The actual roles of the user.
+        otherRoles: list
+            The other roles that the user may get from the current user.
+        itemRoles: dict
+            Dictionary keyed by the possible roles and valued by the description
+            of that role.
+        table: string
+            Either None or `project` or `edition`, indicates what users we
+            are listing: site-wide users or users related to a project or to an edition.
+        recordId: ObjectId or None
+            Either None or the id of a project or edition, corresponding to the
+            `table` parameter.
+        multiple: boolean
+            Whether users can have multiple roles of this kind.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
 
         return H.div(
             [
-                H.div(name, cls="user"),
-                H.div(mail, cls="email"),
-                H.div(role, cls="role"),
+                H.div(uRecord.nickname, cls="user"),
+                *self.wrapRoles(
+                    itemRoles, roles, otherRoles, table, recordId, multiple
+                ),
             ],
-            cls="udetails",
+            cls="userroles",
         )
+
+    def wrapRoles(self, itemRoles, roles, otherRoles, table, recordId, multiple):
+        """Generate HTML for a list of roles.
+
+        This may or may not be an editable widget, depending on whether there
+        are options to choose from.
+
+        Site-wide users have a single site-wide role. But project/edition users
+        can have multiple roles wrt projects/editions.
+
+        If multiple roles are allowed, you have to pass `multiple=True`.
+
+        Parameters
+        ----------
+        itemRoles: dict
+            Dictionary keyed by the possible roles and valued by the description
+            of that role.
+        roles: list
+            The actual roles that the user in question has.
+        otherRoles: list
+            The other roles that the user may get from the current user.
+        table: string
+            Either None or `project` or `edition`, indicates what users we
+            are listing: site-wide users or users related to a project or to an edition.
+        recordId: ObjectId or None
+            Either None or the id of a project or edition, corresponding to the
+            `table` parameter.
+        multiple: boolean
+            Whether users can have multiple roles of this kind.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+
+        actualRoles = H.div(
+            [H.div(itemRoles[role], cls="role") for role in roles], cls="roles"
+        )
+        editable = len(otherRoles) > 0 and not (
+            not multiple and len(otherRoles) == 1 and roles[0] == otherRoles[0]
+        )
+        if editable:
+            tablePart = f"{table}User" if table else "user"
+            recordPart = f"/{recordId}" if recordId else ""
+            saveUrl = f"/save/{tablePart}/{recordPart}"
+            updateButton = H.actionButton("edit_assign")
+            cancelButton = H.actionButton("edit_cancel")
+            saveButton = H.actionButton("edit_save")
+
+            widget = H.div(
+                [
+                    updateButton,
+                    cancelButton,
+                    saveButton,
+                    H.div(
+                        [
+                            H.div(itemRoles[role], cls="role button")
+                            for role in otherRoles
+                        ],
+                        cls="roles",
+                        multiple=multiple,
+                        saveurl=saveUrl,
+                    ),
+                ]
+            )
+        else:
+            widget = ""
+
+        return [actualRoles, widget]
