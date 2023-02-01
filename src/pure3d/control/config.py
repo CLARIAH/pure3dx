@@ -338,6 +338,9 @@ class Config:
 
         Settings.auth.tableFromRole = tableFromRole
 
+        rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+        Settings.auth.roleRank = lambda role: rank[role]
+
     def checkViewers(self):
         """Make an inventory of the supported 3D viewers."""
         Messages = self.Messages

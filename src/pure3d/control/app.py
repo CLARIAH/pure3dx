@@ -156,6 +156,18 @@ def appFactory(objects):
             givenFileName = None
         return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
+    @app.route(
+        "/save/roles/<string:user>/<string:multiple>/",
+        defaults=dict(table=None, record=None),
+        methods=["POST"],
+    )
+    @app.route(
+        "/save/roles/<string:user>/<string:multiple>/<string:table>/<string:record>/",
+        methods=["POST"],
+    )
+    def saveRoles(user, multiple, table, record):
+        return Content.saveRoles(user, multiple == "multiple", table, record)
+
     @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
     def saveValue(table, record, key):
         return Content.saveValue(table, record, key)

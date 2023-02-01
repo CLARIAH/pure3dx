@@ -110,6 +110,10 @@
     --role-back:                       hsla(240,  50%,  90%, 0.8);
     --role-border:                     hsla(240,  50%,  70%, 0.5);
 
+    --role-on-fore:                    hsla(240,  50%,  90%, 1  );
+    --role-on-back:                    hsla(240,   0%,   0%, 0.8);
+    --role-on-border:                  hsla(240,   0%,   0%, 0.5);
+
     --score-fore:                      hsla(120,  80%,  30%, 1  );
     --score-back:                      hsla(120, 100%,  98%, 1  );
     --score-border:                    hsla(120,  80%,  50%, 0.5);

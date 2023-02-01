@@ -285,6 +285,8 @@ class Content(Datamodel):
 
             * `status`: whether the save action was successful
             * `msgs`: messages issued during the process
+            * `readonly`: the html of the updated formatted value,
+              this will replace the currently displayed value.
         """
         Auth = self.Auth
         Mongo = self.Mongo
@@ -318,13 +320,52 @@ class Content(Datamodel):
 
         return dict(
             stat=True,
-            messages=[
-                ["warning", f"{nameSpace=}"],
-                ["warning", f"{fieldPath=}"],
-                ["warning", f"{value=}"],
-            ],
+            messages=[],
             readonly=F.formatted(table, record, editable=False, level=None),
         )
+
+    def saveRoles(self, user, multiple, table, recordId):
+        """Saves a value of into a record.
+
+        A record contains a document, which is a (nested) dict.
+        A value is inserted somewhere (deep) in that dict.
+
+        The value is given by the request.
+
+        Where exactly is given by a path that is stored in the field information,
+        which is accessible by the key.
+
+        Parameters
+        ----------
+        user: string
+            The eppn of the user.
+        multiple: boolean
+            Whether multiple roles or a single role will be assigned
+        table: string | void
+            The relevant table. If not None, it indicates whether we are updating
+            site-wide roles, otherwise project/edition roles.
+        recordId: string | void
+            The id of the relevant record. If not None, it is a project/edition
+            record Id, which can be used to locate the cross record between the
+            user collection and the project/edition record where the user's
+            role is stored.
+            If None, the user's role is inside the user record.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `msgs`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        """
+        Admin = Mywork(self)
+
+        newRoles = json.loads(requestData())
+        return Admin.saveRoles(user, multiple, newRoles, table, recordId)
 
     def getValue(self, table, record, key, level=None, bare=False):
         """Retrieve a metadata value.

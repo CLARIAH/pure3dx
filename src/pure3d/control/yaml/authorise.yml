@@ -10,16 +10,26 @@ actions:
 
 roles:
   site:
-    null: not logged in
-    guest: guest
-    user: user
-    admin: administrator
     root: owner
+    admin: administrator
+    user: user
+    guest: guest
+    null: not logged in
   project:
     organiser: organiser
   edition:
-    reader: reviewer
     editor: editor
+    reader: reviewer
+
+rolesOrder:
+  - root
+  - admin
+  - user
+  - guest
+  - null
+  - organiser
+  - editor
+  - reader
 
 userCoupled:
   - edition
