@@ -23,6 +23,7 @@ icons:
   edit_save: "✅"
   edit_update: "✎"
   edit_assign: "♺"
+  edit_insert: "✚"
   chain: "⚭"
   check: "✔︎"
   create: "✚"
@@ -48,3 +49,4 @@ iconTips:
   edit_save: "save and quit"
   edit_update: "edit this value"
   edit_assign: "assign user role(s)"
+  edit_insert: "add someone or something"

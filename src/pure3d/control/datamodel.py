@@ -528,7 +528,7 @@ class Field:
             updateButton = H.actionButton("edit_update")
             cancelButton = H.actionButton("edit_cancel")
             saveButton = H.actionButton("edit_save")
-            msgs = H.div("", cls="editmsgs")
+            messages = H.div("", cls="editmsgs")
             editableContent = H.textarea(
                 "", cls="editcontent", saveurl=saveUrl, origValue=bare
             )
@@ -540,7 +540,7 @@ class Field:
                     updateButton,
                     saveButton,
                     cancelButton,
-                    msgs,
+                    messages,
                 ]
             )
         else:

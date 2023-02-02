@@ -280,6 +280,32 @@ class Mongo:
         result = self.execute(table, "find", criteria, {}, stop=stop)
         return [deepAttrDict(record) for record in result]
 
+    def deleteRecord(self, table, stop=True, **criteria):
+        """Updates a single document from a collection.
+
+        Parameters
+        ----------
+        table: string
+            The name of the collection in which we want to update a single record.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
+        criteria: dict
+            A set of criteria to narrow down the selection.
+            Usually they will be such that there will be just one document
+            that satisfies them.
+            But if there are more, a single one is chosen,
+            by the mechanics of the built-in MongoDb command `updateOne`.
+
+        Returns
+        -------
+        boolean
+            Whether the delete was successful
+        """
+        result = self.execute(table, "delete_one", criteria, stop=stop)
+        n = result.deleted_count
+        return n > 0
+
     def updateRecord(self, table, updates, stop=True, **criteria):
         """Updates a single document from a collection.
 
@@ -289,6 +315,9 @@ class Mongo:
             The name of the collection in which we want to update a single record.
         updates: dict
             The fields that must be updated with the values they must get
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
             Usually they will be such that there will be just one document
@@ -301,7 +330,9 @@ class Mongo:
         boolean
             Whether the update was successful
         """
-        return self.execute(table, "update_one", criteria, {"$set": updates}, stop=stop)
+        result = self.execute(table, "update_one", criteria, {"$set": updates}, stop=stop)
+        n = result.modified_count
+        return n > 0
 
     def insertRecord(self, table, stop=True, **fields):
         """Inserts a new record in a table.

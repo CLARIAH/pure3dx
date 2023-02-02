@@ -39,6 +39,7 @@ export flasktest
 export flaskdebug
 export repodir
 export FLASK_APP=index
+export WERKZEUG_DEBUG_PIN=off
 
 flask $flaskdebug run --host $flaskhost --port $flaskport &
 pid=$!

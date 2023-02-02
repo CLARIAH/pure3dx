@@ -406,8 +406,9 @@ span.fileupload.iconedition img {
   font-weight: bold;
   width: 10em;
 }
-.role.button.on {
+.role.button.on,.user.button.on {
   font-weight: bold;
   color: var(--role-on-fore);
   background-color: var(--role-on-back);
   border: 0.2rem solid var(--role-on-border);
+}

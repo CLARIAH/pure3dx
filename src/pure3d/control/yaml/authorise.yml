@@ -17,9 +17,11 @@ roles:
     null: not logged in
   project:
     organiser: organiser
+    null: ✗
   edition:
     editor: editor
     reader: reviewer
+    null: ✗
 
 rolesOrder:
   - root

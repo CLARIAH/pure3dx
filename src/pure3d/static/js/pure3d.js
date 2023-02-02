@@ -72,17 +72,14 @@ const fetchData = (url, task, destElem, data) => {
 
 const editRoles = () => {
   const editroles = $(".editroles")
-  const assignButtons = $(`a.button[kind="edit_assign"]`)
   const topContent = $(".myadmin")
 
   editroles.each((i, editrole) => {
-    editRole(editrole, assignButtons, topContent)
+    editRole(editrole, topContent)
   })
 }
 
-const equalSets = (a, b) => a.size === b.size && [...a].every(value => b.has(value))
-
-const editRole = (editrole, assignButtons, topContent) => {
+const editRole = (editrole, topContent) => {
   const editroleJQ = $(editrole)
   const assignButton = editroleJQ.find(`a.button[kind="edit_assign"]`)
   const cancelButton = editroleJQ.find(`a.button[kind="edit_cancel"]`)
@@ -91,9 +88,8 @@ const editRole = (editrole, assignButtons, topContent) => {
   const eRoles = editContent.find(".role")
   const editMessages = editroleJQ.find(".editmsgs")
   const saveUrl = editContent.attr("saveurl")
-  const multiple = editContent.attr("multiple")
-  const origValue = new Set(editContent.attr("origvalue").split(","))
-  const currentValue = new Set(editContent.attr("origvalue").split(","))
+  const origValue = editContent.attr("origvalue")
+  let currentValue = origValue
 
   editContent.hide()
   cancelButton.hide()
@@ -104,7 +100,7 @@ const editRole = (editrole, assignButtons, topContent) => {
       type: "POST",
       headers: { "Content-Type": "application/json" },
       url: saveUrl,
-      data: JSON.stringify(Array.from(currentValue)),
+      data: JSON.stringify(currentValue),
       processData: false,
       contentType: true,
       success: processSavedOK,
@@ -128,7 +124,7 @@ const editRole = (editrole, assignButtons, topContent) => {
 
   const finishSave = updated => {
     topContent.html(updated)
-    editRoles()
+    processMyWork()
   }
 
   const abortSave = messages => {
@@ -144,57 +140,50 @@ const editRole = (editrole, assignButtons, topContent) => {
     saveButton.show()
   }
 
+  const setRole = role => {
+    currentValue = origValue
+    eRoles.each((i, eRole) => {
+      const eRoleJQ = $(eRole)
+      const eStr = eRoleJQ.attr("role") || null
+      if (eStr == role) {
+        if (!eRoleJQ.hasClass("on")) {
+          eRoleJQ.addClass("on")
+          currentValue = role
+        }
+      } else {
+        if (eRoleJQ.hasClass("on")) {
+          eRoleJQ.removeClass("on")
+        }
+      }
+    })
+  }
+
   const handleClicking = e => {
     const elem = $(e.target)
-    const role = elem.attr("role")
-    if (multiple) {
-      if (elem.hasClass("on")) {
-        elem.removeClass("on")
-        currentValue.delete(role)
-      } else {
-        elem.addClass("on")
-        currentValue.add(role)
-      }
-    } else {
-      eRoles.each((j, eRole) => {
-        const eRoleJQ = $(eRole)
-        const eStr = eRoleJQ.attr("role")
-        if (eStr == role) {
-          eRoleJQ.addClass("on")
-          currentValue.add(eStr)
-        } else {
-          eRoleJQ.removeClass("on")
-          currentValue.delete(eStr)
-        }
-      })
-    }
-    if (equalSets(origValue, currentValue)) {
-      editContent.removeClass("dirty")
+    const role = elem.attr("role") || null
+    setRole(role)
+    if (origValue == currentValue) {
       cancelButton.hide()
       saveButton.show()
     } else {
-      editContent.addClass("dirty")
       cancelButton.show()
       saveButton.show()
     }
   }
 
   assignButton.off("click").click(() => {
-    editroleJQ.addClass("editing")
-    editContent.val(editContent.attr("origvalue"))
-    editContent.removeClass("dirty")
     eRoles.off("click").click(handleClicking)
+    setRole(origValue)
     editContent.show()
     editMessages.html("")
     editMessages.hide()
 
-    assignButtons.hide()
+    modalizeButtons(false)
     cancelButton.hide()
     saveButton.show()
   })
   cancelButton.off("click").click(() => {
-    editContent.val(editContent.attr("origvalue"))
-    editContent.removeClass("dirty")
+    setRole(editContent.attr("origvalue"))
     editMessages.html("")
     editMessages.hide()
 
@@ -202,14 +191,197 @@ const editRole = (editrole, assignButtons, topContent) => {
     saveButton.show()
   })
   saveButton.off("click").click(() => {
-    if (equalSets(origValue, currentValue)) {
-      editroleJQ.removeClass("editing")
-      editContent.removeClass("dirty")
+    if (origValue == currentValue) {
       editContent.hide()
       editMessages.html("")
       editMessages.hide()
 
-      assignButtons.show()
+      modalizeButtons(true)
+      cancelButton.hide()
+      saveButton.hide()
+    } else {
+      saveData()
+    }
+  })
+}
+
+const modalizeButtons = onOff => {
+  const assignButtons = $(`a.button[kind="edit_assign"]`)
+  const insertButtons = $(`a.button[kind="edit_insert"]`)
+  if (onOff) {
+    assignButtons.show()
+    insertButtons.show()
+  } else {
+    assignButtons.hide()
+    insertButtons.hide()
+  }
+}
+
+const insertUsers = () => {
+  const insertusers = $(".insertusers")
+  const topContent = $(".myadmin")
+
+  insertusers.each((i, insertuser) => {
+    insertUser(insertuser, topContent)
+  })
+}
+
+const insertUser = (insertuser, topContent) => {
+  const insertuserJQ = $(insertuser)
+  const insertButton = insertuserJQ.find(`a.button[kind="edit_insert"]`)
+  const cancelButton = insertuserJQ.find(`a.button[kind="edit_cancel"]`)
+  const saveButton = insertuserJQ.find(`a.button[kind="edit_save"]`)
+  const roleContent = insertuserJQ.find(".chooseroles")
+  const eRoles = roleContent.find(".role")
+  const userContent = insertuserJQ.find(".chooseusers")
+  const eUsers = userContent.find(".user")
+  const editMessages = insertuserJQ.find(".editmsgs")
+  const saveUrl = insertuserJQ.attr("saveurl")
+  const origRole = eRoles.length == 1 ? eRoles.attr("role") : null
+  let currentRole = origRole
+  const origUser = null
+  let currentUser = origUser
+
+  roleContent.hide()
+  userContent.hide()
+  cancelButton.hide()
+  saveButton.hide()
+
+  const saveData = () => {
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: saveUrl,
+      data: JSON.stringify([currentRole, currentUser]),
+      processData: false,
+      contentType: true,
+      success: processSavedOK,
+      error: processSavedError,
+    })
+  }
+
+  const processSavedOK = response => {
+    const { stat, messages, updated } = response
+    if (stat) {
+      finishSave(updated)
+    } else {
+      abortSave(messages)
+    }
+  }
+
+  const processSavedError = (jqXHR, stat) => {
+    const { status, statusText } = jqXHR
+    abortSave([[stat, `save failed: ${status} ${statusText}`]])
+  }
+
+  const finishSave = updated => {
+    topContent.html(updated)
+    processMyWork()
+  }
+
+  const abortSave = messages => {
+    editMessages.html("")
+    for (const message of messages) {
+      const [tp, msg] = message
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      editMessages.append(html)
+    }
+    editMessages.show()
+
+    cancelButton.show()
+    saveButton.show()
+  }
+
+  const setRole = role => {
+    currentRole = origRole
+    eRoles.each((i, eRole) => {
+      const eRoleJQ = $(eRole)
+      const eStr = eRoleJQ.attr("role") || null
+      if (eStr == role) {
+        if (!eRoleJQ.hasClass("on")) {
+          eRoleJQ.addClass("on")
+          currentRole = role
+        }
+      } else {
+        if (eRoleJQ.hasClass("on")) {
+          eRoleJQ.removeClass("on")
+        }
+      }
+    })
+  }
+
+  const setUser = user => {
+    currentUser = origUser
+    eUsers.each((i, eUser) => {
+      const eUserJQ = $(eUser)
+      const eStr = eUserJQ.attr("user") || null
+      if (eStr == user) {
+        if (!eUserJQ.hasClass("on")) {
+          eUserJQ.addClass("on")
+          currentUser = user
+        }
+      } else {
+        if (eUserJQ.hasClass("on")) {
+          eUserJQ.removeClass("on")
+        }
+      }
+    })
+  }
+
+  const handleClicking = e => {
+    const elem = $(e.target)
+    if (elem.hasClass("role")) {
+      const role = elem.attr("role") || null
+      setRole(role)
+    } else {
+      const user = elem.attr("user") || null
+      setUser(user)
+    }
+    if (currentRole == origRole && currentUser == origUser) {
+      cancelButton.hide()
+      saveButton.show()
+    } else {
+      cancelButton.show()
+      if (currentRole != origRole && currentUser != origUser) {
+        saveButton.show()
+      }
+      else {
+        saveButton.hide()
+      }
+    }
+  }
+
+  insertButton.off("click").click(() => {
+    eRoles.off("click").click(handleClicking)
+    eUsers.off("click").click(handleClicking)
+    setRole(origRole)
+    setUser(origUser)
+    roleContent.show()
+    userContent.show()
+    editMessages.html("")
+    editMessages.hide()
+
+    modalizeButtons(false)
+    cancelButton.hide()
+    saveButton.show()
+  })
+  cancelButton.off("click").click(() => {
+    setRole(origRole)
+    setUser(origUser)
+    editMessages.html("")
+    editMessages.hide()
+
+    cancelButton.hide()
+    saveButton.show()
+  })
+  saveButton.off("click").click(() => {
+    if (currentRole == origRole && currentUser == origUser) {
+      roleContent.hide()
+      userContent.hide()
+      editMessages.html("")
+      editMessages.hide()
+
+      modalizeButtons(true)
       cancelButton.hide()
       saveButton.hide()
     } else {
@@ -432,8 +604,13 @@ const uploadControl = fupload => {
   })
 }
 
+const processMyWork = () => {
+  editRoles()
+  insertUsers()
+}
+
 $(() => {
   uploadControls()
   editWidgets()
-  editRoles()
+  processMyWork()
 })

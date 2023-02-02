@@ -47,7 +47,7 @@ class Auth(Users):
         First we consider the site-wise role of the user: guest, user, admin, or root.
         If the action is allowed on that basis, we return True.
 
-        If not, we look whether the user has additional roles with regard
+        If not, we look whether the user has an additional role with regard
         to the record in question, or with any of its master records.
 
         If so, we apply the rules for those cases and see whether the action is
@@ -227,10 +227,10 @@ class Auth(Users):
                 crossRecord = Mongo.getRecord(
                     relatedCrossTable, user=user, warn=False, **crit
                 )
-                extraRoles = crossRecord.roles
+                extraRole = crossRecord.role
 
-                if extraRoles is not None:
-                    userRoles |= set(extraRoles)
+                if extraRole is not None:
+                    userRoles.add(extraRole)
 
             elif kind == "master":
                 # if the action is create the given record is the master
@@ -250,10 +250,10 @@ class Auth(Users):
                 crossRecord = Mongo.getRecord(
                     relatedCrossTable, user=user, warn=False, **crit
                 )
-                extraRoles = crossRecord.roles
+                extraRole = crossRecord.role
 
-                if extraRoles is not None:
-                    userRoles |= set(extraRoles)
+                if extraRole is not None:
+                    userRoles.add(extraRole)
 
             elif kind == "detail":
                 # only relevant if recordId is given, because
@@ -277,11 +277,9 @@ class Auth(Users):
                 crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
                 for crossRecord in crossRecords:
-                    extraRoles = crossRecord.roles
-                    if extraRoles is not None:
-                        userRoles |= set(extraRoles)
-
-                userRoles |= extraRoles
+                    extraRole = crossRecord.role
+                    if extraRole is not None:
+                        userRoles.add(extraRole)
 
         # Now we have
         # 1. userRoles:
