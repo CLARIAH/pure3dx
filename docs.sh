@@ -15,12 +15,16 @@ ship
     Builds and then publishes the contents of the site directory
     to the gh-pages branch on GitHub.
 
+In all cases a count of the lines of code will be performed.
+
 Usage
 
 Run it from the toplevel directory in the repo.
 
 ./docs.sh [task] [task] ...
 "
+
+cloc --md --out=stats.md src
 
 dobuild="x"
 doship="x"
