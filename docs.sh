@@ -38,6 +38,7 @@ while [ ! -z "$1" ]; do
         dobuild="v"
         shift
     elif [[ "$1" == "ship" ]]; then
+        dobuild="v"
         doship="v"
         shift
     else
