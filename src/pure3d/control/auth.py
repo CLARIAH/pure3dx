@@ -79,7 +79,7 @@ class Auth(Users):
         Returns
         -------
         boolean | dict
-            For other actions: a boolean whether action is allowed.
+            If an action is passed: boolean whether action is allowed.
 
             If no action is passed: dict keyed by the allowed actions, the values
             are true.
@@ -138,11 +138,12 @@ class Auth(Users):
         (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
+            initState = stateInfo.init
             if isCreate:
-                state = stateInfo.init
+                state = initState
             else:
                 stateField = stateInfo.field
-                state = record[stateField]
+                state = record.get(stateField, initState)
 
         # we select the rules for the given state, if any
 

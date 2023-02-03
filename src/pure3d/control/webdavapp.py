@@ -74,6 +74,8 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     """
 
     def wsgi_function(environ, start_response):
+        """Internal function for to deliver as result.
+        """
         url = environ.get("PATH_INFO", "")
         aimedAtWebdav = url.startswith(webdavPrefix)
 
@@ -98,6 +100,8 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
 
 
 def appFactoryMaster():
+    """Factory function for the master flask app.
+    """
     app = appMake(__name__)
     return app
 

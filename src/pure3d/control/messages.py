@@ -71,6 +71,8 @@ class Messages:
         """
 
         def dbg(m):
+            """Inner function to be set as method to the class.
+            """
             self.debug(logmsg=m)
 
         setattr(dest, "debug", dbg)

@@ -165,6 +165,8 @@ class HtmlElements:
     """
 
     def __init__(self, Settings, Messages):
+        """Gives the HtmlElements access to Settings and Messages.
+        """
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -274,6 +276,8 @@ class HtmlElements:
             return E
 
         def _wrapValue(value, isOuter):
+            """Inner function to be called recursively.
+            """
             if isOuter:
                 elem = outerElem
                 args = outerArgs

@@ -253,7 +253,7 @@ class Mongo:
         result = self.execute(table, "find_one", criteria, {}, stop=stop)
         if result is None:
             if warn:
-                Messages.warning(logmsg=f"No record in {table} with {criteria}")
+                Messages.warning(msg=f"Could not find that {table}", logmsg=f"No record in {table} with {criteria}")
             result = {}
         return deepAttrDict(result)
 

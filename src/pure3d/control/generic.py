@@ -32,13 +32,23 @@ class AttrDict(dict):
     """
 
     def __init__(self, *args, **kwargs):
+        """Create the data structure from incoming data.
+        """
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
     def __missing__(self, key, *args, **kwargs):
+        """Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `.key` notation for accessing members.
+        """
         return None
 
     def __getattr__(self, key, *args, **kwargs):
+        """Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `[key]` notation for accessing members.
+        """
         return None
 
 

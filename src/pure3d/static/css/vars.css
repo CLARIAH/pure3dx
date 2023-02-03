@@ -9,7 +9,8 @@
     --action-fore:                     hsla(210, 100%,  30%, 1  );
     --action-back:                     hsla(210, 100%,  90%, 1  );
     --action-border:                   hsla(210, 100%,  50%, 0.5);
-    --action-disabled-back:            hsla(210,   0%,  90%, 1  );
+    --action-disabled-fore:            hsla(210,  80%,  50%, 0.6);
+    --action-disabled-back:            hsla(210,   0%,  80%, 0.3);
     --action-active-fore:              hsla(210, 100%,  40%, 1  );
     --action-active-back:              hsla(060,  80%,  70%, 0.9);
     --action-active-border:            hsla(060, 100%,  40%, 1.0);
@@ -90,9 +91,10 @@
     --msg-fore:                        hsla( 60, 100%,  90%, 1  );
     --msg-back:                        hsla(  0,   0%,  70%, 0.3);
 
-    --public-back:                     hsla(160, 100%,  80%, 0.5);
-
-    --published-back:                  hsla(180, 100%,  80%, 0.5);
+    --pe-fore:                         hsla( 90, 100%,  10%, 1  );
+    --pe-public-back:                  hsla(180, 100%,  90%, 0.9);
+    --pe-published-back:               hsla(200, 100%,  80%, 0.9);
+    --pe-wip-back:                     hsla( 30, 100%,  80%, 0.9);
 
     --record-back:                     hsla(  0,   0%,  90%, 0.8);
     --record-border:                   hsla(  0,   0%,  70%, 0.5);

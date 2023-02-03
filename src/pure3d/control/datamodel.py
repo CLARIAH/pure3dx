@@ -511,12 +511,13 @@ class Field:
         key = self.key
 
         bare = self.bare(record)
+        bareRep = bare or f"<i>no {key}</i>"
 
         if tp == "text":
-            readonlyContent = markdown(bare, tight=False)
+            readonlyContent = markdown(bareRep, tight=False)
         else:
             readonlyContent = H.wrapValue(
-                bare,
+                bareRep,
                 outerElem="span",
                 outerAtts=dict(cls=outerCls),
                 innerElem="span",

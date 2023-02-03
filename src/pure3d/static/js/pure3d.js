@@ -207,38 +207,39 @@ const editRole = (editrole, topContent) => {
 
 const modalizeButtons = onOff => {
   const assignButtons = $(`a.button[kind="edit_assign"]`)
-  const insertButtons = $(`a.button[kind="edit_insert"]`)
+  const linkButtons = $(`a.button[kind="edit_link"]`)
   if (onOff) {
     assignButtons.show()
-    insertButtons.show()
+    linkButtons.show()
   } else {
     assignButtons.hide()
-    insertButtons.hide()
+    linkButtons.hide()
   }
 }
 
-const insertUsers = () => {
-  const insertusers = $(".insertusers")
+const linkUsers = () => {
+  const linkusers = $(".linkusers")
   const topContent = $(".myadmin")
 
-  insertusers.each((i, insertuser) => {
-    insertUser(insertuser, topContent)
+  linkusers.each((i, linkuser) => {
+    linkUser(linkuser, topContent)
   })
 }
 
-const insertUser = (insertuser, topContent) => {
-  const insertuserJQ = $(insertuser)
-  const insertButton = insertuserJQ.find(`a.button[kind="edit_insert"]`)
-  const cancelButton = insertuserJQ.find(`a.button[kind="edit_cancel"]`)
-  const saveButton = insertuserJQ.find(`a.button[kind="edit_save"]`)
-  const roleContent = insertuserJQ.find(".chooseroles")
+const linkUser = (linkuser, topContent) => {
+  const linkuserJQ = $(linkuser)
+  const linkButton = linkuserJQ.find(`a.button[kind="edit_link"]`)
+  const cancelButton = linkuserJQ.find(`a.button[kind="edit_cancel"]`)
+  const saveButton = linkuserJQ.find(`a.button[kind="edit_save"]`)
+  const roleContent = linkuserJQ.find(".chooseroles")
   const eRoles = roleContent.find(".role")
-  const userContent = insertuserJQ.find(".chooseusers")
+  const userContent = linkuserJQ.find(".chooseusers")
   const eUsers = userContent.find(".user")
-  const editMessages = insertuserJQ.find(".editmsgs")
-  const saveUrl = insertuserJQ.attr("saveurl")
-  const origRole = eRoles.length == 1 ? eRoles.attr("role") : null
-  let currentRole = origRole
+  const editMessages = linkuserJQ.find(".editmsgs")
+  const saveUrl = linkuserJQ.attr("saveurl")
+  const origRole = null
+  const initRole = eRoles.length == 1 ? eRoles.attr("role") : null
+  let currentRole = initRole
   const origUser = null
   let currentUser = origUser
 
@@ -297,6 +298,7 @@ const insertUser = (insertuser, topContent) => {
     eRoles.each((i, eRole) => {
       const eRoleJQ = $(eRole)
       const eStr = eRoleJQ.attr("role") || null
+      console.warn({ role, eStr })
       if (eStr == role) {
         if (!eRoleJQ.hasClass("on")) {
           eRoleJQ.addClass("on")
@@ -351,10 +353,10 @@ const insertUser = (insertuser, topContent) => {
     }
   }
 
-  insertButton.off("click").click(() => {
+  linkButton.off("click").click(() => {
     eRoles.off("click").click(handleClicking)
     eUsers.off("click").click(handleClicking)
-    setRole(origRole)
+    setRole(initRole)
     setUser(origUser)
     roleContent.show()
     userContent.show()
@@ -362,7 +364,12 @@ const insertUser = (insertuser, topContent) => {
     editMessages.hide()
 
     modalizeButtons(false)
-    cancelButton.hide()
+    if (currentRole == origRole && currentUser == origUser) {
+      cancelButton.hide()
+    }
+    else {
+      cancelButton.show()
+    }
     saveButton.show()
   })
   cancelButton.off("click").click(() => {
@@ -606,7 +613,7 @@ const uploadControl = fupload => {
 
 const processMyWork = () => {
   editRoles()
-  insertUsers()
+  linkUsers()
 }
 
 $(() => {

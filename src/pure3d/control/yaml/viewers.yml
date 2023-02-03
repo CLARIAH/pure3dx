@@ -1,5 +1,11 @@
 default: voyager
 
+actions:
+  read:
+    name: view
+  update:
+    name: edit
+
 viewers:
   voyager:
     modes:

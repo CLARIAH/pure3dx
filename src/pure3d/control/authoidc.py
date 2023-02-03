@@ -3,6 +3,8 @@ import json
 
 
 def _json_loads(content):
+    """Handles loading of json content as unicode strings.
+    """
     if not isinstance(content, str):
         content = content.decode('utf-8')
     return json.loads(content)
@@ -13,10 +15,14 @@ class AuthOidc:
 
     @classmethod
     def load_secrets(cls):
+        """Reads secrets used in encryption and decryption.
+        """
         return _json_loads(open(cls.OIDC_CLIENT_SECRETS, 'r').read())
 
     @classmethod
     def prepare(cls, app):
+        """Injects the OIDC module into the main app.
+        """
         authconf = {
             # 'SECRET_KEY': app.secret_key,
             'TESTING': True,

@@ -27,6 +27,7 @@ class Viewers:
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.viewers = Settings.viewers
+        self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
 
     def addAuth(self, Auth):
@@ -83,6 +84,8 @@ class Viewers:
         actions: iterable of string
             The actions for which we have to create buttons.
             Typically `read` and possibly also `update`.
+            Actions that are not recognized as viewer actions
+            will be filtered out, such as `create` and `delete`.
         viewer: string
             The viewer in which the scene is currently loaded.
         versionActive: string | void
@@ -101,10 +104,10 @@ class Viewers:
         Settings = self.Settings
         H = Settings.H
         Mongo = self.Mongo
-
-        actionInfo = Settings.auth.actions
+        actionInfo = self.viewerActions
         viewers = self.viewers
 
+        filteredActions = {a for a in actions if a in actionInfo}
         versionActive = self.check(viewer, versionActive)
 
         (editionId, edition) = Mongo.get("edition", edition)
@@ -115,6 +118,13 @@ class Viewers:
         )
 
         def getViewerButtons():
+            """Internal function.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a viewer.
+            """
             activeCls = "active"
             return H.span(
                 [
@@ -131,6 +141,20 @@ class Viewers:
             )
 
         def getVersionButtons(version, active):
+            """Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer.
+            """
             nonlocal activeButtons
 
             activeCls = "active" if active else ""
@@ -139,8 +163,7 @@ class Viewers:
                 [H.span(version, cls=f"vvl {activeCls}")]
                 + [
                     getActionButton(version, action, active and action == actionActive)
-                    for action in actions
-                    if action != "delete"
+                    for action in filteredActions
                 ],
                 cls="vv",
             )
@@ -150,8 +173,25 @@ class Viewers:
             return versionButtons
 
         def getActionButton(version, action, active):
+            """Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            action: string
+                Whether to launch the viewer for `read` or for `update`.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer
+                for a specific action.
+            """
             activeCls = "active" if active else ""
-            thisActionInfo = actionInfo.get(action, AttrDict)
+            thisActionInfo = actionInfo.get(action, AttrDict())
             name = thisActionInfo.name
 
             atts = {}
@@ -189,8 +229,7 @@ class Viewers:
             H.span(versionActive, cls="vvla"),
         ] + [
             getActionButton(versionActive, action, action == actionActive)
-            for action in actions
-            if action not in {"delete"}
+            for action in filteredActions
         ]
 
         buttons = H.details(activeButtons, allButtons, f"vwbuttons-{editionId}")

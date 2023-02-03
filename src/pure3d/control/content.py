@@ -4,7 +4,7 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
-from control.mywork import Mywork
+from control.admin import Admin
 
 
 class Content(Datamodel):
@@ -145,7 +145,7 @@ class Content(Datamodel):
 
         return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
 
-    def getMywork(self):
+    def getAdmin(self):
         """Get the list of relevant projects, editions and users.
 
         Admin users get the list of all users.
@@ -165,14 +165,26 @@ class Content(Datamodel):
         -------
         string
         """
-        Admin = Mywork(self)
-        return Admin.wrap()
+        return Admin(self).wrap()
 
-    def insertProject(self):
+    def createProject(self, site):
+        """Creates a new project.
+
+        Parameters
+        ----------
+        site: AttrDict | string
+            record that represents the site, or its id.
+            It acts as a master record for all projects.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new project.
+        """
         Mongo = self.Mongo
         Auth = self.Auth
 
-        (siteTable, siteId, site) = self.relevant()
+        (siteId, site) = Mongo.get("site", site)
 
         permitted = Auth.authorise("site", site, action="create", insertTable="project")
         if not permitted:
@@ -189,16 +201,47 @@ class Content(Datamodel):
             description=dict(abstract="No intro", description="No description"),
             creator=name,
         )
-        projectId = Mongo.insertRecord("project", title=title, meta=dict(dc=dcMeta))
+        projectId = Mongo.insertRecord(
+            "project", title=title, meta=dict(dc=dcMeta), isVisible=False
+        )
         Mongo.insertRecord(
-            "projectUser",
-            projectId=projectId,
-            user=user,
-            role="editor",
+            "projectUser", projectId=projectId, user=user, role="organiser"
         )
         return projectId
 
-    def insertEdition(self, project):
+    def deleteProject(self, project):
+        """Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get("project", project)
+
+        permitted = Auth.authorise("project", project, action="delete")
+        if not permitted:
+            return None
+
+        result = Mongo.deleteRecord("project", _id=projectId)
+        return result
+
+    def createEdition(self, project):
+        """Creates a new edition.
+
+        Parameters
+        ----------
+        project: AttrDict | string
+            record that represents the maste project, or its id.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new edition.
+        """
         Mongo = self.Mongo
         Auth = self.Auth
 
@@ -211,6 +254,7 @@ class Content(Datamodel):
             return None
 
         User = Auth.myDetails()
+        user = User.user
         name = User.nickname
 
         title = "Edition without title"
@@ -225,9 +269,34 @@ class Content(Datamodel):
             creator=name,
         )
         editionId = Mongo.insertRecord(
-            "edition", title=title, projectId=projectId, meta=dict(dc=dcMeta)
+            "edition",
+            title=title,
+            projectId=projectId,
+            meta=dict(dc=dcMeta),
+            isPublished=False,
         )
+        Mongo.insertRecord("editionUser", editionId=editionId, user=user, role="editor")
         return editionId
+
+    def deleteEdition(self, edition):
+        """Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (editionId, edition) = Mongo.get("edition", edition)
+
+        permitted = Auth.authorise("edition", edition, action="delete")
+        if not permitted:
+            return None
+
+        result = Mongo.deleteRecord("edition", _id=editionId)
+        return result
 
     def getViewInfo(self, edition):
         """Gets viewer-related info that an edition is made with.
@@ -304,10 +373,13 @@ class Content(Datamodel):
         (recordId, record) = Mongo.get(table, record)
 
         value = json.loads(requestData())
+        update = {f"{nameSpace}.{fieldPath}": value}
+        if key == "title":
+            update[key] = value
 
         if (
             Mongo.updateRecord(
-                table, {f"{nameSpace}.{fieldPath}": value}, stop=False, _id=recordId
+                table, update, stop=False, _id=recordId
             )
             is None
         ):
@@ -354,10 +426,8 @@ class Content(Datamodel):
               will be passed back and will replace the currently displayed
               material.
         """
-        Admin = Mywork(self)
-
         newRole = json.loads(requestData())
-        return Admin.saveRole(user, newRole, table, recordId)
+        return Admin(self).saveRole(user, newRole, table, recordId)
 
     def linkUser(self, table, recordId):
         """Links a user in certain role to a project/edition record.
@@ -385,10 +455,8 @@ class Content(Datamodel):
               will be passed back and will replace the currently displayed
               material.
         """
-        Admin = Mywork(self)
-
         (newRole, newUser) = json.loads(requestData())
-        return Admin.linkUser(newUser, newRole, table, recordId)
+        return Admin(self).linkUser(newUser, newRole, table, recordId)
 
     def getValue(self, table, record, key, level=None, bare=False):
         """Retrieve a metadata value.
@@ -641,6 +709,9 @@ class Content(Datamodel):
         (projectId, project) = Mongo.get("project", project)
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", bare=True)
+        if not text:
+            text = "<i>no title</i>"
+
         return H.p(
             [
                 "Project: ",

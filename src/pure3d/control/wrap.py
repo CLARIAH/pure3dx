@@ -60,12 +60,14 @@ class Wrap:
         """
         Settings = self.Settings
         H = Settings.H
+        representations = Settings.representations
+        css = Settings.css
         Auth = self.Auth
         Content = self.Content
 
         wrapped = []
         wrapped.append(
-            H.p(self.contentButton("site", site, action="create", insertTable="project"))
+            H.p(self.contentButton("site", site, "create", insertTable="project"))
         )
 
         for project in projects:
@@ -75,11 +77,18 @@ class Wrap:
                 continue
 
             title = project.title
+            if not title:
+                title = "<i>no title</i>"
+            stat = project.isVisible
+            status = representations.isVisible[stat]
+            statusCls = css.isVisible[stat]
 
             projectUrl = f"/project/{projectId}"
             button = self.contentButton("project", project, "delete")
             visual = Content.getUpload(project, "iconProject")
-            caption = self.getCaption(visual, title, button, projectUrl)
+            caption = self.getCaption(
+                visual, title, status, statusCls, button, projectUrl
+            )
 
             wrapped.append(caption)
 
@@ -102,6 +111,8 @@ class Wrap:
         """
         Settings = self.Settings
         H = Settings.H
+        representations = Settings.representations
+        css = Settings.css
         Auth = self.Auth
         Content = self.Content
 
@@ -114,11 +125,18 @@ class Wrap:
                 continue
 
             title = edition.title
+            if not title:
+                title = "<i>no title</i>"
+            stat = edition.isPublished
+            status = representations.isPublished[stat]
+            statusCls = css.isPublished[stat]
 
             editionUrl = f"/edition/{editionId}"
             button = self.contentButton("edition", edition, "delete")
             visual = Content.getUpload(edition, "iconEdition")
-            caption = self.getCaption(visual, title, button, editionUrl)
+            caption = self.getCaption(
+                visual, title, status, statusCls, button, editionUrl
+            )
             wrapped.append(caption)
 
         wrapped.append(
@@ -164,27 +182,52 @@ class Wrap:
         (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
         title = H.span(titleText, cls="entrytitle")
         content = f"""{frame}{title}{buttons}"""
-        caption = self.wrapCaption(content, button, active=True)
+        caption = self.wrapCaption(content, button, None, active=True)
 
         wrapped.append(caption)
         return H.content(*wrapped)
 
-    def getCaption(self, visual, titleText, button, url):
+    def getCaption(self, visual, titleText, status, statusCls, button, url):
+        """Produces a caption of a project or edition.
+
+        Parameters
+        ----------
+        visual: string
+            A link to an image to display in the caption.
+        titleText: string
+            The text on the caption.
+        status: string
+            The status of the project/edition: visible/hidden/published/in progress.
+            The exact names
+        statusCls: string
+            The CSS class corresponding to `status`
+        button: string
+            Control for a certain action, or empty if the user is not authorised.
+        url: string
+            The url to navigate to if the user clicks the caption.
+        """
         Settings = self.Settings
         H = Settings.H
 
         title = H.span(titleText, cls="entrytitle")
         content = H.a(f"{visual}{title}", url, cls="entry")
+        statusBadge = H.div(status, cls=f"pestatus {statusCls}")
 
-        return self.wrapCaption(content, button)
+        return self.wrapCaption(content, statusBadge, button)
 
-    def wrapCaption(self, content, button, active=False):
+    def wrapCaption(self, content, statusBadge, button, active=False):
+        """Assembles a caption from building blocks."""
         Settings = self.Settings
         H = Settings.H
 
         activeCls = "active" if active else ""
+        rest = []
+        if statusBadge is not None:
+            rest.append(statusBadge)
+        rest.append(button)
+
         return H.div(
-            [H.div(content, cls=f"caption {activeCls}"), button], cls="captioncontent"
+            [H.div(content, cls=f"caption {activeCls}"), *rest], cls="captioncontent"
         )
 
     def contentButton(
@@ -282,13 +325,8 @@ class Wrap:
         keyRepTip = "" if key is None else f" {key} of"
         keyRepUrl = "" if key is None else f"/{key}"
 
-        if disable:
-            href = None
-            cls = "disabled"
-            can = "Cannot"
-        else:
-            cls = ""
-            can = ""
+        can = "Cannot " if disable else ""
+        cls = "disabled " if disable else ""
 
         if action == "create":
             href = f"/{table}/{recordId}/{insertTable}/create" if href is None else href
@@ -296,6 +334,9 @@ class Wrap:
         else:
             href = f"/{table}/{recordId}{keyRepUrl}/{action}" if href is None else href
             tip = f"{can}{name}{keyRepTip} this {table}"
+
+        if disable:
+            href = None
 
         fullCls = f"button small {cls}"
         return H.iconx(action, href=href, title=tip, cls=fullCls) + report

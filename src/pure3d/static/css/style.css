@@ -275,6 +275,14 @@ span.fileupload.iconedition img {
   border: 0.3rem solid var(--edit-dirty-border);
 }
 
+#mydetails,#myprojects,#allprojects,#allusers {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: solid 0.2rem black;
+}
+
 .udetails {
   display: flex;
   flex-flow row nowrap;
@@ -298,7 +306,8 @@ span.fileupload.iconedition img {
   align-items: flex-start;
   margin-bottom: 2rem;
   width: 100%;
-  border-bottom: solid 0.2rem black;
+  padding-top: 1rem;
+  border-top: solid 0.1rem #333333;
 }
 .phead {
   display: flex;
@@ -310,20 +319,19 @@ span.fileupload.iconedition img {
 }
 .pestatus {
   font-weight: bold;
+  font-size: small;
+  border-radius: 0.2rem;
+  color: var(--pe-fore);
+  padding: 0.2rem 0.6rem;
 }
 .pestatus.wip {
-  background-color: var(--warning-back);
+  background-color: var(--pe-wip-back);
 }
 .pestatus.public {
-  background-color: var(--public-back);
+  background-color: var(--pe-public-back);
 }
 .pestatus.published {
-  background-color: var(--published-back);
-}
-.pestatus {
-  color: var(--field-outer-fore);
-  background-color: var(--field-outer-back);
-  padding: 0.2rem 0.6rem;
+  background-color: var(--pe-published-back);
 }
 .ptitle,.etitle {
   flex: 2 1 auto;

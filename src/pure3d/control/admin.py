@@ -1,7 +1,7 @@
 from control.generic import AttrDict
 
 
-class Mywork:
+class Admin:
     def __init__(self, Content):
         """Get the list of relevant projects, editions and users.
 
@@ -56,6 +56,8 @@ class Mywork:
         authSettings = Settings.auth
         roleInfo = authSettings.roles
         roleRank = authSettings.roleRank
+        representations = Settings.representations
+        css = Settings.css
 
         Mongo = Content.Mongo
         Auth = Content.Auth
@@ -63,6 +65,8 @@ class Mywork:
         self.Mongo = Mongo
         self.Auth = Auth
         self.H = H
+        self.representations = representations
+        self.css = css
 
         siteRoles = roleInfo.site
         projectRoles = roleInfo.project
@@ -82,6 +86,14 @@ class Mywork:
         self.update()
 
     def update(self):
+        """Reread the collections of users, projects, editions.
+
+        Typically needed when you have used an admin function to perform
+        a user administration action.
+
+        This may change the permissions and hence the visiblity of projects and editions.
+        It also changes the possible user management actions in the future.
+        """
         Mongo = self.Mongo
         Auth = self.Auth
         Auth.identify()
@@ -447,30 +459,41 @@ class Mywork:
         )
         projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
-        wrapped = [
-            H.h(1, "My details"),
-            self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
-        ]
+        myDetails = H.div(
+            [
+                H.h(1, "My details"),
+                self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
+            ],
+            id="mydetails",
+        )
 
+        wrapped = []
         wrapped.append(H.h(1, "My projects and editions"))
         wrapped.append(
             H.div([self.wrapProject(p) for p in projectsMy])
             if len(projectsMy)
             else H.div("You do not have a specific role w.r.t. projects and editions.")
         )
+        myProjects = H.div(wrapped, id="myprojects")
+        allProjects = ""
+        allUsers = ""
 
         if inPower:
+            wrapped = []
             wrapped.append(H.h(1, "All projects and editions"))
             wrapped.append(
                 H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
                 if len(projectsAll)
                 else H.div("There are no projects and no editions")
             )
+            allProjects = H.div(wrapped, id="allprojects")
 
+            wrapped = []
             wrapped.append(H.h(1, "Manage users"))
             wrapped.append(H.div(self.wrapUsers(siteRoles), cls="susers"))
+            allUsers = H.div(wrapped, id="allusers")
 
-        return H.div(wrapped, cls="myadmin")
+        return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
 
     def wrapProject(self, project, myOnly=True):
         """Generate HTML for a project in admin view.
@@ -491,24 +514,33 @@ class Mywork:
         H = self.H
         myIds = self.myIds
         projectRoles = self.projectRoles
+        representations = self.representations
+        css = self.css
 
-        status = "public" if project.isVisible else "hidden"
-        statusCls = "public" if project.isVisible else "wip"
+        stat = project.isVisible
+        status = representations.isVisible[stat]
+        statusCls = css.isVisible[stat]
+
+        editions = project.editions or AttrDict()
 
         theseEditions = sorted(
             (
                 e
-                for e in project.editions.values()
+                for e in editions.values()
                 if not myOnly or e._id in (myIds.edition or set())
             ),
             key=lambda x: (x.title, x._id),
         )
+        title = project.title
+        if not title:
+            title = "<i>no title</i>"
+
         return H.div(
             [
                 H.div(
                     [
                         H.div(status, cls=f"pestatus {statusCls}"),
-                        H.a(project.title, f"project/{project._id}", cls="ptitle"),
+                        H.a(title, f"project/{project._id}", cls="ptitle"),
                         H.div(
                             self.wrapUsers(
                                 projectRoles, table="project", record=project
@@ -543,13 +575,21 @@ class Mywork:
         """
         H = self.H
         editionRoles = self.editionRoles
+        representations = self.representations
+        css = self.css
 
-        status = "published" if edition.isPublished else "in progress"
-        statusCls = "published" if edition.isPublished else "wip"
+        stat = edition.isPublished
+        status = representations.isPublished[stat]
+        statusCls = css.isPublished[stat]
+
+        title = edition.title
+        if not title:
+            title = "<i>no title</i>"
+
         return H.div(
             [
                 H.div(status, cls=f"pestatus {statusCls}"),
-                H.a(edition.title, f"edition/{edition._id}", cls="etitle"),
+                H.a(title, f"edition/{edition._id}", cls="etitle"),
                 H.div(
                     self.wrapUsers(editionRoles, table="edition", record=edition),
                     cls="eusers",
@@ -625,12 +665,12 @@ class Mywork:
         (editable, otherRoles) = self.authUser(None, table=table, record=record)
         if editable:
             wrapped.append(
-                self.wrapInsertUser(otherRoles - {None}, itemRoles, table, recordId)
+                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
             )
 
         return "".join(wrapped)
 
-    def wrapInsertUser(self, roles, itemRoles, table, recordId):
+    def wrapLinkUser(self, roles, itemRoles, table, recordId):
         """Generate HTML to add a user in a specified role.
 
         Parameters
@@ -655,7 +695,7 @@ class Mywork:
         H = self.H
         users = self.users
 
-        insertButton = H.actionButton("edit_insert")
+        linkButton = H.actionButton("edit_link")
         cancelButton = H.actionButton("edit_cancel")
         saveButton = H.actionButton("edit_save")
         messages = H.div("", cls="editmsgs")
@@ -673,8 +713,8 @@ class Mywork:
         )
 
         return H.div(
-            [insertButton, cancelButton, saveButton, messages, roleChoice, userChoice],
-            cls="insertusers",
+            [linkButton, cancelButton, saveButton, messages, roleChoice, userChoice],
+            cls="linkusers",
             saveurl=f"/link/user/{table}/{recordId}",
         )
 
