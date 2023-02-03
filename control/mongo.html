@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L1-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L1-L408" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -477,7 +477,7 @@ provided they are recognizable as values in a field whose name is
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L7-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L7-L408" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
     @staticmethod
@@ -902,7 +902,7 @@ such an id, otherwise <code>None</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L8-L33" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L8-L33" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def cast(value):
@@ -951,7 +951,7 @@ def cast(value):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L35-L49" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L35-L49" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def isId(value):
@@ -991,7 +991,7 @@ get deleted, but the table remains.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L140-L191" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L140-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearCollection(self, table, delete=False):
     &#34;&#34;&#34;Make sure that a collection exists and that it is empty.
@@ -1060,7 +1060,7 @@ get deleted, but the table remains.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L127-L138" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L127-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def collections(self):
     &#34;&#34;&#34;List the existent collections in the database.
@@ -1088,7 +1088,7 @@ is stored in the <code>client</code> and <code>db</code> members of the Mongo ob
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L84-L115" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L84-L115" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def connect(self):
     &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
@@ -1151,7 +1151,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L283-L307" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L283-L307" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteRecord(self, table, stop=True, **criteria):
     &#34;&#34;&#34;Updates a single document from a collection.
@@ -1188,7 +1188,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L117-L125" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L117-L125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def disconnect(self):
     &#34;&#34;&#34;Disconnect from the MongoDB.&#34;&#34;&#34;
@@ -1233,7 +1233,7 @@ None is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L359-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L359-L408" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def execute(self, table, command, *args, stop=True, **kwargs):
     &#34;&#34;&#34;Executes a MongoDb command and returns the result.
@@ -1315,7 +1315,7 @@ which will then be cast to an ObjectId.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L193-L223" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L193-L223" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, table, record):
     &#34;&#34;&#34;Get the record and recordId if only one of them is specified.
@@ -1374,7 +1374,7 @@ Each document is cast to an AttrDict.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L260-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L260-L281" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getList(self, table, stop=True, **criteria):
     &#34;&#34;&#34;Get a list of documents from a collection.
@@ -1431,7 +1431,7 @@ satisfies the criteria.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L225-L258" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L225-L258" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRecord(self, table, warn=True, stop=True, **criteria):
     &#34;&#34;&#34;Get a single document from a collection.
@@ -1493,7 +1493,7 @@ inserted.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L337-L357" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L337-L357" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def insertRecord(self, table, stop=True, **fields):
     &#34;&#34;&#34;Inserts a new record in a table.
@@ -1547,7 +1547,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/mongo.py#L309-L335" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/52069a13b852c57fe8864ae25da395f3e3af7920/src/pure3d/control/mongo.py#L309-L335" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def updateRecord(self, table, updates, stop=True, **criteria):
     &#34;&#34;&#34;Updates a single document from a collection.
@@ -1585,6 +1585,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 </article>
 <nav id="sidebar">
 <p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<p><a href="https://github.com/CLARIAH/pure3dx/blob/main/stats.md" title="GitHub repo">code stats</a></p>
 <form>
 <input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
 disabled minlength="2">
