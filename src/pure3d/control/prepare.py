@@ -3,6 +3,7 @@ from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
 from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
+from control.wrap import Wrap as WrapCls
 from control.content import Content as ContentCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
@@ -21,7 +22,8 @@ def prepare(trivial=False):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.datamodel.Datamodel`: factory for handling fields
+    * `control.wrap.Wrap`: several lengthy functions to wrap concepts into HTML
+    * `control.datamodel.Datamodel`: factory for handling fields, inherited by `Content`
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -62,6 +64,7 @@ def prepare(trivial=False):
         Mongo = None
         Collect = None
         Viewers = None
+        Wrap = None
         Content = None
         Auth = None
         EditSessions = None
@@ -78,12 +81,15 @@ def prepare(trivial=False):
 
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
-        Content = ContentCls(Settings, Viewers, Messages, Mongo)
+        Wrap = WrapCls(Settings, Messages, Viewers)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo, Auth)
 
+        Wrap.addAuth(Auth)
         Content.addAuth(Auth)
+        Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
         Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
@@ -95,6 +101,7 @@ def prepare(trivial=False):
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
+        Wrap=Wrap,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,

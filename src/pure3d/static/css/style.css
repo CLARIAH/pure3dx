@@ -274,17 +274,149 @@ span.fileupload.iconedition img {
 .editcontent.dirty {
   border: 0.3rem solid var(--edit-dirty-border);
 }
-.prole,.ptitle,.etitle {
-  border: 0.1rem solid var(--field-outer-border);
+
+#mydetails,#myprojects,#allprojects,#allusers {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: solid 0.2rem black;
 }
-.ptitle,.etitle {
-  color: var(--field-outer-fore);
-  background-color: var(--field-outer-back);
+
+.udetails {
+  display: flex;
+  flex-flow row nowrap;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+.nickname {
+}
+.email {
+  font-family: monospace;
+  font-weight: bold;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+  width: 20em;
+}
+.pentry {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  width: 100%;
+  padding-top: 1rem;
+  border-top: solid 0.1rem #333333;
+}
+.phead {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+.pestatus {
+  font-weight: bold;
+  font-size: small;
+  border-radius: 0.2rem;
+  color: var(--pe-fore);
   padding: 0.2rem 0.6rem;
 }
-.prole {
+.pestatus.wip {
+  background-color: var(--pe-wip-back);
+}
+.pestatus.public {
+  background-color: var(--pe-public-back);
+}
+.pestatus.published {
+  background-color: var(--pe-published-back);
+}
+.ptitle,.etitle {
+  flex: 2 1 auto;
+  padding: 0.2rem 0.6rem;
+  margin: 0.2rem 0.2rem;
+}
+.ptitle {
   font-weight: bold;
-  color: var(--field-inner-fore);
-  background-color: var(--field-inner-back);
-  padding: 0.2rem 1.2rem;
+}
+.puser,.prole,.pestatus {
+  border: 0.1rem solid var(--field-inner-border);
+}
+.peditions {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: flex-start;
+  width: 100%;
+}
+.eentry {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  padding-left: 2rem;
+  margin-bottom: 1rem;
+  border-bottom: solid 0.1rem #cccccc;
+}
+.eentry:last-of-type {
+  border-bottom-width: 0;
+}
+.susers,.pusers,.eusers {
+  display: flex;
+  flex-flow: column nowrap;
+}
+.userroles {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  margin-bottom: 0.5rem;
+}
+.users {
+  flex: 1 1 auto;
+  display: inline-flex;
+  flex-flow: row wrap;
+  align-items: flex-start;
+}
+.roles {
+  flex: 0 1 auto;
+  display: inline-flex;
+  flex-flow: column wrap;
+  align-items: flex-start;
+  width: 9em;
+}
+.role {
+  flex: 0 0 auto;
+  color: var(--role-fore);
+  background-color: var(--role-back);
+  border: 0.1rem solid var(--role-border);
+  border-radius: 0.2rem;
+  font-size: small;
+  font-style: italic;
+  width: 8em;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+}
+.user {
+  flex: 0 1 auto;
+  color: var(--user-fore);
+  background-color: var(--user-back);
+  border: 0.1rem solid var(--user-border);
+  border-radius: 0.2rem;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+  font-weight: bold;
+  width: 10em;
+}
+.role.button.on,.user.button.on {
+  font-weight: bold;
+  color: var(--role-on-fore);
+  background-color: var(--role-on-back);
+  border: 0.2rem solid var(--role-on-border);
 }

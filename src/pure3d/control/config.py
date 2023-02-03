@@ -100,7 +100,7 @@ class Config:
     def checkWebdav(self):
         """Read the WEBDav methods from the webdav.yaml file.
 
-        The methods are associated with the `view` or `edit` keyword,
+        The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         """
         Settings = self.Settings
@@ -338,6 +338,9 @@ class Config:
 
         Settings.auth.tableFromRole = tableFromRole
 
+        rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+        Settings.auth.roleRank = lambda role: rank[role]
+
     def checkViewers(self):
         """Make an inventory of the supported 3D viewers."""
         Messages = self.Messages
@@ -387,6 +390,7 @@ class Config:
             viewerConfig.versions = versions
 
         Settings.viewers = viewerSettings.viewers
+        Settings.viewerActions = viewerSettings.actions
         Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):

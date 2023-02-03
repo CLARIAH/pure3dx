@@ -10,43 +10,47 @@ actions:
 
 roles:
   site:
-    null: not logged in
-    guest: guest
-    user: authenticated user
+    root: owner
     admin: administrator
+    user: user
+    guest: guest
+    null: not logged in
   project:
     organiser: organiser
+    null: ✗
   edition:
-    reader: reviewer
     editor: editor
+    reader: reviewer
+    null: ✗
+
+rolesOrder:
+  - root
+  - admin
+  - user
+  - guest
+  - null
+  - organiser
+  - editor
+  - reader
 
 userCoupled:
   - edition
   - project
 
-assignRules:
-  site: {}
-  project:
-    admin:
-      - organiser
-  edition:
-    organiser:
-      - editor
-      - reviewer
-    editor:
-      - reviewer
-
 authRules:
   site:
     create: {}
     read:
+      root: true
       admin: true
       user: true
       guest: true
       null: true
     update:
+      root: true
       admin: true
     delete:
+      root: true
       admin: true
 
   project:
@@ -59,14 +63,17 @@ authRules:
     create:
       true: {}
       false:
+        root: true
         admin: true
     read:
       true:
+        root: true
         admin: true
         user: true
         guest: true
         null: true
       false:
+        root: true
         admin: true
         organiser: true
         editor: true
@@ -78,6 +85,7 @@ authRules:
     delete:
       true: {}
       false:
+        root: true
         admin: true
 
   edition:
@@ -93,11 +101,13 @@ authRules:
         organiser: true
     read:
       true:
+        root: true
         admin: true
         user: true
         guest: true
         null: true
       false:
+        root: true
         admin: true
         organiser: true
         editor: true

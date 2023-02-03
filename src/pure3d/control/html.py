@@ -165,6 +165,8 @@ class HtmlElements:
     """
 
     def __init__(self, Settings, Messages):
+        """Gives the HtmlElements access to Settings and Messages.
+        """
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -274,6 +276,8 @@ class HtmlElements:
             return E
 
         def _wrapValue(value, isOuter):
+            """Inner function to be called recursively.
+            """
             if isOuter:
                 elem = outerElem
                 args = outerArgs
@@ -741,6 +745,32 @@ class HtmlElements:
         return HtmlElement("span" if href is None else "a").wrap(
             (text or "") + iconChar, addClass=addClass, **atts
         )
+
+    def actionButton(self, name, kind=None, **atts):
+        """Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+        H: object
+            The `control.html.HtmlElements` object
+
+        name: string
+            The name of the icon as displayed on the button
+
+        kind: string, optional None
+            The kind of the button, passed on in attribute `kind`, can be
+            used by Javascript to identify this button.
+            If `None`, the kind is set to the value of the `name` parameter.
+
+        Returns
+        -------
+        string
+            The HTML of the button.
+
+        """
+        return self.iconx(name, href="#", cls="button small", kind=name, **atts)
 
     @staticmethod
     def iframe(src, **atts):

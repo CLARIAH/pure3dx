@@ -45,24 +45,26 @@ class Pages:
         self.Auth = Auth
 
     def collect(self):
-        """Data reset: collect the example data again."""
+        """Data reset: collect the example data again.
+        """
         Collect = self.Collect
         Messages = self.Messages
 
         Collect.fetch()
         Messages.info(msg="data reset done!")
-        ref = getReferrer()
-        return redirectStatus(ref, True)
+        return redirectStatus("/home", True)
 
     def home(self):
-        """The site-wide home page."""
+        """The site-wide home page.
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
-        """The site-wide about page."""
+        """The site-wide about page.
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
@@ -70,7 +72,8 @@ class Pages:
         return self.page("about", left=left, right=right)
 
     def surprise(self):
-        """The "surprise me!" page."""
+        """The "surprise me!" page.
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
@@ -79,26 +82,31 @@ class Pages:
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
-        """The page with the list of projects."""
+        """The page with the list of projects.
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
         left = Content.getValues(table, record, "siteTitle@2") + projects
         return self.page("projects", left=left)
 
-    def mywork(self):
-        """The page with the list of users."""
+    def admin(self):
+        """The page with the list of projects, editions, and users.
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        items = Content.getMywork()
+        items = Content.getAdmin()
         left = Content.getValues(table, record, "siteTitle@2") + items
-        return self.page("mywork", left=left)
+        return self.page("admin", left=left)
 
-    def projectInsert(self):
-        """Inserts a project and shows the new project."""
+    def createProject(self, site):
+        """Creates a project and shows the new project.
+
+        The current user is linked to this project as organiser.
+        """
         Messages = self.Messages
         Content = self.Content
-        projectId = Content.insertProject()
+        projectId = Content.createProject(site)
 
         if projectId is None:
             Messages.warning(
@@ -141,8 +149,37 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
-    def editionInsert(self, project):
+    def deleteProject(self, project):
+        """Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (projectId, project) = Mongo.get("project", project)
+
+        result = Content.deleteProject(project)
+
+        if result:
+            Messages.info(
+                logmsg=f"Deleted project {projectId}", msg="project deleted"
+            )
+        else:
+            Messages.warning(
+                logmsg=f"Could not delete project {projectId}",
+                msg="failed to delete project",
+            )
+        return redirectStatus("/project", True)
+
+    def createEdition(self, project):
         """Inserts an edition into a project and shows the new edition.
+
+        The current user is linked to this edition as editor.
 
         Parameters
         ----------
@@ -154,7 +191,7 @@ class Pages:
         Content = self.Content
 
         (projectId, project) = Mongo.get("project", project)
-        editionId = Content.insertEdition(project)
+        editionId = Content.createEdition(project)
 
         if editionId is None:
             Messages.warning(
@@ -228,6 +265,34 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
+    def deleteEdition(self, edition):
+        """Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (editionId, edition) = Mongo.get("edition", edition)
+        projectId = edition.projectId
+
+        result = Content.deleteEdition(edition)
+
+        if result:
+            Messages.info(
+                logmsg=f"Deleted edition {editionId}", msg="edition deleted"
+            )
+        else:
+            Messages.warning(
+                logmsg=f"Could not delete edition {editionId}",
+                msg="failed to delete edition",
+            )
+        return redirectStatus(f"/project/{projectId}", True)
+
     def viewerFrame(self, edition, version, action):
         """The page loaded in an iframe where a 3D viewer operates.
 
@@ -235,12 +300,10 @@ class Pages:
         ----------
         edition: string | ObjectId | AttrDict
             The edition that is shown.
-        viewer: string | None
-            The viewer to use.
         version: string | None
             The version to use.
         action: string | None
-            The mode in which the viewer is to be used (`view` or `edit`).
+            The mode in which the viewer is to be used (`read` or `update`).
         """
         Content = self.Content
         Mongo = self.Mongo
@@ -332,6 +395,8 @@ class Pages:
             The context record of the upload
         key: string
             The key of the upload
+        path: string
+            The save location for the file
         givenFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if is None, the file will be saved with the name from the request.
@@ -352,12 +417,13 @@ class Pages:
         Parameters
         ----------
         record: string | ObjectId | AttrDict
-            The context record of the upload
+            The context record of the upload.
         key: string
-            The key of the upload
+            The key of the upload.
+        path: string
+            The location of the file.
         givenFileName: string, optional None
-            The name of the file as which the uploaded file will be saved;
-            if is None, the file will be saved with the name from the request.
+            The name of the file.
         """
         Content = self.Content
 
@@ -385,7 +451,7 @@ class Pages:
             The path relative to the directory of the edition.
         action: string
             The operation that the WebDAV request wants to do on the data
-            (`view` or `edit`).
+            (`read` or `update`).
 
         Returns
         -------
@@ -429,6 +495,8 @@ class Pages:
         Messages = self.Messages
 
         def splitUrl(url):
+            """Auxiliary inner function.
+            """
             url = url.strip("/")
             parts = url.rsplit("/", 1)
             lastPart = parts[-1]
@@ -503,7 +571,6 @@ class Pages:
             The HTML of the navigation.
         """
         Settings = self.Settings
-        Auth = self.Auth
         H = Settings.H
 
         # 1st column: url
@@ -515,7 +582,7 @@ class Pages:
             ("home", "Home", True, True),
             ("about", "About", True, True),
             ("project", "3D Projects", True, True),
-            ("mywork", "My Work", True, Auth.authUser("tab")),
+            ("admin", "My Work", True, True),
             ("directory", "3D Directory", False, True),
             ("surpriseme", "Surprise Me", True, True),
             ("advancedsearch", "Advanced Search", False, True),

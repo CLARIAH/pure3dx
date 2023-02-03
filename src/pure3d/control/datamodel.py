@@ -319,119 +319,6 @@ class Datamodel:
             fileName = self.uploadsConfig[key].fileName
         return self.uploadObjects[(key, fileName)]
 
-    def actionButton(
-        self,
-        table,
-        record,
-        action,
-        permitted=None,
-        insertTable=None,
-        key=None,
-        href=None,
-    ):
-        """Puts a button on the interface, if that makes sense.
-
-        The button, when pressed, will lead to an action on certain content.
-        It will be checked first if that action is allowed for the current user.
-        If not the button will not be shown.
-
-        !!! note "Delete buttons"
-            Even if a user is authorised to delete a record,
-            it is not allowed to delete master records if its detail records
-            still exist.
-            In that case, no delete button is displayed. Instead we display a count
-            of detail records.
-
-        !!! note "Create buttons"
-            When placing a create button, the relevant record acts as the master
-            record, to which the newly created record will be added as a detail.
-
-        Parameters
-        ----------
-        table: string
-            The relevant table.
-        record: string | ObjectId | AttrDict
-            The relevant record.
-        action: string
-            The type of action that will be performed if the button triggered.
-        permitted: boolean, optional None
-            If the permission for the action is already known before calling
-            this function, it is passed here.
-            If this parameter is None, we'll compute the permission.
-        insertTable: string, optional None
-            If the action is "create", this is the table in which a record
-            get inserted. The `table` and `record` arguments are then
-            supposed to specify the *master* record of the newly inserted record.
-            Needed to determine whether a press on the button is permitted.
-        key: string, optional None
-            If present, it identifies a field that is stored inside the
-            record.
-        href: string, optional None
-            If present, contains the href attribute for the button.
-        """
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (recordId, record) = Mongo.get(table, record)
-
-        permitted = (
-            Auth.authorise(table, record, action=action, insertTable=insertTable)
-            if permitted is None
-            else permitted
-        )
-
-        if not permitted:
-            return ""
-
-        Settings = self.Settings
-        H = Settings.H
-        actions = Settings.auth.actions
-
-        disable = False
-        report = ""
-
-        if action == "delete":
-            details = self.getDetailRecords(table, record)
-            if len(details):
-                disable = True
-                detailContent = []
-                for (detailTable, detailRecords) in details.items():
-                    nDetails = len(detailRecords)
-                    plural = "" if nDetails == 1 else "s"
-                    detailRep = detailTable + plural
-                    detailContent.append(f"""{nDetails}{H.nbsp}{detailRep}""")
-
-                report = H.div(
-                    [
-                        H.span(thisContent, cls="dreport") + H.br()
-                        for thisContent in detailContent
-                    ]
-                )
-                report = H.br() + report
-
-        actionInfo = actions.get(action, {})
-        name = actionInfo.name
-        keyRepTip = "" if key is None else f" {key} of"
-        keyRepUrl = "" if key is None else f"/{key}"
-
-        if disable:
-            href = None
-            cls = "disabled"
-            can = "Cannot"
-        else:
-            cls = ""
-            can = ""
-
-        if action == "create":
-            href = f"/{table}/{recordId}/{insertTable}/create" if href is None else href
-            tip = f"{name} new {insertTable}"
-        else:
-            href = f"/{table}/{recordId}{keyRepUrl}/{action}" if href is None else href
-            tip = f"{can}{name}{keyRepTip} this {table}"
-
-        fullCls = f"button small {cls}"
-        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
-
 
 class Field:
     def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
@@ -624,12 +511,13 @@ class Field:
         key = self.key
 
         bare = self.bare(record)
+        bareRep = bare or f"<i>no {key}</i>"
 
         if tp == "text":
-            readonlyContent = markdown(bare, tight=False)
+            readonlyContent = markdown(bareRep, tight=False)
         else:
             readonlyContent = H.wrapValue(
-                bare,
+                bareRep,
                 outerElem="span",
                 outerAtts=dict(cls=outerCls),
                 innerElem="span",
@@ -638,10 +526,10 @@ class Field:
         if editable:
             keyRepUrl = "" if key is None else f"/{key}"
             saveUrl = f"/save/{table}/{recordId}{keyRepUrl}"
-            updateButton = self.actionButtonClient(table, "edit_update", key=key)
-            cancelButton = self.actionButtonClient(table, "edit_cancel", key=key)
-            saveButton = self.actionButtonClient(table, "edit_save", key=key)
-            msgs = H.div("", cls="editmsgs")
+            updateButton = H.actionButton("edit_update")
+            cancelButton = H.actionButton("edit_cancel")
+            saveButton = H.actionButton("edit_save")
+            messages = H.div("", cls="editmsgs")
             editableContent = H.textarea(
                 "", cls="editcontent", saveurl=saveUrl, origValue=bare
             )
@@ -653,7 +541,7 @@ class Field:
                     updateButton,
                     saveButton,
                     cancelButton,
-                    msgs,
+                    messages,
                 ]
             )
         else:
@@ -683,26 +571,6 @@ class Field:
         )
 
         return H.div(fullContent, cls="editwidget") if editable else fullContent
-
-    def actionButtonClient(self, table, name, key=None, **atts):
-        """Generates an action button to be activated by client side Javascript.
-
-        It is assumed that the permission has already been checked.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-
-        """
-        Settings = self.Settings
-        H = Settings.H
-
-        href = "#"
-
-        fullCls = "button small"
-        return H.iconx(name, href=href, cls=fullCls, kind=name)
 
 
 class Upload:

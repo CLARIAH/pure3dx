@@ -4,10 +4,11 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
+from control.admin import Admin
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -30,6 +31,7 @@ class Content(Datamodel):
         """
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
+        self.Wrap = Wrap
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -60,180 +62,12 @@ class Content(Datamodel):
             A list of captions of the projects,
             wrapped in a HTML string.
         """
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
+        Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
 
-        wrapped = []
-        wrapped.append(
-            H.p(self.actionButton("site", site, action="create", insertTable="project"))
-        )
-
-        for project in Mongo.getList("project"):
-            projectId = project._id
-            permitted = Auth.authorise("project", project, action="read")
-            if not permitted:
-                continue
-
-            title = project.title
-
-            projectUrl = f"/project/{projectId}"
-            button = self.actionButton("project", project, "delete")
-            visual = self.getUpload(project, "iconProject")
-            caption = self.getCaption(visual, title, button, projectUrl)
-
-            wrapped.append(caption)
-
-        return H.content(*wrapped)
-
-    def getMywork(self):
-        """Get the list of relevant projects, editions and users.
-
-        Admin users get the list of all users.
-
-        Normal users get the list of users associated with
-
-        * the project of which they are organiser
-        * the editions of which they are editor or reviewer
-
-        Guests and not-logged-in users cannot see any user.
-
-        If the user has rights to modify the association
-        between users and projects/editions, he will get
-        the controls to do so.
-
-        Returns
-        -------
-        string
-        """
-        Settings = self.Settings
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        User = Auth.myDetails()
-        user = User.user
-
-        H = Settings.H
-        authSettings = Settings.auth
-        roles = authSettings.roles
-
-        mail = User.email or "no email"
-        role = roles.site[User.role]
-
-        wrapped = [
-            H.h(1, "My details"),
-            H.p(H.b(User.nickname)),
-            H.p(H.code(mail)),
-            H.p(role),
-        ]
-        wrapped.append(H.h(1, "My projects and editions"))
-
-        editionLinks = Mongo.getList("editionUser", user=user)
-        editionIds = sorted({link.editionId for link in editionLinks})
-        editionList = Mongo.getList("edition", _id={"$in": editionIds})
-
-        editions = {edition._id: edition for edition in editionList}
-
-        parentProjectIds = sorted(
-            {editions[editionId].projectId for editionId in editionIds}
-        )
-
-        projectLinks = Mongo.getList("projectUser", user=user)
-        projectIds = sorted({link.projectId for link in projectLinks})
-        allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
-        projectList = Mongo.getList("project", _id={"$in": allProjectIds})
-        projects = {project._id: project for project in projectList}
-
-        editionList = Mongo.getList("edition", projectId={"$in": allProjectIds})
-        editions = {edition._id: edition for edition in editionList}
-
-        for edition in editionList:
-            editionId = edition._id
-            projectId = edition.projectId
-            projects[projectId].setdefault("editions", {})[editionId] = edition
-
-        for link in projectLinks:
-            projectId = link.projectId
-            project = projects[projectId]
-            role = link.role
-            if role:
-                project.role = roles.project[role]
-
-        for link in editionLinks:
-            editionId = link.editionId
-            edition = editions[editionId]
-            role = link.role
-            if role:
-                edition.role = roles.edition[role]
-
-        pTitleAtts = dict(cls="ptitle")
-        eTitleAtts = dict(cls="etitle")
-        roleAtts = dict(cls="prole")
-
-        headingRow = (
-            [("project", pTitleAtts), ("edition", eTitleAtts), ("role", roleAtts)],
-            {},
-        )
-        projectRows = []
-
-        for projectId in sorted(projects):
-            project = projects[projectId]
-            title = project.title
-            role = project.role or ""
-            projectRows.append(
-                ([(title, pTitleAtts), ("", eTitleAtts), (role, roleAtts)], {})
-            )
-            theseEditions = project.editions
-            if theseEditions:
-                for editionId in sorted(theseEditions):
-                    edition = editions[editionId]
-                    title = edition.title
-                    role = edition.role or ""
-                    projectRows.append(
-                        ([("", pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
-                    )
-
-        material = (
-            H.p("You are not associated with specific projects or editions.")
-            if len(projectRows) == 0
-            else H.table([headingRow], projectRows, cls="projecttable")
-        )
-        wrapped.append(material)
-
-        return H.content(*wrapped)
-
-    def insertProject(self):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (siteTable, siteId, site) = self.relevant()
-
-        permitted = Auth.authorise("site", site, action="create", insertTable="project")
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        user = User.user
-        name = User.nickname
-
-        title = "Project without title"
-
-        dcMeta = dict(
-            title=title,
-            description=dict(abstract="No intro", description="No description"),
-            creator=name,
-        )
-        projectId = Mongo.insertRecord("project", title=title, meta=dict(dc=dcMeta))
-        Mongo.insertRecord(
-            "projectUser",
-            projectId=projectId,
-            user=user,
-            role="editor",
-        )
-        return projectId
+        return Wrap.projectsMain(site, Mongo.getList("project"))
 
     def getEditions(self, project):
         """Get the list of the editions of a project.
@@ -255,92 +89,12 @@ class Content(Datamodel):
             A list of captions of the editions of the project,
             wrapped in a HTML string.
         """
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
-
-        wrapped = []
+        Wrap = self.Wrap
 
         (projectId, project) = Mongo.get("project", project)
 
-        for edition in Mongo.getList("edition", projectId=projectId):
-            editionId = edition._id
-            permitted = Auth.authorise("edition", record=edition, action="read")
-            if not permitted:
-                continue
-
-            title = edition.title
-
-            editionUrl = f"/edition/{editionId}"
-            button = self.actionButton("edition", edition, "delete")
-            visual = self.getUpload(edition, "iconEdition")
-            caption = self.getCaption(visual, title, button, editionUrl)
-            wrapped.append(caption)
-
-        wrapped.append(
-            H.p(self.actionButton("project", project, "create", insertTable="edition"))
-        )
-        return H.content(*wrapped)
-
-    def insertEdition(self, project):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (projectId, project) = Mongo.get("project", project)
-
-        permitted = Auth.authorise(
-            "project", project, action="create", insertTable="edition"
-        )
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        name = User.nickname
-
-        title = "Edition without title"
-
-        dcMeta = dict(
-            title=title,
-            description=dict(
-                abstract="No intro",
-                description="No description",
-                provenance="No sources",
-            ),
-            creator=name,
-        )
-        editionId = Mongo.insertRecord(
-            "edition", title=title, projectId=projectId, meta=dict(dc=dcMeta)
-        )
-        return editionId
-
-    def getViewInfo(self, edition):
-        """Gets viewer-related info that an edition is made with.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition record.
-
-        Returns
-        -------
-        tuple of string
-            * The name of the viewer
-            * The name of the scene
-
-        """
-        Mongo = self.Mongo
-        Viewers = self.Viewers
-        viewerDefault = Viewers.viewerDefault
-
-        (editionId, edition) = Mongo.get("edition", edition)
-
-        editionSettings = edition.settings or AttrDict()
-        authorTool = editionSettings.authorTool or AttrDict()
-        viewer = authorTool.name or viewerDefault
-        sceneFile = authorTool.sceneFile
-
-        return (viewer, sceneFile)
+        return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
 
     def getScene(self, edition, version=None, action=None):
         """Get the scene of an edition of a project.
@@ -377,55 +131,200 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         """
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
         Viewers = self.Viewers
+        Wrap = self.Wrap
+
+        (viewer, sceneFile) = self.getViewInfo(edition)
+        version = Viewers.check(viewer, version)
 
         if action is None:
             action = "read"
 
-        wrapped = []
+        (editionId, edition) = Mongo.get("edition", edition)
+
+        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
+
+    def getAdmin(self):
+        """Get the list of relevant projects, editions and users.
+
+        Admin users get the list of all users.
+
+        Normal users get the list of users associated with
+
+        * the project of which they are organiser
+        * the editions of which they are editor or reviewer
+
+        Guests and not-logged-in users cannot see any user.
+
+        If the user has rights to modify the association
+        between users and projects/editions, he will get
+        the controls to do so.
+
+        Returns
+        -------
+        string
+        """
+        return Admin(self).wrap()
+
+    def createProject(self, site):
+        """Creates a new project.
+
+        Parameters
+        ----------
+        site: AttrDict | string
+            record that represents the site, or its id.
+            It acts as a master record for all projects.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new project.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (siteId, site) = Mongo.get("site", site)
+
+        permitted = Auth.authorise("site", site, action="create", insertTable="project")
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = "Project without title"
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract="No intro", description="No description"),
+            creator=name,
+        )
+        projectId = Mongo.insertRecord(
+            "project", title=title, meta=dict(dc=dcMeta), isVisible=False
+        )
+        Mongo.insertRecord(
+            "projectUser", projectId=projectId, user=user, role="organiser"
+        )
+        return projectId
+
+    def deleteProject(self, project):
+        """Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get("project", project)
+
+        permitted = Auth.authorise("project", project, action="delete")
+        if not permitted:
+            return None
+
+        result = Mongo.deleteRecord("project", _id=projectId)
+        return result
+
+    def createEdition(self, project):
+        """Creates a new edition.
+
+        Parameters
+        ----------
+        project: AttrDict | string
+            record that represents the maste project, or its id.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new edition.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get("project", project)
+
+        permitted = Auth.authorise(
+            "project", project, action="create", insertTable="edition"
+        )
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = "Edition without title"
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract="No intro",
+                description="No description",
+                provenance="No sources",
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            "edition",
+            title=title,
+            projectId=projectId,
+            meta=dict(dc=dcMeta),
+            isPublished=False,
+        )
+        Mongo.insertRecord("editionUser", editionId=editionId, user=user, role="editor")
+        return editionId
+
+    def deleteEdition(self, edition):
+        """Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        """
+        Mongo = self.Mongo
+        Auth = self.Auth
 
         (editionId, edition) = Mongo.get("edition", edition)
-        (viewer, sceneFile) = self.getViewInfo(edition)
-        actions = Auth.authorise("edition", edition)
-        if "read" not in actions:
-            return ""
 
-        version = Viewers.check(viewer, version)
+        permitted = Auth.authorise("edition", edition, action="delete")
+        if not permitted:
+            return None
 
-        wrapped = []
+        result = Mongo.deleteRecord("edition", _id=editionId)
+        return result
 
-        titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.actionButton("edition", edition, "delete")
+    def getViewInfo(self, edition):
+        """Gets viewer-related info that an edition is made with.
 
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
-        title = H.span(titleText, cls="entrytitle")
-        content = f"""{frame}{title}{buttons}"""
-        caption = self.wrapCaption(content, button, active=True)
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition record.
 
-        wrapped.append(caption)
-        return H.content(*wrapped)
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
 
-    def wrapCaption(self, content, button, active=False):
-        Settings = self.Settings
-        H = Settings.H
+        """
+        Mongo = self.Mongo
+        Viewers = self.Viewers
+        viewerDefault = Viewers.viewerDefault
 
-        activeCls = "active" if active else ""
-        return H.div(
-            [H.div(content, cls=f"caption {activeCls}"), button], cls="captioncontent"
-        )
+        (editionId, edition) = Mongo.get("edition", edition)
 
-    def getCaption(self, visual, titleText, button, url):
-        Settings = self.Settings
-        H = Settings.H
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
 
-        title = H.span(titleText, cls="entrytitle")
-        content = H.a(f"{visual}{title}", url, cls="entry")
-
-        return self.wrapCaption(content, button)
+        return (viewer, sceneFile)
 
     def saveValue(self, table, record, key):
         """Saves a value of into a record.
@@ -454,7 +353,9 @@ class Content(Datamodel):
             Contains the following keys:
 
             * `status`: whether the save action was successful
-            * `msgs`: messages issued during the process
+            * `messages`: messages issued during the process
+            * `readonly`: the html of the updated formatted value,
+              this will replace the currently displayed value.
         """
         Auth = self.Auth
         Mongo = self.Mongo
@@ -472,10 +373,13 @@ class Content(Datamodel):
         (recordId, record) = Mongo.get(table, record)
 
         value = json.loads(requestData())
+        update = {f"{nameSpace}.{fieldPath}": value}
+        if key == "title":
+            update[key] = value
 
         if (
             Mongo.updateRecord(
-                table, {f"{nameSpace}.{fieldPath}": value}, stop=False, _id=recordId
+                table, update, stop=False, _id=recordId
             )
             is None
         ):
@@ -488,13 +392,71 @@ class Content(Datamodel):
 
         return dict(
             stat=True,
-            messages=[
-                ["warning", f"{nameSpace=}"],
-                ["warning", f"{fieldPath=}"],
-                ["warning", f"{value=}"],
-            ],
+            messages=[],
             readonly=F.formatted(table, record, editable=False, level=None),
         )
+
+    def saveRole(self, user, table, recordId):
+        """Saves a role into a user or cross table record.
+
+        The role is given by the request.
+
+        Parameters
+        ----------
+        user: string
+            The eppn of the user.
+        table: string | void
+            The relevant table. If not None, it indicates whether we are updating
+            site-wide roles, otherwise project/edition roles.
+        recordId: string | void
+            The id of the relevant record. If not None, it is a project/edition
+            record Id, which can be used to locate the cross record between the
+            user collection and the project/edition record where the user's
+            role is stored.
+            If None, the user's role is inside the user record.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        """
+        newRole = json.loads(requestData())
+        return Admin(self).saveRole(user, newRole, table, recordId)
+
+    def linkUser(self, table, recordId):
+        """Links a user in certain role to a project/edition record.
+
+        The user and role are given by the request.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        recordId: string
+            The id of the relevant record,
+            which can be used to locate the cross record between the
+            user collection and the project/edition record where the user's
+            role is stored.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        """
+        (newRole, newUser) = json.loads(requestData())
+        return Admin(self).linkUser(newUser, newRole, table, recordId)
 
     def getValue(self, table, record, key, level=None, bare=False):
         """Retrieve a metadata value.
@@ -747,6 +709,9 @@ class Content(Datamodel):
         (projectId, project) = Mongo.get("project", project)
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", bare=True)
+        if not text:
+            text = "<i>no title</i>"
+
         return H.p(
             [
                 "Project: ",

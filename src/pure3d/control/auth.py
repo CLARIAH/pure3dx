@@ -31,86 +31,6 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authUser(self, task, table=None, record=None):
-        """Check whether a certain task related to the user table is allowed.
-
-        Admins may see the list of users, project and edition users
-        may see which other users are in the same project or edition
-        as they are, admins may assign project organisers,
-        project organisers may assign edition editors,
-        edition editors may assign edition readers.
-
-        The following tasks are defined;
-        per task there is a relevant table/record that should be passed:
-
-        `tab`: see the users tab.
-            *No relevant record needed.*
-            *No other user needed.*
-
-            Only admins and users that are associated to
-            any project/edition will see the "My work" tab in navigation.
-
-            A boolean is returned.
-
-        `view`: see details of other users.
-            *The relevant record is either a project or an edition.*
-
-            Only admins and people in the same project/edition may see
-            the users in that item.
-
-            A list of users is returned.
-
-        `assign`:
-            Only for projects and unpublished editions: according to the
-            assignRules in `authorise.yaml`
-
-            *The relevant record is either a project or an edition.*
-            *The `otherUser` parameter is the assignee.
-
-            We need the role of the assignee, because users cannot assign
-            more powerful users.
-
-            A boolean is returned.
-
-        Parameters
-        ----------
-        task: string
-            The task to be executed
-        table: string, optional None
-            the relevant table
-        record: ObjectId | AttrDict, optional None
-            the relevant record
-        user: ObjectId | AttrDict, optional None
-            the other user
-
-        Returns
-        -------
-        boolean
-            Whether the current user may execute the task in the given
-            context, affecting the other user.
-        """
-        Mongo = self.Mongo
-        User = self.myDetails()
-        user = User.user
-        role = User.role
-
-        if role == "admin":
-            return True
-
-        crossTable = f"{table}User"
-
-        if task == "tab":
-            return sum(
-                len(Mongo.getList(f"{table}User", user=user))
-                for table in ("project", "edition")
-            ) > 0
-
-        (recordId, record) = Mongo.get(table, record)
-
-        if task == "view":
-            same = Mongo.getList(crossTable, crossField=recordId)
-            return {r.userId for r in same}
-
     def authorise(self, table, record, action=None, insertTable=None):
         """Check whether an action is allowed on data.
 
@@ -124,10 +44,10 @@ class Auth(Users):
 
         How do the authorisation rules work?
 
-        First we consider the site-wise role of the user: guest, user, or admin.
+        First we consider the site-wise role of the user: guest, user, admin, or root.
         If the action is allowed on that basis, we return True.
 
-        If not, we look whether the user has additional roles with regard
+        If not, we look whether the user has an additional role with regard
         to the record in question, or with any of its master records.
 
         If so, we apply the rules for those cases and see whether the action is
@@ -159,7 +79,7 @@ class Auth(Users):
         Returns
         -------
         boolean | dict
-            For other actions: a boolean whether action is allowed.
+            If an action is passed: boolean whether action is allowed.
 
             If no action is passed: dict keyed by the allowed actions, the values
             are true.
@@ -218,11 +138,12 @@ class Auth(Users):
         (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
+            initState = stateInfo.init
             if isCreate:
-                state = stateInfo.init
+                state = initState
             else:
                 stateField = stateInfo.field
-                state = record[stateField]
+                state = record.get(stateField, initState)
 
         # we select the rules for the given state, if any
 
@@ -356,9 +277,10 @@ class Auth(Users):
                 crit = {relatedIdField: {"$in": detailIds}}
                 crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
-                extraRoles = {crossRecord.role for crossRecord in crossRecords} - {None}
-
-                userRoles |= extraRoles
+                for crossRecord in crossRecords:
+                    extraRole = crossRecord.role
+                    if extraRole is not None:
+                        userRoles.add(extraRole)
 
         # Now we have
         # 1. userRoles:

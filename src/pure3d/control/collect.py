@@ -142,7 +142,9 @@ class Collect:
         siteId = Mongo.insertRecord("site", **siteCrit, **meta)
         self.siteId = siteId
 
+        Messages.plain(logmsg=f"Move icon in place: {iconFile}")
         fileCopy(f"{importDir}/{iconFile}", f"{workingDir}/{iconFile}")
+        Messages.plain(logmsg=f"Move favicon in place: {faviconFile}")
         fileCopy(f"{importDir}/{faviconFile}", f"{workingDir}/{faviconFile}")
 
     def doProjects(self):

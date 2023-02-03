@@ -15,9 +15,7 @@ from flask import (
 from control.environment import var
 
 
-PROTOCOL_RE = re.compile(
-    r"""^https?:\/\/""", re.I
-)
+PROTOCOL_RE = re.compile(r"""^https?:\/\/""", re.I)
 
 
 def appInitializing():
@@ -53,6 +51,7 @@ def renderTemplate(template, **kwargs):
 
 
 def flashMsg(*args, **kwargs):
+    """Gives user feedback using the Flask flash mechanism."""
     flash(*args, **kwargs)
 
 
@@ -205,10 +204,6 @@ def requestData():
     Useful for uploaded files.
     """
     return request.get_data(cache=False)
-
-
-def values():
-    return request.values
 
 
 def getReferrer():

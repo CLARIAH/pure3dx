@@ -8,7 +8,7 @@ title: >-
 
 heading: Pure 3D website
 iconFile: icon.png
-favIconFile: favicon.ico
+faviconFile: favicon.ico
 
 database: pure3d
 mongoHost: mongodb
@@ -17,11 +17,30 @@ mongoPort: 27017
 siteCrit:
   name: "site"
 
+representations:
+  isVisible:
+    false: "hidden"
+    true: "public"
+  isPublished:
+    false: "in progress"
+    true: "published"
+
+css:
+  isVisible:
+    false: "wip"
+    true: "public"
+  isPublished:
+    false: "wip"
+    true: "published"
+
 icons:
   assign: "⊫"
   edit_cancel: "❌"
   edit_save: "✅"
   edit_update: "✎"
+  edit_assign: "♺"
+  edit_insert: "✚"
+  edit_link: "⚭"
   chain: "⚭"
   check: "✔︎"
   create: "✚"
@@ -46,3 +65,6 @@ iconTips:
   edit_cancel: "reset to last saved value"
   edit_save: "save and quit"
   edit_update: "edit this value"
+  edit_assign: "assign user role(s)"
+  edit_insert: "add someone or something"
+  edit_link: "link someone to this"

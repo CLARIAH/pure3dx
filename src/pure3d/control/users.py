@@ -336,6 +336,8 @@ class Users:
         content = []
 
         def wrap(label, text, title, href, active, enabled):
+            """Inner function to be called recursively.
+            """
             if label:
                 content.append(H.span(label, cls="label"))
 
@@ -467,6 +469,21 @@ class Users:
         return redirectStatus(f"/afterlogin/referrer/{referrer}", True)
 
     def __findTestUser(self, user):
+        """Lookup data of a test user in the MongoDb users collection.
+
+        The user is looked up by the `user` field.
+
+        Parameters
+        ----------
+        user: string
+            The `user` of by which a user is looked up, if not None.
+
+        Returns
+        -------
+        boolean
+            Whether a user has been found/created.
+            If so, the data of that user record is stored in the `__User` member.
+        """
         Messages = self.Messages
         Mongo = self.Mongo
         User = self.__User
@@ -496,13 +513,14 @@ class Users:
         user: string
             The `user` of by which a user is looked up, if not None.
         update: boolean, optional False
+            Whether to update the user record with fresh attributes of the
+            identity provider.
 
         Returns
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored
-            in the `__User` member.
+            If so, the data of that user record is stored in the `__User` member.
         """
         Mongo = self.Mongo
         oidc = self.oidc
