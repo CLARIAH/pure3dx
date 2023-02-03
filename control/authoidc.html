@@ -26,13 +26,15 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/authoidc.py#L1-L46" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/authoidc.py#L1-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask_oidc import OpenIDConnect
 import json
 
 
 def _json_loads(content):
+    &#34;&#34;&#34;Handles loading of json content as unicode strings.
+    &#34;&#34;&#34;
     if not isinstance(content, str):
         content = content.decode(&#39;utf-8&#39;)
     return json.loads(content)
@@ -43,10 +45,14 @@ class AuthOidc:
 
     @classmethod
     def load_secrets(cls):
+        &#34;&#34;&#34;Reads secrets used in encryption and decryption.
+        &#34;&#34;&#34;
         return _json_loads(open(cls.OIDC_CLIENT_SECRETS, &#39;r&#39;).read())
 
     @classmethod
     def prepare(cls, app):
+        &#34;&#34;&#34;Injects the OIDC module into the main app.
+        &#34;&#34;&#34;
         authconf = {
             # &#39;SECRET_KEY&#39;: app.secret_key,
             &#39;TESTING&#39;: True,
@@ -93,17 +99,21 @@ class AuthOidc:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/authoidc.py#L11-L46" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/authoidc.py#L13-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AuthOidc:
     OIDC_CLIENT_SECRETS = &#34;/app/src/pure3d/secret/client_secrets.json&#34;
 
     @classmethod
     def load_secrets(cls):
+        &#34;&#34;&#34;Reads secrets used in encryption and decryption.
+        &#34;&#34;&#34;
         return _json_loads(open(cls.OIDC_CLIENT_SECRETS, &#39;r&#39;).read())
 
     @classmethod
     def prepare(cls, app):
+        &#34;&#34;&#34;Injects the OIDC module into the main app.
+        &#34;&#34;&#34;
         authconf = {
             # &#39;SECRET_KEY&#39;: app.secret_key,
             &#39;TESTING&#39;: True,
@@ -145,14 +155,16 @@ class AuthOidc:
 <span>def <span class="ident">load_secrets</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reads secrets used in encryption and decryption.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/authoidc.py#L14-L16" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/authoidc.py#L16-L20" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def load_secrets(cls):
+    &#34;&#34;&#34;Reads secrets used in encryption and decryption.
+    &#34;&#34;&#34;
     return _json_loads(open(cls.OIDC_CLIENT_SECRETS, &#39;r&#39;).read())</code></pre>
 </details>
 </dd>
@@ -160,14 +172,16 @@ def load_secrets(cls):
 <span>def <span class="ident">prepare</span></span>(<span>app)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Injects the OIDC module into the main app.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/authoidc.py#L18-L46" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/authoidc.py#L22-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def prepare(cls, app):
+    &#34;&#34;&#34;Injects the OIDC module into the main app.
+    &#34;&#34;&#34;
     authconf = {
         # &#39;SECRET_KEY&#39;: app.secret_key,
         &#39;TESTING&#39;: True,

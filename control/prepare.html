@@ -26,13 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/prepare.py#L1-L103" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/prepare.py#L1-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
 from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
+from control.wrap import Wrap as WrapCls
 from control.content import Content as ContentCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
@@ -51,7 +52,8 @@ def prepare(trivial=False):
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.datamodel.Datamodel`: factory for handling fields
+    * `control.wrap.Wrap`: several lengthy functions to wrap concepts into HTML
+    * `control.datamodel.Datamodel`: factory for handling fields, inherited by `Content`
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -92,6 +94,7 @@ def prepare(trivial=False):
         Mongo = None
         Collect = None
         Viewers = None
+        Wrap = None
         Content = None
         Auth = None
         EditSessions = None
@@ -108,12 +111,15 @@ def prepare(trivial=False):
 
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
-        Content = ContentCls(Settings, Viewers, Messages, Mongo)
+        Wrap = WrapCls(Settings, Messages, Viewers)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo, Auth)
 
+        Wrap.addAuth(Auth)
         Content.addAuth(Auth)
+        Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
         Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
@@ -125,6 +131,7 @@ def prepare(trivial=False):
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
+        Wrap=Wrap,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,
@@ -152,7 +159,8 @@ each of these objects has a dedicated task in the app:</p>
 <li><code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>: handle all messaging to user and sysadmin</li>
 <li><code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>: higher-level commands to the MongoDb</li>
 <li><code><a title="control.viewers.Viewers" href="viewers.html#control.viewers.Viewers">Viewers</a></code>: support the third party 3D viewers</li>
-<li><code><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></code>: factory for handling fields</li>
+<li><code><a title="control.wrap.Wrap" href="wrap.html#control.wrap.Wrap">Wrap</a></code>: several lengthy functions to wrap concepts into HTML</li>
+<li><code><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></code>: factory for handling fields, inherited by <code>Content</code></li>
 <li><code><a title="control.content.Content" href="content.html#control.content.Content">Content</a></code>: retrieve all data that needs to be displayed</li>
 <li><code><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></code>: compute the permission of the current user
 to access content</li>
@@ -189,7 +197,7 @@ by the singleton objects themselves.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/prepare.py#L14-L103" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/prepare.py#L15-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prepare(trivial=False):
     &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
@@ -201,7 +209,8 @@ by the singleton objects themselves.</dd>
     * `control.messages.Messages`: handle all messaging to user and sysadmin
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
-    * `control.datamodel.Datamodel`: factory for handling fields
+    * `control.wrap.Wrap`: several lengthy functions to wrap concepts into HTML
+    * `control.datamodel.Datamodel`: factory for handling fields, inherited by `Content`
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.auth.Auth`: compute the permission of the current user
       to access content
@@ -242,6 +251,7 @@ by the singleton objects themselves.</dd>
         Mongo = None
         Collect = None
         Viewers = None
+        Wrap = None
         Content = None
         Auth = None
         EditSessions = None
@@ -258,12 +268,15 @@ by the singleton objects themselves.</dd>
 
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
-        Content = ContentCls(Settings, Viewers, Messages, Mongo)
+        Wrap = WrapCls(Settings, Messages, Viewers)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo, Auth)
 
+        Wrap.addAuth(Auth)
         Content.addAuth(Auth)
+        Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
         Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
@@ -275,6 +288,7 @@ by the singleton objects themselves.</dd>
         Mongo=Mongo,
         Collect=Collect,
         Viewers=Viewers,
+        Wrap=Wrap,
         Content=Content,
         Auth=Auth,
         EditSessions=EditSessions,

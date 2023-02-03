@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L1-L348" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L1-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 
@@ -47,12 +47,17 @@ class Viewers:
         Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.viewers = Settings.viewers
+        self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
 
     def addAuth(self, Auth):
@@ -109,6 +114,8 @@ class Viewers:
         actions: iterable of string
             The actions for which we have to create buttons.
             Typically `read` and possibly also `update`.
+            Actions that are not recognized as viewer actions
+            will be filtered out, such as `create` and `delete`.
         viewer: string
             The viewer in which the scene is currently loaded.
         versionActive: string | void
@@ -127,10 +134,10 @@ class Viewers:
         Settings = self.Settings
         H = Settings.H
         Mongo = self.Mongo
-
-        actionInfo = Settings.auth.actions
+        actionInfo = self.viewerActions
         viewers = self.viewers
 
+        filteredActions = {a for a in actions if a in actionInfo}
         versionActive = self.check(viewer, versionActive)
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
@@ -141,6 +148,13 @@ class Viewers:
         )
 
         def getViewerButtons():
+            &#34;&#34;&#34;Internal function.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a viewer.
+            &#34;&#34;&#34;
             activeCls = &#34;active&#34;
             return H.span(
                 [
@@ -157,6 +171,20 @@ class Viewers:
             )
 
         def getVersionButtons(version, active):
+            &#34;&#34;&#34;Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer.
+            &#34;&#34;&#34;
             nonlocal activeButtons
 
             activeCls = &#34;active&#34; if active else &#34;&#34;
@@ -165,8 +193,7 @@ class Viewers:
                 [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
                 + [
                     getActionButton(version, action, active and action == actionActive)
-                    for action in actions
-                    if action != &#34;delete&#34;
+                    for action in filteredActions
                 ],
                 cls=&#34;vv&#34;,
             )
@@ -176,8 +203,25 @@ class Viewers:
             return versionButtons
 
         def getActionButton(version, action, active):
+            &#34;&#34;&#34;Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            action: string
+                Whether to launch the viewer for `read` or for `update`.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer
+                for a specific action.
+            &#34;&#34;&#34;
             activeCls = &#34;active&#34; if active else &#34;&#34;
-            thisActionInfo = actionInfo.get(action, AttrDict)
+            thisActionInfo = actionInfo.get(action, AttrDict())
             name = thisActionInfo.name
 
             atts = {}
@@ -215,8 +259,7 @@ class Viewers:
             H.span(versionActive, cls=&#34;vvla&#34;),
         ] + [
             getActionButton(versionActive, action, action == actionActive)
-            for action in actions
-            if action not in {&#34;delete&#34;}
+            for action in filteredActions
         ]
 
         buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
@@ -401,11 +444,15 @@ and has the methods to invoke them.</p>
 <dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>App-wide configuration data obtained from
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
+<dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
+<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
+<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L6-L348" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L6-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Viewers:
     def __init__(self, Settings, Messages, Mongo):
@@ -421,12 +468,17 @@ and has the methods to invoke them.</p>
         Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
+        Messages: object
+            Singleton instance of `control.messages.Messages`.
+        Mongo: object
+            Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.viewers = Settings.viewers
+        self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
 
     def addAuth(self, Auth):
@@ -483,6 +535,8 @@ and has the methods to invoke them.</p>
         actions: iterable of string
             The actions for which we have to create buttons.
             Typically `read` and possibly also `update`.
+            Actions that are not recognized as viewer actions
+            will be filtered out, such as `create` and `delete`.
         viewer: string
             The viewer in which the scene is currently loaded.
         versionActive: string | void
@@ -501,10 +555,10 @@ and has the methods to invoke them.</p>
         Settings = self.Settings
         H = Settings.H
         Mongo = self.Mongo
-
-        actionInfo = Settings.auth.actions
+        actionInfo = self.viewerActions
         viewers = self.viewers
 
+        filteredActions = {a for a in actions if a in actionInfo}
         versionActive = self.check(viewer, versionActive)
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
@@ -515,6 +569,13 @@ and has the methods to invoke them.</p>
         )
 
         def getViewerButtons():
+            &#34;&#34;&#34;Internal function.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a viewer.
+            &#34;&#34;&#34;
             activeCls = &#34;active&#34;
             return H.span(
                 [
@@ -531,6 +592,20 @@ and has the methods to invoke them.</p>
             )
 
         def getVersionButtons(version, active):
+            &#34;&#34;&#34;Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer.
+            &#34;&#34;&#34;
             nonlocal activeButtons
 
             activeCls = &#34;active&#34; if active else &#34;&#34;
@@ -539,8 +614,7 @@ and has the methods to invoke them.</p>
                 [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
                 + [
                     getActionButton(version, action, active and action == actionActive)
-                    for action in actions
-                    if action != &#34;delete&#34;
+                    for action in filteredActions
                 ],
                 cls=&#34;vv&#34;,
             )
@@ -550,8 +624,25 @@ and has the methods to invoke them.</p>
             return versionButtons
 
         def getActionButton(version, action, active):
+            &#34;&#34;&#34;Internal function.
+
+            Parameters
+            ----------
+            version: string
+                The version of the viewer.
+            action: string
+                Whether to launch the viewer for `read` or for `update`.
+            active: boolean
+                Whether that version of that viewer is currently active.
+
+            Returns
+            -------
+            string
+                HTML for the buttons to launch a specific version of a viewer
+                for a specific action.
+            &#34;&#34;&#34;
             activeCls = &#34;active&#34; if active else &#34;&#34;
-            thisActionInfo = actionInfo.get(action, AttrDict)
+            thisActionInfo = actionInfo.get(action, AttrDict())
             name = thisActionInfo.name
 
             atts = {}
@@ -589,8 +680,7 @@ and has the methods to invoke them.</p>
             H.span(versionActive, cls=&#34;vvla&#34;),
         ] + [
             getActionButton(versionActive, action, action == actionActive)
-            for action in actions
-            if action not in {&#34;delete&#34;}
+            for action in filteredActions
         ]
 
         buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
@@ -763,7 +853,7 @@ be given the handle to the other after initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L28-L34" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L33-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuth(self, Auth):
     &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -802,7 +892,7 @@ If the viewer is not supported, None is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L36-L70" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L41-L75" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self, viewer, version):
     &#34;&#34;&#34;Checks whether a viewer version exists.
@@ -871,7 +961,7 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L196-L272" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L239-L315" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def genHtml(self, urlBase, sceneFile, viewer, version, action):
     &#34;&#34;&#34;Generates the HTML for the viewer page that is loaded in an iframe.
@@ -963,7 +1053,9 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 <dd>The edition in question.</dd>
 <dt><strong><code>actions</code></strong> :&ensp;<code>iterable</code> of <code>string</code></dt>
 <dd>The actions for which we have to create buttons.
-Typically <code>read</code> and possibly also <code>update</code>.</dd>
+Typically <code>read</code> and possibly also <code>update</code>.
+Actions that are not recognized as viewer actions
+will be filtered out, such as <code>create</code> and <code>delete</code>.</dd>
 <dt><strong><code>viewer</code></strong> :&ensp;<code>string</code></dt>
 <dd>The viewer in which the scene is currently loaded.</dd>
 <dt><strong><code>versionActive</code></strong> :&ensp;<code>string | void</code></dt>
@@ -982,7 +1074,7 @@ if any, otherwise None</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L72-L194" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L77-L237" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getFrame(self, edition, actions, viewer, versionActive, actionActive):
     &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
@@ -994,6 +1086,8 @@ if any, otherwise None</dd>
     actions: iterable of string
         The actions for which we have to create buttons.
         Typically `read` and possibly also `update`.
+        Actions that are not recognized as viewer actions
+        will be filtered out, such as `create` and `delete`.
     viewer: string
         The viewer in which the scene is currently loaded.
     versionActive: string | void
@@ -1012,10 +1106,10 @@ if any, otherwise None</dd>
     Settings = self.Settings
     H = Settings.H
     Mongo = self.Mongo
-
-    actionInfo = Settings.auth.actions
+    actionInfo = self.viewerActions
     viewers = self.viewers
 
+    filteredActions = {a for a in actions if a in actionInfo}
     versionActive = self.check(viewer, versionActive)
 
     (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
@@ -1026,6 +1120,13 @@ if any, otherwise None</dd>
     )
 
     def getViewerButtons():
+        &#34;&#34;&#34;Internal function.
+
+        Returns
+        -------
+        string
+            HTML for the buttons to launch a viewer.
+        &#34;&#34;&#34;
         activeCls = &#34;active&#34;
         return H.span(
             [
@@ -1042,6 +1143,20 @@ if any, otherwise None</dd>
         )
 
     def getVersionButtons(version, active):
+        &#34;&#34;&#34;Internal function.
+
+        Parameters
+        ----------
+        version: string
+            The version of the viewer.
+        active: boolean
+            Whether that version of that viewer is currently active.
+
+        Returns
+        -------
+        string
+            HTML for the buttons to launch a specific version of a viewer.
+        &#34;&#34;&#34;
         nonlocal activeButtons
 
         activeCls = &#34;active&#34; if active else &#34;&#34;
@@ -1050,8 +1165,7 @@ if any, otherwise None</dd>
             [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
             + [
                 getActionButton(version, action, active and action == actionActive)
-                for action in actions
-                if action != &#34;delete&#34;
+                for action in filteredActions
             ],
             cls=&#34;vv&#34;,
         )
@@ -1061,8 +1175,25 @@ if any, otherwise None</dd>
         return versionButtons
 
     def getActionButton(version, action, active):
+        &#34;&#34;&#34;Internal function.
+
+        Parameters
+        ----------
+        version: string
+            The version of the viewer.
+        action: string
+            Whether to launch the viewer for `read` or for `update`.
+        active: boolean
+            Whether that version of that viewer is currently active.
+
+        Returns
+        -------
+        string
+            HTML for the buttons to launch a specific version of a viewer
+            for a specific action.
+        &#34;&#34;&#34;
         activeCls = &#34;active&#34; if active else &#34;&#34;
-        thisActionInfo = actionInfo.get(action, AttrDict)
+        thisActionInfo = actionInfo.get(action, AttrDict())
         name = thisActionInfo.name
 
         atts = {}
@@ -1100,8 +1231,7 @@ if any, otherwise None</dd>
         H.span(versionActive, cls=&#34;vvla&#34;),
     ] + [
         getActionButton(versionActive, action, action == actionActive)
-        for action in actions
-        if action not in {&#34;delete&#34;}
+        for action in filteredActions
     ]
 
     buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
@@ -1142,7 +1272,7 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L274-L314" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L317-L357" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRoot(self, urlBase, action, viewer):
     &#34;&#34;&#34;Composes the root url for a viewer.
@@ -1219,7 +1349,7 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/viewers.py#L316-L348" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/viewers.py#L359-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getStaticRoot(self, viewerUrlBase, action, viewer, version):
     &#34;&#34;&#34;Composes the static root url for a viewer.

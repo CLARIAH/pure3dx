@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L1-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/webdavapp.py#L1-L133" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from wsgidav.wsgidav_app import WsgiDAVApp
 
@@ -104,6 +104,8 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
     &#34;&#34;&#34;
 
     def wsgi_function(environ, start_response):
+        &#34;&#34;&#34;Internal function for to deliver as result.
+        &#34;&#34;&#34;
         url = environ.get(&#34;PATH_INFO&#34;, &#34;&#34;)
         aimedAtWebdav = url.startswith(webdavPrefix)
 
@@ -128,6 +130,8 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
 
 
 def appFactoryMaster():
+    &#34;&#34;&#34;Factory function for the master flask app.
+    &#34;&#34;&#34;
     app = appMake(__name__)
     return app
 
@@ -187,7 +191,7 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L105-L129" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/webdavapp.py#L109-L133" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory():
     &#34;&#34;&#34;Make a WebDAV enabled app.
@@ -220,13 +224,15 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <span>def <span class="ident">appFactoryMaster</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Factory function for the master flask app.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L100-L102" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/webdavapp.py#L102-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactoryMaster():
+    &#34;&#34;&#34;Factory function for the master flask app.
+    &#34;&#34;&#34;
     app = appMake(__name__)
     return app</code></pre>
 </details>
@@ -274,7 +280,7 @@ A WEBDav server.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L31-L97" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/webdavapp.py#L31-L99" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
     &#34;&#34;&#34;Combines the main app with the webdavapp.
@@ -322,6 +328,8 @@ A WEBDav server.</p></div>
     &#34;&#34;&#34;
 
     def wsgi_function(environ, start_response):
+        &#34;&#34;&#34;Internal function for to deliver as result.
+        &#34;&#34;&#34;
         url = environ.get(&#34;PATH_INFO&#34;, &#34;&#34;)
         aimedAtWebdav = url.startswith(webdavPrefix)
 
@@ -356,7 +364,7 @@ and configure it here.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getWebdavApp(objects):
     &#34;&#34;&#34;Configure a webapp that provides WebDAV.

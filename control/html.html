@@ -32,7 +32,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1-L1184" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1-L1214" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;HTML generation made easy.
 
@@ -201,6 +201,8 @@ class HtmlElements:
     &#34;&#34;&#34;
 
     def __init__(self, Settings, Messages):
+        &#34;&#34;&#34;Gives the HtmlElements access to Settings and Messages.
+        &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -310,6 +312,8 @@ class HtmlElements:
             return E
 
         def _wrapValue(value, isOuter):
+            &#34;&#34;&#34;Inner function to be called recursively.
+            &#34;&#34;&#34;
             if isOuter:
                 elem = outerElem
                 args = outerArgs
@@ -777,6 +781,32 @@ class HtmlElements:
         return HtmlElement(&#34;span&#34; if href is None else &#34;a&#34;).wrap(
             (text or &#34;&#34;) + iconChar, addClass=addClass, **atts
         )
+
+    def actionButton(self, name, kind=None, **atts):
+        &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+        H: object
+            The `control.html.HtmlElements` object
+
+        name: string
+            The name of the icon as displayed on the button
+
+        kind: string, optional None
+            The kind of the button, passed on in attribute `kind`, can be
+            used by Javascript to identify this button.
+            If `None`, the kind is set to the value of the `name` parameter.
+
+        Returns
+        -------
+        string
+            The HTML of the button.
+
+        &#34;&#34;&#34;
+        return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)
 
     @staticmethod
     def iframe(src, **atts):
@@ -1251,7 +1281,7 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1142-L1173" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1172-L1203" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def asString(value, tight=True):
     &#34;&#34;&#34;Join an iterable of strings or iterables into a string.
@@ -1300,7 +1330,7 @@ We want to know whether a value is a string or an iterable of strings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1176-L1184" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1206-L1214" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def isIterable(value):
     &#34;&#34;&#34;Whether a value is a non-string iterable.
@@ -1334,7 +1364,7 @@ We want to know whether a value is a string or an iterable of strings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L46-L156" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L46-L156" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElement:
     &#34;&#34;&#34;Wrapping of attributes and content into an HTML element.&#34;&#34;&#34;
@@ -1458,7 +1488,7 @@ We want to know whether a value is a string or an iterable of strings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L75-L79" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L75-L79" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def atEscape(v):
@@ -1477,7 +1507,7 @@ def atEscape(v):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L64-L73" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L64-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def atNormal(k):
@@ -1525,7 +1555,7 @@ Otherwise a fresh class attribute will be created.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L81-L122" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L81-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def attStr(thisCls, atts, addClass=None):
@@ -1609,7 +1639,7 @@ Otherwise a fresh class attribute will be created.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L124-L156" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L124-L156" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrap(self, material, addClass=None, **atts):
     &#34;&#34;&#34;Wraps attributes and content into an element.
@@ -1658,11 +1688,12 @@ Otherwise a fresh class attribute will be created.</dd>
 <p class="admonition-title">Note</p>
 <p>Nearly all elements accept an arbitrary supply of attributes
 in the <code>**atts</code> parameter, which will not further be documented.</p>
-</div></div>
+</div>
+<p>Gives the HtmlElements access to Settings and Messages.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L159-L1139" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L159-L1169" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElements:
     &#34;&#34;&#34;Wrap specific HTML elements and patterns.
@@ -1673,6 +1704,8 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
     &#34;&#34;&#34;
 
     def __init__(self, Settings, Messages):
+        &#34;&#34;&#34;Gives the HtmlElements access to Settings and Messages.
+        &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -1782,6 +1815,8 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
             return E
 
         def _wrapValue(value, isOuter):
+            &#34;&#34;&#34;Inner function to be called recursively.
+            &#34;&#34;&#34;
             if isOuter:
                 elem = outerElem
                 args = outerArgs
@@ -2250,6 +2285,32 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
             (text or &#34;&#34;) + iconChar, addClass=addClass, **atts
         )
 
+    def actionButton(self, name, kind=None, **atts):
+        &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+        It is assumed that the permission has already been checked.
+
+        Parameters
+        ----------
+        H: object
+            The `control.html.HtmlElements` object
+
+        name: string
+            The name of the icon as displayed on the button
+
+        kind: string, optional None
+            The kind of the button, passed on in attribute `kind`, can be
+            used by Javascript to identify this button.
+            If `None`, the kind is set to the value of the `name` parameter.
+
+        Returns
+        -------
+        string
+            The HTML of the button.
+
+        &#34;&#34;&#34;
+        return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)
+
     @staticmethod
     def iframe(src, **atts):
         &#34;&#34;&#34;IFRAME.
@@ -2696,7 +2757,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L322-L340" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L326-L344" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def a(material, href, **atts):
@@ -2738,7 +2799,7 @@ def a(material, href, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L342-L357" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L346-L361" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def b(material, **atts):
@@ -2777,7 +2838,7 @@ def b(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L359-L374" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L363-L378" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def body(material, **atts):
@@ -2811,7 +2872,7 @@ def body(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L376-L387" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L380-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def br():
@@ -2848,7 +2909,7 @@ The type of the button, e.g. <code>submit</code> or <code>button</code></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L389-L407" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L393-L411" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def button(material, tp, **atts):
@@ -2890,7 +2951,7 @@ def button(material, tp, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L426-L448" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L430-L452" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def checkbox(var, **atts):
@@ -2936,7 +2997,7 @@ def checkbox(var, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L409-L424" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L413-L428" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def code(material, **atts):
@@ -2981,7 +3042,7 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L203-L226" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L205-L228" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def content(*material, tight=True):
@@ -3028,7 +3089,7 @@ def content(*material, tight=True):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L450-L465" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L454-L469" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def dd(material, **atts):
@@ -3071,7 +3132,7 @@ def dd(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L467-L490" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L471-L494" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def details(summary, material, itemkey, **atts):
@@ -3117,7 +3178,7 @@ def details(summary, material, itemkey, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L554-L567" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L558-L571" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def div(material, **atts):
@@ -3154,7 +3215,7 @@ def div(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L569-L591" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L573-L595" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def dl(items, **atts):
@@ -3200,7 +3261,7 @@ def dl(items, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L593-L608" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L597-L612" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def dt(material, **atts):
@@ -3238,7 +3299,7 @@ def dt(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L300-L320" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L304-L324" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def elem(thisClass, tag, *args, **kwargs):
@@ -3283,7 +3344,7 @@ def elem(thisClass, tag, *args, **kwargs):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L610-L626" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L614-L630" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def h(level, material, **atts):
@@ -3316,7 +3377,7 @@ def h(level, material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L179-L201" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L181-L203" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def he(cls, val):
@@ -3362,7 +3423,7 @@ def he(cls, val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L628-L643" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L632-L647" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def head(material, **atts):
@@ -3401,7 +3462,7 @@ def head(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L645-L660" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L649-L664" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def i(material, **atts):
@@ -3440,7 +3501,7 @@ def i(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L745-L761" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L775-L791" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def iframe(src, **atts):
@@ -3482,7 +3543,7 @@ def iframe(src, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L986-L1004" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1016-L1034" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def link(rel, href, **atts):
@@ -3519,7 +3580,7 @@ def link(rel, href, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1006-L1017" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1036-L1047" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def meta(**atts):
@@ -3554,7 +3615,7 @@ def meta(**atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1019-L1034" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1049-L1064" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def p(material, **atts):
@@ -3592,7 +3653,7 @@ def p(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1036-L1050" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1066-L1080" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def script(material, **atts):
@@ -3630,7 +3691,7 @@ def script(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1052-L1067" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1082-L1097" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def span(material, **atts):
@@ -3669,7 +3730,7 @@ def span(material, **atts):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1097-L1113" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1127-L1143" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def textarea(material, **atts):
@@ -3711,7 +3772,7 @@ to wrapping them in either <code>&lt;th&gt;</code> or <code>&lt;td&gt;</code> el
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1115-L1139" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1145-L1169" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def wrapTable(data, td):
@@ -3776,7 +3837,7 @@ All nested values are wrapped in inner elements.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L228-L298" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L230-L302" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def wrapValue(
@@ -3827,6 +3888,8 @@ def wrapValue(
         return E
 
     def _wrapValue(value, isOuter):
+        &#34;&#34;&#34;Inner function to be called recursively.
+        &#34;&#34;&#34;
         if isOuter:
             elem = outerElem
             args = outerArgs
@@ -3854,6 +3917,60 @@ def wrapValue(
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="control.html.HtmlElements.actionButton"><code class="name flex">
+<span>def <span class="ident">actionButton</span></span>(<span>self, name, kind=None, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generates an action button to be activated by client side Javascript.</p>
+<p>It is assumed that the permission has already been checked.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>H</code></strong> :&ensp;<code>object</code></dt>
+<dd>The <code><a title="control.html.HtmlElements" href="#control.html.HtmlElements">HtmlElements</a></code> object</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the icon as displayed on the button</dd>
+<dt><strong><code>kind</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>The kind of the button, passed on in attribute <code>kind</code>, can be
+used by Javascript to identify this button.
+If <code>None</code>, the kind is set to the value of the <code>name</code> parameter.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML of the button.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L749-L773" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def actionButton(self, name, kind=None, **atts):
+    &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
+
+    It is assumed that the permission has already been checked.
+
+    Parameters
+    ----------
+    H: object
+        The `control.html.HtmlElements` object
+
+    name: string
+        The name of the icon as displayed on the button
+
+    kind: string, optional None
+        The kind of the button, passed on in attribute `kind`, can be
+        used by Javascript to identify this button.
+        If `None`, the kind is set to the value of the `name` parameter.
+
+    Returns
+    -------
+    string
+        The HTML of the button.
+
+    &#34;&#34;&#34;
+    return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)</code></pre>
+</details>
+</dd>
 <dt id="control.html.HtmlElements.detailx"><code class="name flex">
 <span>def <span class="ident">detailx</span></span>(<span>self, detailIcons, material, itemkey, openAtts={}, closeAtts={}, **atts)</span>
 </code></dt>
@@ -3890,7 +4007,7 @@ under the key <code>icons</code>. The icon itself is a Unicode character.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L492-L552" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L496-L556" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def detailx(
     self,
@@ -4025,7 +4142,7 @@ that widget. The outer element of the widget is not changed.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L830-L984" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L860-L1014" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def finput(
     self,
@@ -4214,7 +4331,7 @@ attributes that might have been passed.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L662-L697" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L666-L701" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def icon(self, icon, text=None, asChar=False, **atts):
     &#34;&#34;&#34;icon.
@@ -4287,7 +4404,7 @@ Will be left out when equal to the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L699-L743" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L703-L747" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def iconx(self, icon, text=None, href=None, **atts):
     &#34;&#34;&#34;iconx.
@@ -4369,7 +4486,7 @@ If missing, the image is not wrapped further.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L763-L800" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L793-L830" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def img(self, src, href=None, title=None, imgAtts={}, **atts):
     &#34;&#34;&#34;IMG.
@@ -4442,7 +4559,7 @@ If missing, the image is not wrapped further.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L802-L828" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L832-L858" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def input(self, material, tp, **atts):
     &#34;&#34;&#34;INPUT.
@@ -4499,7 +4616,7 @@ into <code>&lt;th&gt;</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/html.py#L1069-L1095" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/html.py#L1099-L1125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def table(self, headers, rows, **atts):
     &#34;&#34;&#34;TABLE.
@@ -4615,6 +4732,7 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.html.HtmlElements" href="#control.html.HtmlElements">HtmlElements</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.html.HtmlElements.a" href="#control.html.HtmlElements.a">a</a></code></li>
+<li><code><a title="control.html.HtmlElements.actionButton" href="#control.html.HtmlElements.actionButton">actionButton</a></code></li>
 <li><code><a title="control.html.HtmlElements.amp" href="#control.html.HtmlElements.amp">amp</a></code></li>
 <li><code><a title="control.html.HtmlElements.apos" href="#control.html.HtmlElements.apos">apos</a></code></li>
 <li><code><a title="control.html.HtmlElements.b" href="#control.html.HtmlElements.b">b</a></code></li>

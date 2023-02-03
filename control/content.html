@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L1-L896" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L1-L861" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import json
 from flask import jsonify
@@ -34,10 +34,11 @@ from control.generic import AttrDict
 from control.files import fileExists, fileRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
+from control.admin import Admin
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
         &#34;&#34;&#34;Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -60,6 +61,7 @@ class Content(Datamodel):
         &#34;&#34;&#34;
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
+        self.Wrap = Wrap
 
     def addAuth(self, Auth):
         &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -90,180 +92,12 @@ class Content(Datamodel):
             A list of captions of the projects,
             wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
+        Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
 
-        wrapped = []
-        wrapped.append(
-            H.p(self.actionButton(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;))
-        )
-
-        for project in Mongo.getList(&#34;project&#34;):
-            projectId = project._id
-            permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;read&#34;)
-            if not permitted:
-                continue
-
-            title = project.title
-
-            projectUrl = f&#34;/project/{projectId}&#34;
-            button = self.actionButton(&#34;project&#34;, project, &#34;delete&#34;)
-            visual = self.getUpload(project, &#34;iconProject&#34;)
-            caption = self.getCaption(visual, title, button, projectUrl)
-
-            wrapped.append(caption)
-
-        return H.content(*wrapped)
-
-    def getMywork(self):
-        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
-
-        Admin users get the list of all users.
-
-        Normal users get the list of users associated with
-
-        * the project of which they are organiser
-        * the editions of which they are editor or reviewer
-
-        Guests and not-logged-in users cannot see any user.
-
-        If the user has rights to modify the association
-        between users and projects/editions, he will get
-        the controls to do so.
-
-        Returns
-        -------
-        string
-        &#34;&#34;&#34;
-        Settings = self.Settings
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        User = Auth.myDetails()
-        user = User.user
-
-        H = Settings.H
-        authSettings = Settings.auth
-        roles = authSettings.roles
-
-        mail = User.email or &#34;no email&#34;
-        role = roles.site[User.role]
-
-        wrapped = [
-            H.h(1, &#34;My details&#34;),
-            H.p(H.b(User.nickname)),
-            H.p(H.code(mail)),
-            H.p(role),
-        ]
-        wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-
-        editionLinks = Mongo.getList(&#34;editionUser&#34;, user=user)
-        editionIds = sorted({link.editionId for link in editionLinks})
-        editionList = Mongo.getList(&#34;edition&#34;, _id={&#34;$in&#34;: editionIds})
-
-        editions = {edition._id: edition for edition in editionList}
-
-        parentProjectIds = sorted(
-            {editions[editionId].projectId for editionId in editionIds}
-        )
-
-        projectLinks = Mongo.getList(&#34;projectUser&#34;, user=user)
-        projectIds = sorted({link.projectId for link in projectLinks})
-        allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
-        projectList = Mongo.getList(&#34;project&#34;, _id={&#34;$in&#34;: allProjectIds})
-        projects = {project._id: project for project in projectList}
-
-        editionList = Mongo.getList(&#34;edition&#34;, projectId={&#34;$in&#34;: allProjectIds})
-        editions = {edition._id: edition for edition in editionList}
-
-        for edition in editionList:
-            editionId = edition._id
-            projectId = edition.projectId
-            projects[projectId].setdefault(&#34;editions&#34;, {})[editionId] = edition
-
-        for link in projectLinks:
-            projectId = link.projectId
-            project = projects[projectId]
-            role = link.role
-            if role:
-                project.role = roles.project[role]
-
-        for link in editionLinks:
-            editionId = link.editionId
-            edition = editions[editionId]
-            role = link.role
-            if role:
-                edition.role = roles.edition[role]
-
-        pTitleAtts = dict(cls=&#34;ptitle&#34;)
-        eTitleAtts = dict(cls=&#34;etitle&#34;)
-        roleAtts = dict(cls=&#34;prole&#34;)
-
-        headingRow = (
-            [(&#34;project&#34;, pTitleAtts), (&#34;edition&#34;, eTitleAtts), (&#34;role&#34;, roleAtts)],
-            {},
-        )
-        projectRows = []
-
-        for projectId in sorted(projects):
-            project = projects[projectId]
-            title = project.title
-            role = project.role or &#34;&#34;
-            projectRows.append(
-                ([(title, pTitleAtts), (&#34;&#34;, eTitleAtts), (role, roleAtts)], {})
-            )
-            theseEditions = project.editions
-            if theseEditions:
-                for editionId in sorted(theseEditions):
-                    edition = editions[editionId]
-                    title = edition.title
-                    role = edition.role or &#34;&#34;
-                    projectRows.append(
-                        ([(&#34;&#34;, pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
-                    )
-
-        material = (
-            H.p(&#34;You are not associated with specific projects or editions.&#34;)
-            if len(projectRows) == 0
-            else H.table([headingRow], projectRows, cls=&#34;projecttable&#34;)
-        )
-        wrapped.append(material)
-
-        return H.content(*wrapped)
-
-    def insertProject(self):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (siteTable, siteId, site) = self.relevant()
-
-        permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        user = User.user
-        name = User.nickname
-
-        title = &#34;Project without title&#34;
-
-        dcMeta = dict(
-            title=title,
-            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
-            creator=name,
-        )
-        projectId = Mongo.insertRecord(&#34;project&#34;, title=title, meta=dict(dc=dcMeta))
-        Mongo.insertRecord(
-            &#34;projectUser&#34;,
-            projectId=projectId,
-            user=user,
-            role=&#34;editor&#34;,
-        )
-        return projectId
+        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;))
 
     def getEditions(self, project):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -285,92 +119,12 @@ class Content(Datamodel):
             A list of captions of the editions of the project,
             wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
-
-        wrapped = []
+        Wrap = self.Wrap
 
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
 
-        for edition in Mongo.getList(&#34;edition&#34;, projectId=projectId):
-            editionId = edition._id
-            permitted = Auth.authorise(&#34;edition&#34;, record=edition, action=&#34;read&#34;)
-            if not permitted:
-                continue
-
-            title = edition.title
-
-            editionUrl = f&#34;/edition/{editionId}&#34;
-            button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
-            visual = self.getUpload(edition, &#34;iconEdition&#34;)
-            caption = self.getCaption(visual, title, button, editionUrl)
-            wrapped.append(caption)
-
-        wrapped.append(
-            H.p(self.actionButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
-        )
-        return H.content(*wrapped)
-
-    def insertEdition(self, project):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-
-        permitted = Auth.authorise(
-            &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
-        )
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        name = User.nickname
-
-        title = &#34;Edition without title&#34;
-
-        dcMeta = dict(
-            title=title,
-            description=dict(
-                abstract=&#34;No intro&#34;,
-                description=&#34;No description&#34;,
-                provenance=&#34;No sources&#34;,
-            ),
-            creator=name,
-        )
-        editionId = Mongo.insertRecord(
-            &#34;edition&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
-        )
-        return editionId
-
-    def getViewInfo(self, edition):
-        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition record.
-
-        Returns
-        -------
-        tuple of string
-            * The name of the viewer
-            * The name of the scene
-
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        Viewers = self.Viewers
-        viewerDefault = Viewers.viewerDefault
-
-        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-
-        editionSettings = edition.settings or AttrDict()
-        authorTool = editionSettings.authorTool or AttrDict()
-        viewer = authorTool.name or viewerDefault
-        sceneFile = authorTool.sceneFile
-
-        return (viewer, sceneFile)
+        return Wrap.editionsMain(project, Mongo.getList(&#34;edition&#34;, projectId=projectId))
 
     def getScene(self, edition, version=None, action=None):
         &#34;&#34;&#34;Get the scene of an edition of a project.
@@ -407,55 +161,200 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
         Viewers = self.Viewers
+        Wrap = self.Wrap
+
+        (viewer, sceneFile) = self.getViewInfo(edition)
+        version = Viewers.check(viewer, version)
 
         if action is None:
             action = &#34;read&#34;
 
-        wrapped = []
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+
+        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
+
+    def getAdmin(self):
+        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
+
+        Admin users get the list of all users.
+
+        Normal users get the list of users associated with
+
+        * the project of which they are organiser
+        * the editions of which they are editor or reviewer
+
+        Guests and not-logged-in users cannot see any user.
+
+        If the user has rights to modify the association
+        between users and projects/editions, he will get
+        the controls to do so.
+
+        Returns
+        -------
+        string
+        &#34;&#34;&#34;
+        return Admin(self).wrap()
+
+    def createProject(self, site):
+        &#34;&#34;&#34;Creates a new project.
+
+        Parameters
+        ----------
+        site: AttrDict | string
+            record that represents the site, or its id.
+            It acts as a master record for all projects.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new project.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (siteId, site) = Mongo.get(&#34;site&#34;, site)
+
+        permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = &#34;Project without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+            creator=name,
+        )
+        projectId = Mongo.insertRecord(
+            &#34;project&#34;, title=title, meta=dict(dc=dcMeta), isVisible=False
+        )
+        Mongo.insertRecord(
+            &#34;projectUser&#34;, projectId=projectId, user=user, role=&#34;organiser&#34;
+        )
+        return projectId
+
+    def deleteProject(self, project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;delete&#34;)
+        if not permitted:
+            return None
+
+        result = Mongo.deleteRecord(&#34;project&#34;, _id=projectId)
+        return result
+
+    def createEdition(self, project):
+        &#34;&#34;&#34;Creates a new edition.
+
+        Parameters
+        ----------
+        project: AttrDict | string
+            record that represents the maste project, or its id.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new edition.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        permitted = Auth.authorise(
+            &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
+        )
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = &#34;Edition without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract=&#34;No intro&#34;,
+                description=&#34;No description&#34;,
+                provenance=&#34;No sources&#34;,
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            &#34;edition&#34;,
+            title=title,
+            projectId=projectId,
+            meta=dict(dc=dcMeta),
+            isPublished=False,
+        )
+        Mongo.insertRecord(&#34;editionUser&#34;, editionId=editionId, user=user, role=&#34;editor&#34;)
+        return editionId
+
+    def deleteEdition(self, edition):
+        &#34;&#34;&#34;Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-        (viewer, sceneFile) = self.getViewInfo(edition)
-        actions = Auth.authorise(&#34;edition&#34;, edition)
-        if &#34;read&#34; not in actions:
-            return &#34;&#34;
 
-        version = Viewers.check(viewer, version)
+        permitted = Auth.authorise(&#34;edition&#34;, edition, action=&#34;delete&#34;)
+        if not permitted:
+            return None
 
-        wrapped = []
+        result = Mongo.deleteRecord(&#34;edition&#34;, _id=editionId)
+        return result
 
-        titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-        button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
+    def getViewInfo(self, edition):
+        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
 
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
-        title = H.span(titleText, cls=&#34;entrytitle&#34;)
-        content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
-        caption = self.wrapCaption(content, button, active=True)
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition record.
 
-        wrapped.append(caption)
-        return H.content(*wrapped)
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
 
-    def wrapCaption(self, content, button, active=False):
-        Settings = self.Settings
-        H = Settings.H
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Viewers = self.Viewers
+        viewerDefault = Viewers.viewerDefault
 
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-        return H.div(
-            [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
-        )
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
 
-    def getCaption(self, visual, titleText, button, url):
-        Settings = self.Settings
-        H = Settings.H
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
 
-        title = H.span(titleText, cls=&#34;entrytitle&#34;)
-        content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
-
-        return self.wrapCaption(content, button)
+        return (viewer, sceneFile)
 
     def saveValue(self, table, record, key):
         &#34;&#34;&#34;Saves a value of into a record.
@@ -484,7 +383,9 @@ class Content(Datamodel):
             Contains the following keys:
 
             * `status`: whether the save action was successful
-            * `msgs`: messages issued during the process
+            * `messages`: messages issued during the process
+            * `readonly`: the html of the updated formatted value,
+              this will replace the currently displayed value.
         &#34;&#34;&#34;
         Auth = self.Auth
         Mongo = self.Mongo
@@ -502,10 +403,13 @@ class Content(Datamodel):
         (recordId, record) = Mongo.get(table, record)
 
         value = json.loads(requestData())
+        update = {f&#34;{nameSpace}.{fieldPath}&#34;: value}
+        if key == &#34;title&#34;:
+            update[key] = value
 
         if (
             Mongo.updateRecord(
-                table, {f&#34;{nameSpace}.{fieldPath}&#34;: value}, stop=False, _id=recordId
+                table, update, stop=False, _id=recordId
             )
             is None
         ):
@@ -518,13 +422,71 @@ class Content(Datamodel):
 
         return dict(
             stat=True,
-            messages=[
-                [&#34;warning&#34;, f&#34;{nameSpace=}&#34;],
-                [&#34;warning&#34;, f&#34;{fieldPath=}&#34;],
-                [&#34;warning&#34;, f&#34;{value=}&#34;],
-            ],
+            messages=[],
             readonly=F.formatted(table, record, editable=False, level=None),
         )
+
+    def saveRole(self, user, table, recordId):
+        &#34;&#34;&#34;Saves a role into a user or cross table record.
+
+        The role is given by the request.
+
+        Parameters
+        ----------
+        user: string
+            The eppn of the user.
+        table: string | void
+            The relevant table. If not None, it indicates whether we are updating
+            site-wide roles, otherwise project/edition roles.
+        recordId: string | void
+            The id of the relevant record. If not None, it is a project/edition
+            record Id, which can be used to locate the cross record between the
+            user collection and the project/edition record where the user&#39;s
+            role is stored.
+            If None, the user&#39;s role is inside the user record.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        &#34;&#34;&#34;
+        newRole = json.loads(requestData())
+        return Admin(self).saveRole(user, newRole, table, recordId)
+
+    def linkUser(self, table, recordId):
+        &#34;&#34;&#34;Links a user in certain role to a project/edition record.
+
+        The user and role are given by the request.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        recordId: string
+            The id of the relevant record,
+            which can be used to locate the cross record between the
+            user collection and the project/edition record where the user&#39;s
+            role is stored.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        &#34;&#34;&#34;
+        (newRole, newUser) = json.loads(requestData())
+        return Admin(self).linkUser(newUser, newRole, table, recordId)
 
     def getValue(self, table, record, key, level=None, bare=False):
         &#34;&#34;&#34;Retrieve a metadata value.
@@ -777,6 +739,9 @@ class Content(Datamodel):
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
         projectUrl = f&#34;/project/{projectId}&#34;
         text = self.getValue(&#34;project&#34;, project, &#34;title&#34;, bare=True)
+        if not text:
+            text = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+
         return H.p(
             [
                 &#34;Project: &#34;,
@@ -937,7 +902,7 @@ class Content(Datamodel):
 <dl>
 <dt id="control.content.Content"><code class="flex name class">
 <span>class <span class="ident">Content</span></span>
-<span>(</span><span>Settings, Viewers, Messages, Mongo)</span>
+<span>(</span><span>Settings, Viewers, Messages, Mongo, Wrap)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Retrieving content from database and file system.</p>
@@ -960,10 +925,10 @@ class that will compose a response out of it.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L9-L896" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L10-L861" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
         &#34;&#34;&#34;Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -986,6 +951,7 @@ class that will compose a response out of it.</p>
         &#34;&#34;&#34;
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
+        self.Wrap = Wrap
 
     def addAuth(self, Auth):
         &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -1016,180 +982,12 @@ class that will compose a response out of it.</p>
             A list of captions of the projects,
             wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
+        Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
 
-        wrapped = []
-        wrapped.append(
-            H.p(self.actionButton(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;))
-        )
-
-        for project in Mongo.getList(&#34;project&#34;):
-            projectId = project._id
-            permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;read&#34;)
-            if not permitted:
-                continue
-
-            title = project.title
-
-            projectUrl = f&#34;/project/{projectId}&#34;
-            button = self.actionButton(&#34;project&#34;, project, &#34;delete&#34;)
-            visual = self.getUpload(project, &#34;iconProject&#34;)
-            caption = self.getCaption(visual, title, button, projectUrl)
-
-            wrapped.append(caption)
-
-        return H.content(*wrapped)
-
-    def getMywork(self):
-        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
-
-        Admin users get the list of all users.
-
-        Normal users get the list of users associated with
-
-        * the project of which they are organiser
-        * the editions of which they are editor or reviewer
-
-        Guests and not-logged-in users cannot see any user.
-
-        If the user has rights to modify the association
-        between users and projects/editions, he will get
-        the controls to do so.
-
-        Returns
-        -------
-        string
-        &#34;&#34;&#34;
-        Settings = self.Settings
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        User = Auth.myDetails()
-        user = User.user
-
-        H = Settings.H
-        authSettings = Settings.auth
-        roles = authSettings.roles
-
-        mail = User.email or &#34;no email&#34;
-        role = roles.site[User.role]
-
-        wrapped = [
-            H.h(1, &#34;My details&#34;),
-            H.p(H.b(User.nickname)),
-            H.p(H.code(mail)),
-            H.p(role),
-        ]
-        wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-
-        editionLinks = Mongo.getList(&#34;editionUser&#34;, user=user)
-        editionIds = sorted({link.editionId for link in editionLinks})
-        editionList = Mongo.getList(&#34;edition&#34;, _id={&#34;$in&#34;: editionIds})
-
-        editions = {edition._id: edition for edition in editionList}
-
-        parentProjectIds = sorted(
-            {editions[editionId].projectId for editionId in editionIds}
-        )
-
-        projectLinks = Mongo.getList(&#34;projectUser&#34;, user=user)
-        projectIds = sorted({link.projectId for link in projectLinks})
-        allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
-        projectList = Mongo.getList(&#34;project&#34;, _id={&#34;$in&#34;: allProjectIds})
-        projects = {project._id: project for project in projectList}
-
-        editionList = Mongo.getList(&#34;edition&#34;, projectId={&#34;$in&#34;: allProjectIds})
-        editions = {edition._id: edition for edition in editionList}
-
-        for edition in editionList:
-            editionId = edition._id
-            projectId = edition.projectId
-            projects[projectId].setdefault(&#34;editions&#34;, {})[editionId] = edition
-
-        for link in projectLinks:
-            projectId = link.projectId
-            project = projects[projectId]
-            role = link.role
-            if role:
-                project.role = roles.project[role]
-
-        for link in editionLinks:
-            editionId = link.editionId
-            edition = editions[editionId]
-            role = link.role
-            if role:
-                edition.role = roles.edition[role]
-
-        pTitleAtts = dict(cls=&#34;ptitle&#34;)
-        eTitleAtts = dict(cls=&#34;etitle&#34;)
-        roleAtts = dict(cls=&#34;prole&#34;)
-
-        headingRow = (
-            [(&#34;project&#34;, pTitleAtts), (&#34;edition&#34;, eTitleAtts), (&#34;role&#34;, roleAtts)],
-            {},
-        )
-        projectRows = []
-
-        for projectId in sorted(projects):
-            project = projects[projectId]
-            title = project.title
-            role = project.role or &#34;&#34;
-            projectRows.append(
-                ([(title, pTitleAtts), (&#34;&#34;, eTitleAtts), (role, roleAtts)], {})
-            )
-            theseEditions = project.editions
-            if theseEditions:
-                for editionId in sorted(theseEditions):
-                    edition = editions[editionId]
-                    title = edition.title
-                    role = edition.role or &#34;&#34;
-                    projectRows.append(
-                        ([(&#34;&#34;, pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
-                    )
-
-        material = (
-            H.p(&#34;You are not associated with specific projects or editions.&#34;)
-            if len(projectRows) == 0
-            else H.table([headingRow], projectRows, cls=&#34;projecttable&#34;)
-        )
-        wrapped.append(material)
-
-        return H.content(*wrapped)
-
-    def insertProject(self):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (siteTable, siteId, site) = self.relevant()
-
-        permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        user = User.user
-        name = User.nickname
-
-        title = &#34;Project without title&#34;
-
-        dcMeta = dict(
-            title=title,
-            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
-            creator=name,
-        )
-        projectId = Mongo.insertRecord(&#34;project&#34;, title=title, meta=dict(dc=dcMeta))
-        Mongo.insertRecord(
-            &#34;projectUser&#34;,
-            projectId=projectId,
-            user=user,
-            role=&#34;editor&#34;,
-        )
-        return projectId
+        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;))
 
     def getEditions(self, project):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -1211,92 +1009,12 @@ class that will compose a response out of it.</p>
             A list of captions of the editions of the project,
             wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
-
-        wrapped = []
+        Wrap = self.Wrap
 
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
 
-        for edition in Mongo.getList(&#34;edition&#34;, projectId=projectId):
-            editionId = edition._id
-            permitted = Auth.authorise(&#34;edition&#34;, record=edition, action=&#34;read&#34;)
-            if not permitted:
-                continue
-
-            title = edition.title
-
-            editionUrl = f&#34;/edition/{editionId}&#34;
-            button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
-            visual = self.getUpload(edition, &#34;iconEdition&#34;)
-            caption = self.getCaption(visual, title, button, editionUrl)
-            wrapped.append(caption)
-
-        wrapped.append(
-            H.p(self.actionButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
-        )
-        return H.content(*wrapped)
-
-    def insertEdition(self, project):
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-
-        permitted = Auth.authorise(
-            &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
-        )
-        if not permitted:
-            return None
-
-        User = Auth.myDetails()
-        name = User.nickname
-
-        title = &#34;Edition without title&#34;
-
-        dcMeta = dict(
-            title=title,
-            description=dict(
-                abstract=&#34;No intro&#34;,
-                description=&#34;No description&#34;,
-                provenance=&#34;No sources&#34;,
-            ),
-            creator=name,
-        )
-        editionId = Mongo.insertRecord(
-            &#34;edition&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
-        )
-        return editionId
-
-    def getViewInfo(self, edition):
-        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition record.
-
-        Returns
-        -------
-        tuple of string
-            * The name of the viewer
-            * The name of the scene
-
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        Viewers = self.Viewers
-        viewerDefault = Viewers.viewerDefault
-
-        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-
-        editionSettings = edition.settings or AttrDict()
-        authorTool = editionSettings.authorTool or AttrDict()
-        viewer = authorTool.name or viewerDefault
-        sceneFile = authorTool.sceneFile
-
-        return (viewer, sceneFile)
+        return Wrap.editionsMain(project, Mongo.getList(&#34;edition&#34;, projectId=projectId))
 
     def getScene(self, edition, version=None, action=None):
         &#34;&#34;&#34;Get the scene of an edition of a project.
@@ -1333,55 +1051,200 @@ class that will compose a response out of it.</p>
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         &#34;&#34;&#34;
-        Settings = self.Settings
-        H = Settings.H
         Mongo = self.Mongo
-        Auth = self.Auth
         Viewers = self.Viewers
+        Wrap = self.Wrap
+
+        (viewer, sceneFile) = self.getViewInfo(edition)
+        version = Viewers.check(viewer, version)
 
         if action is None:
             action = &#34;read&#34;
 
-        wrapped = []
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+
+        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
+
+    def getAdmin(self):
+        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
+
+        Admin users get the list of all users.
+
+        Normal users get the list of users associated with
+
+        * the project of which they are organiser
+        * the editions of which they are editor or reviewer
+
+        Guests and not-logged-in users cannot see any user.
+
+        If the user has rights to modify the association
+        between users and projects/editions, he will get
+        the controls to do so.
+
+        Returns
+        -------
+        string
+        &#34;&#34;&#34;
+        return Admin(self).wrap()
+
+    def createProject(self, site):
+        &#34;&#34;&#34;Creates a new project.
+
+        Parameters
+        ----------
+        site: AttrDict | string
+            record that represents the site, or its id.
+            It acts as a master record for all projects.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new project.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (siteId, site) = Mongo.get(&#34;site&#34;, site)
+
+        permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = &#34;Project without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+            creator=name,
+        )
+        projectId = Mongo.insertRecord(
+            &#34;project&#34;, title=title, meta=dict(dc=dcMeta), isVisible=False
+        )
+        Mongo.insertRecord(
+            &#34;projectUser&#34;, projectId=projectId, user=user, role=&#34;organiser&#34;
+        )
+        return projectId
+
+    def deleteProject(self, project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;delete&#34;)
+        if not permitted:
+            return None
+
+        result = Mongo.deleteRecord(&#34;project&#34;, _id=projectId)
+        return result
+
+    def createEdition(self, project):
+        &#34;&#34;&#34;Creates a new edition.
+
+        Parameters
+        ----------
+        project: AttrDict | string
+            record that represents the maste project, or its id.
+
+        Returns
+        -------
+        ObjectId
+            The id of the new edition.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        permitted = Auth.authorise(
+            &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
+        )
+        if not permitted:
+            return None
+
+        User = Auth.myDetails()
+        user = User.user
+        name = User.nickname
+
+        title = &#34;Edition without title&#34;
+
+        dcMeta = dict(
+            title=title,
+            description=dict(
+                abstract=&#34;No intro&#34;,
+                description=&#34;No description&#34;,
+                provenance=&#34;No sources&#34;,
+            ),
+            creator=name,
+        )
+        editionId = Mongo.insertRecord(
+            &#34;edition&#34;,
+            title=title,
+            projectId=projectId,
+            meta=dict(dc=dcMeta),
+            isPublished=False,
+        )
+        Mongo.insertRecord(&#34;editionUser&#34;, editionId=editionId, user=user, role=&#34;editor&#34;)
+        return editionId
+
+    def deleteEdition(self, edition):
+        &#34;&#34;&#34;Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-        (viewer, sceneFile) = self.getViewInfo(edition)
-        actions = Auth.authorise(&#34;edition&#34;, edition)
-        if &#34;read&#34; not in actions:
-            return &#34;&#34;
 
-        version = Viewers.check(viewer, version)
+        permitted = Auth.authorise(&#34;edition&#34;, edition, action=&#34;delete&#34;)
+        if not permitted:
+            return None
 
-        wrapped = []
+        result = Mongo.deleteRecord(&#34;edition&#34;, _id=editionId)
+        return result
 
-        titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-        button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
+    def getViewInfo(self, edition):
+        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
 
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
-        title = H.span(titleText, cls=&#34;entrytitle&#34;)
-        content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
-        caption = self.wrapCaption(content, button, active=True)
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition record.
 
-        wrapped.append(caption)
-        return H.content(*wrapped)
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
 
-    def wrapCaption(self, content, button, active=False):
-        Settings = self.Settings
-        H = Settings.H
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Viewers = self.Viewers
+        viewerDefault = Viewers.viewerDefault
 
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-        return H.div(
-            [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
-        )
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
 
-    def getCaption(self, visual, titleText, button, url):
-        Settings = self.Settings
-        H = Settings.H
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
 
-        title = H.span(titleText, cls=&#34;entrytitle&#34;)
-        content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
-
-        return self.wrapCaption(content, button)
+        return (viewer, sceneFile)
 
     def saveValue(self, table, record, key):
         &#34;&#34;&#34;Saves a value of into a record.
@@ -1410,7 +1273,9 @@ class that will compose a response out of it.</p>
             Contains the following keys:
 
             * `status`: whether the save action was successful
-            * `msgs`: messages issued during the process
+            * `messages`: messages issued during the process
+            * `readonly`: the html of the updated formatted value,
+              this will replace the currently displayed value.
         &#34;&#34;&#34;
         Auth = self.Auth
         Mongo = self.Mongo
@@ -1428,10 +1293,13 @@ class that will compose a response out of it.</p>
         (recordId, record) = Mongo.get(table, record)
 
         value = json.loads(requestData())
+        update = {f&#34;{nameSpace}.{fieldPath}&#34;: value}
+        if key == &#34;title&#34;:
+            update[key] = value
 
         if (
             Mongo.updateRecord(
-                table, {f&#34;{nameSpace}.{fieldPath}&#34;: value}, stop=False, _id=recordId
+                table, update, stop=False, _id=recordId
             )
             is None
         ):
@@ -1444,13 +1312,71 @@ class that will compose a response out of it.</p>
 
         return dict(
             stat=True,
-            messages=[
-                [&#34;warning&#34;, f&#34;{nameSpace=}&#34;],
-                [&#34;warning&#34;, f&#34;{fieldPath=}&#34;],
-                [&#34;warning&#34;, f&#34;{value=}&#34;],
-            ],
+            messages=[],
             readonly=F.formatted(table, record, editable=False, level=None),
         )
+
+    def saveRole(self, user, table, recordId):
+        &#34;&#34;&#34;Saves a role into a user or cross table record.
+
+        The role is given by the request.
+
+        Parameters
+        ----------
+        user: string
+            The eppn of the user.
+        table: string | void
+            The relevant table. If not None, it indicates whether we are updating
+            site-wide roles, otherwise project/edition roles.
+        recordId: string | void
+            The id of the relevant record. If not None, it is a project/edition
+            record Id, which can be used to locate the cross record between the
+            user collection and the project/edition record where the user&#39;s
+            role is stored.
+            If None, the user&#39;s role is inside the user record.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        &#34;&#34;&#34;
+        newRole = json.loads(requestData())
+        return Admin(self).saveRole(user, newRole, table, recordId)
+
+    def linkUser(self, table, recordId):
+        &#34;&#34;&#34;Links a user in certain role to a project/edition record.
+
+        The user and role are given by the request.
+
+        Parameters
+        ----------
+        table: string
+            The relevant table.
+        recordId: string
+            The id of the relevant record,
+            which can be used to locate the cross record between the
+            user collection and the project/edition record where the user&#39;s
+            role is stored.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+            * `updated`: if the action was successful, all user management info
+              will be passed back and will replace the currently displayed
+              material.
+        &#34;&#34;&#34;
+        (newRole, newUser) = json.loads(requestData())
+        return Admin(self).linkUser(newUser, newRole, table, recordId)
 
     def getValue(self, table, record, key, level=None, bare=False):
         &#34;&#34;&#34;Retrieve a metadata value.
@@ -1703,6 +1629,9 @@ class that will compose a response out of it.</p>
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
         projectUrl = f&#34;/project/{projectId}&#34;
         text = self.getValue(&#34;project&#34;, project, &#34;title&#34;, bare=True)
+        if not text:
+            text = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+
         return H.p(
             [
                 &#34;Project: &#34;,
@@ -1867,7 +1796,7 @@ a handle to Auth after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L34-L40" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L36-L42" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuth(self, Auth):
     &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -1891,7 +1820,7 @@ a handle to Auth after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L735-L760" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L697-L725" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def breadCrumb(self, project):
     &#34;&#34;&#34;Makes a link to the landing page of a project.
@@ -1908,6 +1837,9 @@ a handle to Auth after their initialization.</p></div>
     (projectId, project) = Mongo.get(&#34;project&#34;, project)
     projectUrl = f&#34;/project/{projectId}&#34;
     text = self.getValue(&#34;project&#34;, project, &#34;title&#34;, bare=True)
+    if not text:
+        text = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+
     return H.p(
         [
             &#34;Project: &#34;,
@@ -1919,6 +1851,176 @@ a handle to Auth after their initialization.</p></div>
             ),
         ]
     )</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.createEdition"><code class="name flex">
+<span>def <span class="ident">createEdition</span></span>(<span>self, project)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a new edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict | string</code></dt>
+<dd>record that represents the maste project, or its id.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>ObjectId</code></dt>
+<dd>The id of the new edition.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L232-L279" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def createEdition(self, project):
+    &#34;&#34;&#34;Creates a new edition.
+
+    Parameters
+    ----------
+    project: AttrDict | string
+        record that represents the maste project, or its id.
+
+    Returns
+    -------
+    ObjectId
+        The id of the new edition.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+    permitted = Auth.authorise(
+        &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
+    )
+    if not permitted:
+        return None
+
+    User = Auth.myDetails()
+    user = User.user
+    name = User.nickname
+
+    title = &#34;Edition without title&#34;
+
+    dcMeta = dict(
+        title=title,
+        description=dict(
+            abstract=&#34;No intro&#34;,
+            description=&#34;No description&#34;,
+            provenance=&#34;No sources&#34;,
+        ),
+        creator=name,
+    )
+    editionId = Mongo.insertRecord(
+        &#34;edition&#34;,
+        title=title,
+        projectId=projectId,
+        meta=dict(dc=dcMeta),
+        isPublished=False,
+    )
+    Mongo.insertRecord(&#34;editionUser&#34;, editionId=editionId, user=user, role=&#34;editor&#34;)
+    return editionId</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.createProject"><code class="name flex">
+<span>def <span class="ident">createProject</span></span>(<span>self, site)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a new project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>site</code></strong> :&ensp;<code>AttrDict | string</code></dt>
+<dd>record that represents the site, or its id.
+It acts as a master record for all projects.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>ObjectId</code></dt>
+<dd>The id of the new project.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L170-L210" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def createProject(self, site):
+    &#34;&#34;&#34;Creates a new project.
+
+    Parameters
+    ----------
+    site: AttrDict | string
+        record that represents the site, or its id.
+        It acts as a master record for all projects.
+
+    Returns
+    -------
+    ObjectId
+        The id of the new project.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    (siteId, site) = Mongo.get(&#34;site&#34;, site)
+
+    permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
+    if not permitted:
+        return None
+
+    User = Auth.myDetails()
+    user = User.user
+    name = User.nickname
+
+    title = &#34;Project without title&#34;
+
+    dcMeta = dict(
+        title=title,
+        description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
+        creator=name,
+    )
+    projectId = Mongo.insertRecord(
+        &#34;project&#34;, title=title, meta=dict(dc=dcMeta), isVisible=False
+    )
+    Mongo.insertRecord(
+        &#34;projectUser&#34;, projectId=projectId, user=user, role=&#34;organiser&#34;
+    )
+    return projectId</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.deleteEdition"><code class="name flex">
+<span>def <span class="ident">deleteEdition</span></span>(<span>self, edition)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes an edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The edition in question.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L281-L299" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteEdition(self, edition):
+    &#34;&#34;&#34;Deletes an edition.
+
+    Parameters
+    ----------
+    edition: string | ObjectId | AttrDict
+        The edition in question.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
+
+    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+
+    permitted = Auth.authorise(&#34;edition&#34;, edition, action=&#34;delete&#34;)
+    if not permitted:
+        return None
+
+    result = Mongo.deleteRecord(&#34;edition&#34;, _id=editionId)
+    return result</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.deleteFile"><code class="name flex">
@@ -1951,7 +2053,7 @@ A json response with the status of the save operation:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L829-L896" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L794-L861" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteFile(self, record, key, path, fileName, givenFileName=None):
     &#34;&#34;&#34;Deletes a file in the context given by a record.
@@ -2023,24 +2125,88 @@ A json response with the status of the save operation:</p>
     return jsonify(status=True, content=content)</code></pre>
 </details>
 </dd>
-<dt id="control.content.Content.getCaption"><code class="name flex">
-<span>def <span class="ident">getCaption</span></span>(<span>self, visual, titleText, button, url)</span>
+<dt id="control.content.Content.deleteProject"><code class="name flex">
+<span>def <span class="ident">deleteProject</span></span>(<span>self, project)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Deletes a project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The project in question.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L421-L428" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L212-L230" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getCaption(self, visual, titleText, button, url):
-    Settings = self.Settings
-    H = Settings.H
+<pre><code class="python">def deleteProject(self, project):
+    &#34;&#34;&#34;Deletes a project.
 
-    title = H.span(titleText, cls=&#34;entrytitle&#34;)
-    content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
+    Parameters
+    ----------
+    project: string | ObjectId | AttrDict
+        The project in question.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Auth = self.Auth
 
-    return self.wrapCaption(content, button)</code></pre>
+    (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+    permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;delete&#34;)
+    if not permitted:
+        return None
+
+    result = Mongo.deleteRecord(&#34;project&#34;, _id=projectId)
+    return result</code></pre>
+</details>
+</dd>
+<dt id="control.content.Content.getAdmin"><code class="name flex">
+<span>def <span class="ident">getAdmin</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the list of relevant projects, editions and users.</p>
+<p>Admin users get the list of all users.</p>
+<p>Normal users get the list of users associated with</p>
+<ul>
+<li>the project of which they are organiser</li>
+<li>the editions of which they are editor or reviewer</li>
+</ul>
+<p>Guests and not-logged-in users cannot see any user.</p>
+<p>If the user has rights to modify the association
+between users and projects/editions, he will get
+the controls to do so.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L148-L168" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getAdmin(self):
+    &#34;&#34;&#34;Get the list of relevant projects, editions and users.
+
+    Admin users get the list of all users.
+
+    Normal users get the list of users associated with
+
+    * the project of which they are organiser
+    * the editions of which they are editor or reviewer
+
+    Guests and not-logged-in users cannot see any user.
+
+    If the user has rights to modify the association
+    between users and projects/editions, he will get
+    the controls to do so.
+
+    Returns
+    -------
+    string
+    &#34;&#34;&#34;
+    return Admin(self).wrap()</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getData"><code class="name flex">
@@ -2071,7 +2237,7 @@ Otherwise, we raise an error that will lead to a 404 response.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L671-L733" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L633-L695" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getData(self, table, record, path):
     &#34;&#34;&#34;Gets a data file from the file system.
@@ -2161,7 +2327,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L238-L284" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L72-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getEditions(self, project):
     &#34;&#34;&#34;Get the list of the editions of a project.
@@ -2183,175 +2349,12 @@ wrapped in a HTML string.</dd>
         A list of captions of the editions of the project,
         wrapped in a HTML string.
     &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
     Mongo = self.Mongo
-    Auth = self.Auth
-
-    wrapped = []
+    Wrap = self.Wrap
 
     (projectId, project) = Mongo.get(&#34;project&#34;, project)
 
-    for edition in Mongo.getList(&#34;edition&#34;, projectId=projectId):
-        editionId = edition._id
-        permitted = Auth.authorise(&#34;edition&#34;, record=edition, action=&#34;read&#34;)
-        if not permitted:
-            continue
-
-        title = edition.title
-
-        editionUrl = f&#34;/edition/{editionId}&#34;
-        button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
-        visual = self.getUpload(edition, &#34;iconEdition&#34;)
-        caption = self.getCaption(visual, title, button, editionUrl)
-        wrapped.append(caption)
-
-    wrapped.append(
-        H.p(self.actionButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
-    )
-    return H.content(*wrapped)</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.getMywork"><code class="name flex">
-<span>def <span class="ident">getMywork</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get the list of relevant projects, editions and users.</p>
-<p>Admin users get the list of all users.</p>
-<p>Normal users get the list of users associated with</p>
-<ul>
-<li>the project of which they are organiser</li>
-<li>the editions of which they are editor or reviewer</li>
-</ul>
-<p>Guests and not-logged-in users cannot see any user.</p>
-<p>If the user has rights to modify the association
-between users and projects/editions, he will get
-the controls to do so.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>&nbsp;</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L92-L206" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getMywork(self):
-    &#34;&#34;&#34;Get the list of relevant projects, editions and users.
-
-    Admin users get the list of all users.
-
-    Normal users get the list of users associated with
-
-    * the project of which they are organiser
-    * the editions of which they are editor or reviewer
-
-    Guests and not-logged-in users cannot see any user.
-
-    If the user has rights to modify the association
-    between users and projects/editions, he will get
-    the controls to do so.
-
-    Returns
-    -------
-    string
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    Mongo = self.Mongo
-    Auth = self.Auth
-
-    User = Auth.myDetails()
-    user = User.user
-
-    H = Settings.H
-    authSettings = Settings.auth
-    roles = authSettings.roles
-
-    mail = User.email or &#34;no email&#34;
-    role = roles.site[User.role]
-
-    wrapped = [
-        H.h(1, &#34;My details&#34;),
-        H.p(H.b(User.nickname)),
-        H.p(H.code(mail)),
-        H.p(role),
-    ]
-    wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-
-    editionLinks = Mongo.getList(&#34;editionUser&#34;, user=user)
-    editionIds = sorted({link.editionId for link in editionLinks})
-    editionList = Mongo.getList(&#34;edition&#34;, _id={&#34;$in&#34;: editionIds})
-
-    editions = {edition._id: edition for edition in editionList}
-
-    parentProjectIds = sorted(
-        {editions[editionId].projectId for editionId in editionIds}
-    )
-
-    projectLinks = Mongo.getList(&#34;projectUser&#34;, user=user)
-    projectIds = sorted({link.projectId for link in projectLinks})
-    allProjectIds = sorted(set(parentProjectIds) | set(projectIds))
-    projectList = Mongo.getList(&#34;project&#34;, _id={&#34;$in&#34;: allProjectIds})
-    projects = {project._id: project for project in projectList}
-
-    editionList = Mongo.getList(&#34;edition&#34;, projectId={&#34;$in&#34;: allProjectIds})
-    editions = {edition._id: edition for edition in editionList}
-
-    for edition in editionList:
-        editionId = edition._id
-        projectId = edition.projectId
-        projects[projectId].setdefault(&#34;editions&#34;, {})[editionId] = edition
-
-    for link in projectLinks:
-        projectId = link.projectId
-        project = projects[projectId]
-        role = link.role
-        if role:
-            project.role = roles.project[role]
-
-    for link in editionLinks:
-        editionId = link.editionId
-        edition = editions[editionId]
-        role = link.role
-        if role:
-            edition.role = roles.edition[role]
-
-    pTitleAtts = dict(cls=&#34;ptitle&#34;)
-    eTitleAtts = dict(cls=&#34;etitle&#34;)
-    roleAtts = dict(cls=&#34;prole&#34;)
-
-    headingRow = (
-        [(&#34;project&#34;, pTitleAtts), (&#34;edition&#34;, eTitleAtts), (&#34;role&#34;, roleAtts)],
-        {},
-    )
-    projectRows = []
-
-    for projectId in sorted(projects):
-        project = projects[projectId]
-        title = project.title
-        role = project.role or &#34;&#34;
-        projectRows.append(
-            ([(title, pTitleAtts), (&#34;&#34;, eTitleAtts), (role, roleAtts)], {})
-        )
-        theseEditions = project.editions
-        if theseEditions:
-            for editionId in sorted(theseEditions):
-                edition = editions[editionId]
-                title = edition.title
-                role = edition.role or &#34;&#34;
-                projectRows.append(
-                    ([(&#34;&#34;, pTitleAtts), (title, eTitleAtts), (role, roleAtts)], {})
-                )
-
-    material = (
-        H.p(&#34;You are not associated with specific projects or editions.&#34;)
-        if len(projectRows) == 0
-        else H.table([headingRow], projectRows, cls=&#34;projecttable&#34;)
-    )
-    wrapped.append(material)
-
-    return H.content(*wrapped)</code></pre>
+    return Wrap.editionsMain(project, Mongo.getList(&#34;edition&#34;, projectId=projectId))</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getProjects"><code class="name flex">
@@ -2372,7 +2375,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L48-L90" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L50-L70" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getProjects(self):
     &#34;&#34;&#34;Get the list of all projects.
@@ -2389,34 +2392,12 @@ wrapped in a HTML string.</dd>
         A list of captions of the projects,
         wrapped in a HTML string.
     &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
     Mongo = self.Mongo
-    Auth = self.Auth
+    Wrap = self.Wrap
 
     (siteTable, siteId, site) = self.relevant()
 
-    wrapped = []
-    wrapped.append(
-        H.p(self.actionButton(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;))
-    )
-
-    for project in Mongo.getList(&#34;project&#34;):
-        projectId = project._id
-        permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;read&#34;)
-        if not permitted:
-            continue
-
-        title = project.title
-
-        projectUrl = f&#34;/project/{projectId}&#34;
-        button = self.actionButton(&#34;project&#34;, project, &#34;delete&#34;)
-        visual = self.getUpload(project, &#34;iconProject&#34;)
-        caption = self.getCaption(visual, title, button, projectUrl)
-
-        wrapped.append(caption)
-
-    return H.content(*wrapped)</code></pre>
+    return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;))</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getScene"><code class="name flex">
@@ -2455,7 +2436,7 @@ The result is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L345-L410" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L99-L146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getScene(self, edition, version=None, action=None):
     &#34;&#34;&#34;Get the scene of an edition of a project.
@@ -2492,37 +2473,19 @@ The result is wrapped in a HTML string.</dd>
         with possibly a frame with the 3D viewer showing the scene.
         The result is wrapped in a HTML string.
     &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
     Mongo = self.Mongo
-    Auth = self.Auth
     Viewers = self.Viewers
+    Wrap = self.Wrap
+
+    (viewer, sceneFile) = self.getViewInfo(edition)
+    version = Viewers.check(viewer, version)
 
     if action is None:
         action = &#34;read&#34;
 
-    wrapped = []
-
     (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-    (viewer, sceneFile) = self.getViewInfo(edition)
-    actions = Auth.authorise(&#34;edition&#34;, edition)
-    if &#34;read&#34; not in actions:
-        return &#34;&#34;
 
-    version = Viewers.check(viewer, version)
-
-    wrapped = []
-
-    titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-    button = self.actionButton(&#34;edition&#34;, edition, &#34;delete&#34;)
-
-    (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
-    title = H.span(titleText, cls=&#34;entrytitle&#34;)
-    content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
-    caption = self.wrapCaption(content, button, active=True)
-
-    wrapped.append(caption)
-    return H.content(*wrapped)</code></pre>
+    return Wrap.sceneMain(edition, sceneFile, viewer, version, action)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getSurprise"><code class="name flex">
@@ -2533,7 +2496,7 @@ The result is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L42-L46" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L44-L48" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getSurprise(self):
     &#34;&#34;&#34;Get the data that belongs to the surprise-me functionality.&#34;&#34;&#34;
@@ -2591,7 +2554,7 @@ widgets to upload a new file or to delete the existing file.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L577-L633" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L539-L595" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUpload(self, record, key, fileName=None, bust=None, wrapped=True):
     &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
@@ -2692,7 +2655,7 @@ If not, we return the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L499-L548" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L461-L510" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getValue(self, table, record, key, level=None, bare=False):
     &#34;&#34;&#34;Retrieve a metadata value.
@@ -2768,7 +2731,7 @@ If not, we return the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L550-L575" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L512-L537" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getValues(self, table, record, fieldSpecs):
     &#34;&#34;&#34;Puts several pieces of metadata on the web page.
@@ -2821,7 +2784,7 @@ If not, we return the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L317-L343" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L301-L327" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getViewInfo(self, edition):
     &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
@@ -2874,7 +2837,7 @@ Otherwise, we raise an error that will lead to a 404 response.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L635-L669" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L597-L631" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getViewerFile(self, path):
     &#34;&#34;&#34;Gets a viewer-related file from the file system.
@@ -2913,87 +2876,69 @@ Otherwise, we raise an error that will lead to a 404 response.</dd>
     return viewerPath</code></pre>
 </details>
 </dd>
-<dt id="control.content.Content.insertEdition"><code class="name flex">
-<span>def <span class="ident">insertEdition</span></span>(<span>self, project)</span>
+<dt id="control.content.Content.linkUser"><code class="name flex">
+<span>def <span class="ident">linkUser</span></span>(<span>self, table, recordId)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L286-L315" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def insertEdition(self, project):
-    Mongo = self.Mongo
-    Auth = self.Auth
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-
-    permitted = Auth.authorise(
-        &#34;project&#34;, project, action=&#34;create&#34;, insertTable=&#34;edition&#34;
-    )
-    if not permitted:
-        return None
-
-    User = Auth.myDetails()
-    name = User.nickname
-
-    title = &#34;Edition without title&#34;
-
-    dcMeta = dict(
-        title=title,
-        description=dict(
-            abstract=&#34;No intro&#34;,
-            description=&#34;No description&#34;,
-            provenance=&#34;No sources&#34;,
-        ),
-        creator=name,
-    )
-    editionId = Mongo.insertRecord(
-        &#34;edition&#34;, title=title, projectId=projectId, meta=dict(dc=dcMeta)
-    )
-    return editionId</code></pre>
-</details>
+<div class="desc"><p>Links a user in certain role to a project/edition record.</p>
+<p>The user and role are given by the request.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The relevant table.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>string</code></dt>
+<dd>The id of the relevant record,
+which can be used to locate the cross record between the
+user collection and the project/edition record where the user's
+role is stored.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the save action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+<li><code>updated</code>: if the action was successful, all user management info
+will be passed back and will replace the currently displayed
+material.</li>
+</ul>
 </dd>
-<dt id="control.content.Content.insertProject"><code class="name flex">
-<span>def <span class="ident">insertProject</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L208-L236" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L432-L459" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def insertProject(self):
-    Mongo = self.Mongo
-    Auth = self.Auth
+<pre><code class="python">def linkUser(self, table, recordId):
+    &#34;&#34;&#34;Links a user in certain role to a project/edition record.
 
-    (siteTable, siteId, site) = self.relevant()
+    The user and role are given by the request.
 
-    permitted = Auth.authorise(&#34;site&#34;, site, action=&#34;create&#34;, insertTable=&#34;project&#34;)
-    if not permitted:
-        return None
+    Parameters
+    ----------
+    table: string
+        The relevant table.
+    recordId: string
+        The id of the relevant record,
+        which can be used to locate the cross record between the
+        user collection and the project/edition record where the user&#39;s
+        role is stored.
 
-    User = Auth.myDetails()
-    user = User.user
-    name = User.nickname
+    Returns
+    -------
+    dict
+        Contains the following keys:
 
-    title = &#34;Project without title&#34;
-
-    dcMeta = dict(
-        title=title,
-        description=dict(abstract=&#34;No intro&#34;, description=&#34;No description&#34;),
-        creator=name,
-    )
-    projectId = Mongo.insertRecord(&#34;project&#34;, title=title, meta=dict(dc=dcMeta))
-    Mongo.insertRecord(
-        &#34;projectUser&#34;,
-        projectId=projectId,
-        user=user,
-        role=&#34;editor&#34;,
-    )
-    return projectId</code></pre>
+        * `status`: whether the save action was successful
+        * `messages`: messages issued during the process
+        * `updated`: if the action was successful, all user management info
+          will be passed back and will replace the currently displayed
+          material.
+    &#34;&#34;&#34;
+    (newRole, newUser) = json.loads(requestData())
+    return Admin(self).linkUser(newUser, newRole, table, recordId)</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.saveFile"><code class="name flex">
@@ -3026,7 +2971,7 @@ A json response with the status of the save operation:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L762-L827" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L727-L792" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveFile(self, record, key, path, fileName, givenFileName=None):
     &#34;&#34;&#34;Saves a file in the context given by a record.
@@ -3096,6 +3041,79 @@ A json response with the status of the save operation:</p>
     return jsonify(status=True, content=content)</code></pre>
 </details>
 </dd>
+<dt id="control.content.Content.saveRole"><code class="name flex">
+<span>def <span class="ident">saveRole</span></span>(<span>self, user, table, recordId)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Saves a role into a user or cross table record.</p>
+<p>The role is given by the request.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
+<dd>The eppn of the user.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string | void</code></dt>
+<dd>The relevant table. If not None, it indicates whether we are updating
+site-wide roles, otherwise project/edition roles.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>string | void</code></dt>
+<dd>The id of the relevant record. If not None, it is a project/edition
+record Id, which can be used to locate the cross record between the
+user collection and the project/edition record where the user's
+role is stored.
+If None, the user's role is inside the user record.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the save action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+<li><code>updated</code>: if the action was successful, all user management info
+will be passed back and will replace the currently displayed
+material.</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L399-L430" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def saveRole(self, user, table, recordId):
+    &#34;&#34;&#34;Saves a role into a user or cross table record.
+
+    The role is given by the request.
+
+    Parameters
+    ----------
+    user: string
+        The eppn of the user.
+    table: string | void
+        The relevant table. If not None, it indicates whether we are updating
+        site-wide roles, otherwise project/edition roles.
+    recordId: string | void
+        The id of the relevant record. If not None, it is a project/edition
+        record Id, which can be used to locate the cross record between the
+        user collection and the project/edition record where the user&#39;s
+        role is stored.
+        If None, the user&#39;s role is inside the user record.
+
+    Returns
+    -------
+    dict
+        Contains the following keys:
+
+        * `status`: whether the save action was successful
+        * `messages`: messages issued during the process
+        * `updated`: if the action was successful, all user management info
+          will be passed back and will replace the currently displayed
+          material.
+    &#34;&#34;&#34;
+    newRole = json.loads(requestData())
+    return Admin(self).saveRole(user, newRole, table, recordId)</code></pre>
+</details>
+</dd>
 <dt id="control.content.Content.saveValue"><code class="name flex">
 <span>def <span class="ident">saveValue</span></span>(<span>self, table, record, key)</span>
 </code></dt>
@@ -3122,14 +3140,16 @@ which is accessible by the key.</p>
 <p>Contains the following keys:</p>
 <ul>
 <li><code>status</code>: whether the save action was successful</li>
-<li><code>msgs</code>: messages issued during the process</li>
+<li><code>messages</code>: messages issued during the process</li>
+<li><code>readonly</code>: the html of the updated formatted value,
+this will replace the currently displayed value.</li>
 </ul>
 </dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L430-L497" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/content.py#L329-L397" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveValue(self, table, record, key):
     &#34;&#34;&#34;Saves a value of into a record.
@@ -3158,7 +3178,9 @@ which is accessible by the key.</p>
         Contains the following keys:
 
         * `status`: whether the save action was successful
-        * `msgs`: messages issued during the process
+        * `messages`: messages issued during the process
+        * `readonly`: the html of the updated formatted value,
+          this will replace the currently displayed value.
     &#34;&#34;&#34;
     Auth = self.Auth
     Mongo = self.Mongo
@@ -3176,10 +3198,13 @@ which is accessible by the key.</p>
     (recordId, record) = Mongo.get(table, record)
 
     value = json.loads(requestData())
+    update = {f&#34;{nameSpace}.{fieldPath}&#34;: value}
+    if key == &#34;title&#34;:
+        update[key] = value
 
     if (
         Mongo.updateRecord(
-            table, {f&#34;{nameSpace}.{fieldPath}&#34;: value}, stop=False, _id=recordId
+            table, update, stop=False, _id=recordId
         )
         is None
     ):
@@ -3192,32 +3217,8 @@ which is accessible by the key.</p>
 
     return dict(
         stat=True,
-        messages=[
-            [&#34;warning&#34;, f&#34;{nameSpace=}&#34;],
-            [&#34;warning&#34;, f&#34;{fieldPath=}&#34;],
-            [&#34;warning&#34;, f&#34;{value=}&#34;],
-        ],
+        messages=[],
         readonly=F.formatted(table, record, editable=False, level=None),
-    )</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.wrapCaption"><code class="name flex">
-<span>def <span class="ident">wrapCaption</span></span>(<span>self, content, button, active=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/content.py#L412-L419" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapCaption(self, content, button, active=False):
-    Settings = self.Settings
-    H = Settings.H
-
-    activeCls = &#34;active&#34; if active else &#34;&#34;
-    return H.div(
-        [H.div(content, cls=f&#34;caption {activeCls}&#34;), button], cls=&#34;captioncontent&#34;
     )</code></pre>
 </details>
 </dd>
@@ -3226,7 +3227,6 @@ which is accessible by the key.</p>
 <ul class="hlist">
 <li><code><b><a title="control.datamodel.Datamodel" href="datamodel.html#control.datamodel.Datamodel">Datamodel</a></b></code>:
 <ul class="hlist">
-<li><code><a title="control.datamodel.Datamodel.actionButton" href="datamodel.html#control.datamodel.Datamodel.actionButton">actionButton</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.context" href="datamodel.html#control.datamodel.Datamodel.context">context</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getDetailRecords" href="datamodel.html#control.datamodel.Datamodel.getDetailRecords">getDetailRecords</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getFieldObject" href="datamodel.html#control.datamodel.Datamodel.getFieldObject">getFieldObject</a></code></li>
@@ -3307,11 +3307,14 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.content.Content.addAuth" href="#control.content.Content.addAuth">addAuth</a></code></li>
 <li><code><a title="control.content.Content.breadCrumb" href="#control.content.Content.breadCrumb">breadCrumb</a></code></li>
+<li><code><a title="control.content.Content.createEdition" href="#control.content.Content.createEdition">createEdition</a></code></li>
+<li><code><a title="control.content.Content.createProject" href="#control.content.Content.createProject">createProject</a></code></li>
+<li><code><a title="control.content.Content.deleteEdition" href="#control.content.Content.deleteEdition">deleteEdition</a></code></li>
 <li><code><a title="control.content.Content.deleteFile" href="#control.content.Content.deleteFile">deleteFile</a></code></li>
-<li><code><a title="control.content.Content.getCaption" href="#control.content.Content.getCaption">getCaption</a></code></li>
+<li><code><a title="control.content.Content.deleteProject" href="#control.content.Content.deleteProject">deleteProject</a></code></li>
+<li><code><a title="control.content.Content.getAdmin" href="#control.content.Content.getAdmin">getAdmin</a></code></li>
 <li><code><a title="control.content.Content.getData" href="#control.content.Content.getData">getData</a></code></li>
 <li><code><a title="control.content.Content.getEditions" href="#control.content.Content.getEditions">getEditions</a></code></li>
-<li><code><a title="control.content.Content.getMywork" href="#control.content.Content.getMywork">getMywork</a></code></li>
 <li><code><a title="control.content.Content.getProjects" href="#control.content.Content.getProjects">getProjects</a></code></li>
 <li><code><a title="control.content.Content.getScene" href="#control.content.Content.getScene">getScene</a></code></li>
 <li><code><a title="control.content.Content.getSurprise" href="#control.content.Content.getSurprise">getSurprise</a></code></li>
@@ -3320,11 +3323,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.content.Content.getValues" href="#control.content.Content.getValues">getValues</a></code></li>
 <li><code><a title="control.content.Content.getViewInfo" href="#control.content.Content.getViewInfo">getViewInfo</a></code></li>
 <li><code><a title="control.content.Content.getViewerFile" href="#control.content.Content.getViewerFile">getViewerFile</a></code></li>
-<li><code><a title="control.content.Content.insertEdition" href="#control.content.Content.insertEdition">insertEdition</a></code></li>
-<li><code><a title="control.content.Content.insertProject" href="#control.content.Content.insertProject">insertProject</a></code></li>
+<li><code><a title="control.content.Content.linkUser" href="#control.content.Content.linkUser">linkUser</a></code></li>
 <li><code><a title="control.content.Content.saveFile" href="#control.content.Content.saveFile">saveFile</a></code></li>
+<li><code><a title="control.content.Content.saveRole" href="#control.content.Content.saveRole">saveRole</a></code></li>
 <li><code><a title="control.content.Content.saveValue" href="#control.content.Content.saveValue">saveValue</a></code></li>
-<li><code><a title="control.content.Content.wrapCaption" href="#control.content.Content.wrapCaption">wrapCaption</a></code></li>
 </ul>
 </li>
 </ul>

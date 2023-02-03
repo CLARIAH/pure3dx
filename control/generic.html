@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/generic.py#L1-L74" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/generic.py#L1-L84" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from datetime import datetime as dt
 
@@ -62,13 +62,23 @@ class AttrDict(dict):
     &#34;&#34;&#34;
 
     def __init__(self, *args, **kwargs):
+        &#34;&#34;&#34;Create the data structure from incoming data.
+        &#34;&#34;&#34;
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
     def __missing__(self, key, *args, **kwargs):
+        &#34;&#34;&#34;Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `.key` notation for accessing members.
+        &#34;&#34;&#34;
         return None
 
     def __getattr__(self, key, *args, **kwargs):
+        &#34;&#34;&#34;Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `[key]` notation for accessing members.
+        &#34;&#34;&#34;
         return None
 
 
@@ -133,7 +143,7 @@ each value of type dict is turned into an AttrDict.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/generic.py#L45-L74" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/generic.py#L55-L84" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deepAttrDict(info):
     &#34;&#34;&#34;Turn a dict into an AttrDict, recursively.
@@ -177,7 +187,7 @@ each value of type dict is turned into an AttrDict.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/generic.py#L4-L11" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/generic.py#L4-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def now():
     &#34;&#34;&#34;The current moment in time as a isolike string value.
@@ -211,11 +221,12 @@ each value of type dict is turned into an AttrDict.</dd>
 </blockquote>
 <p>)</p>
 <p>We also need to define the <code>__missing__</code> method in case we access the underlying
-dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute like <code>xxx.yyy</code>.</p></div>
+dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute like <code>xxx.yyy</code>.</p>
+<p>Create the data structure from incoming data.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/generic.py#L14-L42" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/generic.py#L14-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AttrDict(dict):
     &#34;&#34;&#34;Turn a dict into an object with attributes.
@@ -238,13 +249,23 @@ dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute lik
     &#34;&#34;&#34;
 
     def __init__(self, *args, **kwargs):
+        &#34;&#34;&#34;Create the data structure from incoming data.
+        &#34;&#34;&#34;
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
     def __missing__(self, key, *args, **kwargs):
+        &#34;&#34;&#34;Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `.key` notation for accessing members.
+        &#34;&#34;&#34;
         return None
 
     def __getattr__(self, key, *args, **kwargs):
+        &#34;&#34;&#34;Provide a default when retrieving a non-existent member.
+
+        This method is used when using the `[key]` notation for accessing members.
+        &#34;&#34;&#34;
         return None</code></pre>
 </details>
 <h3>Ancestors</h3>

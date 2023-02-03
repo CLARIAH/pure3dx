@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L1-L440" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L1-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
@@ -130,7 +130,7 @@ class Config:
     def checkWebdav(self):
         &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
 
-        The methods are associated with the `view` or `edit` keyword,
+        The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         &#34;&#34;&#34;
         Settings = self.Settings
@@ -368,6 +368,9 @@ class Config:
 
         Settings.auth.tableFromRole = tableFromRole
 
+        rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+        Settings.auth.roleRank = lambda role: rank[role]
+
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
         Messages = self.Messages
@@ -417,6 +420,7 @@ class Config:
             viewerConfig.versions = versions
 
         Settings.viewers = viewerSettings.viewers
+        Settings.viewerActions = viewerSettings.actions
         Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):
@@ -505,7 +509,7 @@ and no webserving will take place.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L10-L440" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L10-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     def __init__(self, Messages):
@@ -600,7 +604,7 @@ and no webserving will take place.</p>
     def checkWebdav(self):
         &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
 
-        The methods are associated with the `view` or `edit` keyword,
+        The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         &#34;&#34;&#34;
         Settings = self.Settings
@@ -838,6 +842,9 @@ and no webserving will take place.</p>
 
         Settings.auth.tableFromRole = tableFromRole
 
+        rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+        Settings.auth.roleRank = lambda role: rank[role]
+
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
         Messages = self.Messages
@@ -887,6 +894,7 @@ and no webserving will take place.</p>
             viewerConfig.versions = versions
 
         Settings.viewers = viewerSettings.viewers
+        Settings.viewerActions = viewerSettings.actions
         Settings.viewerDefault = viewerSettings.default
 
     def checkBanner(self):
@@ -956,7 +964,7 @@ and no webserving will take place.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L318-L339" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L318-L342" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
     &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
@@ -979,7 +987,10 @@ and no webserving will take place.</p>
         for role in roles:
             tableFromRole[role] = table
 
-    Settings.auth.tableFromRole = tableFromRole</code></pre>
+    Settings.auth.tableFromRole = tableFromRole
+
+    rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+    Settings.auth.roleRank = lambda role: rank[role]</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkBanner"><code class="name flex">
@@ -998,7 +1009,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L392-L440" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L396-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkBanner(self):
     &#34;&#34;&#34;Sets a banner for all pages.
@@ -1059,7 +1070,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L169-L193" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L169-L193" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
     &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
@@ -1116,7 +1127,7 @@ on the interface.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L266-L316" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L266-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkDatamodel(self):
     &#34;&#34;&#34;Read the yaml file with table and field settings.
@@ -1181,7 +1192,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L47-L69" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L47-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkEnv(self):
     &#34;&#34;&#34;Collect the relevant information.
@@ -1216,7 +1227,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L195-L225" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L195-L225" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
     &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
@@ -1261,7 +1272,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L227-L248" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L227-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -1295,7 +1306,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L71-L98" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L71-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
     &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
@@ -1337,7 +1348,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L136-L167" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L136-L167" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     &#34;&#34;&#34;Obtain a secret.
@@ -1381,7 +1392,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L250-L264" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L250-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
     &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
@@ -1410,7 +1421,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L112-L134" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L112-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     &#34;&#34;&#34;Get the current version of the pure3d app.
@@ -1445,7 +1456,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L341-L390" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L344-L394" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
     &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
@@ -1496,6 +1507,7 @@ of the git repo that the running code is in.</p></div>
         viewerConfig.versions = versions
 
     Settings.viewers = viewerSettings.viewers
+    Settings.viewerActions = viewerSettings.actions
     Settings.viewerDefault = viewerSettings.default</code></pre>
 </details>
 </dd>
@@ -1504,17 +1516,17 @@ of the git repo that the running code is in.</p></div>
 </code></dt>
 <dd>
 <div class="desc"><p>Read the WEBDav methods from the webdav.yaml file.</p>
-<p>The methods are associated with the <code>view</code> or <code>edit</code> keyword,
+<p>The methods are associated with the <code>read</code> or <code>update</code> keyword,
 depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/config.py#L100-L110" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/config.py#L100-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkWebdav(self):
     &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
 
-    The methods are associated with the `view` or `edit` keyword,
+    The methods are associated with the `read` or `update` keyword,
     depending on whether they are `GET` like or `PUT` like.
     &#34;&#34;&#34;
     Settings = self.Settings

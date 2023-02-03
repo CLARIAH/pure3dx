@@ -15,10 +15,12 @@ URLS=[
 "control/authoidc.html",
 "control/pages.html",
 "control/content.html",
+"control/admin.html",
 "control/messages.html",
 "control/environment.html",
 "control/app.html",
 "control/viewers.html",
+"control/wrap.html",
 "control/prepare.html"
 ];
 INDEX=[
@@ -47,7 +49,7 @@ INDEX=[
 {
 "ref":"control.webdavapp.appFactoryMaster",
 "url":1,
-"doc":"",
+"doc":"Factory function for the master flask app.",
 "func":1
 },
 {
@@ -67,15 +69,9 @@ INDEX=[
 "doc":"All about authorised data access. This class knows users because it is based on the Users class. This class also knows content, and decides whether the current user is authorised to perform certain actions on content in question. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Content: object Singleton instance of  control.content.Content ."
 },
 {
-"ref":"control.auth.Auth.authUser",
-"url":2,
-"doc":"Check whether a certain task related to the user table is allowed. Admins may see the list of users, project and edition users may see which other users are in the same project or edition as they are, admins may assign project organisers, project organisers may assign edition editors, edition editors may assign edition readers. The following tasks are defined; per task there is a relevant table/record that should be passed:  tab : see the users tab.  No relevant record needed.  No other user needed. Only admins and users that are associated to any project/edition will see the \"My work\" tab in navigation. A boolean is returned.  view : see details of other users.  The relevant record is either a project or an edition. Only admins and people in the same project/edition may see the users in that item. A list of users is returned.  assign : Only for projects and unpublished editions: according to the assignRules in  authorise.yaml  The relevant record is either a project or an edition.  The  otherUser parameter is the assignee. We need the role of the assignee, because users cannot assign more powerful users. A boolean is returned. Parameters      task: string The task to be executed table: string, optional None the relevant table record: ObjectId | AttrDict, optional None the relevant record user: ObjectId | AttrDict, optional None the other user Returns    - boolean Whether the current user may execute the task in the given context, affecting the other user.",
-"func":1
-},
-{
 "ref":"control.auth.Auth.authorise",
 "url":2,
-"doc":"Check whether an action is allowed on data. The \"create\" action is a bit special, because we do not have any record to start with. In this case  table and  record should point to the master record, and  insertTable should have the table that will contain the new record. If the action is anything else,  tabale and  record refer to the relevant record, and  insertTable should not be passed. How do the authorisation rules work? First we consider the site-wise role of the user: guest, user, or admin. If the action is allowed on that basis, we return True. If not, we look whether the user has additional roles with regard to the record in question, or with any of its master records. If so, we apply the rules for those cases and see whether the action is permitted. Then we have the possibility that a record is in a certain state, e.g. projects may be visible or invisible, editions may be published or unpublished. For each of these states we have separate rules, so we inspect the states of the records and master records in order to select the appropriate rules. Parameters      table: string the relevant table; for  create actions it is the master table of the table in which a record will be inserted. record: ObjectId | AttrDict The id of the record that is being accessed or the record itself; for  create actions it is the master record to which a new record will be created as a detail. action: string, optional None The action for which permission is asked. insertTable: string Only relevant for \"create\" actions. The detail table in which the new record will be inserted. Returns    - boolean | dict For other actions: a boolean whether action is allowed. If no action is passed: dict keyed by the allowed actions, the values are true. Actions with a falsy permission (False or the empty set) are not included in the dict. So, to test whether any action is allowed, it suffices to test whether  action in result ",
+"doc":"Check whether an action is allowed on data. The \"create\" action is a bit special, because we do not have any record to start with. In this case  table and  record should point to the master record, and  insertTable should have the table that will contain the new record. If the action is anything else,  tabale and  record refer to the relevant record, and  insertTable should not be passed. How do the authorisation rules work? First we consider the site-wise role of the user: guest, user, admin, or root. If the action is allowed on that basis, we return True. If not, we look whether the user has an additional role with regard to the record in question, or with any of its master records. If so, we apply the rules for those cases and see whether the action is permitted. Then we have the possibility that a record is in a certain state, e.g. projects may be visible or invisible, editions may be published or unpublished. For each of these states we have separate rules, so we inspect the states of the records and master records in order to select the appropriate rules. Parameters      table: string the relevant table; for  create actions it is the master table of the table in which a record will be inserted. record: ObjectId | AttrDict The id of the record that is being accessed or the record itself; for  create actions it is the master record to which a new record will be created as a detail. action: string, optional None The action for which permission is asked. insertTable: string Only relevant for \"create\" actions. The detail table in which the new record will be inserted. Returns    - boolean | dict If an action is passed: boolean whether action is allowed. If no action is passed: dict keyed by the allowed actions, the values are true. Actions with a falsy permission (False or the empty set) are not included in the dict. So, to test whether any action is allowed, it suffices to test whether  action in result ",
 "func":1
 },
 {
@@ -365,7 +361,7 @@ INDEX=[
 {
 "ref":"control.config.Config.checkWebdav",
 "url":7,
-"doc":"Read the WEBDav methods from the webdav.yaml file. The methods are associated with the  view or  edit keyword, depending on whether they are  GET like or  PUT like.",
+"doc":"Read the WEBDav methods from the webdav.yaml file. The methods are associated with the  read or  update keyword, depending on whether they are  GET like or  PUT like.",
 "func":1
 },
 {
@@ -567,9 +563,15 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.mongo.Mongo.deleteRecord",
+"url":8,
+"doc":"Updates a single document from a collection. Parameters      table: string The name of the collection in which we want to update a single record. stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control. criteria: dict A set of criteria to narrow down the selection. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  updateOne . Returns    - boolean Whether the delete was successful",
+"func":1
+},
+{
 "ref":"control.mongo.Mongo.updateRecord",
 "url":8,
-"doc":"Updates a single document from a collection. Parameters      table: string The name of the collection in which we want to update a single record. updates: dict The fields that must be updated with the values they must get criteria: dict A set of criteria to narrow down the selection. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  updateOne . Returns    - boolean Whether the update was successful",
+"doc":"Updates a single document from a collection. Parameters      table: string The name of the collection in which we want to update a single record. updates: dict The fields that must be updated with the values they must get stop: boolean, optional True If the command is not successful, stop after issuing the error, do not return control. criteria: dict A set of criteria to narrow down the selection. Usually they will be such that there will be just one document that satisfies them. But if there are more, a single one is chosen, by the mechanics of the built-in MongoDb command  updateOne . Returns    - boolean Whether the update was successful",
 "func":1
 },
 {
@@ -610,7 +612,7 @@ INDEX=[
 {
 "ref":"control.flask.flashMsg",
 "url":9,
-"doc":"",
+"doc":"Gives user feedback using the Flask flash mechanism.",
 "func":1
 },
 {
@@ -674,12 +676,6 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.flask.values",
-"url":9,
-"doc":"",
-"func":1
-},
-{
 "ref":"control.flask.getReferrer",
 "url":9,
 "doc":"Get the referrer from the request. We strip the root url from the referrer. If that is not possible, the referrer is an other site, in that case we substitute the home page.  ! caution \"protocol mismatch\" It has been observed that in some cases the referrer, as taken from the request, and the root url as taken from the request, differ in their protocol part:  http: versus  https: . Therefore we first strip the protocol part from both referrer and root url before we remove the prefix. Returns    - string",
@@ -699,7 +695,7 @@ INDEX=[
 {
 "ref":"control.generic.AttrDict",
 "url":10,
-"doc":"Turn a dict into an object with attributes. If non-existing attributes are accessed for reading,  None is returned. See: https: stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute And: https: stackoverflow.com/questions/16237659/python-how-to-implement-getattr (especially the remark that >  __getattr__ is only used for missing attribute lookup ) We also need to define the  __missing__ method in case we access the underlying dict by means of keys, like  xxx[\"yyy\"] rather then by attribute like  xxx.yyy ."
+"doc":"Turn a dict into an object with attributes. If non-existing attributes are accessed for reading,  None is returned. See: https: stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute And: https: stackoverflow.com/questions/16237659/python-how-to-implement-getattr (especially the remark that >  __getattr__ is only used for missing attribute lookup ) We also need to define the  __missing__ method in case we access the underlying dict by means of keys, like  xxx[\"yyy\"] rather then by attribute like  xxx.yyy . Create the data structure from incoming data."
 },
 {
 "ref":"control.generic.deepAttrDict",
@@ -749,7 +745,7 @@ INDEX=[
 {
 "ref":"control.html.HtmlElements",
 "url":11,
-"doc":"Wrap specific HTML elements and patterns.  ! note Nearly all elements accept an arbitrary supply of attributes in the  atts parameter, which will not further be documented."
+"doc":"Wrap specific HTML elements and patterns.  ! note Nearly all elements accept an arbitrary supply of attributes in the  atts parameter, which will not further be documented. Gives the HtmlElements access to Settings and Messages."
 },
 {
 "ref":"control.html.HtmlElements.amp",
@@ -914,6 +910,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.html.HtmlElements.actionButton",
+"url":11,
+"doc":"Generates an action button to be activated by client side Javascript. It is assumed that the permission has already been checked. Parameters      H: object The  control.html.HtmlElements object name: string The name of the icon as displayed on the button kind: string, optional None The kind of the button, passed on in attribute  kind , can be used by Javascript to identify this button. If  None , the kind is set to the value of the  name parameter. Returns    - string The HTML of the button.",
+"func":1
+},
+{
 "ref":"control.html.HtmlElements.iframe",
 "url":11,
 "doc":"IFRAME. An iframe, which is an empty element with an obligatory end tag. Parameters      src: url Source for the iframe. Returns    - string(html)",
@@ -1056,12 +1058,6 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.datamodel.Datamodel.actionButton",
-"url":12,
-"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button.",
-"func":1
-},
-{
 "ref":"control.datamodel.Field",
 "url":12,
 "doc":"Handle field business. A Field object does not correspond with an individual field in a record. It represents a  column , i.e. a set of fields with the same name in all records of a collection. First of all there is a method to retrieve the value of the field from a specific record. Then there are methods to deliver those values, either bare or formatted, to produce edit widgets to modify the values, and handlers to save values. How to do this is steered by the specification of the field by keys and values that are stored in this object. All field access should be guarded by the authorisation rules. Parameters      kwargs: dict Field configuration arguments. It certain parts of the field configuration are not present, defaults will be provided."
@@ -1082,12 +1078,6 @@ INDEX=[
 "ref":"control.datamodel.Field.formatted",
 "url":12,
 "doc":"Give the formatted value of the field in a record. Optionally also puts a caption and/or an edit control. The value retrieved is (recursively) wrapped in HTML, steered by additional argument, as in  control.html.HtmlElements.wrapValue . be applied. If the type is 'text', multiple values will simply be concatenated with newlines in between, and no extra classes will be applied. Instead, a markdown formatter is applied to the result. For other types: If the value is an iterable, each individual value is wrapped in a span to which an (other) extra CSS class may be applied. Parameters      table: string The table from which the record is taken record: string | ObjectId | AttrDict The record in which the field value is stored. level: integer, optional None The heading level in which a caption will be placed. If None, no caption will be placed. If 0, the caption will be placed in a span. editable: boolean, optional False Whether the field is editable by the current user. If so, edit controls are provided. outerCls: string optional \"fieldouter\" If given, an extra CSS class for the outer element that wraps the total value. Only relevant if the type is not 'text' innerCls: string optional \"fieldinner\" If given, an extra CSS class for the inner elements that wrap parts of the value. Only relevant if the type is not 'text' Returns    - string: Whatever the value is that we find for that field, converted to HTML. If the field is not present, returns the empty string, without warning.",
-"func":1
-},
-{
-"ref":"control.datamodel.Field.actionButtonClient",
-"url":12,
-"doc":"Generates an action button to be activated by client side Javascript. It is assumed that the permission has already been checked. Parameters      Returns    -",
 "func":1
 },
 {
@@ -1185,13 +1175,13 @@ INDEX=[
 {
 "ref":"control.authoidc.AuthOidc.load_secrets",
 "url":13,
-"doc":"",
+"doc":"Reads secrets used in encryption and decryption.",
 "func":1
 },
 {
 "ref":"control.authoidc.AuthOidc.prepare",
 "url":13,
-"doc":"",
+"doc":"Injects the OIDC module into the main app.",
 "func":1
 },
 {
@@ -1235,15 +1225,15 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.pages.Pages.mywork",
+"ref":"control.pages.Pages.admin",
 "url":14,
-"doc":"The page with the list of users.",
+"doc":"The page with the list of projects, editions, and users.",
 "func":1
 },
 {
-"ref":"control.pages.Pages.projectInsert",
+"ref":"control.pages.Pages.createProject",
 "url":14,
-"doc":"Inserts a project and shows the new project.",
+"doc":"Creates a project and shows the new project. The current user is linked to this project as organiser.",
 "func":1
 },
 {
@@ -1253,9 +1243,15 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.pages.Pages.editionInsert",
+"ref":"control.pages.Pages.deleteProject",
 "url":14,
-"doc":"Inserts an edition into a project and shows the new edition. Parameters      project: string | ObjectId | AttrDict The project to which the edition belongs.",
+"doc":"Deletes a project. Parameters      project: string | ObjectId | AttrDict The project in question.",
+"func":1
+},
+{
+"ref":"control.pages.Pages.createEdition",
+"url":14,
+"doc":"Inserts an edition into a project and shows the new edition. The current user is linked to this edition as editor. Parameters      project: string | ObjectId | AttrDict The project to which the edition belongs.",
 "func":1
 },
 {
@@ -1265,9 +1261,15 @@ INDEX=[
 "func":1
 },
 {
+"ref":"control.pages.Pages.deleteEdition",
+"url":14,
+"doc":"Deletes an edition. Parameters      edition: string | ObjectId | AttrDict The edition in question.",
+"func":1
+},
+{
 "ref":"control.pages.Pages.viewerFrame",
 "url":14,
-"doc":"The page loaded in an iframe where a 3D viewer operates. Parameters      edition: string | ObjectId | AttrDict The edition that is shown. viewer: string | None The viewer to use. version: string | None The version to use. action: string | None The mode in which the viewer is to be used ( view or  edit ).",
+"doc":"The page loaded in an iframe where a 3D viewer operates. Parameters      edition: string | ObjectId | AttrDict The edition that is shown. version: string | None The version to use. action: string | None The mode in which the viewer is to be used ( read or  update ).",
 "func":1
 },
 {
@@ -1285,19 +1287,19 @@ INDEX=[
 {
 "ref":"control.pages.Pages.upload",
 "url":14,
-"doc":"Upload a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload key: string The key of the upload givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if is None, the file will be saved with the name from the request.",
+"doc":"Upload a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload key: string The key of the upload path: string The save location for the file givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if is None, the file will be saved with the name from the request.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.deleteFile",
 "url":14,
-"doc":"Delete a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload key: string The key of the upload givenFileName: string, optional None The name of the file as which the uploaded file will be saved; if is None, the file will be saved with the name from the request.",
+"doc":"Delete a file. Parameters      record: string | ObjectId | AttrDict The context record of the upload. key: string The key of the upload. path: string The location of the file. givenFileName: string, optional None The name of the file.",
 "func":1
 },
 {
 "ref":"control.pages.Pages.authWebdav",
 "url":14,
-"doc":"Authorises a webdav request. When a viewer makes a WebDAV request to the server, that request is first checked here for authorisation. See  control.webdavapp.dispatchWebdav() . Parameters      edition: string | ObjectId | AttrDict The edition in question. path: string The path relative to the directory of the edition. action: string The operation that the WebDAV request wants to do on the data ( view or  edit ). Returns    - boolean Whether the action is permitted on ths data by the current user.",
+"doc":"Authorises a webdav request. When a viewer makes a WebDAV request to the server, that request is first checked here for authorisation. See  control.webdavapp.dispatchWebdav() . Parameters      edition: string | ObjectId | AttrDict The edition in question. path: string The path relative to the directory of the edition. action: string The operation that the WebDAV request wants to do on the data ( read or  update ). Returns    - boolean Whether the action is permitted on ths data by the current user.",
 "func":1
 },
 {
@@ -1347,33 +1349,9 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.content.Content.getMywork",
-"url":15,
-"doc":"Get the list of relevant projects, editions and users. Admin users get the list of all users. Normal users get the list of users associated with  the project of which they are organiser  the editions of which they are editor or reviewer Guests and not-logged-in users cannot see any user. If the user has rights to modify the association between users and projects/editions, he will get the controls to do so. Returns    - string",
-"func":1
-},
-{
-"ref":"control.content.Content.insertProject",
-"url":15,
-"doc":"",
-"func":1
-},
-{
 "ref":"control.content.Content.getEditions",
 "url":15,
 "doc":"Get the list of the editions of a project. Well, only if the project is visible to the current user. See  Content.getProjects() . Editions are each displayed by means of an icon and a title. Both link to a landing page for the edition. Parameters      project: string | ObjectId | AttrDict The project in question. Returns    - string A list of captions of the editions of the project, wrapped in a HTML string.",
-"func":1
-},
-{
-"ref":"control.content.Content.insertEdition",
-"url":15,
-"doc":"",
-"func":1
-},
-{
-"ref":"control.content.Content.getViewInfo",
-"url":15,
-"doc":"Gets viewer-related info that an edition is made with. Parameters      edition: string | ObjectId | AttrDict The edition record. Returns    - tuple of string  The name of the viewer  The name of the scene",
 "func":1
 },
 {
@@ -1383,21 +1361,57 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.content.Content.wrapCaption",
+"ref":"control.content.Content.getAdmin",
 "url":15,
-"doc":"",
+"doc":"Get the list of relevant projects, editions and users. Admin users get the list of all users. Normal users get the list of users associated with  the project of which they are organiser  the editions of which they are editor or reviewer Guests and not-logged-in users cannot see any user. If the user has rights to modify the association between users and projects/editions, he will get the controls to do so. Returns    - string",
 "func":1
 },
 {
-"ref":"control.content.Content.getCaption",
+"ref":"control.content.Content.createProject",
 "url":15,
-"doc":"",
+"doc":"Creates a new project. Parameters      site: AttrDict | string record that represents the site, or its id. It acts as a master record for all projects. Returns    - ObjectId The id of the new project.",
+"func":1
+},
+{
+"ref":"control.content.Content.deleteProject",
+"url":15,
+"doc":"Deletes a project. Parameters      project: string | ObjectId | AttrDict The project in question.",
+"func":1
+},
+{
+"ref":"control.content.Content.createEdition",
+"url":15,
+"doc":"Creates a new edition. Parameters      project: AttrDict | string record that represents the maste project, or its id. Returns    - ObjectId The id of the new edition.",
+"func":1
+},
+{
+"ref":"control.content.Content.deleteEdition",
+"url":15,
+"doc":"Deletes an edition. Parameters      edition: string | ObjectId | AttrDict The edition in question.",
+"func":1
+},
+{
+"ref":"control.content.Content.getViewInfo",
+"url":15,
+"doc":"Gets viewer-related info that an edition is made with. Parameters      edition: string | ObjectId | AttrDict The edition record. Returns    - tuple of string  The name of the viewer  The name of the scene",
 "func":1
 },
 {
 "ref":"control.content.Content.saveValue",
 "url":15,
-"doc":"Saves a value of into a record. A record contains a document, which is a (nested) dict. A value is inserted somewhere (deep) in that dict. The value is given by the request. Where exactly is given by a path that is stored in the field information, which is accessible by the key. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict | void The relevant record. key: string an identifier for the meta data field. Returns    - dict Contains the following keys:   status : whether the save action was successful   msgs : messages issued during the process",
+"doc":"Saves a value of into a record. A record contains a document, which is a (nested) dict. A value is inserted somewhere (deep) in that dict. The value is given by the request. Where exactly is given by a path that is stored in the field information, which is accessible by the key. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict | void The relevant record. key: string an identifier for the meta data field. Returns    - dict Contains the following keys:   status : whether the save action was successful   messages : messages issued during the process   readonly : the html of the updated formatted value, this will replace the currently displayed value.",
+"func":1
+},
+{
+"ref":"control.content.Content.saveRole",
+"url":15,
+"doc":"Saves a role into a user or cross table record. The role is given by the request. Parameters      user: string The eppn of the user. table: string | void The relevant table. If not None, it indicates whether we are updating site-wide roles, otherwise project/edition roles. recordId: string | void The id of the relevant record. If not None, it is a project/edition record Id, which can be used to locate the cross record between the user collection and the project/edition record where the user's role is stored. If None, the user's role is inside the user record. Returns    - dict Contains the following keys:   status : whether the save action was successful   messages : messages issued during the process   updated : if the action was successful, all user management info will be passed back and will replace the currently displayed material.",
+"func":1
+},
+{
+"ref":"control.content.Content.linkUser",
+"url":15,
+"doc":"Links a user in certain role to a project/edition record. The user and role are given by the request. Parameters      table: string The relevant table. recordId: string The id of the relevant record, which can be used to locate the cross record between the user collection and the project/edition record where the user's role is stored. Returns    - dict Contains the following keys:   status : whether the save action was successful   messages : messages issued during the process   updated : if the action was successful, all user management info will be passed back and will replace the currently displayed material.",
 "func":1
 },
 {
@@ -1497,157 +1511,285 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.content.Content.actionButton",
-"url":12,
-"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button.",
-"func":1
-},
-{
-"ref":"control.messages",
+"ref":"control.admin",
 "url":16,
 "doc":""
 },
 {
-"ref":"control.messages.Messages",
+"ref":"control.admin.Admin",
 "url":16,
+"doc":"Get the list of relevant projects, editions and users. Admin users get the list of all users. Normal users get the list of users associated with  the project of which they are organiser  the editions of which they are editor or reviewer Guests and not-logged-in users cannot see any user. If the user has rights to modify the association between users and projects/editions, he will get the controls to do so. Upon initialization the project/edition/user data will be read and assembled in a form ready for generating html.  Overview of assembled data  projects All project records in the system, keyed by id. If a project has editions, the editions are available under key  editions as a dict of edition records keyed by id. If a project has users, the users are available under key  users as a dict keyed by user id and valued by the user records. If an edition has users, the users are available under key  users as a dict keyed by role and then by user id and valued by a tuple of the user record and his role.  users All user records in the system, keyed by id.  myIds All project and edition ids to which the current user has a relationship. It is a dict with keys  project and  edition and the values are sets of ids."
+},
+{
+"ref":"control.admin.Admin.update",
+"url":16,
+"doc":"Reread the collections of users, projects, editions. Typically needed when you have used an admin function to perform a user administration action. This may change the permissions and hence the visiblity of projects and editions. It also changes the possible user management actions in the future.",
+"func":1
+},
+{
+"ref":"control.admin.Admin.authUser",
+"url":16,
+"doc":"Check whether a user may change the role of another user. The question are: \"which  other site-wide roles can the current user assign to the other user?\" (when no table or record are given). \"which project/edition scoped roles can the current user assign to or remove from the other user with respect to the relevant record in the given table?\". Note that the current site-wide role of the other user is never included in the set of resulting roles. There are also additional business rules. This function will return the empty set if these rules are violated.  Business rules  Users have exactly one site-wise role.  Users may demote themselves.  Users may not promote themselves unless  . see later.  Users may have zero or one project/edition-scoped role per project/edition  When assigning new site-wide or project-scoped or edition-scoped roles, these roles must be valid roles for that scope.  When assigning a new site-wide role, None is not one of the possible new roles: you cannot change the status of an authenticated user to \"not logged in\".  When assigning project/edition scoped roles, removing such a role from a user for a certain project/edition means that the other user is removed from that project or edition.  Roles are ranked in power. Users with a higher role are also authorised to all things for which lower roles give authorisation. The site-wide roles are ranked as:  root - admin - user - guest - not logged in  The project/edition roles are ranked as:  (project) organiser - (edition) editor - (edition) reviewer  Site-wide power does not automatically carry over to project/edition-scoped power.  Users cannot promote or demote people that are currently as powerful as themselves.  In normal cases there is exactly one root, but:  If a situation occurs that there is no root and no admin, any authenticated user my grab the role of admin.  If a situation occurs that there is no root, any admin may grab the role of root.  Roots may appoint admins.  Roots and admins may change site-wide roles.  Roots and admins may appoint project organisers, but may not assign edition-scoped roles.  Project organisers may appoint edition editors and reviewers.  Edition editors may appoint edition reviewers.  However, roots and admins may also be project organisers and edition editors for some projects and some editions.  Normal users and guests can not administer site-wide roles.  Guests can not be put in project/edition-scoped roles. Parameters      otherUser: string | void the other user as string (eppn) If None, the question is: what are the roles in which an other user may be put wrt to this project/edition? table: string, optional None the relevant table:  project or  edition ; this is the table in which the record sits relative to which the other user will be assigned a role. If None, the role to be assigned is a site wide role. record: ObjectId | AttrDict, optional None the relevant record; it is the record relative to which the other user will be assigned an other role. If None, the role to be assigned is a site wide role. Returns    - boolean, frozenset The boolean indicates whether the current user may modify the role of the target user. The frozenset is the set of assignable roles to the other user by the current user with respect to the given table and record or site-wide. If the boolean is false, the frozenset is empty. But if the frozenset is empty it might be the case that the current user is allowed to remove the role of the target user.",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrap",
+"url":16,
+"doc":"Produce a list of projects and editions and users for root/admin usage. The first overview shows all projects and editions with their associated users and roles. Only items that are relevant to the user are shown. If the user is authorised to change associations between users and items, they will be editable. The second overview is for admin/roots only. It shows a list of users and their site-wide roles, which can be changed.",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapProject",
+"url":16,
+"doc":"Generate HTML for a project in admin view. Parameters      project: AttrDict A project record myOnly: boolean, optional False Whether to show only the editions in the project that are associated with the current user. Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapEdition",
+"url":16,
+"doc":"Generate HTML for an edition in admin view. Parameters      edition: AttrDict An edition record Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapUsers",
+"url":16,
+"doc":"Generate HTML for a list of users. It is dependent on the value of table/record whether it is about the users of a specific project/edition or the site-wide users. Parameters      itemRoles: dict Dictionary keyed by the possible roles and valued by the description of that role. table: string, optional None Either  project or  edition , indicates what users we are listing: related to a project or to an edition. record: AttrDict, optional None If  table is passed and not None, here is the specific project or edition whose users should be listed. theseUsers: dict, optional None If table/record is not specified, you can specify users here. If this parameter is also None, then all users in the system are taken. Otherwise you have to specify a dict, keyed by user eppns and valued by tuples consisting of a user record and a role. Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapLinkUser",
+"url":16,
+"doc":"Generate HTML to add a user in a specified role. Parameters      roles: string | void The choice of roles that a new user can get. itemRoles: dict Dictionary keyed by the possible roles and valued by the description of that role. table: string Either None or  project or  edition , indicates to what we are linking users: site-wide users or users related to a project or to an edition. recordId: ObjectId or None Either None or the id of a project or edition, corresponding to the  table parameter. Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapUser",
+"url":16,
+"doc":"Generate HTML for a single user and his role. Parameters      u: string The eppn of the user. uRecord: AttrDict The user record. role: string | void The actual role of the user, or None if the user has no role. editable: boolean Whether the current user may change the role of this user. otherRoles: frozenset The other roles that the user may get from the current user. itemRoles: dict Dictionary keyed by the possible roles and valued by the description of that role. table: string Either None or  project or  edition , indicates what users we are listing: site-wide users or users related to a project or to an edition. recordId: ObjectId or None Either None or the id of a project or edition, corresponding to the  table parameter. Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.wrapRole",
+"url":16,
+"doc":"Generate HTML for a role. This may or may not be an editable widget, depending on whether there are options to choose from. Site-wide users have a single site-wide role. But project/edition users can have zero or one role wrt projects/editions. Parameters      u: string The eppn of the user. itemRoles: dict Dictionary keyed by the possible roles and valued by the description of that role. role: string | void The actual role of the user, or None if the user has no role. editable: boolean Whether the current user may change the role of this user. otherRoles: frozenset The other roles that the target user may be assigned by the current user. table: string Either None or  project or  edition , indicates what users we are listing: site-wide users or users related to a project or to an edition. recordId: ObjectId or None Either None or the id of a project or edition, corresponding to the  table parameter. Returns    - string The HTML",
+"func":1
+},
+{
+"ref":"control.admin.Admin.saveRole",
+"url":16,
+"doc":"Saves a role into a user or cross table record. It will be checked whether the new role is valid, and whether the user has permission to perform this role assignment. Parameters      u: string The eppn of the user. newRole: string | void The new role for the target user. None means: the target user will lose his role. table: string Either None or  project or  edition , indicates what users we are listing: site-wide users or users related to a project or to an edition. recordId: ObjectId or None Either None or the id of a project or edition, corresponding to the  table parameter. Returns    - dict with keys:   stat : indicates whether the save may proceed;   messages : list of messages for the user,   updated : new content for the user managment div.",
+"func":1
+},
+{
+"ref":"control.admin.Admin.linkUser",
+"url":16,
+"doc":"Links a user in certain role to a project/edition record. It will be checked whether the new role is valid, and whether the user has permission to perform this role assignment. If the user is already linked to that project/edition, his role will be updated, otherwise a new link will be created. Parameters      u: string The eppn of the target user. newRole: string The new role for the target user. table: string Either  project or  edition . recordId: ObjectId The id of a project or edition, corresponding to the  table parameter. Returns    - dict with keys:   stat : indicates whether the save may proceed;   messages : list of messages for the user,   updated : new content for the user managment div.",
+"func":1
+},
+{
+"ref":"control.messages",
+"url":17,
+"doc":""
+},
+{
+"ref":"control.messages.Messages",
+"url":17,
 "doc":"Sending messages to the user and the server log. This class is instantiated by a singleton object. It has methods to issue messages to the screen of the webuser and to the log for the sysadmin. They distinguish themselves by the  severity :  debug ,  info ,  warning ,  error . There is also  plain , a leaner variant of  info . All those methods have two optional parameters:  logmsg and  msg . The behaviors of these methods are described in detail in the  Messages.message() function.  ! hint \"What to disclose?\" You can pass both parameters, which gives you the opportunity to make a sensible distinction between what you tell the web user (not much) and what you send to the log (the gory details). Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
 },
 {
 "ref":"control.messages.Messages.setFlask",
-"url":16,
+"url":17,
 "doc":"Enables messaging to the web interface.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.debugAdd",
-"url":16,
+"url":17,
 "doc":"Adds a quick debug method to a destination object. The result of this method is that instead of saying   self.Messages.debug (logmsg=\"blabla\")   you can say   self.debug (\"blabla\")   It is recommended that in each object where you store a handle to Messages, you issue the statement   Messages.addDebug(self)  ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.debug",
-"url":16,
+"url":17,
 "doc":"Issue a debug message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.error",
-"url":16,
+"url":17,
 "doc":"Issue an error message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.warning",
-"url":16,
+"url":17,
 "doc":"Issue a warning message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.info",
-"url":16,
+"url":17,
 "doc":"Issue a informational message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.plain",
-"url":16,
+"url":17,
 "doc":"Issue a informational message, without bells and whistles. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.message",
-"url":16,
+"url":17,
 "doc":"Workhorse to issue a message in a variety of ways. It can issue log messages and screen messages. Messages passed in  msg go to the web interface, the ones passed in  logmsg go to the log. If there is not yet a web interface,  msg messages are suppressed if there is also a  logmsg , otherwise they will be directed to the log as well. Parameters      tp: string The severity of the message. There is a fixed number of types:   debug Messages are prepended with  DEBUG:  . Log messages go to stderr. Messages will only show up on the web page if the app runs in debug mode.   plain Messages are not prepended with anything. Log messages go to standard output.   info Messages are prepended with  INFO:  . Log messages go to standard output.   warning Messages are prepended with  WARNING:  . Log messages go to standard error.   error Messages are prepended with  ERROR:  . Log messages go to standard error. It also raises an exception, which will lead to a 404 response (if flask is running, that is). But this stopping can be prevented by passing  stop=False . msg: string | void If not None, it is the contents of a screen message. This happens by the built-in  flash method of Flask. logmsg: string | void If not None, it is the contents of a log message. stop: boolean, optional True If False, an error message will not lead to a stop.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.client",
-"url":16,
+"url":17,
 "doc":"Adds javascript code whose execution displays a message. Parameters      tp, msg: string, string As in  message() replace: boolean, optional False If True, clears all previous messages. Returns    - dict an onclick attribute that can be added to a link element.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.onFlask",
-"url":16,
+"url":17,
 "doc":"Whether the webserver is running. If False, mo messages will be sent to the screen of the webuser, instead those messages end up in the log. This is useful in the initial processing that takes place before the flask app is started."
 },
 {
 "ref":"control.environment",
-"url":17,
+"url":18,
 "doc":""
 },
 {
 "ref":"control.environment.var",
-"url":17,
+"url":18,
 "doc":"Retrieves the value of an environment variable. Parameters      name: string The name of the environment variable Returns    - string | void If the variable does not exist, None is returned.",
 "func":1
 },
 {
 "ref":"control.app",
-"url":18,
+"url":19,
 "doc":""
 },
 {
 "ref":"control.app.appFactory",
-"url":18,
+"url":19,
 "doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the onses starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
 "func":1
 },
 {
 "ref":"control.viewers",
-"url":19,
+"url":20,
 "doc":""
 },
 {
 "ref":"control.viewers.Viewers",
-"url":19,
-"doc":"Knowledge of the installed 3D viewers. This class knows which (versions of) viewers are installed, and has the methods to invoke them. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
+"url":20,
+"doc":"Knowledge of the installed 3D viewers. This class knows which (versions of) viewers are installed, and has the methods to invoke them. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo ."
 },
 {
 "ref":"control.viewers.Viewers.addAuth",
-"url":19,
+"url":20,
 "doc":"Give this object a handle to the Auth object. The Viewers and Auth objects need each other, so one of them must be given the handle to the other after initialization.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.check",
-"url":19,
+"url":20,
 "doc":"Checks whether a viewer version exists. Given a viewer and a version, it is looked up whether the code is present. If not, reasonable defaults returned instead by default. Parameters      viewer: string The viewer in question. version: string The version of the viewer in question. Returns    - string | void The version is returned unmodified if that viewer version is supported. If the viewer is supported, but not the version, the default version of that viewer is taken, if there is a default version, otherwise the latest supported version. If the viewer is not supported, None is returned.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getFrame",
-"url":19,
-"doc":"Produces a set of buttons to launch 3D viewers for a scene. Parameters      edition: string | ObjectId | AttrDict The edition in question. actions: iterable of string The actions for which we have to create buttons. Typically  read and possibly also  update . viewer: string The viewer in which the scene is currently loaded. versionActive: string | void The version of the viewer in which the scene is currently loaded, if any, otherwise None actionActive: string | void The mode in which the scene is currently loaded in the viewer ( read or  update ), if any, otherwise None Returns    - string The HTML that represents the buttons.",
+"url":20,
+"doc":"Produces a set of buttons to launch 3D viewers for a scene. Parameters      edition: string | ObjectId | AttrDict The edition in question. actions: iterable of string The actions for which we have to create buttons. Typically  read and possibly also  update . Actions that are not recognized as viewer actions will be filtered out, such as  create and  delete . viewer: string The viewer in which the scene is currently loaded. versionActive: string | void The version of the viewer in which the scene is currently loaded, if any, otherwise None actionActive: string | void The mode in which the scene is currently loaded in the viewer ( read or  update ), if any, otherwise None Returns    - string The HTML that represents the buttons.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.genHtml",
-"url":19,
+"url":20,
 "doc":"Generates the HTML for the viewer page that is loaded in an iframe. When a scene is loaded in a viewer, it happens in an iframe. Here we generate the complete HTML for such an iframe. Parameters      urlBase: string The first part of the root url that is given to the viewer. The viewer code uses this to retrieve additional information. The root url will be completed with the  action and the  viewer . sceneFile: string The name of the scene file in the file system. viewer: string The chosen viewer. version: string The chosen version of the viewer. action: string The chosen mode in which the viewer is launched ( read or  update ). Returns    - string The HTML for the iframe.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getRoot",
-"url":19,
+"url":20,
 "doc":"Composes the root url for a viewer. The root url is passed to a viewer instance as the url that the viewer can use to fetch its data. It is not meant for the static data that is part of the viewer software, but for the model related data that the viewer is going to display. See  getStaticRoot() for the url meant for getting parts of the viewer software. Parameters      urlBase: string The first part of the root url, depending on the project and edition. action: string The mode in which the viewer is opened. Depending on the mode, the viewer code may communicate with the server with different urls. For example, for the voyager, the  read mode (voyager-explorer) uses ordinary HTTP requests, but the  update mode (voyager-story) uses WebDAV requests. So this app points voyager-explorer to a root url starting with  /data , and voyager-story to a root url starting with  /webdav . These prefixes of the urls can be configured per viewer in the viewer configuration in  yaml/viewers.yml .",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getStaticRoot",
-"url":19,
+"url":20,
 "doc":"Composes the static root url for a viewer. The static root url is passed to a viewer instance as the url that the viewer can use to fetch its assets. It is not meant for the model related data, but for the parts of the viewer software that it needs to get from the server. See  getRoot() for the url meant for getting model-related data. Parameters      urlBase: string The first part of the root url, depending on the project and edition. action: string The mode in which the viewer is opened. Depending on the mode, the viewer code may communicate with the server with different urls. For example, for the voyager, the  read mode (voyager-explorer) uses ordinary HTTP requests, but the  update mode (voyager-story) uses WebDAV requests. So this app points voyager-explorer to a root url starting with  /data , and voyager-story to a root url starting with  /webdav . These prefixes of the urls can be configured per viewer in the viewer configuration in  yaml/viewers.yml .",
 "func":1
 },
 {
+"ref":"control.wrap",
+"url":21,
+"doc":""
+},
+{
+"ref":"control.wrap.Wrap",
+"url":21,
+"doc":"Wrap concepts into HTML. This class knows how to wrap several higher-level concepts into HTML, such as projects, editions and users, depending on specific purposes, such as showing widgets to manage projects and editions. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Viewers: object Singleton instance of  control.viewers.Viewers ."
+},
+{
+"ref":"control.wrap.Wrap.addAuth",
+"url":21,
+"doc":"Give this object a handle to the Auth object. The Wrap and Auth objects need each other, so one of them must be given the handle to the other after initialization.",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.addContent",
+"url":21,
+"doc":"Give this object a handle to the Content object. The Wrap and Content objects need each other, so one of them must be given the handle to the other after initialization.",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.projectsMain",
+"url":21,
+"doc":"Wrap the list of projects for the main display. Parameters      site: AttrDict The record that corresponds to the site as a whole. It acts as a master record of the projects. projects: list of AttrDict The project records. Returns    - string The HTML of the project list",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.editionsMain",
+"url":21,
+"doc":"Wrap the list of editions of a project for the main display. Parameters      project: AttrDict The master project record of the editions. editions: list of AttrDict The edition records. Returns    - string The HTML of the edition list",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.sceneMain",
+"url":21,
+"doc":"Wrap the scene of an edition for the main display. Parameters      edition: AttrDict The edition record of the scene. viewer: string The viewer that will be used. version: string The version of the chosen viewer that will be used. action: string The mode in which the viewer should be opened. Returns    - string The HTML of the scene",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.getCaption",
+"url":21,
+"doc":"Produces a caption of a project or edition. Parameters      visual: string A link to an image to display in the caption. titleText: string The text on the caption. status: string The status of the project/edition: visible/hidden/published/in progress. The exact names statusCls: string The CSS class corresponding to  status button: string Control for a certain action, or empty if the user is not authorised. url: string The url to navigate to if the user clicks the caption.",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.wrapCaption",
+"url":21,
+"doc":"Assembles a caption from building blocks.",
+"func":1
+},
+{
+"ref":"control.wrap.Wrap.contentButton",
+"url":21,
+"doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button.",
+"func":1
+},
+{
 "ref":"control.prepare",
-"url":20,
+"url":22,
 "doc":""
 },
 {
 "ref":"control.prepare.prepare",
-"url":20,
-"doc":"Prepares the way for setting up the Flask webapp. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin   control.mongo.Mongo : higher-level commands to the MongoDb   control.viewers.Viewers : support the third party 3D viewers   control.datamodel.Datamodel : factory for handling fields   control.content.Content : retrieve all data that needs to be displayed   control.auth.Auth : compute the permission of the current user to access content   control.pages.Pages : high-level functions that distribute content over the page  ! note \"Should be run once!\" These objects are used in several web apps:  the main web app  a copy of the main app that is enriched with the webdav functionality However, these objects should be initialized once, before either app starts, and the same objects should be passed to both invocations of the factory functions that make them ( control.app.appFactory ). The invocations are done in  control.webdavapp.appFactory . Parameters      trivial: boolean, optional False If True, skips the initialization of most objects. Useful if the pure3d app container should run without doing anything. This happens when we just want to start the container and run shell commands inside it, for example after a complicated refactoring when the flask app has too many bugs. Returns    - AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
+"url":22,
+"doc":"Prepares the way for setting up the Flask webapp. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin   control.mongo.Mongo : higher-level commands to the MongoDb   control.viewers.Viewers : support the third party 3D viewers   control.wrap.Wrap : several lengthy functions to wrap concepts into HTML   control.datamodel.Datamodel : factory for handling fields, inherited by  Content   control.content.Content : retrieve all data that needs to be displayed   control.auth.Auth : compute the permission of the current user to access content   control.pages.Pages : high-level functions that distribute content over the page  ! note \"Should be run once!\" These objects are used in several web apps:  the main web app  a copy of the main app that is enriched with the webdav functionality However, these objects should be initialized once, before either app starts, and the same objects should be passed to both invocations of the factory functions that make them ( control.app.appFactory ). The invocations are done in  control.webdavapp.appFactory . Parameters      trivial: boolean, optional False If True, skips the initialization of most objects. Useful if the pure3d app container should run without doing anything. This happens when we just want to start the container and run shell commands inside it, for example after a complicated refactoring when the flask app has too many bugs. Returns    - AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
 "func":1
 }
 ]

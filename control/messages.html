@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L1-L211" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L1-L213" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 from control.flask import appStop, flashMsg
@@ -101,6 +101,8 @@ class Messages:
         &#34;&#34;&#34;
 
         def dbg(m):
+            &#34;&#34;&#34;Inner function to be set as method to the class.
+            &#34;&#34;&#34;
             self.debug(logmsg=m)
 
         setattr(dest, &#34;debug&#34;, dbg)
@@ -281,7 +283,7 @@ web user (not much) and what you send to the log (the gory details).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L5-L211" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L5-L213" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Messages:
     def __init__(self, Settings, onFlask=True):
@@ -352,6 +354,8 @@ web user (not much) and what you send to the log (the gory details).</p>
         &#34;&#34;&#34;
 
         def dbg(m):
+            &#34;&#34;&#34;Inner function to be set as method to the class.
+            &#34;&#34;&#34;
             self.debug(logmsg=m)
 
         setattr(dest, &#34;debug&#34;, dbg)
@@ -524,7 +528,7 @@ before the flask app is started.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L195-L211" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L197-L213" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def client(self, tp, message, replace=False):
     &#34;&#34;&#34;Adds javascript code whose execution displays a message.
@@ -554,7 +558,7 @@ before the flask app is started.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L78-L83" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L80-L85" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def debug(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a debug message.
@@ -582,7 +586,7 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L50-L76" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L50-L78" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def debugAdd(self, dest):
     &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -608,6 +612,8 @@ to Messages, you issue the statement</p>
     &#34;&#34;&#34;
 
     def dbg(m):
+        &#34;&#34;&#34;Inner function to be set as method to the class.
+        &#34;&#34;&#34;
         self.debug(logmsg=m)
 
     setattr(dest, &#34;debug&#34;, dbg)</code></pre>
@@ -622,7 +628,7 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L85-L90" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L87-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, msg=None, logmsg=None, stop=True):
     &#34;&#34;&#34;Issue an error message.
@@ -641,7 +647,7 @@ to Messages, you issue the statement</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L99-L104" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L101-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def info(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a informational message.
@@ -712,7 +718,7 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L113-L193" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L115-L195" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def message(self, tp, msg, logmsg, stop=True):
     &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
@@ -806,7 +812,7 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L106-L111" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L108-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plain(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a informational message, without bells and whistles.
@@ -824,7 +830,7 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L45-L48" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L45-L48" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def setFlask(self):
     &#34;&#34;&#34;Enables messaging to the web interface.
@@ -841,7 +847,7 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/messages.py#L92-L97" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/messages.py#L94-L99" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def warning(self, msg=None, logmsg=None):
     &#34;&#34;&#34;Issue a warning message.

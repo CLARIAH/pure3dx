@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/app.py#L1-L190" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/app.py#L1-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.flask import appMake, appStop, requestMethod, appInitializing
 
@@ -77,80 +77,168 @@ def appFactory(objects):
 
     @app.before_request
     def identify():
+        &#34;&#34;&#34;Get details of the current user.&#34;&#34;&#34;
         if not appInitializing():
             Auth.identify()
 
     @app.route(&#34;/favicon.ico&#34;)
     def favicon():
+        &#34;&#34;&#34;Get the favicon.&#34;&#34;&#34;
         return Pages.fileData(&#34;favicon.ico&#34;)
 
     @app.route(&#34;/login&#34;)
     def login():
+        &#34;&#34;&#34;Perform a user login.&#34;&#34;&#34;
         return Auth.login()
 
     @app.route(&#34;/afterlogin/referrer/&lt;path:referrer&gt;&#34;)
     @app.route(&#34;/afterlogin/referrer/&#34;, defaults={&#34;referrer&#34;: &#34;/&#34;})
     @oidc.require_login
     def afterlogin(referrer):
+        &#34;&#34;&#34;Go back to the page the user was on before logging in.&#34;&#34;&#34;
         return Auth.afterLogin(referrer)
 
     @app.route(&#34;/logout&#34;)
     def logout():
+        &#34;&#34;&#34;Perform a user logout.&#34;&#34;&#34;
         return Auth.logout()
-
-    @app.route(&#34;/reset&#34;)
-    def reset():
-        return Pages.reset()
 
     @app.route(&#34;/collect&#34;)
     def collect():
+        &#34;&#34;&#34;Reset the database to reflect the pristine example data.&#34;&#34;&#34;
         return Pages.collect()
 
     @app.route(&#34;/&#34;)
     @app.route(&#34;/home&#34;)
     def home():
+        &#34;&#34;&#34;Present the &#34;home&#34; page.&#34;&#34;&#34;
         return Pages.home()
 
     @app.route(&#34;/about&#34;)
     def about():
+        &#34;&#34;&#34;Present the &#34;about&#34; page.&#34;&#34;&#34;
         return Pages.about()
 
     @app.route(&#34;/surpriseme&#34;)
     def surpriseme():
+        &#34;&#34;&#34;Present the &#34;Surprise Me&#34; page.&#34;&#34;&#34;
         return Pages.surprise()
 
     @app.route(&#34;/project&#34;)
     def projects():
+        &#34;&#34;&#34;Present the &#34;projects&#34; page with the list of projects.&#34;&#34;&#34;
         return Pages.projects()
 
-    @app.route(&#34;/mywork&#34;)
-    def mywork():
-        return Pages.mywork()
+    @app.route(&#34;/admin&#34;)
+    def admin():
+        &#34;&#34;&#34;Present the &#34;My Work&#34; page.
 
-    @app.route(&#34;/project/create&#34;)
-    def projectInsert():
-        return Pages.projectInsert()
+        This page contains the project/editions that the current user is involved in.
+        Administrators will also see the complete list of projects and the list of users.
+        &#34;&#34;&#34;
+        return Pages.admin()
+
+    @app.route(&#34;/site/&lt;string:site&gt;/project/create&#34;)
+    def createProject(site):
+        &#34;&#34;&#34;Create a new project with the current user as organiser.
+
+        Parameters
+        ----------
+        site: string
+            The id of the unique site record, which acts as master record for all the projects.
+        &#34;&#34;&#34;
+        return Pages.createProject(site)
 
     @app.route(&#34;/project/&lt;string:project&gt;&#34;)
     def project(project):
+        &#34;&#34;&#34;Presents the landing page of a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        &#34;&#34;&#34;
         return Pages.project(project)
 
+    @app.route(&#34;/project/&lt;string:project&gt;/delete&#34;)
+    def deleteProject(project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        &#34;&#34;&#34;
+        return Pages.deleteProject(project)
+
     @app.route(&#34;/project/&lt;string:project&gt;/edition/create&#34;)
-    def editionInsert(project):
-        return Pages.editionInsert(project)
+    def createEdition(project):
+        &#34;&#34;&#34;Create a new edition with the current user as editor.
+
+        Parameters
+        ----------
+        project: string
+            The id of the master project record.
+        &#34;&#34;&#34;
+        return Pages.createEdition(project)
 
     @app.route(&#34;/edition/&lt;string:edition&gt;&#34;, defaults=dict(version=None, action=None))
     @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;&#34;, defaults=dict(action=None))
     @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;)
     def edition(edition, version, action):
+        &#34;&#34;&#34;Presents the landing page of an edition.
+
+        The edition is shown in the viewer associated with the edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        version: string | void
+            The viewer version to use.
+        action: string, optional None
+            The mode in which the viewer is to be used (`read` or `update`).
+        &#34;&#34;&#34;
         return Pages.edition(edition, version=version, action=action)
+
+    @app.route(&#34;/edition/&lt;string:edition&gt;/delete&#34;)
+    def deleteEdition(edition):
+        &#34;&#34;&#34;Deletes a edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        &#34;&#34;&#34;
+        return Pages.deleteEdition(edition)
 
     @app.route(&#34;/viewer/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:edition&gt;&#34;)
     def viewerFrame(version=None, action=None, edition=None):
+        &#34;&#34;&#34;Present the scene of an edition in a 3D viewer.
+
+        This is typically loaded in an iframe, but it can also
+        be loaded in a new browser window.
+
+        Parameters
+        ----------
+        edition: string
+            The edition id to which the scene belongs.
+        version: string | None
+            The viewer version to use.
+        action: string | None
+            The mode in which the viewer is to be used (`read` or `update`).
+        &#34;&#34;&#34;
         return Pages.viewerFrame(edition, version, action)
 
     @app.route(&#34;/data/viewers/&lt;path:path&gt;&#34;)
     def viewerResource(path):
+        &#34;&#34;&#34;Serves components requested by viewers.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system where the resource resides.
+        &#34;&#34;&#34;
         return Pages.viewerResource(path)
 
     @app.route(
@@ -167,6 +255,17 @@ def appFactory(objects):
     @app.route(&#34;/data/&#34;, defaults=dict(project=None, edition=None, path=None))
     @app.route(&#34;/data/&lt;path:path&gt;&#34;, defaults=dict(project=None, edition=None))
     def fileData(project=None, edition=None, path=None):
+        &#34;&#34;&#34;Serves files directly from the file repository.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system where the resource resides, relative to project/edition.
+        project: string | ObjectId | AttrDict
+            The id of a project under which the resource is to be found.
+        edition: string | ObjectId | AttrDict
+            The id of an edition under which the resource is to be found.
+        &#34;&#34;&#34;
         return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
@@ -174,6 +273,22 @@ def appFactory(objects):
         methods=[&#34;POST&#34;],
     )
     def upload(record, key, givenFileName, path):
+        &#34;&#34;&#34;Upload a file.
+
+        Where the file will be stored depends on the context, which is provided by
+        a project/edition record.
+
+        Parameters
+        ----------
+        record: string
+            The context record of the upload
+        key: string
+            The key of the upload
+        path: string
+            The save location for the file
+        givenFileName: string | void
+            The name of the file as which the uploaded file will be saved.
+        &#34;&#34;&#34;
         if givenFileName == &#34;-&#34;:
             givenFileName = None
         return Pages.upload(record, key, path, givenFileName=givenFileName)
@@ -182,12 +297,79 @@ def appFactory(objects):
         &#34;/deletefile/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;
     )
     def deleteFile(record, key, givenFileName, path):
+        &#34;&#34;&#34;Deletes a file.
+
+        This is about files that have been uploaded by users.
+
+        Where the file is to be found depends on the context, which is provided by
+        a project/edition record.
+
+        record: string
+            The context record of the file.
+        key: string
+            The key of the upload.
+        path: string
+            The location of the file.
+        givenFileName: string | void
+            The name of the file.
+        &#34;&#34;&#34;
         if givenFileName == &#34;-&#34;:
             givenFileName = None
         return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
+    @app.route(&#34;/link/user/&lt;string:table&gt;/&lt;string:record&gt;&#34;, methods=[&#34;POST&#34;])
+    def linkUser(table, record):
+        &#34;&#34;&#34;Links a user to a project/edition in a certain role..
+
+        The user and role are passed as request data.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record to link to.
+        record: string
+            The id of the record to link to.
+        &#34;&#34;&#34;
+        return Content.linkUser(table, record)
+
+    @app.route(
+        &#34;/save/role/&lt;string:user&gt;/&#34;,
+        defaults=dict(table=None, record=None),
+        methods=[&#34;POST&#34;],
+    )
+    @app.route(
+        &#34;/save/role/&lt;string:user&gt;/&lt;string:table&gt;/&lt;string:record&gt;/&#34;,
+        methods=[&#34;POST&#34;],
+    )
+    def saveRole(user, table, record):
+        &#34;&#34;&#34;Saves the role of a user.
+
+        Either a site-wide role or a role wrt. a project/edition.
+
+        The role itself is passed as request data.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record the user is linked to.
+        record: string
+            The id of the record to the user is linked to.
+        &#34;&#34;&#34;
+        return Content.saveRole(user, table, record)
+
     @app.route(&#34;/save/&lt;string:table&gt;/&lt;string:record&gt;/&lt;string:key&gt;&#34;, methods=[&#34;POST&#34;])
     def saveValue(table, record, key):
+        &#34;&#34;&#34;Saves metadata to the database.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record that contains the metadata
+        record: string
+            The id of the record that contains the metadata.
+        key: string
+            The key of the metadata.
+        &#34;&#34;&#34;
         return Content.saveValue(table, record, key)
 
     @app.route(
@@ -200,21 +382,81 @@ def appFactory(objects):
         methods=tuple(webdavMethods),
     )
     def authWebdav(project, edition, path):
+        &#34;&#34;&#34;Authorises webdav requests.
+
+        When 3D viewers make direct requests to the server through WebDAV,
+        these requests are intercepted here and it is checked whether it is authorised.
+
+        Such requests are always made in the context of an edition, and hence a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project context.
+        edition: string
+            The id of the edition context.
+        path: string
+            The rest of the WebDAV request.
+
+        Returns
+        -------
+        boolean
+            N.B.: this controller does not lead to a view, but to the answer
+            whether the call is authorised.
+
+            See `control.webdavapp.dispatchWebdav`.
+        &#34;&#34;&#34;
         action = webdavMethods[requestMethod()]
         return Pages.authWebdav(edition, path, action)
 
     @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
+        &#34;&#34;&#34;Prevents unrecognized webdav requests.
+
+        WebDAV requests that are not made in a proper project/edition context
+        will not be honoured.
+
+        Parameters
+        ----------
+        path: string
+            The original WebDAV request.
+
+        Returns
+        -------
+        boolean
+            Always False!
+
+            N.B.: this controller does not lead to a view, but to the answer
+            whether the call is authorised.
+
+            See `control.webdavapp.dispatchWebdav`.
+        &#34;&#34;&#34;
         Messages.warning(logmsg=f&#34;Invalid webdav access: {path}&#34;)
         return False
 
     @app.route(&#34;/cannot/webdav/&lt;path:path&gt;&#34;)
     def nowebdav(path):
+        &#34;&#34;&#34;Prevents unauthorised WebDAV requests.
+
+        WebDAV requests that have been rejected will lead to an error page.
+
+        Parameters
+        ----------
+        path: string
+            The original WebDAV request.
+        &#34;&#34;&#34;
         Messages.warning(logmsg=f&#34;Unauthorized webdav access: {path}&#34;)
         appStop()
 
     @app.route(&#34;/&lt;path:path&gt;&#34;)
-    def remaining(path):
+    def remaining(path, methods=(&#34;GET&#34;, &#34;POST&#34;) + tuple(webdavMethods)):
+        &#34;&#34;&#34;Handles unmatched urls.
+
+        Parameters
+        ----------
+        path: string
+            The url of the request.
+        &#34;&#34;&#34;
         return Pages.remaining(path)
 
     return app</code></pre>
@@ -259,7 +501,7 @@ it over the web page.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/app.py#L4-L190" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/app.py#L4-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory(objects):
     &#34;&#34;&#34;Sets up the main flask app.
@@ -307,80 +549,168 @@ it over the web page.</dd>
 
     @app.before_request
     def identify():
+        &#34;&#34;&#34;Get details of the current user.&#34;&#34;&#34;
         if not appInitializing():
             Auth.identify()
 
     @app.route(&#34;/favicon.ico&#34;)
     def favicon():
+        &#34;&#34;&#34;Get the favicon.&#34;&#34;&#34;
         return Pages.fileData(&#34;favicon.ico&#34;)
 
     @app.route(&#34;/login&#34;)
     def login():
+        &#34;&#34;&#34;Perform a user login.&#34;&#34;&#34;
         return Auth.login()
 
     @app.route(&#34;/afterlogin/referrer/&lt;path:referrer&gt;&#34;)
     @app.route(&#34;/afterlogin/referrer/&#34;, defaults={&#34;referrer&#34;: &#34;/&#34;})
     @oidc.require_login
     def afterlogin(referrer):
+        &#34;&#34;&#34;Go back to the page the user was on before logging in.&#34;&#34;&#34;
         return Auth.afterLogin(referrer)
 
     @app.route(&#34;/logout&#34;)
     def logout():
+        &#34;&#34;&#34;Perform a user logout.&#34;&#34;&#34;
         return Auth.logout()
-
-    @app.route(&#34;/reset&#34;)
-    def reset():
-        return Pages.reset()
 
     @app.route(&#34;/collect&#34;)
     def collect():
+        &#34;&#34;&#34;Reset the database to reflect the pristine example data.&#34;&#34;&#34;
         return Pages.collect()
 
     @app.route(&#34;/&#34;)
     @app.route(&#34;/home&#34;)
     def home():
+        &#34;&#34;&#34;Present the &#34;home&#34; page.&#34;&#34;&#34;
         return Pages.home()
 
     @app.route(&#34;/about&#34;)
     def about():
+        &#34;&#34;&#34;Present the &#34;about&#34; page.&#34;&#34;&#34;
         return Pages.about()
 
     @app.route(&#34;/surpriseme&#34;)
     def surpriseme():
+        &#34;&#34;&#34;Present the &#34;Surprise Me&#34; page.&#34;&#34;&#34;
         return Pages.surprise()
 
     @app.route(&#34;/project&#34;)
     def projects():
+        &#34;&#34;&#34;Present the &#34;projects&#34; page with the list of projects.&#34;&#34;&#34;
         return Pages.projects()
 
-    @app.route(&#34;/mywork&#34;)
-    def mywork():
-        return Pages.mywork()
+    @app.route(&#34;/admin&#34;)
+    def admin():
+        &#34;&#34;&#34;Present the &#34;My Work&#34; page.
 
-    @app.route(&#34;/project/create&#34;)
-    def projectInsert():
-        return Pages.projectInsert()
+        This page contains the project/editions that the current user is involved in.
+        Administrators will also see the complete list of projects and the list of users.
+        &#34;&#34;&#34;
+        return Pages.admin()
+
+    @app.route(&#34;/site/&lt;string:site&gt;/project/create&#34;)
+    def createProject(site):
+        &#34;&#34;&#34;Create a new project with the current user as organiser.
+
+        Parameters
+        ----------
+        site: string
+            The id of the unique site record, which acts as master record for all the projects.
+        &#34;&#34;&#34;
+        return Pages.createProject(site)
 
     @app.route(&#34;/project/&lt;string:project&gt;&#34;)
     def project(project):
+        &#34;&#34;&#34;Presents the landing page of a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        &#34;&#34;&#34;
         return Pages.project(project)
 
+    @app.route(&#34;/project/&lt;string:project&gt;/delete&#34;)
+    def deleteProject(project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        &#34;&#34;&#34;
+        return Pages.deleteProject(project)
+
     @app.route(&#34;/project/&lt;string:project&gt;/edition/create&#34;)
-    def editionInsert(project):
-        return Pages.editionInsert(project)
+    def createEdition(project):
+        &#34;&#34;&#34;Create a new edition with the current user as editor.
+
+        Parameters
+        ----------
+        project: string
+            The id of the master project record.
+        &#34;&#34;&#34;
+        return Pages.createEdition(project)
 
     @app.route(&#34;/edition/&lt;string:edition&gt;&#34;, defaults=dict(version=None, action=None))
     @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;&#34;, defaults=dict(action=None))
     @app.route(&#34;/edition/&lt;string:edition&gt;/&lt;string:version&gt;/&lt;string:action&gt;&#34;)
     def edition(edition, version, action):
+        &#34;&#34;&#34;Presents the landing page of an edition.
+
+        The edition is shown in the viewer associated with the edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        version: string | void
+            The viewer version to use.
+        action: string, optional None
+            The mode in which the viewer is to be used (`read` or `update`).
+        &#34;&#34;&#34;
         return Pages.edition(edition, version=version, action=action)
+
+    @app.route(&#34;/edition/&lt;string:edition&gt;/delete&#34;)
+    def deleteEdition(edition):
+        &#34;&#34;&#34;Deletes a edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        &#34;&#34;&#34;
+        return Pages.deleteEdition(edition)
 
     @app.route(&#34;/viewer/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:edition&gt;&#34;)
     def viewerFrame(version=None, action=None, edition=None):
+        &#34;&#34;&#34;Present the scene of an edition in a 3D viewer.
+
+        This is typically loaded in an iframe, but it can also
+        be loaded in a new browser window.
+
+        Parameters
+        ----------
+        edition: string
+            The edition id to which the scene belongs.
+        version: string | None
+            The viewer version to use.
+        action: string | None
+            The mode in which the viewer is to be used (`read` or `update`).
+        &#34;&#34;&#34;
         return Pages.viewerFrame(edition, version, action)
 
     @app.route(&#34;/data/viewers/&lt;path:path&gt;&#34;)
     def viewerResource(path):
+        &#34;&#34;&#34;Serves components requested by viewers.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system where the resource resides.
+        &#34;&#34;&#34;
         return Pages.viewerResource(path)
 
     @app.route(
@@ -397,6 +727,17 @@ it over the web page.</dd>
     @app.route(&#34;/data/&#34;, defaults=dict(project=None, edition=None, path=None))
     @app.route(&#34;/data/&lt;path:path&gt;&#34;, defaults=dict(project=None, edition=None))
     def fileData(project=None, edition=None, path=None):
+        &#34;&#34;&#34;Serves files directly from the file repository.
+
+        Parameters
+        ----------
+        path: string
+            Path on the file system where the resource resides, relative to project/edition.
+        project: string | ObjectId | AttrDict
+            The id of a project under which the resource is to be found.
+        edition: string | ObjectId | AttrDict
+            The id of an edition under which the resource is to be found.
+        &#34;&#34;&#34;
         return Pages.fileData(path, project=project, edition=edition)
 
     @app.route(
@@ -404,6 +745,22 @@ it over the web page.</dd>
         methods=[&#34;POST&#34;],
     )
     def upload(record, key, givenFileName, path):
+        &#34;&#34;&#34;Upload a file.
+
+        Where the file will be stored depends on the context, which is provided by
+        a project/edition record.
+
+        Parameters
+        ----------
+        record: string
+            The context record of the upload
+        key: string
+            The key of the upload
+        path: string
+            The save location for the file
+        givenFileName: string | void
+            The name of the file as which the uploaded file will be saved.
+        &#34;&#34;&#34;
         if givenFileName == &#34;-&#34;:
             givenFileName = None
         return Pages.upload(record, key, path, givenFileName=givenFileName)
@@ -412,12 +769,79 @@ it over the web page.</dd>
         &#34;/deletefile/&lt;string:record&gt;/&lt;string:key&gt;/&lt;string:givenFileName&gt;/&lt;path:path&gt;&#34;
     )
     def deleteFile(record, key, givenFileName, path):
+        &#34;&#34;&#34;Deletes a file.
+
+        This is about files that have been uploaded by users.
+
+        Where the file is to be found depends on the context, which is provided by
+        a project/edition record.
+
+        record: string
+            The context record of the file.
+        key: string
+            The key of the upload.
+        path: string
+            The location of the file.
+        givenFileName: string | void
+            The name of the file.
+        &#34;&#34;&#34;
         if givenFileName == &#34;-&#34;:
             givenFileName = None
         return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
 
+    @app.route(&#34;/link/user/&lt;string:table&gt;/&lt;string:record&gt;&#34;, methods=[&#34;POST&#34;])
+    def linkUser(table, record):
+        &#34;&#34;&#34;Links a user to a project/edition in a certain role..
+
+        The user and role are passed as request data.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record to link to.
+        record: string
+            The id of the record to link to.
+        &#34;&#34;&#34;
+        return Content.linkUser(table, record)
+
+    @app.route(
+        &#34;/save/role/&lt;string:user&gt;/&#34;,
+        defaults=dict(table=None, record=None),
+        methods=[&#34;POST&#34;],
+    )
+    @app.route(
+        &#34;/save/role/&lt;string:user&gt;/&lt;string:table&gt;/&lt;string:record&gt;/&#34;,
+        methods=[&#34;POST&#34;],
+    )
+    def saveRole(user, table, record):
+        &#34;&#34;&#34;Saves the role of a user.
+
+        Either a site-wide role or a role wrt. a project/edition.
+
+        The role itself is passed as request data.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record the user is linked to.
+        record: string
+            The id of the record to the user is linked to.
+        &#34;&#34;&#34;
+        return Content.saveRole(user, table, record)
+
     @app.route(&#34;/save/&lt;string:table&gt;/&lt;string:record&gt;/&lt;string:key&gt;&#34;, methods=[&#34;POST&#34;])
     def saveValue(table, record, key):
+        &#34;&#34;&#34;Saves metadata to the database.
+
+        Parameters
+        ----------
+        table: string
+            The table of the record that contains the metadata
+        record: string
+            The id of the record that contains the metadata.
+        key: string
+            The key of the metadata.
+        &#34;&#34;&#34;
         return Content.saveValue(table, record, key)
 
     @app.route(
@@ -430,21 +854,81 @@ it over the web page.</dd>
         methods=tuple(webdavMethods),
     )
     def authWebdav(project, edition, path):
+        &#34;&#34;&#34;Authorises webdav requests.
+
+        When 3D viewers make direct requests to the server through WebDAV,
+        these requests are intercepted here and it is checked whether it is authorised.
+
+        Such requests are always made in the context of an edition, and hence a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project context.
+        edition: string
+            The id of the edition context.
+        path: string
+            The rest of the WebDAV request.
+
+        Returns
+        -------
+        boolean
+            N.B.: this controller does not lead to a view, but to the answer
+            whether the call is authorised.
+
+            See `control.webdavapp.dispatchWebdav`.
+        &#34;&#34;&#34;
         action = webdavMethods[requestMethod()]
         return Pages.authWebdav(edition, path, action)
 
     @app.route(&#34;/auth/webdav/&lt;path:path&gt;&#34;, methods=tuple(webdavMethods))
     def webdavinvalid(path):
+        &#34;&#34;&#34;Prevents unrecognized webdav requests.
+
+        WebDAV requests that are not made in a proper project/edition context
+        will not be honoured.
+
+        Parameters
+        ----------
+        path: string
+            The original WebDAV request.
+
+        Returns
+        -------
+        boolean
+            Always False!
+
+            N.B.: this controller does not lead to a view, but to the answer
+            whether the call is authorised.
+
+            See `control.webdavapp.dispatchWebdav`.
+        &#34;&#34;&#34;
         Messages.warning(logmsg=f&#34;Invalid webdav access: {path}&#34;)
         return False
 
     @app.route(&#34;/cannot/webdav/&lt;path:path&gt;&#34;)
     def nowebdav(path):
+        &#34;&#34;&#34;Prevents unauthorised WebDAV requests.
+
+        WebDAV requests that have been rejected will lead to an error page.
+
+        Parameters
+        ----------
+        path: string
+            The original WebDAV request.
+        &#34;&#34;&#34;
         Messages.warning(logmsg=f&#34;Unauthorized webdav access: {path}&#34;)
         appStop()
 
     @app.route(&#34;/&lt;path:path&gt;&#34;)
-    def remaining(path):
+    def remaining(path, methods=(&#34;GET&#34;, &#34;POST&#34;) + tuple(webdavMethods)):
+        &#34;&#34;&#34;Handles unmatched urls.
+
+        Parameters
+        ----------
+        path: string
+            The url of the request.
+        &#34;&#34;&#34;
         return Pages.remaining(path)
 
     return app</code></pre>

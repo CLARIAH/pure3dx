@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L1-L387" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L1-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.files import (
     listDirs,
@@ -172,7 +172,9 @@ class Collect:
         siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
         self.siteId = siteId
 
+        Messages.plain(logmsg=f&#34;Move icon in place: {iconFile}&#34;)
         fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+        Messages.plain(logmsg=f&#34;Move favicon in place: {faviconFile}&#34;)
         fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)
 
     def doProjects(self):
@@ -465,7 +467,7 @@ and the test users present in the example data will be imported.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L16-L387" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L16-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Collect:
     def __init__(self, Settings, Messages, Mongo):
@@ -596,7 +598,9 @@ and the test users present in the example data will be imported.</p>
         siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
         self.siteId = siteId
 
+        Messages.plain(logmsg=f&#34;Move icon in place: {iconFile}&#34;)
         fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+        Messages.plain(logmsg=f&#34;Move favicon in place: {faviconFile}&#34;)
         fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)
 
     def doProjects(self):
@@ -855,7 +859,7 @@ and then filled from the example data.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L95-L117" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L95-L117" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearDb(self):
     &#34;&#34;&#34;Clears selected collections in the MongoDb.
@@ -903,7 +907,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L228-L300" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L230-L302" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doEdition(self, projectName, editionsInPath, editionsOutPath, editionName):
     &#34;&#34;&#34;Collects data belonging to a specific edition.
@@ -997,7 +1001,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L208-L226" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L210-L228" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doEditions(self, projectInPath, projectOutPath, projectName):
     &#34;&#34;&#34;Collects data belonging to the editions of a project.
@@ -1028,7 +1032,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L119-L146" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L119-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doOuter(self):
     &#34;&#34;&#34;Collects data not belonging to specific projects.&#34;&#34;&#34;
@@ -1056,7 +1060,9 @@ within this project.</dd>
     siteId = Mongo.insertRecord(&#34;site&#34;, **siteCrit, **meta)
     self.siteId = siteId
 
+    Messages.plain(logmsg=f&#34;Move icon in place: {iconFile}&#34;)
     fileCopy(f&#34;{importDir}/{iconFile}&#34;, f&#34;{workingDir}/{iconFile}&#34;)
+    Messages.plain(logmsg=f&#34;Move favicon in place: {faviconFile}&#34;)
     fileCopy(f&#34;{importDir}/{faviconFile}&#34;, f&#34;{workingDir}/{faviconFile}&#34;)</code></pre>
 </details>
 </dd>
@@ -1077,7 +1083,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L165-L206" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L167-L208" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doProject(self, projectsInPath, projectsOutPath, projectName):
     &#34;&#34;&#34;Collects data belonging to a specific project.
@@ -1131,7 +1137,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L148-L163" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L150-L165" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doProjects(self):
     &#34;&#34;&#34;Collects data belonging to projects.&#34;&#34;&#34;
@@ -1163,7 +1169,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L302-L387" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L304-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def doWorkflow(self):
     &#34;&#34;&#34;Collects workflow information from yaml files.
@@ -1261,7 +1267,7 @@ within this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L85-L93" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L85-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fetch(self):
     &#34;&#34;&#34;Performs a data collection.&#34;&#34;&#34;
@@ -1292,7 +1298,7 @@ just before Flask started running.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/collect.py#L66-L83" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/collect.py#L66-L83" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def trigger(self):
     &#34;&#34;&#34;Determines whether data collection should be done.

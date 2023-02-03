@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/auth.py#L1-L427" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/auth.py#L1-L349" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from itertools import chain
 from control.generic import AttrDict
@@ -61,86 +61,6 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authUser(self, task, table=None, record=None):
-        &#34;&#34;&#34;Check whether a certain task related to the user table is allowed.
-
-        Admins may see the list of users, project and edition users
-        may see which other users are in the same project or edition
-        as they are, admins may assign project organisers,
-        project organisers may assign edition editors,
-        edition editors may assign edition readers.
-
-        The following tasks are defined;
-        per task there is a relevant table/record that should be passed:
-
-        `tab`: see the users tab.
-            *No relevant record needed.*
-            *No other user needed.*
-
-            Only admins and users that are associated to
-            any project/edition will see the &#34;My work&#34; tab in navigation.
-
-            A boolean is returned.
-
-        `view`: see details of other users.
-            *The relevant record is either a project or an edition.*
-
-            Only admins and people in the same project/edition may see
-            the users in that item.
-
-            A list of users is returned.
-
-        `assign`:
-            Only for projects and unpublished editions: according to the
-            assignRules in `authorise.yaml`
-
-            *The relevant record is either a project or an edition.*
-            *The `otherUser` parameter is the assignee.
-
-            We need the role of the assignee, because users cannot assign
-            more powerful users.
-
-            A boolean is returned.
-
-        Parameters
-        ----------
-        task: string
-            The task to be executed
-        table: string, optional None
-            the relevant table
-        record: ObjectId | AttrDict, optional None
-            the relevant record
-        user: ObjectId | AttrDict, optional None
-            the other user
-
-        Returns
-        -------
-        boolean
-            Whether the current user may execute the task in the given
-            context, affecting the other user.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        User = self.myDetails()
-        user = User.user
-        role = User.role
-
-        if role == &#34;admin&#34;:
-            return True
-
-        crossTable = f&#34;{table}User&#34;
-
-        if task == &#34;tab&#34;:
-            return sum(
-                len(Mongo.getList(f&#34;{table}User&#34;, user=user))
-                for table in (&#34;project&#34;, &#34;edition&#34;)
-            ) &gt; 0
-
-        (recordId, record) = Mongo.get(table, record)
-
-        if task == &#34;view&#34;:
-            same = Mongo.getList(crossTable, crossField=recordId)
-            return {r.userId for r in same}
-
     def authorise(self, table, record, action=None, insertTable=None):
         &#34;&#34;&#34;Check whether an action is allowed on data.
 
@@ -154,10 +74,10 @@ class Auth(Users):
 
         How do the authorisation rules work?
 
-        First we consider the site-wise role of the user: guest, user, or admin.
+        First we consider the site-wise role of the user: guest, user, admin, or root.
         If the action is allowed on that basis, we return True.
 
-        If not, we look whether the user has additional roles with regard
+        If not, we look whether the user has an additional role with regard
         to the record in question, or with any of its master records.
 
         If so, we apply the rules for those cases and see whether the action is
@@ -189,7 +109,7 @@ class Auth(Users):
         Returns
         -------
         boolean | dict
-            For other actions: a boolean whether action is allowed.
+            If an action is passed: boolean whether action is allowed.
 
             If no action is passed: dict keyed by the allowed actions, the values
             are true.
@@ -248,11 +168,12 @@ class Auth(Users):
         (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
+            initState = stateInfo.init
             if isCreate:
-                state = stateInfo.init
+                state = initState
             else:
                 stateField = stateInfo.field
-                state = record[stateField]
+                state = record.get(stateField, initState)
 
         # we select the rules for the given state, if any
 
@@ -386,9 +307,10 @@ class Auth(Users):
                 crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
                 crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
-                extraRoles = {crossRecord.role for crossRecord in crossRecords} - {None}
-
-                userRoles |= extraRoles
+                for crossRecord in crossRecords:
+                    extraRole = crossRecord.role
+                    if extraRole is not None:
+                        userRoles.add(extraRole)
 
         # Now we have
         # 1. userRoles:
@@ -493,7 +415,7 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/auth.py#L6-L427" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/auth.py#L6-L349" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth(Users):
     def __init__(self, Settings, Messages, Mongo, Content):
@@ -523,86 +445,6 @@ actions on content in question.</p>
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authUser(self, task, table=None, record=None):
-        &#34;&#34;&#34;Check whether a certain task related to the user table is allowed.
-
-        Admins may see the list of users, project and edition users
-        may see which other users are in the same project or edition
-        as they are, admins may assign project organisers,
-        project organisers may assign edition editors,
-        edition editors may assign edition readers.
-
-        The following tasks are defined;
-        per task there is a relevant table/record that should be passed:
-
-        `tab`: see the users tab.
-            *No relevant record needed.*
-            *No other user needed.*
-
-            Only admins and users that are associated to
-            any project/edition will see the &#34;My work&#34; tab in navigation.
-
-            A boolean is returned.
-
-        `view`: see details of other users.
-            *The relevant record is either a project or an edition.*
-
-            Only admins and people in the same project/edition may see
-            the users in that item.
-
-            A list of users is returned.
-
-        `assign`:
-            Only for projects and unpublished editions: according to the
-            assignRules in `authorise.yaml`
-
-            *The relevant record is either a project or an edition.*
-            *The `otherUser` parameter is the assignee.
-
-            We need the role of the assignee, because users cannot assign
-            more powerful users.
-
-            A boolean is returned.
-
-        Parameters
-        ----------
-        task: string
-            The task to be executed
-        table: string, optional None
-            the relevant table
-        record: ObjectId | AttrDict, optional None
-            the relevant record
-        user: ObjectId | AttrDict, optional None
-            the other user
-
-        Returns
-        -------
-        boolean
-            Whether the current user may execute the task in the given
-            context, affecting the other user.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        User = self.myDetails()
-        user = User.user
-        role = User.role
-
-        if role == &#34;admin&#34;:
-            return True
-
-        crossTable = f&#34;{table}User&#34;
-
-        if task == &#34;tab&#34;:
-            return sum(
-                len(Mongo.getList(f&#34;{table}User&#34;, user=user))
-                for table in (&#34;project&#34;, &#34;edition&#34;)
-            ) &gt; 0
-
-        (recordId, record) = Mongo.get(table, record)
-
-        if task == &#34;view&#34;:
-            same = Mongo.getList(crossTable, crossField=recordId)
-            return {r.userId for r in same}
-
     def authorise(self, table, record, action=None, insertTable=None):
         &#34;&#34;&#34;Check whether an action is allowed on data.
 
@@ -616,10 +458,10 @@ actions on content in question.</p>
 
         How do the authorisation rules work?
 
-        First we consider the site-wise role of the user: guest, user, or admin.
+        First we consider the site-wise role of the user: guest, user, admin, or root.
         If the action is allowed on that basis, we return True.
 
-        If not, we look whether the user has additional roles with regard
+        If not, we look whether the user has an additional role with regard
         to the record in question, or with any of its master records.
 
         If so, we apply the rules for those cases and see whether the action is
@@ -651,7 +493,7 @@ actions on content in question.</p>
         Returns
         -------
         boolean | dict
-            For other actions: a boolean whether action is allowed.
+            If an action is passed: boolean whether action is allowed.
 
             If no action is passed: dict keyed by the allowed actions, the values
             are true.
@@ -710,11 +552,12 @@ actions on content in question.</p>
         (recordId, record) = Mongo.get(table, record)
 
         if stateInfo is not None:
+            initState = stateInfo.init
             if isCreate:
-                state = stateInfo.init
+                state = initState
             else:
                 stateField = stateInfo.field
-                state = record[stateField]
+                state = record.get(stateField, initState)
 
         # we select the rules for the given state, if any
 
@@ -848,9 +691,10 @@ actions on content in question.</p>
                 crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
                 crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
-                extraRoles = {crossRecord.role for crossRecord in crossRecords} - {None}
-
-                userRoles |= extraRoles
+                for crossRecord in crossRecords:
+                    extraRole = crossRecord.role
+                    if extraRole is not None:
+                        userRoles.add(extraRole)
 
         # Now we have
         # 1. userRoles:
@@ -924,147 +768,6 @@ actions on content in question.</p>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="control.auth.Auth.authUser"><code class="name flex">
-<span>def <span class="ident">authUser</span></span>(<span>self, task, table=None, record=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Check whether a certain task related to the user table is allowed.</p>
-<p>Admins may see the list of users, project and edition users
-may see which other users are in the same project or edition
-as they are, admins may assign project organisers,
-project organisers may assign edition editors,
-edition editors may assign edition readers.</p>
-<p>The following tasks are defined;
-per task there is a relevant table/record that should be passed:</p>
-<p><code>tab</code>: see the users tab.
-<em>No relevant record needed.</em>
-<em>No other user needed.</em></p>
-<pre><code>Only admins and users that are associated to
-any project/edition will see the "My work" tab in navigation.
-
-A boolean is returned.
-</code></pre>
-<p><code>view</code>: see details of other users.
-<em>The relevant record is either a project or an edition.</em></p>
-<pre><code>Only admins and people in the same project/edition may see
-the users in that item.
-
-A list of users is returned.
-</code></pre>
-<p><code>assign</code>:
-Only for projects and unpublished editions: according to the
-assignRules in <code>authorise.yaml</code></p>
-<pre><code>*The relevant record is either a project or an edition.*
-*The &lt;code&gt;otherUser&lt;/code&gt; parameter is the assignee.
-
-We need the role of the assignee, because users cannot assign
-more powerful users.
-
-A boolean is returned.
-</code></pre>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>task</code></strong> :&ensp;<code>string</code></dt>
-<dd>The task to be executed</dd>
-<dt><strong><code>table</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>the relevant table</dd>
-<dt><strong><code>record</code></strong> :&ensp;<code>ObjectId | AttrDict</code>, optional <code>None</code></dt>
-<dd>the relevant record</dd>
-<dt><strong><code>user</code></strong> :&ensp;<code>ObjectId | AttrDict</code>, optional <code>None</code></dt>
-<dd>the other user</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>boolean</code></dt>
-<dd>Whether the current user may execute the task in the given
-context, affecting the other user.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/auth.py#L34-L112" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def authUser(self, task, table=None, record=None):
-    &#34;&#34;&#34;Check whether a certain task related to the user table is allowed.
-
-    Admins may see the list of users, project and edition users
-    may see which other users are in the same project or edition
-    as they are, admins may assign project organisers,
-    project organisers may assign edition editors,
-    edition editors may assign edition readers.
-
-    The following tasks are defined;
-    per task there is a relevant table/record that should be passed:
-
-    `tab`: see the users tab.
-        *No relevant record needed.*
-        *No other user needed.*
-
-        Only admins and users that are associated to
-        any project/edition will see the &#34;My work&#34; tab in navigation.
-
-        A boolean is returned.
-
-    `view`: see details of other users.
-        *The relevant record is either a project or an edition.*
-
-        Only admins and people in the same project/edition may see
-        the users in that item.
-
-        A list of users is returned.
-
-    `assign`:
-        Only for projects and unpublished editions: according to the
-        assignRules in `authorise.yaml`
-
-        *The relevant record is either a project or an edition.*
-        *The `otherUser` parameter is the assignee.
-
-        We need the role of the assignee, because users cannot assign
-        more powerful users.
-
-        A boolean is returned.
-
-    Parameters
-    ----------
-    task: string
-        The task to be executed
-    table: string, optional None
-        the relevant table
-    record: ObjectId | AttrDict, optional None
-        the relevant record
-    user: ObjectId | AttrDict, optional None
-        the other user
-
-    Returns
-    -------
-    boolean
-        Whether the current user may execute the task in the given
-        context, affecting the other user.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    User = self.myDetails()
-    user = User.user
-    role = User.role
-
-    if role == &#34;admin&#34;:
-        return True
-
-    crossTable = f&#34;{table}User&#34;
-
-    if task == &#34;tab&#34;:
-        return sum(
-            len(Mongo.getList(f&#34;{table}User&#34;, user=user))
-            for table in (&#34;project&#34;, &#34;edition&#34;)
-        ) &gt; 0
-
-    (recordId, record) = Mongo.get(table, record)
-
-    if task == &#34;view&#34;:
-        same = Mongo.getList(crossTable, crossField=recordId)
-        return {r.userId for r in same}</code></pre>
-</details>
-</dd>
 <dt id="control.auth.Auth.authorise"><code class="name flex">
 <span>def <span class="ident">authorise</span></span>(<span>self, table, record, action=None, insertTable=None)</span>
 </code></dt>
@@ -1077,9 +780,9 @@ contain the new record.</p>
 <p>If the action is anything else, <code>tabale</code> and <code>record</code> refer to
 the relevant record, and <code>insertTable</code> should not be passed.</p>
 <p>How do the authorisation rules work?</p>
-<p>First we consider the site-wise role of the user: guest, user, or admin.
+<p>First we consider the site-wise role of the user: guest, user, admin, or root.
 If the action is allowed on that basis, we return True.</p>
-<p>If not, we look whether the user has additional roles with regard
+<p>If not, we look whether the user has an additional role with regard
 to the record in question, or with any of its master records.</p>
 <p>If so, we apply the rules for those cases and see whether the action is
 permitted.</p>
@@ -1108,7 +811,7 @@ The detail table in which the new record will be inserted.</dd>
 <dl>
 <dt><code>boolean | dict</code></dt>
 <dd>
-<p>For other actions: a boolean whether action is allowed.</p>
+<p>If an action is passed: boolean whether action is allowed.</p>
 <p>If no action is passed: dict keyed by the allowed actions, the values
 are true.
 Actions with a falsy permission (False or the empty set) are not included
@@ -1120,7 +823,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/auth.py#L114-L397" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/auth.py#L34-L319" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authorise(self, table, record, action=None, insertTable=None):
     &#34;&#34;&#34;Check whether an action is allowed on data.
@@ -1135,10 +838,10 @@ So, to test whether any action is allowed, it suffices to test whether
 
     How do the authorisation rules work?
 
-    First we consider the site-wise role of the user: guest, user, or admin.
+    First we consider the site-wise role of the user: guest, user, admin, or root.
     If the action is allowed on that basis, we return True.
 
-    If not, we look whether the user has additional roles with regard
+    If not, we look whether the user has an additional role with regard
     to the record in question, or with any of its master records.
 
     If so, we apply the rules for those cases and see whether the action is
@@ -1170,7 +873,7 @@ So, to test whether any action is allowed, it suffices to test whether
     Returns
     -------
     boolean | dict
-        For other actions: a boolean whether action is allowed.
+        If an action is passed: boolean whether action is allowed.
 
         If no action is passed: dict keyed by the allowed actions, the values
         are true.
@@ -1229,11 +932,12 @@ So, to test whether any action is allowed, it suffices to test whether
     (recordId, record) = Mongo.get(table, record)
 
     if stateInfo is not None:
+        initState = stateInfo.init
         if isCreate:
-            state = stateInfo.init
+            state = initState
         else:
             stateField = stateInfo.field
-            state = record[stateField]
+            state = record.get(stateField, initState)
 
     # we select the rules for the given state, if any
 
@@ -1367,9 +1071,10 @@ So, to test whether any action is allowed, it suffices to test whether
             crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
             crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
 
-            extraRoles = {crossRecord.role for crossRecord in crossRecords} - {None}
-
-            userRoles |= extraRoles
+            for crossRecord in crossRecords:
+                extraRole = crossRecord.role
+                if extraRole is not None:
+                    userRoles.add(extraRole)
 
     # Now we have
     # 1. userRoles:
@@ -1434,7 +1139,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/auth.py#L399-L427" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/auth.py#L321-L349" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeSafe(self, table, record, action):
     &#34;&#34;&#34;Changes an update action into a read action if needed.
@@ -1552,7 +1257,6 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.auth.Auth" href="#control.auth.Auth">Auth</a></code></h4>
 <ul class="">
-<li><code><a title="control.auth.Auth.authUser" href="#control.auth.Auth.authUser">authUser</a></code></li>
 <li><code><a title="control.auth.Auth.authorise" href="#control.auth.Auth.authorise">authorise</a></code></li>
 <li><code><a title="control.auth.Auth.makeSafe" href="#control.auth.Auth.makeSafe">makeSafe</a></code></li>
 </ul>

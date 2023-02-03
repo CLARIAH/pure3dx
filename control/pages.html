@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L1-L557" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L1-L624" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
@@ -75,24 +75,26 @@ class Pages:
         self.Auth = Auth
 
     def collect(self):
-        &#34;&#34;&#34;Data reset: collect the example data again.&#34;&#34;&#34;
+        &#34;&#34;&#34;Data reset: collect the example data again.
+        &#34;&#34;&#34;
         Collect = self.Collect
         Messages = self.Messages
 
         Collect.fetch()
         Messages.info(msg=&#34;data reset done!&#34;)
-        ref = getReferrer()
-        return redirectStatus(ref, True)
+        return redirectStatus(&#34;/home&#34;, True)
 
     def home(self):
-        &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The site-wide home page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
-        &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The site-wide about page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
@@ -100,7 +102,8 @@ class Pages:
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
-        &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The &#34;surprise me!&#34; page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
@@ -109,26 +112,31 @@ class Pages:
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
     def projects(self):
-        &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
+        &#34;&#34;&#34;The page with the list of projects.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
         left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
 
-    def mywork(self):
-        &#34;&#34;&#34;The page with the list of users.&#34;&#34;&#34;
+    def admin(self):
+        &#34;&#34;&#34;The page with the list of projects, editions, and users.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        items = Content.getMywork()
+        items = Content.getAdmin()
         left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-        return self.page(&#34;mywork&#34;, left=left)
+        return self.page(&#34;admin&#34;, left=left)
 
-    def projectInsert(self):
-        &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
+    def createProject(self, site):
+        &#34;&#34;&#34;Creates a project and shows the new project.
+
+        The current user is linked to this project as organiser.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Content = self.Content
-        projectId = Content.insertProject()
+        projectId = Content.createProject(site)
 
         if projectId is None:
             Messages.warning(
@@ -171,8 +179,37 @@ class Pages:
         )
         return self.page(&#34;projects&#34;, left=left, right=right)
 
-    def editionInsert(self, project):
+    def deleteProject(self, project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        result = Content.deleteProject(project)
+
+        if result:
+            Messages.info(
+                logmsg=f&#34;Deleted project {projectId}&#34;, msg=&#34;project deleted&#34;
+            )
+        else:
+            Messages.warning(
+                logmsg=f&#34;Could not delete project {projectId}&#34;,
+                msg=&#34;failed to delete project&#34;,
+            )
+        return redirectStatus(&#34;/project&#34;, True)
+
+    def createEdition(self, project):
         &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+        The current user is linked to this edition as editor.
 
         Parameters
         ----------
@@ -184,7 +221,7 @@ class Pages:
         Content = self.Content
 
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        editionId = Content.insertEdition(project)
+        editionId = Content.createEdition(project)
 
         if editionId is None:
             Messages.warning(
@@ -258,6 +295,34 @@ class Pages:
         )
         return self.page(&#34;projects&#34;, left=left, right=right)
 
+    def deleteEdition(self, edition):
+        &#34;&#34;&#34;Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+        projectId = edition.projectId
+
+        result = Content.deleteEdition(edition)
+
+        if result:
+            Messages.info(
+                logmsg=f&#34;Deleted edition {editionId}&#34;, msg=&#34;edition deleted&#34;
+            )
+        else:
+            Messages.warning(
+                logmsg=f&#34;Could not delete edition {editionId}&#34;,
+                msg=&#34;failed to delete edition&#34;,
+            )
+        return redirectStatus(f&#34;/project/{projectId}&#34;, True)
+
     def viewerFrame(self, edition, version, action):
         &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
 
@@ -265,12 +330,10 @@ class Pages:
         ----------
         edition: string | ObjectId | AttrDict
             The edition that is shown.
-        viewer: string | None
-            The viewer to use.
         version: string | None
             The version to use.
         action: string | None
-            The mode in which the viewer is to be used (`view` or `edit`).
+            The mode in which the viewer is to be used (`read` or `update`).
         &#34;&#34;&#34;
         Content = self.Content
         Mongo = self.Mongo
@@ -362,6 +425,8 @@ class Pages:
             The context record of the upload
         key: string
             The key of the upload
+        path: string
+            The save location for the file
         givenFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if is None, the file will be saved with the name from the request.
@@ -382,12 +447,13 @@ class Pages:
         Parameters
         ----------
         record: string | ObjectId | AttrDict
-            The context record of the upload
+            The context record of the upload.
         key: string
-            The key of the upload
+            The key of the upload.
+        path: string
+            The location of the file.
         givenFileName: string, optional None
-            The name of the file as which the uploaded file will be saved;
-            if is None, the file will be saved with the name from the request.
+            The name of the file.
         &#34;&#34;&#34;
         Content = self.Content
 
@@ -415,7 +481,7 @@ class Pages:
             The path relative to the directory of the edition.
         action: string
             The operation that the WebDAV request wants to do on the data
-            (`view` or `edit`).
+            (`read` or `update`).
 
         Returns
         -------
@@ -459,6 +525,8 @@ class Pages:
         Messages = self.Messages
 
         def splitUrl(url):
+            &#34;&#34;&#34;Auxiliary inner function.
+            &#34;&#34;&#34;
             url = url.strip(&#34;/&#34;)
             parts = url.rsplit(&#34;/&#34;, 1)
             lastPart = parts[-1]
@@ -533,7 +601,6 @@ class Pages:
             The HTML of the navigation.
         &#34;&#34;&#34;
         Settings = self.Settings
-        Auth = self.Auth
         H = Settings.H
 
         # 1st column: url
@@ -545,7 +612,7 @@ class Pages:
             (&#34;home&#34;, &#34;Home&#34;, True, True),
             (&#34;about&#34;, &#34;About&#34;, True, True),
             (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-            (&#34;mywork&#34;, &#34;My Work&#34;, True, Auth.authUser(&#34;tab&#34;)),
+            (&#34;admin&#34;, &#34;My Work&#34;, True, True),
             (&#34;directory&#34;, &#34;3D Directory&#34;, False, True),
             (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, True),
             (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, True),
@@ -631,7 +698,7 @@ If so, it the return value will be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L4-L557" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L4-L624" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Pages:
     def __init__(self, Settings, Viewers, Messages, Mongo, Collect, Content, Auth):
@@ -677,24 +744,26 @@ If so, it the return value will be documented.</p>
         self.Auth = Auth
 
     def collect(self):
-        &#34;&#34;&#34;Data reset: collect the example data again.&#34;&#34;&#34;
+        &#34;&#34;&#34;Data reset: collect the example data again.
+        &#34;&#34;&#34;
         Collect = self.Collect
         Messages = self.Messages
 
         Collect.fetch()
         Messages.info(msg=&#34;data reset done!&#34;)
-        ref = getReferrer()
-        return redirectStatus(ref, True)
+        return redirectStatus(&#34;/home&#34;, True)
 
     def home(self):
-        &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The site-wide home page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
         return self.page(&#34;home&#34;, left=left)
 
     def about(self):
-        &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The site-wide about page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
@@ -702,7 +771,8 @@ If so, it the return value will be documented.</p>
         return self.page(&#34;about&#34;, left=left, right=right)
 
     def surprise(self):
-        &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
+        &#34;&#34;&#34;The &#34;surprise me!&#34; page.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
@@ -711,26 +781,31 @@ If so, it the return value will be documented.</p>
         return self.page(&#34;surpriseme&#34;, left=left, right=right)
 
     def projects(self):
-        &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
+        &#34;&#34;&#34;The page with the list of projects.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
         left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + projects
         return self.page(&#34;projects&#34;, left=left)
 
-    def mywork(self):
-        &#34;&#34;&#34;The page with the list of users.&#34;&#34;&#34;
+    def admin(self):
+        &#34;&#34;&#34;The page with the list of projects, editions, and users.
+        &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        items = Content.getMywork()
+        items = Content.getAdmin()
         left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-        return self.page(&#34;mywork&#34;, left=left)
+        return self.page(&#34;admin&#34;, left=left)
 
-    def projectInsert(self):
-        &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
+    def createProject(self, site):
+        &#34;&#34;&#34;Creates a project and shows the new project.
+
+        The current user is linked to this project as organiser.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Content = self.Content
-        projectId = Content.insertProject()
+        projectId = Content.createProject(site)
 
         if projectId is None:
             Messages.warning(
@@ -773,8 +848,37 @@ If so, it the return value will be documented.</p>
         )
         return self.page(&#34;projects&#34;, left=left, right=right)
 
-    def editionInsert(self, project):
+    def deleteProject(self, project):
+        &#34;&#34;&#34;Deletes a project.
+
+        Parameters
+        ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+        result = Content.deleteProject(project)
+
+        if result:
+            Messages.info(
+                logmsg=f&#34;Deleted project {projectId}&#34;, msg=&#34;project deleted&#34;
+            )
+        else:
+            Messages.warning(
+                logmsg=f&#34;Could not delete project {projectId}&#34;,
+                msg=&#34;failed to delete project&#34;,
+            )
+        return redirectStatus(&#34;/project&#34;, True)
+
+    def createEdition(self, project):
         &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+        The current user is linked to this edition as editor.
 
         Parameters
         ----------
@@ -786,7 +890,7 @@ If so, it the return value will be documented.</p>
         Content = self.Content
 
         (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        editionId = Content.insertEdition(project)
+        editionId = Content.createEdition(project)
 
         if editionId is None:
             Messages.warning(
@@ -860,6 +964,34 @@ If so, it the return value will be documented.</p>
         )
         return self.page(&#34;projects&#34;, left=left, right=right)
 
+    def deleteEdition(self, edition):
+        &#34;&#34;&#34;Deletes an edition.
+
+        Parameters
+        ----------
+        edition: string | ObjectId | AttrDict
+            The edition in question.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+
+        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+        projectId = edition.projectId
+
+        result = Content.deleteEdition(edition)
+
+        if result:
+            Messages.info(
+                logmsg=f&#34;Deleted edition {editionId}&#34;, msg=&#34;edition deleted&#34;
+            )
+        else:
+            Messages.warning(
+                logmsg=f&#34;Could not delete edition {editionId}&#34;,
+                msg=&#34;failed to delete edition&#34;,
+            )
+        return redirectStatus(f&#34;/project/{projectId}&#34;, True)
+
     def viewerFrame(self, edition, version, action):
         &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
 
@@ -867,12 +999,10 @@ If so, it the return value will be documented.</p>
         ----------
         edition: string | ObjectId | AttrDict
             The edition that is shown.
-        viewer: string | None
-            The viewer to use.
         version: string | None
             The version to use.
         action: string | None
-            The mode in which the viewer is to be used (`view` or `edit`).
+            The mode in which the viewer is to be used (`read` or `update`).
         &#34;&#34;&#34;
         Content = self.Content
         Mongo = self.Mongo
@@ -964,6 +1094,8 @@ If so, it the return value will be documented.</p>
             The context record of the upload
         key: string
             The key of the upload
+        path: string
+            The save location for the file
         givenFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if is None, the file will be saved with the name from the request.
@@ -984,12 +1116,13 @@ If so, it the return value will be documented.</p>
         Parameters
         ----------
         record: string | ObjectId | AttrDict
-            The context record of the upload
+            The context record of the upload.
         key: string
-            The key of the upload
+            The key of the upload.
+        path: string
+            The location of the file.
         givenFileName: string, optional None
-            The name of the file as which the uploaded file will be saved;
-            if is None, the file will be saved with the name from the request.
+            The name of the file.
         &#34;&#34;&#34;
         Content = self.Content
 
@@ -1017,7 +1150,7 @@ If so, it the return value will be documented.</p>
             The path relative to the directory of the edition.
         action: string
             The operation that the WebDAV request wants to do on the data
-            (`view` or `edit`).
+            (`read` or `update`).
 
         Returns
         -------
@@ -1061,6 +1194,8 @@ If so, it the return value will be documented.</p>
         Messages = self.Messages
 
         def splitUrl(url):
+            &#34;&#34;&#34;Auxiliary inner function.
+            &#34;&#34;&#34;
             url = url.strip(&#34;/&#34;)
             parts = url.rsplit(&#34;/&#34;, 1)
             lastPart = parts[-1]
@@ -1135,7 +1270,6 @@ If so, it the return value will be documented.</p>
             The HTML of the navigation.
         &#34;&#34;&#34;
         Settings = self.Settings
-        Auth = self.Auth
         H = Settings.H
 
         # 1st column: url
@@ -1147,7 +1281,7 @@ If so, it the return value will be documented.</p>
             (&#34;home&#34;, &#34;Home&#34;, True, True),
             (&#34;about&#34;, &#34;About&#34;, True, True),
             (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-            (&#34;mywork&#34;, &#34;My Work&#34;, True, Auth.authUser(&#34;tab&#34;)),
+            (&#34;admin&#34;, &#34;My Work&#34;, True, True),
             (&#34;directory&#34;, &#34;3D Directory&#34;, False, True),
             (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, True),
             (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, True),
@@ -1198,15 +1332,36 @@ If so, it the return value will be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L64-L70" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L65-L72" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def about(self):
-    &#34;&#34;&#34;The site-wide about page.&#34;&#34;&#34;
+    &#34;&#34;&#34;The site-wide about page.
+    &#34;&#34;&#34;
     Content = self.Content
     (table, recordId, record) = Content.relevant()
     left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
     right = Content.getValues(table, record, &#34;description@2 + provenance@2&#34;)
     return self.page(&#34;about&#34;, left=left, right=right)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.admin"><code class="name flex">
+<span>def <span class="ident">admin</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The page with the list of projects, editions, and users.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L93-L100" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def admin(self):
+    &#34;&#34;&#34;The page with the list of projects, editions, and users.
+    &#34;&#34;&#34;
+    Content = self.Content
+    (table, recordId, record) = Content.relevant()
+    items = Content.getAdmin()
+    left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
+    return self.page(&#34;admin&#34;, left=left)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.authWebdav"><code class="name flex">
@@ -1225,7 +1380,7 @@ that request is first checked here for authorisation.</p>
 <dd>The path relative to the directory of the edition.</dd>
 <dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
 <dd>The operation that the WebDAV request wants to do on the data
-(<code>view</code> or <code>edit</code>).</dd>
+(<code>read</code> or <code>update</code>).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1235,7 +1390,7 @@ that request is first checked here for authorisation.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L372-L411" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L438-L477" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authWebdav(self, edition, path, action):
     &#34;&#34;&#34;Authorises a webdav request.
@@ -1253,7 +1408,7 @@ that request is first checked here for authorisation.</p>
         The path relative to the directory of the edition.
     action: string
         The operation that the WebDAV request wants to do on the data
-        (`view` or `edit`).
+        (`read` or `update`).
 
     Returns
     -------
@@ -1287,17 +1442,143 @@ that request is first checked here for authorisation.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L47-L55" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L47-L55" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def collect(self):
-    &#34;&#34;&#34;Data reset: collect the example data again.&#34;&#34;&#34;
+    &#34;&#34;&#34;Data reset: collect the example data again.
+    &#34;&#34;&#34;
     Collect = self.Collect
     Messages = self.Messages
 
     Collect.fetch()
     Messages.info(msg=&#34;data reset done!&#34;)
-    ref = getReferrer()
-    return redirectStatus(ref, True)</code></pre>
+    return redirectStatus(&#34;/home&#34;, True)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.createEdition"><code class="name flex">
+<span>def <span class="ident">createEdition</span></span>(<span>self, project)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inserts an edition into a project and shows the new edition.</p>
+<p>The current user is linked to this edition as editor.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The project to which the edition belongs.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L179-L207" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def createEdition(self, project):
+    &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
+
+    The current user is linked to this edition as editor.
+
+    Parameters
+    ----------
+    project: string | ObjectId | AttrDict
+        The project to which the edition belongs.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Mongo = self.Mongo
+    Content = self.Content
+
+    (projectId, project) = Mongo.get(&#34;project&#34;, project)
+    editionId = Content.createEdition(project)
+
+    if editionId is None:
+        Messages.warning(
+            logmsg=&#34;Could not create new edition&#34;,
+            msg=&#34;failed to create new edition&#34;,
+        )
+        newUrl = f&#34;/project/{projectId}&#34;
+    else:
+        Messages.info(
+            logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
+        )
+        newUrl = f&#34;/edition/{editionId}&#34;
+    return redirectStatus(newUrl, editionId is not None)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.createProject"><code class="name flex">
+<span>def <span class="ident">createProject</span></span>(<span>self, site)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a project and shows the new project.</p>
+<p>The current user is linked to this project as organiser.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L102-L123" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def createProject(self, site):
+    &#34;&#34;&#34;Creates a project and shows the new project.
+
+    The current user is linked to this project as organiser.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Content = self.Content
+    projectId = Content.createProject(site)
+
+    if projectId is None:
+        Messages.warning(
+            logmsg=&#34;Could not create new project&#34;,
+            msg=&#34;failed to create new project&#34;,
+        )
+        newUrl = &#34;/project&#34;
+    else:
+        Messages.info(
+            logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
+        )
+        newUrl = f&#34;/project/{projectId}&#34;
+
+    return redirectStatus(newUrl, projectId is not None)</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.deleteEdition"><code class="name flex">
+<span>def <span class="ident">deleteEdition</span></span>(<span>self, edition)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes an edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The edition in question.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L268-L294" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteEdition(self, edition):
+    &#34;&#34;&#34;Deletes an edition.
+
+    Parameters
+    ----------
+    edition: string | ObjectId | AttrDict
+        The edition in question.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Mongo = self.Mongo
+    Content = self.Content
+
+    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+    projectId = edition.projectId
+
+    result = Content.deleteEdition(edition)
+
+    if result:
+        Messages.info(
+            logmsg=f&#34;Deleted edition {editionId}&#34;, msg=&#34;edition deleted&#34;
+        )
+    else:
+        Messages.warning(
+            logmsg=f&#34;Could not delete edition {editionId}&#34;,
+            msg=&#34;failed to delete edition&#34;,
+        )
+    return redirectStatus(f&#34;/project/{projectId}&#34;, True)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.deleteFile"><code class="name flex">
@@ -1308,17 +1589,18 @@ that request is first checked here for authorisation.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
-<dd>The context record of the upload</dd>
+<dd>The context record of the upload.</dd>
 <dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
-<dd>The key of the upload</dd>
+<dd>The key of the upload.</dd>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The location of the file.</dd>
 <dt><strong><code>givenFileName</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>The name of the file as which the uploaded file will be saved;
-if is None, the file will be saved with the name from the request.</dd>
+<dd>The name of the file.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L349-L370" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L414-L436" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteFile(self, record, key, path, givenFileName=None):
     &#34;&#34;&#34;Delete a file.
@@ -1326,12 +1608,13 @@ if is None, the file will be saved with the name from the request.</dd>
     Parameters
     ----------
     record: string | ObjectId | AttrDict
-        The context record of the upload
+        The context record of the upload.
     key: string
-        The key of the upload
+        The key of the upload.
+    path: string
+        The location of the file.
     givenFileName: string, optional None
-        The name of the file as which the uploaded file will be saved;
-        if is None, the file will be saved with the name from the request.
+        The name of the file.
     &#34;&#34;&#34;
     Content = self.Content
 
@@ -1342,6 +1625,49 @@ if is None, the file will be saved with the name from the request.</dd>
     return Content.deleteFile(
         record, key, path, fileName, givenFileName=givenFileName
     )</code></pre>
+</details>
+</dd>
+<dt id="control.pages.Pages.deleteProject"><code class="name flex">
+<span>def <span class="ident">deleteProject</span></span>(<span>self, project)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes a project.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The project in question.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L152-L177" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteProject(self, project):
+    &#34;&#34;&#34;Deletes a project.
+
+    Parameters
+    ----------
+    project: string | ObjectId | AttrDict
+        The project in question.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Mongo = self.Mongo
+    Content = self.Content
+
+    (projectId, project) = Mongo.get(&#34;project&#34;, project)
+
+    result = Content.deleteProject(project)
+
+    if result:
+        Messages.info(
+            logmsg=f&#34;Deleted project {projectId}&#34;, msg=&#34;project deleted&#34;
+        )
+    else:
+        Messages.warning(
+            logmsg=f&#34;Could not delete project {projectId}&#34;,
+            msg=&#34;failed to delete project&#34;,
+        )
+    return redirectStatus(&#34;/project&#34;, True)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.edition"><code class="name flex">
@@ -1369,7 +1695,7 @@ From the edition record we can find the project too.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L172-L229" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L209-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def edition(self, edition, version=None, action=None):
     &#34;&#34;&#34;The landing page of an edition, possibly with a scene marked as active.
@@ -1431,50 +1757,6 @@ From the edition record we can find the project too.</dd>
     return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
 </details>
 </dd>
-<dt id="control.pages.Pages.editionInsert"><code class="name flex">
-<span>def <span class="ident">editionInsert</span></span>(<span>self, project)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Inserts an edition into a project and shows the new edition.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
-<dd>The project to which the edition belongs.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L144-L170" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def editionInsert(self, project):
-    &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
-
-    Parameters
-    ----------
-    project: string | ObjectId | AttrDict
-        The project to which the edition belongs.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Content = self.Content
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-    editionId = Content.insertEdition(project)
-
-    if editionId is None:
-        Messages.warning(
-            logmsg=&#34;Could not create new edition&#34;,
-            msg=&#34;failed to create new edition&#34;,
-        )
-        newUrl = f&#34;/project/{projectId}&#34;
-    else:
-        Messages.info(
-            logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
-        )
-        newUrl = f&#34;/edition/{editionId}&#34;
-    return redirectStatus(newUrl, editionId is not None)</code></pre>
-</details>
-</dd>
 <dt id="control.pages.Pages.fileData"><code class="name flex">
 <span>def <span class="ident">fileData</span></span>(<span>self, path, project=None, edition=None)</span>
 </code></dt>
@@ -1511,7 +1793,7 @@ If the file does not exists, a 404 is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L289-L324" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L352-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileData(self, path, project=None, edition=None):
     &#34;&#34;&#34;Data content requested directly from the file repository.
@@ -1559,33 +1841,15 @@ If the file does not exists, a 404 is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L57-L62" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L57-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def home(self):
-    &#34;&#34;&#34;The site-wide home page.&#34;&#34;&#34;
+    &#34;&#34;&#34;The site-wide home page.
+    &#34;&#34;&#34;
     Content = self.Content
     (table, recordId, record) = Content.relevant()
     left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
     return self.page(&#34;home&#34;, left=left)</code></pre>
-</details>
-</dd>
-<dt id="control.pages.Pages.mywork"><code class="name flex">
-<span>def <span class="ident">mywork</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>The page with the list of users.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L89-L95" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def mywork(self):
-    &#34;&#34;&#34;The page with the list of users.&#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    items = Content.getMywork()
-    left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-    return self.page(&#34;mywork&#34;, left=left)</code></pre>
 </details>
 </dd>
 <dt id="control.pages.Pages.navigation"><code class="name flex">
@@ -1608,7 +1872,7 @@ tabs can be made active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L489-L557" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L557-L624" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def navigation(self, url):
     &#34;&#34;&#34;Generates the navigation controls.
@@ -1627,7 +1891,6 @@ tabs can be made active.</dd>
         The HTML of the navigation.
     &#34;&#34;&#34;
     Settings = self.Settings
-    Auth = self.Auth
     H = Settings.H
 
     # 1st column: url
@@ -1639,7 +1902,7 @@ tabs can be made active.</dd>
         (&#34;home&#34;, &#34;Home&#34;, True, True),
         (&#34;about&#34;, &#34;About&#34;, True, True),
         (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-        (&#34;mywork&#34;, &#34;My Work&#34;, True, Auth.authUser(&#34;tab&#34;)),
+        (&#34;admin&#34;, &#34;My Work&#34;, True, True),
         (&#34;directory&#34;, &#34;3D Directory&#34;, False, True),
         (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, True),
         (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, True),
@@ -1699,7 +1962,7 @@ This part is used to make one of the tabs on the web page active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L454-L487" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L522-L555" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def page(self, url, left=None, right=None):
     &#34;&#34;&#34;Workhorse function to get content on the page.
@@ -1750,7 +2013,7 @@ This part is used to make one of the tabs on the web page active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L117-L142" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L125-L150" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def project(self, project):
     &#34;&#34;&#34;The landing page of a project.
@@ -1780,37 +2043,6 @@ This part is used to make one of the tabs on the web page active.</dd>
     return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
 </details>
 </dd>
-<dt id="control.pages.Pages.projectInsert"><code class="name flex">
-<span>def <span class="ident">projectInsert</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Inserts a project and shows the new project.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L97-L115" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def projectInsert(self):
-    &#34;&#34;&#34;Inserts a project and shows the new project.&#34;&#34;&#34;
-    Messages = self.Messages
-    Content = self.Content
-    projectId = Content.insertProject()
-
-    if projectId is None:
-        Messages.warning(
-            logmsg=&#34;Could not create new project&#34;,
-            msg=&#34;failed to create new project&#34;,
-        )
-        newUrl = &#34;/project&#34;
-    else:
-        Messages.info(
-            logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
-        )
-        newUrl = f&#34;/project/{projectId}&#34;
-
-    return redirectStatus(newUrl, projectId is not None)</code></pre>
-</details>
-</dd>
 <dt id="control.pages.Pages.projects"><code class="name flex">
 <span>def <span class="ident">projects</span></span>(<span>self)</span>
 </code></dt>
@@ -1819,10 +2051,11 @@ This part is used to make one of the tabs on the web page active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L81-L87" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L84-L91" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def projects(self):
-    &#34;&#34;&#34;The page with the list of projects.&#34;&#34;&#34;
+    &#34;&#34;&#34;The page with the list of projects.
+    &#34;&#34;&#34;
     Content = self.Content
     (table, recordId, record) = Content.relevant()
     projects = Content.getProjects()
@@ -1851,7 +2084,7 @@ cases.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L413-L452" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L479-L520" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remaining(self, path):
     &#34;&#34;&#34;When the url of the request is not recognized.
@@ -1872,6 +2105,8 @@ cases.</dd>
     Messages = self.Messages
 
     def splitUrl(url):
+        &#34;&#34;&#34;Auxiliary inner function.
+        &#34;&#34;&#34;
         url = url.strip(&#34;/&#34;)
         parts = url.rsplit(&#34;/&#34;, 1)
         lastPart = parts[-1]
@@ -1903,10 +2138,11 @@ cases.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L72-L79" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L74-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def surprise(self):
-    &#34;&#34;&#34;The &#34;surprise me!&#34; page.&#34;&#34;&#34;
+    &#34;&#34;&#34;The &#34;surprise me!&#34; page.
+    &#34;&#34;&#34;
     Content = self.Content
     (table, recordId, record) = Content.relevant()
     surpriseMe = Content.getSurprise()
@@ -1926,6 +2162,8 @@ cases.</dd>
 <dd>The context record of the upload</dd>
 <dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
 <dd>The key of the upload</dd>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The save location for the file</dd>
 <dt><strong><code>givenFileName</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>The name of the file as which the uploaded file will be saved;
 if is None, the file will be saved with the name from the request.</dd>
@@ -1933,7 +2171,7 @@ if is None, the file will be saved with the name from the request.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L326-L347" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L389-L412" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def upload(self, record, key, path, givenFileName=None):
     &#34;&#34;&#34;Upload a file.
@@ -1944,6 +2182,8 @@ if is None, the file will be saved with the name from the request.</dd>
         The context record of the upload
     key: string
         The key of the upload
+    path: string
+        The save location for the file
     givenFileName: string, optional None
         The name of the file as which the uploaded file will be saved;
         if is None, the file will be saved with the name from the request.
@@ -1968,17 +2208,15 @@ if is None, the file will be saved with the name from the request.</dd>
 <dl>
 <dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The edition that is shown.</dd>
-<dt><strong><code>viewer</code></strong> :&ensp;<code>string | None</code></dt>
-<dd>The viewer to use.</dd>
 <dt><strong><code>version</code></strong> :&ensp;<code>string | None</code></dt>
 <dd>The version to use.</dd>
 <dt><strong><code>action</code></strong> :&ensp;<code>string | None</code></dt>
-<dd>The mode in which the viewer is to be used (<code>view</code> or <code>edit</code>).</dd>
+<dd>The mode in which the viewer is to be used (<code>read</code> or <code>update</code>).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L231-L263" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L296-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerFrame(self, edition, version, action):
     &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
@@ -1987,12 +2225,10 @@ if is None, the file will be saved with the name from the request.</dd>
     ----------
     edition: string | ObjectId | AttrDict
         The edition that is shown.
-    viewer: string | None
-        The viewer to use.
     version: string | None
         The version to use.
     action: string | None
-        The mode in which the viewer is to be used (`view` or `edit`).
+        The mode in which the viewer is to be used (`read` or `update`).
     &#34;&#34;&#34;
     Content = self.Content
     Mongo = self.Mongo
@@ -2038,7 +2274,7 @@ If the file does not exists, a 404 is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/126a738c3973e1990fff76bf90827bad669df759/src/pure3d/control/pages.py#L265-L287" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/b10d56c9d396baf81f0ad1f8e68fac6fe478a97a/src/pure3d/control/pages.py#L328-L350" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def viewerResource(self, path):
     &#34;&#34;&#34;Components requested by viewers.
@@ -2134,18 +2370,20 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.pages.Pages" href="#control.pages.Pages">Pages</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.pages.Pages.about" href="#control.pages.Pages.about">about</a></code></li>
+<li><code><a title="control.pages.Pages.admin" href="#control.pages.Pages.admin">admin</a></code></li>
 <li><code><a title="control.pages.Pages.authWebdav" href="#control.pages.Pages.authWebdav">authWebdav</a></code></li>
 <li><code><a title="control.pages.Pages.collect" href="#control.pages.Pages.collect">collect</a></code></li>
+<li><code><a title="control.pages.Pages.createEdition" href="#control.pages.Pages.createEdition">createEdition</a></code></li>
+<li><code><a title="control.pages.Pages.createProject" href="#control.pages.Pages.createProject">createProject</a></code></li>
+<li><code><a title="control.pages.Pages.deleteEdition" href="#control.pages.Pages.deleteEdition">deleteEdition</a></code></li>
 <li><code><a title="control.pages.Pages.deleteFile" href="#control.pages.Pages.deleteFile">deleteFile</a></code></li>
+<li><code><a title="control.pages.Pages.deleteProject" href="#control.pages.Pages.deleteProject">deleteProject</a></code></li>
 <li><code><a title="control.pages.Pages.edition" href="#control.pages.Pages.edition">edition</a></code></li>
-<li><code><a title="control.pages.Pages.editionInsert" href="#control.pages.Pages.editionInsert">editionInsert</a></code></li>
 <li><code><a title="control.pages.Pages.fileData" href="#control.pages.Pages.fileData">fileData</a></code></li>
 <li><code><a title="control.pages.Pages.home" href="#control.pages.Pages.home">home</a></code></li>
-<li><code><a title="control.pages.Pages.mywork" href="#control.pages.Pages.mywork">mywork</a></code></li>
 <li><code><a title="control.pages.Pages.navigation" href="#control.pages.Pages.navigation">navigation</a></code></li>
 <li><code><a title="control.pages.Pages.page" href="#control.pages.Pages.page">page</a></code></li>
 <li><code><a title="control.pages.Pages.project" href="#control.pages.Pages.project">project</a></code></li>
-<li><code><a title="control.pages.Pages.projectInsert" href="#control.pages.Pages.projectInsert">projectInsert</a></code></li>
 <li><code><a title="control.pages.Pages.projects" href="#control.pages.Pages.projects">projects</a></code></li>
 <li><code><a title="control.pages.Pages.remaining" href="#control.pages.Pages.remaining">remaining</a></code></li>
 <li><code><a title="control.pages.Pages.surprise" href="#control.pages.Pages.surprise">surprise</a></code></li>
