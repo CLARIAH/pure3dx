@@ -168,10 +168,10 @@ class Admin:
     def authUser(self, otherUser, table=None, record=None):
         """Check whether a user may change the role of another user.
 
-        The question are:
+        The questions are:
 
         "which *other* site-wide roles can the current user assign to the other
-        user?" (when no table or record are given).
+        user?" (when no table or record is given).
 
         "which project/edition scoped roles can the current user assign to or
         remove from the other user
@@ -190,8 +190,8 @@ class Admin:
         *   Users may not promote themselves unless ... see later.
         *   Users may have zero or one project/edition-scoped role per
             project/edition
-        *   When assigning new site-wide or project-scoped or edition-scoped
-            roles, these roles must be valid roles for that scope.
+        *   When assigning new site-wide or project/edition-scoped roles, these
+            roles must be valid roles for that scope.
         *   When assigning a new site-wide role, None is not one
             of the possible new roles:
             you cannot change the status of an authenticated user to "not
