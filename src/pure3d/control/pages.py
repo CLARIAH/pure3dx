@@ -540,7 +540,7 @@ class Pages:
 
         navigation = self.navigation(url)
         iconSite = Content.getUpload(record, "iconSite")
-        (testLoginWidget, loginWidget) = Auth.wrapLogin()
+        (specialLoginWidget, loginWidget) = Auth.wrapLogin()
 
         return renderTemplate(
             "index",
@@ -549,7 +549,7 @@ class Pages:
             navigation=navigation,
             materialLeft=left or "",
             materialRight=right or "",
-            testLoginWidget=testLoginWidget,
+            specialLoginWidget=specialLoginWidget,
             loginWidget=loginWidget,
             iconSite=iconSite,
         )

@@ -2,7 +2,7 @@ from textwrap import dedent
 from subprocess import check_output
 
 from control.generic import AttrDict
-from control.files import dirExists, fileExists, readYaml, readPath, listDirs
+from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
 from control.html import HtmlElements
 
@@ -56,8 +56,8 @@ class Config:
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
-            self.checkData,
             self.checkModes,
+            self.checkData,
             self.checkMongo,
             self.checkSettings,
             self.checkDatamodel,
@@ -166,49 +166,33 @@ class Config:
 
         Settings.secret_key = readPath(secretFileLoc)
 
-    def checkData(self):
-        """Get the location of the project data on the file system."""
-        Messages = self.Messages
-        Settings = self.Settings
-
-        dataDir = var("DATA_DIR")
-
-        if dataDir is None:
-            Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
-            self.good = False
-            return
-
-        dataDir = dataDir.rstrip("/")
-        sep = "/" if dataDir else ""
-        workingDir = f"{dataDir}{sep}working"
-
-        if not dirExists(dataDir):
-            Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
-            self.good = False
-            return
-
-        Settings.dataDir = dataDir
-        Settings.workingDir = workingDir
-
-        # are we in test mode?
-
     def checkModes(self):
-        """Determine whether flask is running in test/debug or production mode."""
+        """Determine whether flask is running in test/pilot or production mode."""
         Messages = self.Messages
         Settings = self.Settings
 
-        testMode = var("flasktest")
-        if testMode is None:
-            Messages.error(logmsg="Environment variable `flasktest` not defined")
+        runMode = var("runmode")
+        if runMode is None:
+            Messages.error(logmsg="Environment variable `runmode` not defined")
             self.good = False
             return
 
-        Settings.testMode = testMode == "test"
-        """With test mode enabled.
+        Settings.runMode = runMode
+        """In which mode the app runs.
 
-        This means that there is a row of test users on the interface,
-        and that you can log in as one of these users with a single click,
-        without any kind of authentication.
+        Values are:
+
+        *   `test`:
+            The app works with the example data.
+            There is a row of test users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `pilot`:
+            The app works with the pilot data.
+            There is a row of pilot users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   All other run modes count as production mode.
         """
 
         debugMode = var("flaskdebug")
@@ -223,6 +207,32 @@ class Config:
         This means that the unminified, development versions of the javascript libraries
         of the 3D viewers are loaded, instead of the production versions.
         """
+
+    def checkData(self):
+        """Get the location of the project data on the file system."""
+        Messages = self.Messages
+        Settings = self.Settings
+        runMode = Settings.runMode
+
+        dataDir = var("DATA_DIR")
+
+        if dataDir is None:
+            Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
+            self.good = False
+            return
+
+        dataDir = dataDir.rstrip("/")
+        sep = "/" if dataDir else ""
+        workingDir = f"{dataDir}{sep}working/{runMode}"
+
+        if not dirExists(dataDir):
+            Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
+            self.good = False
+            return
+
+        dirMake(workingDir)
+        Settings.dataDir = dataDir
+        Settings.workingDir = workingDir
 
     def checkMongo(self):
         """Obtain the connection details for MongDB.
@@ -417,7 +427,7 @@ class Config:
                 dedent(
                     """
                     This site is Work in Progress.
-                    Use it only for testing.
+                    Use it only for testing or as a pilot.
                     All work you commit to this site can be erased
                     without warning.
                     """

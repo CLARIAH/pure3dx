@@ -86,20 +86,20 @@ class Users:
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test users, we can skip the first step, because
-        we already know everything about the test user on the basis of the
+        When we log in test/pilot users, we can skip the first step, because
+        we already know everything about the test/pilot user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test user or a user that must be
+        So, we find out if we have to log in a test/pilot user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user's "sub"
+        We only log in a test/pilot user if we are in test/pilot mode and the user's "sub"
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test mode, the redirect
+            A redirect. When logging in in test/pilot mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -107,13 +107,13 @@ class Users:
         """
         Messages = self.Messages
         Settings = self.Settings
-        testMode = Settings.testMode
+        runMode = Settings.runMode
 
         referrer = getReferrer()
-        (testMode, isTestUser, user) = self.getUser(fromArg=True)
+        (isSpecialUser, user) = self.getUser(fromArg=True)
         name = self.__User.nickname
 
-        if user and not isTestUser and testMode:
+        if user and not isSpecialUser and runMode in {"test", "pilot"}:
             Messages.warning(
                 logmsg=(
                     "LOGIN attempt while an user is already logged in: "
@@ -124,8 +124,8 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         return (
-            self.__loginTest(referrer, requestArg("user"))
-            if isTestUser
+            self.__loginSpecial(referrer, requestArg("user"))
+            if isSpecialUser
             else self.__loginOidc(referrer)
         )
 
@@ -185,7 +185,7 @@ class Users:
     def logout(self):
         """Logs off the current user.
 
-        First we find out whether we have to log out a test user or a normal
+        First we find out whether we have to log out a test/pilot user or a normal
         user.
         After logging out, we redirect to the home page.
 
@@ -195,13 +195,15 @@ class Users:
             A redirect to the home page.
         """
         oidc = self.oidc
+        Settings = self.Settings
         Messages = self.Messages
         name = self.__User.nickname
+        runMode = Settings.runMode
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is None:
-            if testMode:
+            if runMode in {"test", "pilot"}:
                 sessionPop("user")
             else:
                 oidc.logout()
@@ -209,7 +211,7 @@ class Users:
             Messages.plain(logmsg="LOGOUT but no user was logged in.")
             return redirectStatus("/", False)
 
-        if isTestUser:
+        if isSpecialUser:
             sessionPop("user")
         else:
             oidc.logout()
@@ -241,11 +243,11 @@ class Users:
         """
         oidc = self.oidc
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is not None:
-            if isTestUser:
-                if not self.__findTestUser(user):
+            if isSpecialUser:
+                if not self.__findSpecialUser(user):
                     self.__User.clear()
                     sessionPop("user")
             else:
@@ -272,40 +274,40 @@ class Users:
     def getUser(self, fromArg=False):
         """Obtain the "sub" of the currently logged in user from the request info.
 
-        It works for test users and normal users.
+        It works for test/pilot users and normal users.
 
         Parameters
         ----------
         fromArg: boolean, optional False
-            If True, the test user is not read from the session, but from a
+            If True, the test/pilot user is not read from the session, but from a
             request argument.
-            This is used during the login procedure of test users.
+            This is used during the login procedure of test/pilot users.
 
         Returns
         -------
-        boolean, boolean, string
-            Whether we are in test mode.
-            Whether the user is a test user.
-            The "sub" of the user
+        boolean, string
+            *   Whether the user is a test/pilot user or a normally authenticated user.
+                None if there is no authenticated user.
+            *   The "sub" of the user.
         """
         oidc = self.oidc
         Settings = self.Settings
-        testMode = Settings.testMode
+        runMode = Settings.runMode
 
         user = None
-        isTestUser = None
+        isSpecialUser = None
 
-        if testMode:
+        if runMode in {"test", "pilot"}:
             user = requestArg("user") if fromArg else sessionGet("user")
             if user:
-                isTestUser = True
+                isSpecialUser = True
 
         if user is None:
             user = oidc.user_getfield("sub") if oidc.user_loggedin else None
             if user:
-                isTestUser = False
+                isSpecialUser = False
 
-        return (testMode, isTestUser, user)
+        return (isSpecialUser, user)
 
     def wrapLogin(self):
         """Generate HTML for the login widget.
@@ -317,22 +319,23 @@ class Users:
 
         If no user is logged in, a login button should be displayed.
 
-        If in test mode, a list of buttons for each test-user should be
+        If in test/pilot mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
         -------
         string
-            HTML of the list of buttons for test users, with the button
+            HTML of the list of buttons for test/pilot users, with the button
             for the current user styled as active.
         """
         Settings = self.Settings
         H = Settings.H
+        runMode = Settings.runMode
         Mongo = self.Mongo
 
-        (testMode, isTestUser, userActive) = self.getUser()
+        (isSpecialUser, userActive) = self.getUser()
 
-        testContent = []
+        specialContent = []
         content = []
 
         def wrap(label, text, title, href, active, enabled):
@@ -359,12 +362,12 @@ class Users:
 
             return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-        if testMode:
-            # row of test users
+        if runMode in {"test", "pilot"}:
+            # row of test/pilot users
 
-            enabled = not userActive or isTestUser
+            enabled = not userActive or isSpecialUser
             for record in sorted(
-                Mongo.getList("user", isTest=True),
+                Mongo.getList("user", isSpecial=True),
                 key=lambda r: r.nickname,
             ):
                 user = record.user
@@ -372,7 +375,7 @@ class Users:
                 role = self.presentRole(record.role)
 
                 active = user == userActive
-                testContent.append(
+                specialContent.append(
                     wrap(None, name, role, f"/login?user={user}", active, enabled)
                 )
 
@@ -395,7 +398,7 @@ class Users:
             # login button
             content.append(wrap(None, "log in", "log in", "/login", False, True))
 
-        return (H.content(*testContent), H.content(*content))
+        return (H.content(*specialContent), H.content(*content))
 
     def presentRole(self, role):
         """Finds the interface representation of a role.
@@ -415,8 +418,8 @@ class Users:
         roles = Settings.auth.roles
         return roles.get(role, role)
 
-    def __loginTest(self, referrer, user):
-        """Perform the steps to log in a test user.
+    def __loginSpecial(self, referrer, user):
+        """Perform the steps to log in a test/pilot user.
 
         This involves looking up the user in the user table,
         copying its information in the `__User` member of this object,
@@ -428,7 +431,7 @@ class Users:
         referrer: string
             url where we came from.
         user: string
-            The "sub" of the test user that we must log in as.
+            The "sub" of the test/pilot user that we must log in as.
 
         Returns
         -------
@@ -437,15 +440,17 @@ class Users:
             successful or 303 if not.
         """
         Messages = self.Messages
+        Settings = self.Settings
+        runMode = Settings.runMode
 
-        if user is None or not self.__findTestUser(user):
+        if user is None or not self.__findSpecialUser(user):
             return redirectStatus(f"/{referrer}", False)
 
         sessionSet("user", user)
         name = self.__User.nickname
         Messages.plain(
-            logmsg=f"LOGIN successful: test user {name} {user}",
-            msg=f"LOGIN successful: test user {name}",
+            logmsg=f"LOGIN successful: {runMode} user {name} {user}",
+            msg=f"LOGIN successful: {runMode} user {name}",
         )
         return redirectStatus(f"/{referrer}", True)
 
@@ -468,8 +473,8 @@ class Users:
         """
         return redirectStatus(f"/afterlogin/referrer/{referrer}", True)
 
-    def __findTestUser(self, user):
-        """Lookup data of a test user in the MongoDb users collection.
+    def __findSpecialUser(self, user):
+        """Lookup data of a test/pilot user in the MongoDb users collection.
 
         The user is looked up by the `user` field.
 

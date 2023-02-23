@@ -5,11 +5,11 @@ from control.files import (
     readYaml,
     fileExists,
     dirMake,
+    dirExists,
     dirRemove,
     dirCopy,
     fileCopy,
 )
-from control.environment import var
 from control.flask import appInitializing
 
 
@@ -17,10 +17,14 @@ class Collect:
     def __init__(self, Settings, Messages, Mongo):
         """Provides initial data collection into MongoDb.
 
-        Normally, this does not have to run, since the MongoDb is persistent.
-        Only when the MongoDb of the Pure3D app is fresh,
+        Normally, this does not have to run, since the MongoDb and the file
+        system are persistent.
+        Only when the MongoDb or the file system of the Pure3D app are fresh,
         or when the MongoDb is out of sync with the data on the filesystem
-        it must be initialized.
+        they must be initialized.
+
+        If you want to force a collect when starting up, remove the relevant
+        directory with working data before starting up.
 
         It reads:
 
@@ -34,12 +38,17 @@ class Collect:
 
         The data for the supported viewers is in repo `pure3d-data`, under `viewers`.
 
-        For testing, there is `exampledata` in the same `pure3d-data` repo.
+        For test mode, there is `exampledata` in the same `pure3d-data` repo.
         The provision step should copy the contents of `exampledata` to the
         `data` directory of this repo (`pure3dx`).
 
-        If data collection is triggered in test mode, the user table will be wiped,
-        and the test users present in the example data will be imported.
+        For pilot mode, there is `pilotdata` in the same `pure3d-data` repo.
+        The provision step should copy the contents of `pilotdata` to the
+        `data` directory of this repo (`pure3dx`).
+
+        If data collection is triggered in test/pilot mode, the user table will
+        be wiped, and the test/pilot users present in the example data will be
+        imported.
 
         Otherwise the user table will be left unchanged.
 
@@ -57,19 +66,34 @@ class Collect:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
+        runMode = Settings.runMode
 
-        importSubdir = var("initdata") or "exampledata"
+        importSubdir = (
+            "exampledata"
+            if runMode == "test"
+            else "pilotdata"
+            if runMode == "pilot"
+            else None
+        )
+        if importSubdir is None:
+            Messages.warning(
+                logmsg=f"Cannot collect data in mode {runMode}",
+                msg="No data to collect",
+            )
+
         dataDir = Settings.dataDir
         self.workingDir = Settings.workingDir
-        self.importDir = f"{dataDir}/{importSubdir}"
+        self.importDir = None if importSubdir is None else f"{dataDir}/{importSubdir}"
 
     def trigger(self):
         """Determines whether data collection should be done.
 
-        We only do data collection if the environment variable `docollect` is `v`
-        If so, the value of the environment variable `initdata`
-        is the name of a subdirectory of the data directory.
-        This subdirectory contains example data that will be imported into the system.
+        We only do data collection if its needed: when the MongoDb data is incomplete
+        or when the file system data is missing.
+
+        If so, the value of the environment variable `runmode` determines
+        which subdirectory of the data directory will be collected.
+        This subdirectory contains initial data that will be imported into the system.
 
         We also prevent this from happening twice, which occurs when Flask runs
         in debug mode, since then the code is loaded twice.
@@ -78,9 +102,18 @@ class Collect:
         and data collection should be inhibited, because it has been done
         just before Flask started running.
         """
-        doCollect = var("docollect") == "v"
 
-        return appInitializing() and doCollect
+        importDir = self.importDir
+        workingDir = self.workingDir
+        Settings = self.Settings
+        runMode = Settings.runMode
+
+        projectDir = f"{workingDir}/project"
+        initializing = appInitializing()
+        self.debug(f"{initializing=} {runMode=} {importDir=} {workingDir=}")
+        if not initializing:
+            return False
+        return runMode != "prod" and importDir is not None and not dirExists(projectDir)
 
     def fetch(self):
         """Performs a data collection."""
@@ -98,8 +131,8 @@ class Collect:
         All collections that will be filled with data from the filesystem
         will be wiped.
 
-        !!! "Users collection will be wiped in test mode"
-            If in test mode, the `users` collection will be wiped,
+        !!! "Users collection will be wiped in test/pilot mode"
+            If in test/pilot mode, the `users` collection will be wiped,
             and then filled from the example data.
         """
         Settings = self.Settings
@@ -304,8 +337,8 @@ class Collect:
     def doWorkflow(self):
         """Collects workflow information from yaml files.
 
-        !!! note "Test users"
-            This includes test users when in test mode.
+        !!! note "test/pilot users"
+            This includes test/pilot users when in test/pilot mode.
         """
         Messages = self.Messages
         Mongo = self.Mongo
@@ -360,7 +393,7 @@ class Collect:
                     nickname=userName,
                     user=user,
                     role=role,
-                    isTest=True,
+                    isSpecial=True,
                 )
                 Mongo.insertRecord("user", **userInfo)
                 userByName[userName] = user
