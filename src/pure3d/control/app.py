@@ -115,7 +115,8 @@ def appFactory(objects):
         Parameters
         ----------
         site: string
-            The id of the unique site record, which acts as master record for all the projects.
+            The id of the unique site record, which acts as master record for
+            all the projects.
         """
         return Pages.createProject(site)
 
@@ -182,8 +183,8 @@ def appFactory(objects):
         """
         return Pages.deleteEdition(edition)
 
-    @app.route("/viewer/<string:version>/<string:action>/<string:edition>")
-    def viewerFrame(version=None, action=None, edition=None):
+    @app.route("/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>")
+    def viewerFrame(version=None, action=None, edition=None, subMode=None):
         """Present the scene of an edition in a 3D viewer.
 
         This is typically loaded in an iframe, but it can also
@@ -197,8 +198,10 @@ def appFactory(objects):
             The viewer version to use.
         action: string | None
             The mode in which the viewer is to be used (`read` or `update`).
+        subMode: string | None
+            The sub mode in which the viewer is to be used (`update` or `create`).
         """
-        return Pages.viewerFrame(edition, version, action)
+        return Pages.viewerFrame(edition, version, action, subMode)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):

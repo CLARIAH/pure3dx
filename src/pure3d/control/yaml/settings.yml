@@ -17,6 +17,14 @@ mongoPort: 27017
 siteCrit:
   name: "site"
 
+modelzFile: models.zip
+
+editionSettingsTemplate:
+  authorTool:
+    name: «viewer»
+    version: «version»
+    sceneFile: «scene»
+
 representations:
   isVisible:
     false: "hidden"

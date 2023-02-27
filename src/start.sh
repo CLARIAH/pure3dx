@@ -19,6 +19,8 @@ flaskhost="0.0.0.0"
 
 if [[ "$runmode" == "test" ]]; then
     flaskdebug="--debug"
+elif [[ "$runmode" == "pilot" ]]; then
+    flaskdebug="--debug"
 else
     flaskdebug=""
 fi

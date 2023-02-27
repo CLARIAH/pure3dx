@@ -280,8 +280,6 @@ class Admin:
         otherIsInPower = otherRole in {"admin", "root"}
 
         nope = (False, frozenset())
-        fineAdmin = (True, frozenset(["admin"]))
-        fineRoot = (True, frozenset(["root"]))
 
         # side-wide assignments
 
@@ -299,20 +297,23 @@ class Admin:
             #   if there are no admins
             #     any authenticated user may promote himself to admin
 
+            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
             if nRoots == 0:
                 if user == otherUser:
                     if nAdmins == 0:
                         if myRole == "user":
+                            fineAdmin = (True, frozenset(["admin"]) | remainingRoles)
                             return fineAdmin
                     else:
                         if myRole == "admin":
+                            fineRoot = (True, frozenset(["root"]) | remainingRoles)
                             return fineRoot
 
             # from here on, only admins and roots can change roles
             if not iAmInPower:
                 return nope
 
-            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
             fine = (True, remainingRoles)
 
             # root is all powerful, only limited by other roots

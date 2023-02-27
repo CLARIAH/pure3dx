@@ -1,7 +1,11 @@
+import os
+import io
 import json
 from flask import jsonify
+from zipfile import ZipFile
+
 from control.generic import AttrDict
-from control.files import fileExists, fileRemove
+from control.files import fileExists, fileRemove, dirExists, dirMake
 from control.datamodel import Datamodel
 from control.flask import requestData
 from control.admin import Admin
@@ -96,15 +100,17 @@ class Content(Datamodel):
 
         return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
 
-    def getScene(self, edition, version=None, action=None):
+    def getScene(self, projectId, edition, version=None, action=None):
         """Get the scene of an edition of a project.
 
         Well, only if the current user is authorised.
 
         A scene is displayed by means of an icon and a row of buttons.
 
+        There are also buttons to upload model files and the scene file.
+
         If action is not None, the scene is loaded in a specific version of the
-        viewer in a specific mode (`read` or `read`).
+        viewer in a specific mode (`read` or `edit`).
         The edition knows which viewer to choose.
 
         Which version and which mode are used is determined by the parameters.
@@ -112,6 +118,8 @@ class Content(Datamodel):
 
         Parameters
         ----------
+        projectId: ObjectId
+            The id of the project to which the edition belongs.
         edition: string | ObjectId | AttrDict
             The edition in question.
         version: string, optional None
@@ -120,9 +128,13 @@ class Content(Datamodel):
             the latest existing version for that viewer will be chosen.
         action: string, optional `read`
             The mode in which the viewer should be opened.
-            If the mode is `update`, the viewer is opened in edit mode.
+            If the mode is `update`, the viewer is opened in edit mode, if the
+            scene file exists, otherwise in create mode,  which, in case
+            of the Voyager viewer, means `standalone` mode.
             All other modes lead to the viewer being opened in read-only
             mode.
+            If the mode is read-only, but the scene file is missing, no viewer
+            will be opened.
 
         Returns
         -------
@@ -131,19 +143,46 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         """
+        Settings = self.Settings
+        H = Settings.H
+        workingDir = Settings.workingDir
+        modelzFile = Settings.modelzFile
         Mongo = self.Mongo
         Viewers = self.Viewers
         Wrap = self.Wrap
 
+        (editionId, edition) = Mongo.get("edition", edition)
         (viewer, sceneFile) = self.getViewInfo(edition)
         version = Viewers.check(viewer, version)
+
+        scenePath = f"{workingDir}/project/{projectId}/edition/{editionId}/{sceneFile}"
+        sceneExists = fileExists(scenePath)
 
         if action is None:
             action = "read"
 
         (editionId, edition) = Mongo.get("edition", edition)
 
-        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
+        baseResult = Wrap.sceneMain(
+            projectId, edition, sceneFile, viewer, version, action, sceneExists
+        )
+        zipUpload = (
+            ""
+            if sceneExists
+            else (
+                H.h(4, "Scene plus model files, zipped")
+                + H.div(self.getUpload(edition, "modelz", fileName=modelzFile))
+            )
+        )
+
+        return (
+            baseResult
+            + H.h(4, "Scene" if sceneExists else "No scene yet")
+            + H.div(self.getUpload(edition, "scene", fileName=sceneFile))
+            + H.h(4, "Model files")
+            + H.div(self.getUpload(edition, "model"))
+            + zipUpload
+        )
 
     def getAdmin(self):
         """Get the list of relevant projects, editions and users.
@@ -181,8 +220,11 @@ class Content(Datamodel):
         ObjectId
             The id of the new project.
         """
+        Settings = self.Settings
+        Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+        workingDir = Settings.workingDir
 
         (siteId, site) = Mongo.get("site", site)
 
@@ -207,6 +249,15 @@ class Content(Datamodel):
         Mongo.insertRecord(
             "projectUser", projectId=projectId, user=user, role="organiser"
         )
+        projectDir = f"{workingDir}/project/{projectId}"
+        if dirExists(projectDir):
+            Messages.warning(
+                msg="The new project already exists on the file system",
+                logmsg=f"New project {projectId} already exists on the filesystem.",
+            )
+        else:
+            dirMake(projectDir)
+
         return projectId
 
     def deleteProject(self, project):
@@ -243,7 +294,31 @@ class Content(Datamodel):
             The id of the new edition.
         """
         Mongo = self.Mongo
+        Messages = self.Messages
         Auth = self.Auth
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        def fillin(template, values):
+            typ = type(template)
+            if typ is str:
+                for (k, v) in values.items():
+                    template = template.replace(f"«{k}»", v)
+                return template
+            if typ in {list, tuple}:
+                return [fillin(e, values) for e in template]
+            if typ in {dict, AttrDict}:
+                return {k: fillin(v, values) for (k, v) in template.items()}
+            return template
+
+        editionSettingsTemplate = Settings.editionSettingsTemplate
+        viewerDefault = Settings.viewerDefault
+        viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
+        versionDefault = viewerInfo.defaultVersion
+        sceneFile = viewerInfo.sceneFile
+
+        values = dict(viewer=viewerDefault, version=versionDefault, scene=sceneFile)
+        editionSettings = fillin(editionSettingsTemplate, values)
 
         (projectId, project) = Mongo.get("project", project)
 
@@ -273,9 +348,20 @@ class Content(Datamodel):
             title=title,
             projectId=projectId,
             meta=dict(dc=dcMeta),
+            settings=editionSettings,
             isPublished=False,
         )
         Mongo.insertRecord("editionUser", editionId=editionId, user=user, role="editor")
+
+        editionDir = f"{workingDir}/project/{projectId}/edition/{editionId}"
+        if dirExists(editionDir):
+            Messages.warning(
+                msg="The new edition already exists on the file system",
+                logmsg=f"New edition {editionId} already exists on the filesystem.",
+            )
+        else:
+            dirMake(editionDir)
+
         return editionId
 
     def deleteEdition(self, edition):
@@ -377,12 +463,7 @@ class Content(Datamodel):
         if key == "title":
             update[key] = value
 
-        if (
-            Mongo.updateRecord(
-                table, update, stop=False, _id=recordId
-            )
-            is None
-        ):
+        if Mongo.updateRecord(table, update, stop=False, _id=recordId) is None:
             return dict(
                 stat=False,
                 messages=[["error", "could not update the record in the database"]],
@@ -766,14 +847,22 @@ class Content(Datamodel):
         if givenFileName is not None and fileName != givenFileName:
             fileName = givenFileName
 
-        sep = "/" if path else ""
-        filePath = f"{path}{sep}{fileName}"
+        filePath = f"{path}{fileName}"
         fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
             logmsg = f"Upload not permitted: {key}: {fileFullPath}"
-            msg = f"Upload not permitted: {filePath}"
+            msg = f"Upload not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        self.debug(f"{key=}")
+        if key == "modelz":
+            (good, msg) = self.processModelZip(requestData())
+            self.debug(f"{good=} {msg=}")
+            if good:
+                return jsonify(status=True, msg=msg, content="Please refresh the page")
+            Messages.warning(logmsg=msg)
             return jsonify(status=False, msg=msg)
 
         try:
@@ -781,7 +870,7 @@ class Content(Datamodel):
                 fh.write(requestData())
         except Exception:
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
-            msg = f"Uploaded file not saved: {filePath}"
+            msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
@@ -790,6 +879,79 @@ class Content(Datamodel):
         )
 
         return jsonify(status=True, content=content)
+
+    def processModelZip(self, zf):
+        """Processes zip data with a scene and model files.
+
+        All files in the zip file will be examined, and those with
+        extension svx.json will be saved as voyager.svx.json
+        and those with extensions glb of gltf will be saved under their
+        own names.
+        All pathnames will be ignored, so potentially files may overwrite each other.
+
+        The user is held responsible to submit a suitable file.
+
+        Parameters
+        ----------
+        zf: bytes
+            The raw zip data
+        """
+        Messages = self.Messages
+
+        msgs = []
+        good = True
+        try:
+            zf = io.BytesIO(zf)
+            z = ZipFile(zf)
+
+            allFiles = 0
+            sceneFiles = set()
+            modelFiles = set()
+            doubles = set()
+            otherFiles = set()
+
+            for zInfo in z.infolist():
+                if zInfo.filename[-1] == "/":
+                    continue
+                if zInfo.filename.startswith("__MACOS"):
+                    continue
+                self.debug(f"ZIPPED {zInfo.filename}")
+                zInfo.filename = os.path.basename(zInfo.filename)
+                self.debug(f"==> {zInfo.filename}")
+
+                allFiles += 1
+
+                zName = zInfo.filename
+                zTest = zName.lower()
+                if zTest.endswith(".svx.json"):
+                    if zName in sceneFiles:
+                        doubles.add(zName)
+                    else:
+                        sceneFiles.add(zName)
+                elif zTest.endswith(".glb") or zTest.endswith(".gltf"):
+                    if zName in modelFiles:
+                        doubles.add(zName)
+                    else:
+                        modelFiles.add(zName)
+                else:
+                    if zName in otherFiles:
+                        doubles.add(zName)
+                    else:
+                        otherFiles.add(zName)
+
+            msgs.append(f"All files in zip: {allFiles:>3}")
+            msgs.append(f"Files encountered multiple times: {len(doubles):>3} x")
+            msgs.append(f"Scene files: {len(sceneFiles):>3} x")
+            msgs.append(f"Model files: {len(modelFiles):>3} x")
+            msgs.append(f"Ignored files: {len(otherFiles):>3} x")
+
+        except Exception as e:
+            good = False
+            msgs.append("Something went wrong")
+            Messages.warning(logmsg=str(e))
+
+        msg = "\n".join(msgs)
+        return (good, msg)
 
     def deleteFile(self, record, key, path, fileName, givenFileName=None):
         """Deletes a file in the context given by a record.
@@ -836,13 +998,13 @@ class Content(Datamodel):
 
         if not permitted:
             logmsg = f"Delete file not permitted: {key}: {fileFullPath}"
-            msg = f"Delete not permitted: {filePath}"
+            msg = f"Delete not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
         if not fileExists(fileFullPath):
             logmsg = f"File does not exist: {key}: {fileFullPath}"
-            msg = f"File does not exist: {filePath}"
+            msg = f"File does not exist: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
@@ -850,7 +1012,7 @@ class Content(Datamodel):
             fileRemove(fileFullPath)
         except Exception:
             logmsg = f"Could not delete file: {key}: {fileFullPath}"
-            msg = f"File not deleted: {filePath}"
+            msg = f"File not deleted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 

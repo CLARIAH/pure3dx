@@ -17,4 +17,10 @@ viewers:
         prefix: "/webdav"
         element: voyager-story
         fileBase: voyager-story
+        subModes:
+          update:
+            mode: edit
+          create:
+            mode: standalone
     defaultVersion: "0.24.0"
+    sceneFile: voyager.svx.json

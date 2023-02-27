@@ -75,11 +75,12 @@ class Mongo:
             Singleton instance of `control.messages.Messages`.
         """
         self.Settings = Settings
+        runMode = Settings.runMode
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
         self.db = None
-        self.database = Settings.database
+        self.database = f"{Settings.database}_{runMode}"
 
     def connect(self):
         """Make connection with MongoDb if there is no connection yet.

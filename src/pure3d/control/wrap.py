@@ -144,11 +144,13 @@ class Wrap:
         )
         return H.content(*wrapped)
 
-    def sceneMain(self, edition, sceneFile, viewer, version, action):
+    def sceneMain(self, projectId, edition, sceneFile, viewer, version, action, sceneExists):
         """Wrap the scene of an edition for the main display.
 
         Parameters
         ----------
+        projectId: ObjectId
+            The id of the project to which the edition belongs.
         edition: AttrDict
             The edition record of the scene.
         viewer: string
@@ -157,6 +159,8 @@ class Wrap:
             The version of the chosen viewer that will be used.
         action: string
             The mode in which the viewer should be opened.
+        sceneExists: boolean
+            Whether the scen file exists
 
         Returns
         -------
@@ -168,8 +172,6 @@ class Wrap:
         Auth = self.Auth
         Viewers = self.Viewers
 
-        wrapped = []
-
         actions = Auth.authorise("edition", edition)
         if "read" not in actions:
             return ""
@@ -179,7 +181,7 @@ class Wrap:
         titleText = H.span(sceneFile, cls="entrytitle")
         button = self.contentButton("edition", edition, "delete")
 
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action)
+        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action, sceneExists)
         title = H.span(titleText, cls="entrytitle")
         content = f"""{frame}{title}{buttons}"""
         caption = self.wrapCaption(content, button, None, active=True)

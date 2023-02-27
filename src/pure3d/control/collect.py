@@ -110,7 +110,6 @@ class Collect:
 
         projectDir = f"{workingDir}/project"
         initializing = appInitializing()
-        self.debug(f"{initializing=} {runMode=} {importDir=} {workingDir=}")
         if not initializing:
             return False
         return runMode != "prod" and importDir is not None and not dirExists(projectDir)

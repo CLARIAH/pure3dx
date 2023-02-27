@@ -177,7 +177,7 @@ class Config:
             self.good = False
             return
 
-        Settings.runMode = runMode
+        Settings.runMode = runMode if runMode in {"test", "pilot"} else {"prod"}
         """In which mode the app runs.
 
         Values are:
@@ -192,7 +192,7 @@ class Config:
             There is a row of pilot users on the interface,
             and that you can log in as one of these users with a single click,
             without any kind of authentication.
-        *   All other run modes count as production mode.
+        *   All other run modes count as production mode, `prod`.
         """
 
         debugMode = var("flaskdebug")
@@ -419,6 +419,7 @@ class Config:
         H = Settings.H
         Messages = self.Messages
         wip = var("devstatus")
+        runMode = Settings.runMode
 
         banner = ""
 
@@ -426,10 +427,22 @@ class Config:
             content = H.span(
                 dedent(
                     """
+                    This site runs in Test Mode.
+                    Data you enter can be erased without warning.
+                    """
+                )
+                if runMode == "test"
+                else dedent(
+                    """
+                    This site runs in Pilot Mode.
+                    Data you enter will be saved, but might be inaccessible during
+                    periods of further development.
+                    """
+                )
+                if runMode == "pilot"
+                else dedent(
+                    """
                     This site is Work in Progress.
-                    Use it only for testing or as a pilot.
-                    All work you commit to this site can be erased
-                    without warning.
                     """
                 )
             )
@@ -449,6 +462,8 @@ class Config:
                 cls="large",
                 target="_blank",
             )
-            banner = H.div([content, issueLink, resetDataLink], id="statusbanner")
+            banner = H.div(
+                [content, issueLink, resetDataLink], id="statusbanner", cls=runMode
+            )
 
         Settings.banner = banner

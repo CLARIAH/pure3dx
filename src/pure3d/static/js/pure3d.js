@@ -583,10 +583,18 @@ const uploadControl = fupload => {
           if (!stat.processed) {
             const { response } = xhr
             if (response) {
-              addMsg("good", "uploaded", true)
-              const { content } = response
-              fuploadJQ.html(content)
-              uploadControl(fupload)
+              const { status, msg, content } = response
+              if (status) {
+                addMsg("good", "uploaded", true)
+                for (const m of msg.split("\n")) { 
+                  addMsg("info", m, false)
+                }
+                fuploadJQ.html(content)
+                uploadControl(fupload)
+              }
+              else {
+                addMsg("error", msg, true)
+              }
               stat.processed = true
             }
           }

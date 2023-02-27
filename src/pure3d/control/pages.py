@@ -45,8 +45,7 @@ class Pages:
         self.Auth = Auth
 
     def collect(self):
-        """Data reset: collect the example data again.
-        """
+        """Data reset: collect the example data again."""
         Collect = self.Collect
         Messages = self.Messages
 
@@ -55,16 +54,14 @@ class Pages:
         return redirectStatus("/home", True)
 
     def home(self):
-        """The site-wide home page.
-        """
+        """The site-wide home page."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
-        """The site-wide about page.
-        """
+        """The site-wide about page."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
@@ -72,8 +69,7 @@ class Pages:
         return self.page("about", left=left, right=right)
 
     def surprise(self):
-        """The "surprise me!" page.
-        """
+        """The "surprise me!" page."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
@@ -82,8 +78,7 @@ class Pages:
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
-        """The page with the list of projects.
-        """
+        """The page with the list of projects."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
@@ -91,8 +86,7 @@ class Pages:
         return self.page("projects", left=left)
 
     def admin(self):
-        """The page with the list of projects, editions, and users.
-        """
+        """The page with the list of projects, editions, and users."""
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         items = Content.getAdmin()
@@ -166,9 +160,7 @@ class Pages:
         result = Content.deleteProject(project)
 
         if result:
-            Messages.info(
-                logmsg=f"Deleted project {projectId}", msg="project deleted"
-            )
+            Messages.info(logmsg=f"Deleted project {projectId}", msg="project deleted")
         else:
             Messages.warning(
                 logmsg=f"Could not delete project {projectId}",
@@ -229,8 +221,6 @@ class Pages:
         action: string, optional None
             The mode in which the viewer is to be used (`read` or `update`).
         """
-        Settings = self.Settings
-        H = Settings.H
         Content = self.Content
         Mongo = self.Mongo
         Auth = self.Auth
@@ -247,16 +237,12 @@ class Pages:
         sceneMaterial = (
             ""
             if False and action is None
-            else Content.getScene(edition, version=version, action=action)
+            else Content.getScene(projectId, edition, version=version, action=action)
         )
         left = (
             breadCrumb
             + Content.getValues("edition", edition, "title@4")
             + sceneMaterial
-            + H.h(4, "Scene")
-            + H.div(Content.getUpload(edition, "scene", fileName=sceneFile))
-            + H.h(4, "Model files")
-            + H.div(Content.getUpload(edition, "model"))
         )
         right = Content.getValues(
             "edition",
@@ -283,9 +269,7 @@ class Pages:
         result = Content.deleteEdition(edition)
 
         if result:
-            Messages.info(
-                logmsg=f"Deleted edition {editionId}", msg="edition deleted"
-            )
+            Messages.info(logmsg=f"Deleted edition {editionId}", msg="edition deleted")
         else:
             Messages.warning(
                 logmsg=f"Could not delete edition {editionId}",
@@ -293,7 +277,7 @@ class Pages:
             )
         return redirectStatus(f"/project/{projectId}", True)
 
-    def viewerFrame(self, edition, version, action):
+    def viewerFrame(self, edition, version, action, subMode):
         """The page loaded in an iframe where a 3D viewer operates.
 
         Parameters
@@ -304,6 +288,8 @@ class Pages:
             The version to use.
         action: string | None
             The mode in which the viewer is to be used (`read` or `update`).
+        subMode: string | None
+            The sub mode in which the viewer is to be used (`update` or `create`).
         """
         Content = self.Content
         Mongo = self.Mongo
@@ -321,7 +307,7 @@ class Pages:
         viewerCode = (
             ""
             if action is None
-            else Viewers.genHtml(urlBase, sceneFile, viewer, version, action)
+            else Viewers.genHtml(urlBase, sceneFile, viewer, version, action, subMode)
         )
         return renderTemplate("viewer", viewerCode=viewerCode)
 
@@ -495,8 +481,7 @@ class Pages:
         Messages = self.Messages
 
         def splitUrl(url):
-            """Auxiliary inner function.
-            """
+            """Auxiliary inner function."""
             url = url.strip("/")
             parts = url.rsplit("/", 1)
             lastPart = parts[-1]

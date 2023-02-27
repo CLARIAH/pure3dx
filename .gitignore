@@ -69,6 +69,7 @@ exp_*
 
 # dotenv environment variables file
 .env
+.env.*
 .acc.env
 
 # Environments
