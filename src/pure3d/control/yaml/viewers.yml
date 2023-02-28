@@ -5,6 +5,8 @@ actions:
     name: view
   update:
     name: edit
+  create:
+    name: new
 
 viewers:
   voyager:

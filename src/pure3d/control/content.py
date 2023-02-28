@@ -1,4 +1,3 @@
-import os
 import io
 import json
 from flask import jsonify
@@ -832,6 +831,7 @@ class Content(Datamodel):
             * content: new content for an upload control (only if successful)
         """
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
@@ -856,12 +856,11 @@ class Content(Datamodel):
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
-        self.debug(f"{key=}")
         if key == "modelz":
-            (good, msg) = self.processModelZip(requestData())
-            self.debug(f"{good=} {msg=}")
+            destDir = f"{workingDir}/{path}"
+            (good, msg) = self.processModelZip(requestData(), destDir)
             if good:
-                return jsonify(status=True, msg=msg, content="Please refresh the page")
+                return jsonify(status=True, msg=msg, content=H.b("Please refresh the page"))
             Messages.warning(logmsg=msg)
             return jsonify(status=False, msg=msg)
 
@@ -880,7 +879,7 @@ class Content(Datamodel):
 
         return jsonify(status=True, content=content)
 
-    def processModelZip(self, zf):
+    def processModelZip(self, zf, destDir):
         """Processes zip data with a scene and model files.
 
         All files in the zip file will be examined, and those with
@@ -897,6 +896,10 @@ class Content(Datamodel):
             The raw zip data
         """
         Messages = self.Messages
+        Settings = self.Settings
+        viewerDefault = Settings.viewerDefault
+        viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
+        sceneFile = viewerInfo.sceneFile
 
         msgs = []
         good = True
@@ -915,19 +918,18 @@ class Content(Datamodel):
                     continue
                 if zInfo.filename.startswith("__MACOS"):
                     continue
-                self.debug(f"ZIPPED {zInfo.filename}")
-                zInfo.filename = os.path.basename(zInfo.filename)
-                self.debug(f"==> {zInfo.filename}")
 
                 allFiles += 1
 
                 zName = zInfo.filename
                 zTest = zName.lower()
+
                 if zTest.endswith(".svx.json"):
                     if zName in sceneFiles:
                         doubles.add(zName)
                     else:
                         sceneFiles.add(zName)
+                        zInfo.filename = sceneFile
                 elif zTest.endswith(".glb") or zTest.endswith(".gltf"):
                     if zName in modelFiles:
                         doubles.add(zName)
@@ -938,12 +940,13 @@ class Content(Datamodel):
                         doubles.add(zName)
                     else:
                         otherFiles.add(zName)
+                z.extract(zInfo, path=destDir)
 
             msgs.append(f"All files in zip: {allFiles:>3}")
             msgs.append(f"Files encountered multiple times: {len(doubles):>3} x")
             msgs.append(f"Scene files: {len(sceneFiles):>3} x")
             msgs.append(f"Model files: {len(modelFiles):>3} x")
-            msgs.append(f"Ignored files: {len(otherFiles):>3} x")
+            msgs.append(f"Other files: {len(otherFiles):>3} x")
 
         except Exception as e:
             good = False

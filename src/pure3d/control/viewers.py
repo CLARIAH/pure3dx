@@ -113,7 +113,7 @@ class Viewers:
         actionInfo = self.viewerActions
         viewers = self.viewers
 
-        filteredActions = {a for a in actions if a in actionInfo}
+        filteredActions = {a for a in actions if a in actionInfo and a != "create"}
         versionActive = self.check(viewer, versionActive)
 
         (editionId, edition) = Mongo.get("edition", edition)
@@ -193,10 +193,6 @@ class Viewers:
                 HTML for the buttons to launch a specific version of a viewer
                 for a specific action.
             """
-            createMode = action == "update" and not sceneExists
-            thisActionInfo = actionInfo.get(action, AttrDict())
-            name = "new" if createMode else thisActionInfo.name
-
             atts = {}
 
             href = f"/edition/{editionId}/{version}/{action}"
@@ -216,13 +212,16 @@ class Viewers:
                 )
 
             titleFragment = "a new window" if action == "update" else "place"
+
+            createMode = action == "update" and not sceneExists
+            action = "create" if createMode else action
+            thisActionInfo = actionInfo.get(action, AttrDict())
+            name = thisActionInfo.name
             atts["title"] = f"{name} scene in {titleFragment}"
 
             cls = "button vwb"
 
-            actionRep = "create" if createMode else action
-
-            return H.iconx(actionRep, href=href, cls=cls, **atts)
+            return H.iconx(action, text=name, href=href, cls=cls, **atts)
 
         allButtons = H.div([getViewerButtons(vw) for vw in viewers])
 
