@@ -183,7 +183,9 @@ def appFactory(objects):
         """
         return Pages.deleteEdition(edition)
 
-    @app.route("/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>")
+    @app.route(
+        "/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>"
+    )
     def viewerFrame(version=None, action=None, edition=None, subMode=None):
         """Present the scene of an edition in a 3D viewer.
 
@@ -240,6 +242,29 @@ def appFactory(objects):
             The id of an edition under which the resource is to be found.
         """
         return Pages.fileData(path, project=project, edition=edition)
+
+    @app.route("/download/<string:table>/<string:record>")
+    def download(table, record):
+        """Download a project or edition.
+
+        The following will be downloaded:
+
+        *   The content of the record in the database, as a yaml file;
+        *   The corresponding content on the file system:
+            scene, models, articles, media.
+
+        All content will be zipped into a file named after the project or edition.
+        The name is composed of the table name and the id of the record, and has
+        extension zip.
+
+        Parameters
+        ----------
+        table: string
+            The table where the item to be downloaded sits.
+        record: string
+            The record of the item to be downloaded.
+        """
+        return Content.download(table, record)
 
     @app.route(
         "/upload/<string:record>/<string:key>/<string:givenFileName>/<path:path>",

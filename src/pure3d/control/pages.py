@@ -129,10 +129,14 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
         (projectId, project) = Mongo.get("project", project)
-        editions = Content.getEditions(project)
+        actionHeading = H.h(3, "Actions")
+        downloadButton = Content.getDownload("project", project)
         editionHeading = H.h(3, "Editions")
+        editions = Content.getEditions(project)
         left = (
             Content.getValues("project", project, "title@3 + creator@0")
+            + actionHeading
+            + downloadButton
             + editionHeading
             + editions
         )

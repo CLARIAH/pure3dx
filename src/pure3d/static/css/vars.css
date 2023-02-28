@@ -9,8 +9,8 @@
     --action-fore:                     hsla(210, 100%,  30%, 1  );
     --action-back:                     hsla(210, 100%,  90%, 1  );
     --action-border:                   hsla(210, 100%,  50%, 0.5);
-    --action-disabled-fore:            hsla(210,  80%,  50%, 0.6);
-    --action-disabled-back:            hsla(210,   0%,  80%, 0.3);
+    --action-disabled-fore:            hsla(210,  80%,  50%, 1  );
+    --action-disabled-back:            hsla(210,   0%,  80%, 1  );
     --action-active-fore:              hsla(210, 100%,  40%, 1  );
     --action-active-back:              hsla(060,  80%,  70%, 0.9);
     --action-active-border:            hsla(060, 100%,  40%, 1.0);

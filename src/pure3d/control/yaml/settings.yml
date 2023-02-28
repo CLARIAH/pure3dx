@@ -43,6 +43,7 @@ css:
 
 icons:
   assign: "⊫"
+  download: "⇲"
   edit_cancel: "❌"
   edit_save: "✅"
   edit_update: "✎"

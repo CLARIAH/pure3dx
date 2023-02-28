@@ -107,8 +107,7 @@ class Datamodel:
         Returns
         -------
         tuple of tuple
-            * (site, project, record)
-            where the members are either None, or a full record
+            (siteId, site, projectId, project, editionId, edition)
         """
         Mongo = self.Mongo
 

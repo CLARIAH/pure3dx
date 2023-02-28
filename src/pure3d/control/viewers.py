@@ -134,12 +134,33 @@ class Viewers:
                 HTML for the buttons to launch a viewer.
             """
             openAtt = vw == viewer
+
+            versions = list(reversed(sorted(viewers[vw].versions)))
+            (latest, previous) = (versions[0:1], versions[1:])
+
+            openAtt = vw == viewer and len(previous) and versionActive in previous
+
             return H.details(
-                H.span(vw, cls="vwl"),
-                H.div(
+                H.table(
                     [
-                        getVersionButtons(version, version == versionActive)
-                        for version in viewers[vw].versions
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=True,
+                        )
+                        for version in latest
+                    ],
+                    [],
+                    cls="vwv",
+                ),
+                H.table(
+                    [],
+                    [
+                        getVersionButtons(
+                            version, version == versionActive, withViewer=False
+                        )
+                        for version in previous
                     ],
                     cls="vwv",
                 ),
@@ -148,7 +169,7 @@ class Viewers:
                 open=openAtt,
             )
 
-        def getVersionButtons(version, active):
+        def getVersionButtons(version, active, versionAmount=None, withViewer=False):
             """Internal function.
 
             Parameters
@@ -157,27 +178,40 @@ class Viewers:
                 The version of the viewer.
             active: boolean
                 Whether that version of that viewer is currently active.
+            versionAmount: int, optional None
+                If passed, contains the number of versions and displays it.
+            withViewer: boolean, optional Fasle
+                Whether to show the viewer name in the first column.
 
             Returns
             -------
             string
                 HTML for the buttons to launch a specific version of a viewer.
             """
-            activeCls = "active" if active else ""
+            activeRowCls = "activer" if active else ""
 
-            versionButtons = H.div(
-                [H.span(version, cls=f"vvl {activeCls}")]
-                + [
-                    getActionButton(version, action)
-                    for action in filteredActions
-                    if not (active and action == actionActive)
-                ],
-                cls="vv",
+            plural = "" if versionAmount == 2 else "s"
+            title = (
+                f"click to show previous {versionAmount - 1} {viewer} version{plural}"
+                if versionAmount and versionAmount > 1
+                else f"no previous {viewer} versions"
             )
 
-            return versionButtons
+            return (
+                [
+                    (viewer if withViewer else H.nbsp, dict(cls="vwc", title=title)),
+                    (version, dict(cls="vvl vwc", title=title)),
+                ]
+                + [
+                    getActionButton(
+                        version, action, disabled=active and action == actionActive
+                    )
+                    for action in sorted(filteredActions)
+                ],
+                dict(cls=activeRowCls),
+            )
 
-        def getActionButton(version, action):
+        def getActionButton(version, action, disabled=False):
             """Internal function.
 
             Parameters
@@ -186,6 +220,8 @@ class Viewers:
                 The version of the viewer.
             action: string
                 Whether to launch the viewer for `read` or for `update`.
+            disabled: boolean, optional Fasle
+                Whether to show the button as disabled
 
             Returns
             -------
@@ -195,7 +231,7 @@ class Viewers:
             """
             atts = {}
 
-            href = f"/edition/{editionId}/{version}/{action}"
+            href = None if disabled else f"/edition/{editionId}/{version}/{action}"
 
             if action == "update":
                 viewerHref = f"/viewer/{version}/{action}/{editionId}{create}"
@@ -219,9 +255,14 @@ class Viewers:
             name = thisActionInfo.name
             atts["title"] = f"{name} scene in {titleFragment}"
 
-            cls = "button vwb"
+            disabledCls = "disabled" if disabled else ""
+            activeCellCls = "activec" if disabled else ""
+            cls = f"button vwb {disabledCls}"
 
-            return H.iconx(action, text=name, href=href, cls=cls, **atts)
+            return (
+                H.iconx(action, text=name, href=href, cls=cls, **atts),
+                dict(cls=f"vwc {activeCellCls}"),
+            )
 
         allButtons = H.div([getViewerButtons(vw) for vw in viewers])
 

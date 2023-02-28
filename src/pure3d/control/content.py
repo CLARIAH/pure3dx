@@ -674,6 +674,48 @@ class Content(Datamodel):
 
         return F.formatted(record, "update" in actions, bust=bust, wrapped=wrapped)
 
+    def getDownload(self, table, record):
+        """Display the name and/or upload controls of an uploaded file.
+
+        The user may upload model files and a scene file to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget
+        will be returned.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the relevant record sits
+        record: string | ObjectId | AttrDict
+            The relevant record.
+
+        Returns
+        -------
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
+
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        """
+        Settings = self.Settings
+        H = Settings.H
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+
+        actions = Auth.authorise(table, record)
+
+        if "read" not in actions:
+            return None
+
+        return H.iconx(
+            "download", text="download", href=f"/download/{table}/{recordId}"
+        )
+
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
 
@@ -804,6 +846,65 @@ class Content(Datamodel):
             ]
         )
 
+    def download(self, table, record):
+        """Responds with a download of a project or edition.
+
+        Parameters
+        ----------
+        table: string
+            The table where the item to be downloaded sits.
+        record: string
+            The record of the item to be downloaded.
+
+        Return
+        ------
+        response
+            A download response.
+        """
+        Settings = self.Settings
+        H = Settings.H
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        workingDir = Settings.workingDir
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = Auth.authorise(table, record, action="read")
+
+        if not permitted:
+            logmsg = f"Download not permitted: {table}: {recordId}"
+            msg = f"Download of {table} not permitted"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        (siteId, site, projectId, project, editionId, edition) = self.context()
+
+        path = (
+            ""
+            if project is None
+            else f"project/{projectId}"
+            if edition is None
+            else f"project/{projectId}/edition/{editionId}"
+        )
+        sep = "/" if path else ""
+        landing = f"{workingDir}{sep}{path}"
+        fileName = f"{table}-{recordId}.zip"
+        (good, msg, data) = self.zipThing(landing)
+
+        if good:
+            headers = {
+                "Expires": "0",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Content-Type": "application/zip",
+                "Content-Disposition": f'attachment; filename="{fileName}"',
+                "Content-Encoding": "identity",
+            }
+            return
+
+        Messages.warning(logmsg=msg)
+        return jsonify(status=False, msg=msg)
+
     def saveFile(self, record, key, path, fileName, givenFileName=None):
         """Saves a file in the context given by a record.
 
@@ -860,7 +961,9 @@ class Content(Datamodel):
             destDir = f"{workingDir}/{path}"
             (good, msg) = self.processModelZip(requestData(), destDir)
             if good:
-                return jsonify(status=True, msg=msg, content=H.b("Please refresh the page"))
+                return jsonify(
+                    status=True, msg=msg, content=H.b("Please refresh the page")
+                )
             Messages.warning(logmsg=msg)
             return jsonify(status=False, msg=msg)
 

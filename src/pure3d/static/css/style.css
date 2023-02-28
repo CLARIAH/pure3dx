@@ -73,13 +73,11 @@
   font-size: medium;
 }
 
-.vv {
-  padding-left: 1em;
-  margin-left: 1em;
-}
 .vvl {
-  font-size: medium;
+  font-size: large;
   font-family: monospace;
+  padding: 0.5em 1em;
+  margin: 0.5em 1em;
 }
 
 .vwb {
@@ -87,7 +85,27 @@
   padding: 0.2em 0.1em;
   margin: 0.4em 0.2em;
   font-size: large;
-  font-weight: bold;
+}
+.vwc {
+  padding: 0.5em 1em;
+  margin: 0.5em 1em;
+  width: 10em;
+}
+th.vwc {
+  border: 0.1rem solid #eeeeee;
+  text-align: center;
+}
+td.vwc {
+  border: 0.1rem solid #eeeeee;
+  background-color: #dddddd;
+  text-align: center;
+}
+td.vwc.activec, th.vwc.activec {
+	background-color: #ffffee;
+  border: 0.2rem solid #bbbb00;
+}
+tr.activer {
+  border: 0.01rem solid #bbbb00;
 }
 
 .scenerow {
