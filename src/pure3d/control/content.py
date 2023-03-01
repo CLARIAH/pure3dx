@@ -1,10 +1,13 @@
-import io
+from io import BytesIO
+import os
 import json
+import yaml
+from tempfile import mkdtemp
 from flask import jsonify
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from control.generic import AttrDict
-from control.files import fileExists, fileRemove, dirExists, dirMake
+from control.files import fileExists, fileRemove, dirExists, dirMake, dirCopy, dirRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
 from control.admin import Admin
@@ -862,7 +865,6 @@ class Content(Datamodel):
             A download response.
         """
         Settings = self.Settings
-        H = Settings.H
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
@@ -878,32 +880,65 @@ class Content(Datamodel):
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
-        (siteId, site, projectId, project, editionId, edition) = self.context()
-
-        path = (
-            ""
-            if project is None
-            else f"project/{projectId}"
-            if edition is None
-            else f"project/{projectId}/edition/{editionId}"
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            table, record
         )
-        sep = "/" if path else ""
-        landing = f"{workingDir}{sep}{path}"
+
+        src = f"{workingDir}/project/{projectId}"
+
+        if edition is not None:
+            src += f"/edition/{editionId}"
+
+        tempBase = f"{workingDir}/temp"
+        dirMake(tempBase)
+        dst = mkdtemp(dir=tempBase)
+        landing = f"{dst}/{recordId}"
         fileName = f"{table}-{recordId}.zip"
-        (good, msg, data) = self.zipThing(landing)
 
-        if good:
-            headers = {
-                "Expires": "0",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Content-Type": "application/zip",
-                "Content-Disposition": f'attachment; filename="{fileName}"',
-                "Content-Encoding": "identity",
-            }
-            return
+        if edition is None:
+            yamlDest = f"{landing}/project.yaml"
+        else:
+            yamlDest = f"{landing}/edition.yaml"
 
-        Messages.warning(logmsg=msg)
-        return jsonify(status=False, msg=msg)
+        dirCopy(src, landing)
+
+        with open(yamlDest, "w") as yh:
+            yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
+
+        if edition is None:
+            editions = Mongo.getList("edition", projectId=projectId)
+            for ed in editions:
+                edId = ed._id
+                yamlDest = f"{landing}/edition/{edId}/edition.yaml"
+                with open(yamlDest, "w") as yh:
+                    yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
+
+        zipBuffer = BytesIO()
+        with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+            def compress(path):
+                sep = "/" if path else ""
+                with os.scandir(f"{landing}{sep}{path}") as dh:
+                    for entry in dh:
+                        name = entry.name
+                        if entry.is_file():
+                            arcFile = f"{path}{sep}{name}"
+                            srcFile = f"{landing}/{arcFile}"
+                            zipFile.write(srcFile, arcFile)
+                        elif entry.is_dir():
+                            compress(f"{path}/{name}")
+            compress("")
+        zipData = zipBuffer.getvalue()
+        dirRemove(dst)
+
+        headers = {
+            "Expires": "0",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{fileName}"',
+            "Content-Encoding": "identity",
+        }
+
+        return (zipData, headers)
 
     def saveFile(self, record, key, path, fileName, givenFileName=None):
         """Saves a file in the context given by a record.
@@ -1007,7 +1042,7 @@ class Content(Datamodel):
         msgs = []
         good = True
         try:
-            zf = io.BytesIO(zf)
+            zf = BytesIO(zf)
             z = ZipFile(zf)
 
             allFiles = 0

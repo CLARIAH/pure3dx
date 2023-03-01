@@ -770,7 +770,8 @@ class Upload:
             buster = (
                 f"?v={now()}" if show and bust is not None and bust == fileName else ""
             )
-            fullPath = f"{workingDir}/{path}{fileName}"
+            fullPath = (f"{workingDir}{sep}{path}").rstrip("/") + f"/{fileName}"
+            self.debug(f"{workingDir=} {sep=} {path=} {fileName=} {fullPath=}")
             exists = fileExists(fullPath)
             content = (
                 fileName,

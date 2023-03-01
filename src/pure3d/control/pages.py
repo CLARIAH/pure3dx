@@ -225,6 +225,8 @@ class Pages:
         action: string, optional None
             The mode in which the viewer is to be used (`read` or `update`).
         """
+        Settings = self.Settings
+        H = Settings.H
         Content = self.Content
         Mongo = self.Mongo
         Auth = self.Auth
@@ -235,9 +237,13 @@ class Pages:
         projectId = edition.projectId
         (projectId, project) = Mongo.get("project", projectId)
         breadCrumb = Content.breadCrumb(project)
+        actionHeading = H.h(3, "Actions")
+        downloadButton = Content.getDownload("edition", edition)
+
         if action is None:
             action = "read"
         action = Auth.makeSafe("edition", edition, action)
+        sceneHeading = H.h(3, "Scene")
         sceneMaterial = (
             ""
             if False and action is None
@@ -246,6 +252,9 @@ class Pages:
         left = (
             breadCrumb
             + Content.getValues("edition", edition, "title@4")
+            + actionHeading
+            + downloadButton
+            + sceneHeading
             + sceneMaterial
         )
         right = Content.getValues(

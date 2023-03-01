@@ -55,20 +55,21 @@ def flashMsg(*args, **kwargs):
     flash(*args, **kwargs)
 
 
-def response(data):
+def response(data, headers=None):
     """Wrap data in a response.
 
     Parameters
     ----------
     data: any
         The data to be transferred in an HTTP response.
+    headers: dict
 
     Returns
     -------
     object
         The HTTP response
     """
-    return make_response(data)
+    return make_response(data) if headers is None else make_response(data, headers)
 
 
 def sendFile(path):

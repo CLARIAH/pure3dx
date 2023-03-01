@@ -1,3 +1,4 @@
+from control.generic import AttrDict
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
@@ -407,3 +408,36 @@ class Mongo:
             result = None
 
         return result
+
+    def consolidate(self, record):
+        """Resolves all links in a record to title values of linked records.
+
+        The `_id` field of the record will be removed.
+        Values of fields with names like `xxxId` will be looked up in table `xxx`,
+        and will be replaced by the value of the `title` field of the found record.
+
+        Parameters
+        ----------
+        record: dict or AttrDict
+            The record data to consolidate.
+
+        Returns
+        -------
+        dict
+            All AttrDict values will be recursively transformed in ordinary dict values.
+        """
+        newRecord = AttrDict()
+
+        for (k, v) in record.items():
+            if k == "_id":
+                continue
+            if k.endswith("Id"):
+                table = k.removesuffix("Id")
+                linkedRecord = self.getRecord(table, _id=v, warn=False, stop=False)
+                v = linkedRecord.title
+                if v is not None:
+                    newRecord[table] = v
+            else:
+                newRecord[k] = v
+
+        return newRecord.deepdict()
