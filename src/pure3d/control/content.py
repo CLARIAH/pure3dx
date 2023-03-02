@@ -1,5 +1,6 @@
 from io import BytesIO
 import os
+from datetime import datetime as dt
 import json
 import yaml
 from tempfile import mkdtemp
@@ -128,7 +129,7 @@ class Content(Datamodel):
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `read`
+        action: string, optional read
             The mode in which the viewer should be opened.
             If the mode is `update`, the viewer is opened in edit mode, if the
             scene file exists, otherwise in create mode,  which, in case
@@ -677,6 +678,51 @@ class Content(Datamodel):
 
         return F.formatted(record, "update" in actions, bust=bust, wrapped=wrapped)
 
+    def getSnapshots(self):
+        """Produce a snapshot button and an overview of existing snapshots.
+
+        Only if it is relevant to the current user in the current run mode.
+        """
+        Auth = self.Auth
+        if not Auth.maySnapshot():
+            return ""
+
+        Settings = self.Settings
+        H = Settings.H
+        Messages = self.Messages
+
+        dataDir = Settings.dataDir
+        snapshotBase = f"{dataDir}/snapshots"
+
+        snapshots = []
+
+        if dirExists(snapshotBase):
+            with os.scandir(snapshotBase) as dh:
+                for entry in dh:
+                    if entry.is_dir():
+                        snapshots.append(entry.name)
+            snapshots = list(reversed(sorted(snapshots)))
+
+        snapshots = (
+            H.small(H.i("No snapshots"))
+            if len(snapshots) == 0
+            else H.div([[H.small(snapshot), H.br()] for snapshot in snapshots])
+        )
+
+        return H.details(
+            H.a(
+                "make snapshot",
+                "/snapshot",
+                title="make a snapshot of all data in files and database",
+                cls="small",
+                **Messages.client(
+                    "info", "wait for snapshot complete ...", replace=True
+                ),
+            ),
+            snapshots,
+            "snapshots",
+        )
+
     def getDownload(self, table, record):
         """Display the name and/or upload controls of an uploaded file.
 
@@ -835,7 +881,7 @@ class Content(Datamodel):
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", bare=True)
         if not text:
-            text = "<i>no title</i>"
+            text = H.i("no title")
 
         return H.p(
             [
@@ -848,6 +894,60 @@ class Content(Datamodel):
                 ),
             ]
         )
+
+    def snapshot(self):
+        """Makes a snapshot of all data of all projects, in files and db.
+
+        A copy of the data of the current run mode is put in the
+        data directory under `snapshots`. The directory name of the snapshot is
+        the current date-time up to the second in iso format, but with the `:`
+        replaced by `-`.
+
+        Below that we have directories:
+
+        *   `files`: contains the complete contents of the working directory of
+            the current run mode.
+        *   `db`: a backup of the complete contents of the MongoDb database of the
+            current run mode.
+            In there again a subdivision:
+
+            * [`bson`](https://www.mongodb.com/basics/bson)
+            * `json`
+
+            The name indicates the file format of the backup.
+            In both cases, the data ends up in folders per collection,
+            and within those folders we have files per document.
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        if not Auth.maySnapshot():
+            Messages.warning(
+                msg="Reset data is not allowed",
+                logmsg=("Reset data is not allowed"),
+            )
+            return False
+
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
+
+        now = dt.utcnow().isoformat(timespec="seconds").replace(":", "-")
+        snapshotDir = f"{dataDir}/snapshots/{now}"
+        dbDest = f"{snapshotDir}/db"
+        fileDest = f"{snapshotDir}/files"
+
+        dirCopy(workingDir, fileDest)
+
+        Messages.info(
+            msg=f"Making snapshot {now}", logmsg=f"Making snapshot to {snapshotDir}"
+        )
+        Messages.info(msg="snapshot of database ...")
+        Mongo.backup(dbDest, asJson=True)
+        Messages.info(msg="snapshot of files ...")
+        Messages.info(msg="snapshot completed.")
 
     def download(self, table, record):
         """Responds with a download of a project or edition.
@@ -868,7 +968,9 @@ class Content(Datamodel):
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+        dataDir = Settings.dataDir
         workingDir = Settings.workingDir
+        runMode = Settings.runMode
 
         (recordId, record) = Mongo.get(table, record)
 
@@ -889,7 +991,8 @@ class Content(Datamodel):
         if edition is not None:
             src += f"/edition/{editionId}"
 
-        tempBase = f"{workingDir}/temp"
+        sep = "/" if dataDir else ""
+        tempBase = f"{dataDir}{sep}temp/{runMode}"
         dirMake(tempBase)
         dst = mkdtemp(dir=tempBase)
         landing = f"{dst}/{recordId}"
@@ -915,6 +1018,7 @@ class Content(Datamodel):
 
         zipBuffer = BytesIO()
         with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+
             def compress(path):
                 sep = "/" if path else ""
                 with os.scandir(f"{landing}{sep}{path}") as dh:
@@ -926,8 +1030,10 @@ class Content(Datamodel):
                             zipFile.write(srcFile, arcFile)
                         elif entry.is_dir():
                             compress(f"{path}/{name}")
+
             compress("")
         zipData = zipBuffer.getvalue()
+
         dirRemove(dst)
 
         headers = {

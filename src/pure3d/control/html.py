@@ -810,7 +810,7 @@ class HtmlElements:
             If missing, the image is not wrapped further.
         title: string, optional, `None`
             Tooltip.
-        imgAtts: dict, optional `{}`
+        imgAtts: dict, optional {}
             Attributes that go to the `<img>` element.
 
         Returns
@@ -1078,6 +1078,23 @@ class HtmlElements:
         """
 
         return HtmlElement("script").wrap(material, **atts)
+
+    @staticmethod
+    def small(material, **atts):
+        """SMALL.
+
+        Small element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("small").wrap(material, **atts)
 
     @staticmethod
     def span(material, **atts):

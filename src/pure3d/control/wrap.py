@@ -78,7 +78,7 @@ class Wrap:
 
             title = project.title
             if not title:
-                title = "<i>no title</i>"
+                title = H("no title")
             stat = project.isVisible
             status = representations.isVisible[stat]
             statusCls = css.isVisible[stat]
@@ -126,7 +126,7 @@ class Wrap:
 
             title = edition.title
             if not title:
-                title = "<i>no title</i>"
+                title = H("no title")
             stat = edition.isPublished
             status = representations.isPublished[stat]
             statusCls = css.isPublished[stat]

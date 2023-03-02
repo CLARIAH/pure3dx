@@ -1,5 +1,29 @@
 /*eslint-env jquery*/
 
+const flashInit = () => {
+  const dismiss = $("#flashdismiss")
+  const msgbar = $("#msgbar")
+
+  dismiss.off("click").click(() => {
+    const msgs = msgbar.children("span")
+    msgs.remove()
+    dismiss.hide()
+  })
+  flashUpdate()
+}
+
+const flashUpdate = () => {
+  const msgbar = $("#msgbar")
+  const dismiss = $("#flashdismiss")
+  const msgs = msgbar.children("span")
+  if (msgs.length) {
+    dismiss.show()
+  }
+  else {
+    dismiss.hide()
+  }
+}
+
 const addMsg = (tp, msg, replace = false) => {
   const msgbar = $("#msgbar")
   const html = `<span class="msgitem ${tp}">${msg}</span>`
@@ -346,8 +370,7 @@ const linkUser = (linkuser, topContent) => {
       cancelButton.show()
       if (currentRole != origRole && currentUser != origUser) {
         saveButton.show()
-      }
-      else {
+      } else {
         saveButton.hide()
       }
     }
@@ -366,8 +389,7 @@ const linkUser = (linkuser, topContent) => {
     modalizeButtons(false)
     if (currentRole == origRole && currentUser == origUser) {
       cancelButton.hide()
-    }
-    else {
+    } else {
       cancelButton.show()
     }
     saveButton.show()
@@ -586,13 +608,12 @@ const uploadControl = fupload => {
               const { status, msg, content } = response
               if (status) {
                 addMsg("good", "uploaded", true)
-                for (const m of msg.split("\n")) { 
+                for (const m of msg.split("\n")) {
                   addMsg("info", m, false)
                 }
                 fuploadJQ.html(content)
                 uploadControl(fupload)
-              }
-              else {
+              } else {
                 addMsg("error", msg, true)
               }
               stat.processed = true
@@ -628,4 +649,5 @@ $(() => {
   uploadControls()
   editWidgets()
   processMyWork()
+  flashInit()
 })

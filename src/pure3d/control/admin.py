@@ -534,7 +534,7 @@ class Admin:
         )
         title = project.title
         if not title:
-            title = "<i>no title</i>"
+            title = H.i("no title")
 
         return H.div(
             [
@@ -585,7 +585,7 @@ class Admin:
 
         title = edition.title
         if not title:
-            title = "<i>no title</i>"
+            title = H.i("no title")
 
         return H.div(
             [

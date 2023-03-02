@@ -446,14 +446,20 @@ class Config:
                     """
                 )
             )
-            resetDataLink = H.a(
-                "reset data",
-                "/collect",
-                title="reset data to initial state",
-                cls="small",
-                **Messages.client(
-                    "info", "wait for data reset to complete ...", replace=True
-                ),
+            dataLink = (
+                H.a(
+                    "reset data",
+                    "/collect",
+                    title="reset data to initial state",
+                    cls="small",
+                    **Messages.client(
+                        "info", "wait for data reset to complete ...", replace=True
+                    ),
+                )
+                if runMode == "test"
+                else "«snapshots»"
+                if runMode == "pilot"
+                else ""
             )
             issueLink = H.a(
                 "issues",
@@ -463,7 +469,7 @@ class Config:
                 target="_blank",
             )
             banner = H.div(
-                [content, issueLink, resetDataLink], id="statusbanner", cls=runMode
+                [content, issueLink, dataLink], id="statusbanner", cls=runMode
             )
 
         Settings.banner = banner

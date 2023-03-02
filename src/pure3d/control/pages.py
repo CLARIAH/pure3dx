@@ -46,12 +46,40 @@ class Pages:
 
     def collect(self):
         """Data reset: collect the example data again."""
+        Settings = self.Settings
         Collect = self.Collect
         Messages = self.Messages
+        runMode = Settings.runMode
+
+        if runMode != "test":
+            Messages.warning(
+                msg="Reset data is not allowed in this mode",
+                logmsg=f"Reset data is not allowed in mode {runMode}",
+            )
+            ref = getReferrer().removeprefix("/")
+            return redirectStatus(f"/{ref}", False)
 
         Collect.fetch()
         Messages.info(msg="data reset done!")
         return redirectStatus("/home", True)
+
+    def snapshot(self):
+        """Snapshot: Save all file and database data in a snapshot directory."""
+        Messages = self.Messages
+        Content = self.Content
+        Auth = self.Auth
+
+        if not Auth.maySnapshot():
+            Messages.warning(
+                msg="Reset data is not allowed",
+                logmsg=("Reset data is not allowed"),
+            )
+            ref = getReferrer().removeprefix("/")
+            return redirectStatus(f"/{ref}", False)
+
+        good = Content.snapshot()
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
 
     def home(self):
         """The site-wide home page."""
@@ -542,7 +570,7 @@ class Pages:
 
         return renderTemplate(
             "index",
-            banner=Settings.banner,
+            banner=Settings.banner.replace("«snapshots»", Content.getSnapshots()),
             versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left or "",

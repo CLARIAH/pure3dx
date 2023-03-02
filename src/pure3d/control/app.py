@@ -75,8 +75,22 @@ def appFactory(objects):
 
     @app.route("/collect")
     def collect():
-        """Reset the database to reflect the pristine example data."""
+        """Reset the database to reflect the pristine example data.
+
+        Works only in test mode, can be invoked by any user.
+        """
         return Pages.collect()
+
+    @app.route("/snapshot")
+    def snapshot():
+        """Makes a snapshot of all files and database data.
+
+        The snapshot is stored on the data share of the server,
+        under a name that reflects the current date-time.
+
+        Works only in pilot mode, when an admin is logged in.
+        """
+        return Pages.snapshot()
 
     @app.route("/")
     @app.route("/home")

@@ -318,6 +318,16 @@ class Auth(Users):
 
         return allowedActions if action is None else allowedActions.get(action, False)
 
+    def maySnapshot(self):
+        """Whether the current user is allowed to make snapshots.
+
+        Snapshots are only allowed in run mode pilot by power users.
+        """
+        Settings = self.Settings
+        runMode = Settings.runMode
+        User = self.myDetails()
+        return runMode == "pilot" and User.role in {"admin", "root"}
+
     def makeSafe(self, table, record, action):
         """Changes an update action into a read action if needed.
 

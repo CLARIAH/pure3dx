@@ -1,8 +1,9 @@
-from control.generic import AttrDict
+from bson import ObjectId, BSON
+from bson.json_util import dumps as dumpjs
 from pymongo import MongoClient
-from bson.objectid import ObjectId
 
-from control.generic import deepAttrDict
+from control.generic import AttrDict, deepAttrDict
+from control.files import dirMake
 
 
 class Mongo:
@@ -255,7 +256,10 @@ class Mongo:
         result = self.execute(table, "find_one", criteria, {}, stop=stop)
         if result is None:
             if warn:
-                Messages.warning(msg=f"Could not find that {table}", logmsg=f"No record in {table} with {criteria}")
+                Messages.warning(
+                    msg=f"Could not find that {table}",
+                    logmsg=f"No record in {table} with {criteria}",
+                )
             result = {}
         return deepAttrDict(result)
 
@@ -332,7 +336,9 @@ class Mongo:
         boolean
             Whether the update was successful
         """
-        result = self.execute(table, "update_one", criteria, {"$set": updates}, stop=stop)
+        result = self.execute(
+            table, "update_one", criteria, {"$set": updates}, stop=stop
+        )
         n = result.modified_count
         return n > 0
 
@@ -441,3 +447,60 @@ class Mongo:
                 newRecord[k] = v
 
         return newRecord.deepdict()
+
+    def backup(self, dstBase, asJson=False):
+        """Backs up the database as document files in collection folders.
+
+        This function backs up database data in
+        [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
+
+        Parameters
+        ----------
+        dst: string
+            Destination folder.
+            This folder will get subforlders `bson` and/or `json` in which
+            the backups are stored.
+        asJson: boolean, optional False
+            Whether to create a backup in `json` format
+        asBson: boolean, optional True
+            Whether to create a backup in `bson` format
+        """
+        Messages = self.Messages
+        self.connect()
+        db = self.db
+        collections = db.list_collection_names()
+
+        dst = {}
+
+        for fmt in ("bson", "json"):
+            if fmt == "json" and not asJson:
+                continue
+            dst[fmt] = f"{dstBase}/{fmt}"
+            dirMake(dst[fmt])
+
+        dstb = dst["bson"]
+        if asJson:
+            dstj = dst["json"]
+            jsonOptions = dict(ensure_ascii=False, indent=2, sort_keys=True)
+
+        for collection in collections:
+            n = 0
+            with open(f"{dstb}/{collection}.bson", "wb") as bh:
+                if asJson:
+                    jh = open(f"{dstj}/{collection}.json", "w+")
+                    jh.write("[\n")
+
+                sep = ""
+                for doc in db[collection].find():
+                    bh.write(BSON.encode(doc))
+                    n += 1
+                    if asJson:
+                        jh.write(sep)
+                        jh.write(dumpjs(doc, **jsonOptions))
+                    sep = ",\n"
+
+                if asJson:
+                    jh.write("\n]\n")
+                    jh.close()
+
+            Messages.info(msg=f"collection {collection} {n} document(s)")

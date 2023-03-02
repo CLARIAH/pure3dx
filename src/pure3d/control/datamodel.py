@@ -510,7 +510,7 @@ class Field:
         key = self.key
 
         bare = self.bare(record)
-        bareRep = bare or f"<i>no {key}</i>"
+        bareRep = bare or H.i(f"no {key}")
 
         if tp == "text":
             readonlyContent = markdown(bareRep, tight=False)
@@ -771,7 +771,6 @@ class Upload:
                 f"?v={now()}" if show and bust is not None and bust == fileName else ""
             )
             fullPath = (f"{workingDir}{sep}{path}").rstrip("/") + f"/{fileName}"
-            self.debug(f"{workingDir=} {sep=} {path=} {fileName=} {fullPath=}")
             exists = fileExists(fullPath)
             content = (
                 fileName,
