@@ -227,7 +227,7 @@ class Users:
         """Make sure who is the current user.
 
         Checks whether there is a current user and whether that user is fully known,
-        i.e. in the users collection of the mongoDb.
+        i.e. in the users table of the mongoDb.
 
         If there is a current user that is unknown to the database, the current user
         will be cleared.
@@ -474,7 +474,7 @@ class Users:
         return redirectStatus(f"/afterlogin/referrer/{referrer}", True)
 
     def __findSpecialUser(self, user):
-        """Lookup data of a test/pilot user in the MongoDb users collection.
+        """Lookup data of a test/pilot user in the MongoDb user table.
 
         The user is looked up by the `user` field.
 
@@ -507,7 +507,7 @@ class Users:
         return True
 
     def __findUser(self, user, update=False):
-        """Lookup user data in the MongoDb users collection.
+        """Lookup user data in the MongoDb user table.
 
         The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from

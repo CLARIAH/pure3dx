@@ -45,7 +45,17 @@ class Pages:
         self.Auth = Auth
 
     def collect(self):
-        """Data reset: collect the example data again."""
+        """Data reset: collect the example data again.
+
+        After the operation:
+
+        *   *success*: goes to home page, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
         Settings = self.Settings
         Collect = self.Collect
         Messages = self.Messages
@@ -63,33 +73,135 @@ class Pages:
         Messages.info(msg="data reset done!")
         return redirectStatus("/home", True)
 
-    def snapshot(self):
-        """Snapshot: Save all file and database data in a snapshot directory."""
+    def mkBackup(self, project=None):
+        """Backup: Save file and database data in a backup directory.
+
+        Parameters
+        ----------
+        project: string, optional None
+            If given, only backs up the given project.
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
         Messages = self.Messages
         Content = self.Content
         Auth = self.Auth
 
-        if not Auth.maySnapshot():
+        if not Auth.mayBackup(project=project):
             Messages.warning(
-                msg="Reset data is not allowed",
-                logmsg=("Reset data is not allowed"),
+                msg="Making a backup is not allowed",
+                logmsg=("Making a backup is not allowed"),
             )
             ref = getReferrer().removeprefix("/")
             return redirectStatus(f"/{ref}", False)
 
-        good = Content.snapshot()
+        good = Content.mkBackup(project=project)
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
+    def restore(self, backup, project=None):
+        """Restore from a backup. Make a new backup first.
+
+        After the operation:
+
+        *   *success*:
+            *   site-wide restore: goes to logout url, good status
+            *   project-specific restore: goes to project url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Parameters
+        ----------
+        backup: string
+            The name of the backup as stored in the backups directory on the server.
+        project: string, optional None
+            If given, restores the given project.
+
+        Returns
+        -------
+        response
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get("project", project)
+
+        if not Auth.mayBackup(project=project):
+            Messages.warning(
+                msg="Restoring from a backup is not allowed",
+                logmsg=("Restoring from a backup is not allowed"),
+            )
+            ref = getReferrer().removeprefix("/")
+            return redirectStatus(f"/{ref}", False)
+        good = Content.restore(backup, project=project)
+        back = "/logout" if project is None else f"/project/{projectId}"
+        return redirectStatus(back, good)
+
+    def delBackup(self, backup, project=None):
+        """Deletes a backup.
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Parameters
+        ----------
+        backup: string
+            The name of the backup as stored in the backups directory on the server.
+        project: string, optional None
+            If given, deletes a backup of the given project.
+
+        Returns
+        -------
+        response
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Content = self.Content
+        Auth = self.Auth
+
+        (projectId, project) = Mongo.get("project", project)
+
+        ref = getReferrer().removeprefix("/")
+        back = f"/{ref}"
+
+        if not Auth.mayBackup(project=project):
+            Messages.warning(
+                msg="Deleting a backup is not allowed",
+                logmsg=("Deleting a backup is not allowed"),
+            )
+            return redirectStatus(back, False)
+        good = Content.delBackup(backup, project=project)
+        return redirectStatus(back, good)
+
     def home(self):
-        """The site-wide home page."""
+        """The site-wide home page.
+
+        Returns
+        -------
+        response
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
-        """The site-wide about page."""
+        """The site-wide about page.
+
+        Returns
+        -------
+        response
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
@@ -97,7 +209,12 @@ class Pages:
         return self.page("about", left=left, right=right)
 
     def surprise(self):
-        """The "surprise me!" page."""
+        """The "surprise me!" page.
+
+        Returns
+        -------
+        response
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         surpriseMe = Content.getSurprise()
@@ -106,7 +223,12 @@ class Pages:
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
-        """The page with the list of projects."""
+        """The page with the list of projects.
+
+        Returns
+        -------
+        response
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         projects = Content.getProjects()
@@ -114,7 +236,12 @@ class Pages:
         return self.page("projects", left=left)
 
     def admin(self):
-        """The page with the list of projects, editions, and users."""
+        """The page with the list of projects, editions, and users.
+
+        Returns
+        -------
+        response
+        """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
         items = Content.getAdmin()
@@ -125,6 +252,18 @@ class Pages:
         """Creates a project and shows the new project.
 
         The current user is linked to this project as organiser.
+
+        After the operation:
+
+        *   *success*: goes to new project url, good status
+        *   *failure*: goes to all projects url, error status
+
+        Returns
+        -------
+        response
+        Returns
+        -------
+        response
         """
         Messages = self.Messages
         Content = self.Content
@@ -151,6 +290,10 @@ class Pages:
         ----------
         project: string | ObjectId | AttrDict
             The project in question.
+
+        Returns
+        -------
+        response
         """
         Settings = self.Settings
         H = Settings.H
@@ -159,12 +302,14 @@ class Pages:
         (projectId, project) = Mongo.get("project", project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("project", project)
+        backups = Content.getBackups(project=project)
         editionHeading = H.h(3, "Editions")
         editions = Content.getEditions(project)
         left = (
             Content.getValues("project", project, "title@3 + creator@0")
             + actionHeading
             + downloadButton
+            + backups
             + editionHeading
             + editions
         )
@@ -178,10 +323,22 @@ class Pages:
     def deleteProject(self, project):
         """Deletes a project.
 
+        After the operation:
+
+        *   *success*: goes to all projects url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
         Parameters
         ----------
         project: string | ObjectId | AttrDict
             The project in question.
+
+        Returns
+        -------
+        response
         """
         Messages = self.Messages
         Mongo = self.Mongo
@@ -193,22 +350,38 @@ class Pages:
 
         if result:
             Messages.info(logmsg=f"Deleted project {projectId}", msg="project deleted")
+            back = "/project"
         else:
             Messages.warning(
                 logmsg=f"Could not delete project {projectId}",
                 msg="failed to delete project",
             )
-        return redirectStatus("/project", True)
+            ref = getReferrer().removeprefix("/")
+            back = f"/{ref}"
+
+        return redirectStatus(back, True)
 
     def createEdition(self, project):
         """Inserts an edition into a project and shows the new edition.
 
         The current user is linked to this edition as editor.
 
+        After the operation:
+
+        *   *success*: goes to new edition url, good status
+        *   *failure*: goes to project url, error status
+
+        Returns
+        -------
+        response
         Parameters
         ----------
         project: string | ObjectId | AttrDict
             The project to which the edition belongs.
+
+        Returns
+        -------
+        response
         """
         Messages = self.Messages
         Mongo = self.Mongo
@@ -252,6 +425,10 @@ class Pages:
             The viewer version to use.
         action: string, optional None
             The mode in which the viewer is to be used (`read` or `update`).
+
+        Returns
+        -------
+        response
         """
         Settings = self.Settings
         H = Settings.H
@@ -295,10 +472,22 @@ class Pages:
     def deleteEdition(self, edition):
         """Deletes an edition.
 
+        After the operation:
+
+        *   *success*: goes to project url, good status
+        *   *failure*: goes to back referrer url, error status
+
+        Returns
+        -------
+        response
         Parameters
         ----------
         edition: string | ObjectId | AttrDict
             The edition in question.
+
+        Returns
+        -------
+        response
         """
         Messages = self.Messages
         Mongo = self.Mongo
@@ -311,12 +500,15 @@ class Pages:
 
         if result:
             Messages.info(logmsg=f"Deleted edition {editionId}", msg="edition deleted")
+            back = f"/project/{projectId}"
         else:
             Messages.warning(
                 logmsg=f"Could not delete edition {editionId}",
                 msg="failed to delete edition",
             )
-        return redirectStatus(f"/project/{projectId}", True)
+            ref = getReferrer().removeprefix("/")
+            back = f"/{ref}"
+        return redirectStatus(back, True)
 
     def viewerFrame(self, edition, version, action, subMode):
         """The page loaded in an iframe where a 3D viewer operates.
@@ -331,6 +523,10 @@ class Pages:
             The mode in which the viewer is to be used (`read` or `update`).
         subMode: string | None
             The sub mode in which the viewer is to be used (`update` or `create`).
+
+        Returns
+        -------
+        response
         """
         Content = self.Content
         Mongo = self.Mongo
@@ -369,7 +565,7 @@ class Pages:
         response
             The response consists of the contents of the
             file plus headers derived from the path.
-            If the file does not exists, a 404 is returned.
+            If the file does not exist, a 404 is returned.
         """
         Content = self.Content
 
@@ -405,7 +601,7 @@ class Pages:
         response
             The response consists of the contents of the
             file plus headers derived from the path.
-            If the file does not exists, a 404 is returned.
+            If the file does not exist, a 404 is returned.
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant(project=project, edition=edition)
@@ -427,6 +623,12 @@ class Pages:
         givenFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if is None, the file will be saved with the name from the request.
+
+        Returns
+        -------
+        response
+            With json data containing a status and a content member.
+            The content is new content to display the upload widget with.
         """
         Content = self.Content
 
@@ -451,6 +653,12 @@ class Pages:
             The location of the file.
         givenFileName: string, optional None
             The name of the file.
+
+        Returns
+        -------
+        response
+            With json data containing a status, msg, and content members.
+            The content is new content to display the upload widget with.
         """
         Content = self.Content
 
@@ -568,9 +776,12 @@ class Pages:
         iconSite = Content.getUpload(record, "iconSite")
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
 
+        banner = Settings.banner.replace(
+            "«backups»", Content.getBackups(project=None)
+        )
         return renderTemplate(
             "index",
-            banner=Settings.banner.replace("«snapshots»", Content.getSnapshots()),
+            banner=banner,
             versionInfo=Settings.versionInfo,
             navigation=navigation,
             materialLeft=left or "",

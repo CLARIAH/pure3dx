@@ -86,7 +86,7 @@ class Admin:
         self.update()
 
     def update(self):
-        """Reread the collections of users, projects, editions.
+        """Reread the tables of users, projects, editions.
 
         Typically needed when you have used an admin function to perform
         a user administration action.

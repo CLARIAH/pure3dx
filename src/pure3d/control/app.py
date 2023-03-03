@@ -81,16 +81,63 @@ def appFactory(objects):
         """
         return Pages.collect()
 
-    @app.route("/snapshot")
-    def snapshot():
-        """Makes a snapshot of all files and database data.
+    @app.route("/backup/<string:project>")
+    @app.route("/backup/", defaults={"project": None})
+    def mkBackup(project=None):
+        """Makes a backup of files and database data.
 
-        The snapshot is stored on the data share of the server,
+        The backup is stored on the data share of the server,
         under a name that reflects the current date-time.
 
-        Works only in pilot mode, when an admin is logged in.
+        It is possible to restrict the backup to a single project.
+
+        Works only in pilot mode.
+
+        *   power users can backup the whole shebang;
+        *   project organisers can backup their own projects;
+        *   power users can backup all projects.
         """
-        return Pages.snapshot()
+        return Pages.mkBackup(project=project)
+
+    @app.route("/restore/<string:backup>/<string:project>")
+    @app.route("/restore/<string:backup>/", defaults={"project": None})
+    def restore(backup, project=None):
+        """Restores a backup.
+
+        The chosen backup should be stored on the data share of the server under a name
+        that reflects the current date-time.
+
+        !!! note "New backup"
+            First a new backup of the current data will be made,
+            so you can revert if you accidentally performed a restore.
+
+        It is possible to restrict to backups of a single project.
+
+        Works only in pilot mode.
+
+        *   power users can restore the whole shebang;
+        *   project organisers can restore their own projects;
+        *   power users can restore all projects.
+        """
+        return Pages.restore(backup, project=project)
+
+    @app.route("/delbackup/<string:backup>/<string:project>")
+    @app.route("/delbackup/<string:backup>/", defaults={"project": None})
+    def delBackup(backup, project=None):
+        """Deletes a backup.
+
+        The chosen backup should be stored on the data share of the server under a name
+        that reflects the current date-time.
+
+        It is possible to restrict to backups of a single project.
+
+        Works only in pilot mode.
+
+        *   power users can delete backups of the whole shebang;
+        *   project organisers can delete backups of their own projects;
+        *   power users can delete backups of all projects.
+        """
+        return Pages.delBackup(backup, project=project)
 
     @app.route("/")
     @app.route("/home")

@@ -318,15 +318,45 @@ class Auth(Users):
 
         return allowedActions if action is None else allowedActions.get(action, False)
 
-    def maySnapshot(self):
-        """Whether the current user is allowed to make snapshots.
+    def mayBackup(self, project=None):
+        """Whether the current user is allowed to make backups.
 
-        Snapshots are only allowed in run mode pilot by power users.
+        *   Backups are only allowed in pilot mode.
+        *   Site-wide backups are only allowed for power users.
+        *   Project backups are only allowed for project organisers and (power users).
+
+        Parameters
+        ----------
+        project: AttrDict | ObjectId | string, optional None
+            If None, we deal with site-wide backup.
+            Otherwise we get the backups of this project.
+
+        Returns
+        -------
+        boolean
+            whether the relevant backup/restore actions are allowed.
         """
         Settings = self.Settings
         runMode = Settings.runMode
+
+        if runMode != "pilot":
+            return False
+
         User = self.myDetails()
-        return runMode == "pilot" and User.role in {"admin", "root"}
+
+        if User.role in {"admin", "root"}:
+            return True
+
+        if project is None:
+            return False
+
+        Mongo = self.Mongo
+        (projectId, project) = Mongo.get("project", project)
+        user = User.user
+        projectUser = Mongo.getRecord(
+            "projectUser", user=user, projectId=projectId, warn=False
+        )
+        return projectUser.role == "organiser"
 
     def makeSafe(self, table, record, action):
         """Changes an update action into a read action if needed.

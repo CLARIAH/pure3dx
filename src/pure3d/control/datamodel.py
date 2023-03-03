@@ -325,7 +325,7 @@ class Field:
 
         A Field object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the value of the field from
         a specific record.
@@ -380,7 +380,7 @@ class Field:
         """The value type of the field.
 
         Value types can be string, integer, but also date times, and values
-        from an other collection (value lists).
+        from an other table (value lists).
         """
 
         self.caption = key
@@ -582,7 +582,7 @@ class Upload:
 
         A Upload object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the file name of an upload from
         a specific record.

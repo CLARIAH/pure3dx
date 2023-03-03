@@ -291,15 +291,15 @@ class Config:
         When a user deletes a record that is linked to another record by means
         of a coupling record, the coupling record must be deleted automatically.
 
-        Fields are bits of data that are stored in parts of documents
-        in MongoDb collections.
+        Fields are bits of data that are stored in parts of records
+        in MongoDb tables.
 
         Fields have several properties which we summarize under a key.
         So if we know the key of a field, we have access to all of its
         properties.
 
         The properties `nameSpave` and `fieldPath` determine how to drill
-        down in a document in order to find the value of that field.
+        down in a record in order to find the value of that field.
 
         The property `tp` is the data type of the field, default `string`.
 
@@ -457,7 +457,7 @@ class Config:
                     ),
                 )
                 if runMode == "test"
-                else "«snapshots»"
+                else "«backups»"
                 if runMode == "pilot"
                 else ""
             )

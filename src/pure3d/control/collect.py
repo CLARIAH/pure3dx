@@ -125,13 +125,13 @@ class Collect:
         self.doWorkflow()
 
     def clearDb(self):
-        """Clears selected collections in the MongoDb.
+        """Clears selected tables in the MongoDb.
 
-        All collections that will be filled with data from the filesystem
+        All tables that will be filled with data from the filesystem
         will be wiped.
 
-        !!! "Users collection will be wiped in test/pilot mode"
-            If in test/pilot mode, the `users` collection will be wiped,
+        !!! "Users table will be wiped in test/pilot mode"
+            If in test/pilot mode, the `users` table will be wiped,
             and then filled from the example data.
         """
         Settings = self.Settings
@@ -139,14 +139,14 @@ class Collect:
 
         tables = Settings.datamodel.tables
 
-        collections = set(Mongo.collections())
-
-        for table in collections:
-            if table not in tables:
-                Mongo.clearCollection(table, delete=True)
+        tables = set(Mongo.collections())
 
         for table in tables:
-            Mongo.clearCollection(table, delete=False)
+            if table not in tables:
+                Mongo.clearTable(table, delete=True)
+
+        for table in tables:
+            Mongo.clearTable(table, delete=False)
 
     def doOuter(self):
         """Collects data not belonging to specific projects."""
