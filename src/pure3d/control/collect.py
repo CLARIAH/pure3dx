@@ -139,7 +139,7 @@ class Collect:
 
         tables = Settings.datamodel.tables
 
-        tables = set(Mongo.collections())
+        tables = set(Mongo.tables())
 
         for table in tables:
             if table not in tables:

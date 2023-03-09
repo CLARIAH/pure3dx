@@ -363,7 +363,7 @@ class Field:
         metadata, we expect that metadata to exist under key `dc` in that record.
 
         If the namespace is `""`, it is assumed that we can dig up the values without
-        going into a namespace subdocument first.
+        going into a namespace sub-record first.
         """
 
         self.fieldPath = key
