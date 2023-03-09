@@ -8,21 +8,21 @@ Usage
 Run it from the /src directory in the repo.
 
 Set the env variable runmode to test if you want test mode,
+and to pilot if you want pilotmode,
 otherwise production mode is assumed.
 
 ./start.sh
 "
 
 flaskdebug=""
-flasktest=""
 flaskhost="0.0.0.0"
 
 if [[ "$runmode" == "test" ]]; then
     flaskdebug="--debug"
-    flasktest="test"
+elif [[ "$runmode" == "pilot" ]]; then
+    flaskdebug="--debug"
 else
     flaskdebug=""
-    flasktest=""
 fi
 
 
@@ -35,9 +35,9 @@ fi
 
 cd src/pure3d
 
-export flasktest
 export flaskdebug
 export repodir
+export runmode
 export FLASK_APP=index
 export WERKZEUG_DEBUG_PIN=off
 

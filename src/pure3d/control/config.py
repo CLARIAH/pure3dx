@@ -2,7 +2,7 @@ from textwrap import dedent
 from subprocess import check_output
 
 from control.generic import AttrDict
-from control.files import dirExists, fileExists, readYaml, readPath, listDirs
+from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
 from control.html import HtmlElements
 
@@ -56,8 +56,8 @@ class Config:
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
-            self.checkData,
             self.checkModes,
+            self.checkData,
             self.checkMongo,
             self.checkSettings,
             self.checkDatamodel,
@@ -118,20 +118,50 @@ class Config:
         Settings = self.Settings
         H = Settings.H
         repoDir = Settings.repoDir
+        versionFile = f"{repoDir}/VERSION.txt"
 
-        (long, short) = tuple(
-            check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
-            .decode("ascii")
-            .strip()
-            for args in ([], ["--short"])
-        )
+        try:
+            actual = True
+            (long, short) = tuple(
+                check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
+                .decode("ascii")
+                .strip()
+                for args in ([], ["--short"])
+            )
+            with open(versionFile, "w") as fh:
+                fh.write(f"{long}\t{short}\n")
+        except Exception:
+            actual = False
+            if not fileExists(versionFile):
+                known = False
+                (long, short) = ("", "")
+            else:
+                known = True
+                with open(versionFile) as fh:
+                    try:
+                        (long, short) = fh.read().strip().split("\t")
+                    except Exception:
+                        known = False
+                        (long, short) = ("", "")
+
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        title = "visit the running code on GitHub"
+        if actual:
+            label1 = "this version"
+            text = f"this version is {short}"
+        else:
+            if known:
+                label1 = "previous version"
+                text = f"previous version was {short}"
+            else:
+                label1 = "latest version"
+                text = "unknown version, go to latest version"
+
+        title = f"visit {label1} of the code on GitHub"
         gitLocation = var("gitlocation").removesuffix(".git")
-        href = f"{gitLocation}/tree/{long}"
-        Settings.versionInfo = H.a(short, href, target="_blank", title=title)
+        href = f"{gitLocation}/tree/{long}" if long else gitLocation
+        Settings.versionInfo = H.a(text, href, target="_blank", title=title)
 
     def checkSecret(self):
         """Obtain a secret.
@@ -166,49 +196,33 @@ class Config:
 
         Settings.secret_key = readPath(secretFileLoc)
 
-    def checkData(self):
-        """Get the location of the project data on the file system."""
-        Messages = self.Messages
-        Settings = self.Settings
-
-        dataDir = var("DATA_DIR")
-
-        if dataDir is None:
-            Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
-            self.good = False
-            return
-
-        dataDir = dataDir.rstrip("/")
-        sep = "/" if dataDir else ""
-        workingDir = f"{dataDir}{sep}working"
-
-        if not dirExists(dataDir):
-            Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
-            self.good = False
-            return
-
-        Settings.dataDir = dataDir
-        Settings.workingDir = workingDir
-
-        # are we in test mode?
-
     def checkModes(self):
-        """Determine whether flask is running in test/debug or production mode."""
+        """Determine whether flask is running in test/pilot or production mode."""
         Messages = self.Messages
         Settings = self.Settings
 
-        testMode = var("flasktest")
-        if testMode is None:
-            Messages.error(logmsg="Environment variable `flasktest` not defined")
+        runMode = var("runmode")
+        if runMode is None:
+            Messages.error(logmsg="Environment variable `runmode` not defined")
             self.good = False
             return
 
-        Settings.testMode = testMode == "test"
-        """With test mode enabled.
+        Settings.runMode = runMode if runMode in {"test", "pilot"} else {"prod"}
+        """In which mode the app runs.
 
-        This means that there is a row of test users on the interface,
-        and that you can log in as one of these users with a single click,
-        without any kind of authentication.
+        Values are:
+
+        *   `test`:
+            The app works with the example data.
+            There is a row of test users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `pilot`:
+            The app works with the pilot data.
+            There is a row of pilot users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   All other run modes count as production mode, `prod`.
         """
 
         debugMode = var("flaskdebug")
@@ -223,6 +237,32 @@ class Config:
         This means that the unminified, development versions of the javascript libraries
         of the 3D viewers are loaded, instead of the production versions.
         """
+
+    def checkData(self):
+        """Get the location of the project data on the file system."""
+        Messages = self.Messages
+        Settings = self.Settings
+        runMode = Settings.runMode
+
+        dataDir = var("DATA_DIR")
+
+        if dataDir is None:
+            Messages.error(logmsg="Environment variable `DATA_DIR` not defined")
+            self.good = False
+            return
+
+        dataDir = dataDir.rstrip("/")
+        sep = "/" if dataDir else ""
+        workingDir = f"{dataDir}{sep}working/{runMode}"
+
+        if not dirExists(dataDir):
+            Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
+            self.good = False
+            return
+
+        dirMake(workingDir)
+        Settings.dataDir = dataDir
+        Settings.workingDir = workingDir
 
     def checkMongo(self):
         """Obtain the connection details for MongDB.
@@ -281,15 +321,15 @@ class Config:
         When a user deletes a record that is linked to another record by means
         of a coupling record, the coupling record must be deleted automatically.
 
-        Fields are bits of data that are stored in parts of documents
-        in MongoDb collections.
+        Fields are bits of data that are stored in parts of records
+        in MongoDb tables.
 
         Fields have several properties which we summarize under a key.
         So if we know the key of a field, we have access to all of its
         properties.
 
         The properties `nameSpave` and `fieldPath` determine how to drill
-        down in a document in order to find the value of that field.
+        down in a record in order to find the value of that field.
 
         The property `tp` is the data type of the field, default `string`.
 
@@ -409,6 +449,7 @@ class Config:
         H = Settings.H
         Messages = self.Messages
         wip = var("devstatus")
+        runMode = Settings.runMode
 
         banner = ""
 
@@ -416,21 +457,39 @@ class Config:
             content = H.span(
                 dedent(
                     """
+                    This site runs in Test Mode.
+                    Data you enter can be erased without warning.
+                    """
+                )
+                if runMode == "test"
+                else dedent(
+                    """
+                    This site runs in Pilot Mode.
+                    Data you enter will be saved, but might be inaccessible during
+                    periods of further development.
+                    """
+                )
+                if runMode == "pilot"
+                else dedent(
+                    """
                     This site is Work in Progress.
-                    Use it only for testing.
-                    All work you commit to this site can be erased
-                    without warning.
                     """
                 )
             )
-            resetDataLink = H.a(
-                "reset data",
-                "/collect",
-                title="reset data to initial state",
-                cls="small",
-                **Messages.client(
-                    "info", "wait for data reset to complete ...", replace=True
-                ),
+            dataLink = (
+                H.a(
+                    "reset data",
+                    "/collect",
+                    title="reset data to initial state",
+                    cls="small",
+                    **Messages.client(
+                        "info", "wait for data reset to complete ...", replace=True
+                    ),
+                )
+                if runMode == "test"
+                else "«backups»"
+                if runMode == "pilot"
+                else ""
             )
             issueLink = H.a(
                 "issues",
@@ -439,6 +498,8 @@ class Config:
                 cls="large",
                 target="_blank",
             )
-            banner = H.div([content, issueLink, resetDataLink], id="statusbanner")
+            banner = H.div(
+                [content, issueLink, dataLink], id="statusbanner", cls=runMode
+            )
 
         Settings.banner = banner

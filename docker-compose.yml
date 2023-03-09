@@ -13,8 +13,6 @@ services:
     environment:
       SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
-      docollect: ${docollect}
-      initdata: ${initdata}
       runmode: ${runmode}
       devstatus: ${devstatus}
       gitlocation: ${gitlocation}

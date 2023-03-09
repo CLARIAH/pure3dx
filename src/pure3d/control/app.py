@@ -75,8 +75,69 @@ def appFactory(objects):
 
     @app.route("/collect")
     def collect():
-        """Reset the database to reflect the pristine example data."""
+        """Reset the database to reflect the pristine example data.
+
+        Works only in test mode, can be invoked by any user.
+        """
         return Pages.collect()
+
+    @app.route("/backup/<string:project>")
+    @app.route("/backup/", defaults={"project": None})
+    def mkBackup(project=None):
+        """Makes a backup of files and database data.
+
+        The backup is stored on the data share of the server,
+        under a name that reflects the current date-time.
+
+        It is possible to restrict the backup to a single project.
+
+        Works only in pilot mode.
+
+        *   power users can backup the whole shebang;
+        *   project organisers can backup their own projects;
+        *   power users can backup all projects.
+        """
+        return Pages.mkBackup(project=project)
+
+    @app.route("/restore/<string:backup>/<string:project>")
+    @app.route("/restore/<string:backup>/", defaults={"project": None})
+    def restore(backup, project=None):
+        """Restores a backup.
+
+        The chosen backup should be stored on the data share of the server under a name
+        that reflects the current date-time.
+
+        !!! note "New backup"
+            First a new backup of the current data will be made,
+            so you can revert if you accidentally performed a restore.
+
+        It is possible to restrict to backups of a single project.
+
+        Works only in pilot mode.
+
+        *   power users can restore the whole shebang;
+        *   project organisers can restore their own projects;
+        *   power users can restore all projects.
+        """
+        return Pages.restore(backup, project=project)
+
+    @app.route("/delbackup/<string:backup>/<string:project>")
+    @app.route("/delbackup/<string:backup>/", defaults={"project": None})
+    def delBackup(backup, project=None):
+        """Deletes a backup.
+
+        The chosen backup should be stored on the data share of the server under a name
+        that reflects the current date-time.
+
+        It is possible to restrict to backups of a single project.
+
+        Works only in pilot mode.
+
+        *   power users can delete backups of the whole shebang;
+        *   project organisers can delete backups of their own projects;
+        *   power users can delete backups of all projects.
+        """
+        return Pages.delBackup(backup, project=project)
 
     @app.route("/")
     @app.route("/home")
@@ -115,7 +176,8 @@ def appFactory(objects):
         Parameters
         ----------
         site: string
-            The id of the unique site record, which acts as master record for all the projects.
+            The id of the unique site record, which acts as master record for
+            all the projects.
         """
         return Pages.createProject(site)
 
@@ -182,8 +244,10 @@ def appFactory(objects):
         """
         return Pages.deleteEdition(edition)
 
-    @app.route("/viewer/<string:version>/<string:action>/<string:edition>")
-    def viewerFrame(version=None, action=None, edition=None):
+    @app.route(
+        "/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>"
+    )
+    def viewerFrame(version=None, action=None, edition=None, subMode=None):
         """Present the scene of an edition in a 3D viewer.
 
         This is typically loaded in an iframe, but it can also
@@ -197,8 +261,10 @@ def appFactory(objects):
             The viewer version to use.
         action: string | None
             The mode in which the viewer is to be used (`read` or `update`).
+        subMode: string | None
+            The sub mode in which the viewer is to be used (`update` or `create`).
         """
-        return Pages.viewerFrame(edition, version, action)
+        return Pages.viewerFrame(edition, version, action, subMode)
 
     @app.route("/data/viewers/<path:path>")
     def viewerResource(path):
@@ -237,6 +303,29 @@ def appFactory(objects):
             The id of an edition under which the resource is to be found.
         """
         return Pages.fileData(path, project=project, edition=edition)
+
+    @app.route("/download/<string:table>/<string:record>")
+    def download(table, record):
+        """Download a project or edition.
+
+        The following will be downloaded:
+
+        *   The content of the record in the database, as a yaml file;
+        *   The corresponding content on the file system:
+            scene, models, articles, media.
+
+        All content will be zipped into a file named after the project or edition.
+        The name is composed of the table name and the id of the record, and has
+        extension zip.
+
+        Parameters
+        ----------
+        table: string
+            The table where the item to be downloaded sits.
+        record: string
+            The record of the item to be downloaded.
+        """
+        return Content.download(table, record)
 
     @app.route(
         "/upload/<string:record>/<string:key>/<string:givenFileName>/<path:path>",

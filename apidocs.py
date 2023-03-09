@@ -18,7 +18,7 @@ command:
 --help
 
 build : build docs
-ship : ship docs
+ship : ship docs previously built docs
 """
 
 
@@ -233,8 +233,7 @@ def runDocs(name, docCfg):
 
 
 def shipDocs(org, repo):
-    """Build the docs into site and ship them."""
-
+    """Ship the previously built docs."""
     _gh_deploy(org, repo)
 
 

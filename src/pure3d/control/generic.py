@@ -51,6 +51,41 @@ class AttrDict(dict):
         """
         return None
 
+    def deepdict(self):
+        return deepdict(self)
+
+
+def deepdict(info):
+    """Turns an AttrDict into a dict, recursively.
+
+    Parameters
+    ----------
+    info: any
+        The input dictionary. We assume that it is a data structure built by
+        tuple, list, set, frozenset, dict and atomic types such as int, str, bool.
+        We assume there are no user defined objects in it,
+        and no generators and functions.
+
+    Returns
+    -------
+    dict
+        An dict containing the same info as the input dict, but where
+        each value of type AttrDict is turned into a dict.
+    """
+    return (
+        dict({k: deepdict(v) for (k, v) in info.items()})
+        if type(info) in {dict, AttrDict}
+        else tuple(deepdict(item) for item in info)
+        if type(info) is tuple
+        else frozenset(deepdict(item) for item in info)
+        if type(info) is frozenset
+        else [deepdict(item) for item in info]
+        if type(info) is list
+        else {deepdict(item) for item in info}
+        if type(info) is set
+        else info
+    )
+
 
 def deepAttrDict(info):
     """Turn a dict into an AttrDict, recursively.
@@ -71,7 +106,7 @@ def deepAttrDict(info):
     """
     return (
         AttrDict({k: deepAttrDict(v) for (k, v) in info.items()})
-        if type(info) is dict
+        if type(info) in {dict, AttrDict}
         else tuple(deepAttrDict(item) for item in info)
         if type(info) is tuple
         else frozenset(deepAttrDict(item) for item in info)

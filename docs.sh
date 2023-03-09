@@ -10,12 +10,12 @@ It is steered by the following task arguments:
 build
     Build the docs and store them in the top-level site directory,
     which is in the .gitignore file.
+    A count of the lines of code will be performed.
 
 ship
-    Builds and then publishes the contents of the site directory
+    Publishes the contents of the site directory
     to the gh-pages branch on GitHub.
-
-In all cases a count of the lines of code will be performed.
+    Does not build, that should have been done before this step.
 
 Usage
 
@@ -23,8 +23,6 @@ Run it from the toplevel directory in the repo.
 
 ./docs.sh [task] [task] ...
 "
-
-cloc --md --out=stats.md src
 
 dobuild="x"
 doship="x"
@@ -38,7 +36,6 @@ while [ ! -z "$1" ]; do
         dobuild="v"
         shift
     elif [[ "$1" == "ship" ]]; then
-        dobuild="v"
         doship="v"
         shift
     else
@@ -49,6 +46,7 @@ done
 
 if [[ "$dobuild" == "v" ]]; then
     echo "Building api docs ..."
+    cloc --md --out=stats.md src
     python3 apidocs.py build
     echo "Done"
 fi

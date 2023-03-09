@@ -67,7 +67,7 @@ class EditSessions:
 
         That means that content specifications boil down to:
 
-        * `table`: the name of the collection in which the meta data record sits
+        * `table`: the name of the table in which the meta data record sits
         * `recordId`: the id of the record in which the metadata sits
 
         We list all possible non-mongo actions and indicate the corresponding content

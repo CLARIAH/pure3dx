@@ -104,6 +104,14 @@ body {
   color: var(--warning-fore-i);
   background-color: var(--warning-back-i);
 }
+#statusbanner.test {
+  color: var(--error-fore-i);
+  background-color: var(--error-back-i);
+}
+#statusbanner.pilot {
+  color: var(--good-fore-i);
+  background-color: var(--good-back-i);
+}
 
 .tabs {
   display: flex;

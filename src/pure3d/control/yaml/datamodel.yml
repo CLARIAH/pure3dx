@@ -57,6 +57,10 @@ uploads:
     table: edition
     accept: ".json"
     caption: scene file (json)
+  modelz:
+    table: edition
+    accept: ".zip"
+    caption: zipped scene (json) plus model files (glb, gltf)
   iconSite:
     table: site
     accept: ".png"

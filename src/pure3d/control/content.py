@@ -1,7 +1,14 @@
+from io import BytesIO
+import os
+from datetime import datetime as dt
 import json
+import yaml
+from tempfile import mkdtemp
 from flask import jsonify
+from zipfile import ZipFile, ZIP_DEFLATED
+
 from control.generic import AttrDict
-from control.files import fileExists, fileRemove
+from control.files import fileExists, fileRemove, dirExists, dirMake, dirCopy, dirRemove
 from control.datamodel import Datamodel
 from control.flask import requestData
 from control.admin import Admin
@@ -96,15 +103,17 @@ class Content(Datamodel):
 
         return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
 
-    def getScene(self, edition, version=None, action=None):
+    def getScene(self, projectId, edition, version=None, action=None):
         """Get the scene of an edition of a project.
 
         Well, only if the current user is authorised.
 
         A scene is displayed by means of an icon and a row of buttons.
 
+        There are also buttons to upload model files and the scene file.
+
         If action is not None, the scene is loaded in a specific version of the
-        viewer in a specific mode (`read` or `read`).
+        viewer in a specific mode (`read` or `edit`).
         The edition knows which viewer to choose.
 
         Which version and which mode are used is determined by the parameters.
@@ -112,17 +121,23 @@ class Content(Datamodel):
 
         Parameters
         ----------
+        projectId: ObjectId
+            The id of the project to which the edition belongs.
         edition: string | ObjectId | AttrDict
             The edition in question.
         version: string, optional None
             The version of the chosen viewer that will be used.
             If no version or a non-existing version are specified,
             the latest existing version for that viewer will be chosen.
-        action: string, optional `read`
+        action: string, optional read
             The mode in which the viewer should be opened.
-            If the mode is `update`, the viewer is opened in edit mode.
+            If the mode is `update`, the viewer is opened in edit mode, if the
+            scene file exists, otherwise in create mode,  which, in case
+            of the Voyager viewer, means `standalone` mode.
             All other modes lead to the viewer being opened in read-only
             mode.
+            If the mode is read-only, but the scene file is missing, no viewer
+            will be opened.
 
         Returns
         -------
@@ -131,19 +146,46 @@ class Content(Datamodel):
             with possibly a frame with the 3D viewer showing the scene.
             The result is wrapped in a HTML string.
         """
+        Settings = self.Settings
+        H = Settings.H
+        workingDir = Settings.workingDir
+        modelzFile = Settings.modelzFile
         Mongo = self.Mongo
         Viewers = self.Viewers
         Wrap = self.Wrap
 
+        (editionId, edition) = Mongo.get("edition", edition)
         (viewer, sceneFile) = self.getViewInfo(edition)
         version = Viewers.check(viewer, version)
+
+        scenePath = f"{workingDir}/project/{projectId}/edition/{editionId}/{sceneFile}"
+        sceneExists = fileExists(scenePath)
 
         if action is None:
             action = "read"
 
         (editionId, edition) = Mongo.get("edition", edition)
 
-        return Wrap.sceneMain(edition, sceneFile, viewer, version, action)
+        baseResult = Wrap.sceneMain(
+            projectId, edition, sceneFile, viewer, version, action, sceneExists
+        )
+        zipUpload = (
+            ""
+            if sceneExists
+            else (
+                H.h(4, "Scene plus model files, zipped")
+                + H.div(self.getUpload(edition, "modelz", fileName=modelzFile))
+            )
+        )
+
+        return (
+            baseResult
+            + H.h(4, "Scene" if sceneExists else "No scene yet")
+            + H.div(self.getUpload(edition, "scene", fileName=sceneFile))
+            + H.h(4, "Model files")
+            + H.div(self.getUpload(edition, "model"))
+            + zipUpload
+        )
 
     def getAdmin(self):
         """Get the list of relevant projects, editions and users.
@@ -181,8 +223,11 @@ class Content(Datamodel):
         ObjectId
             The id of the new project.
         """
+        Settings = self.Settings
+        Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+        workingDir = Settings.workingDir
 
         (siteId, site) = Mongo.get("site", site)
 
@@ -207,6 +252,15 @@ class Content(Datamodel):
         Mongo.insertRecord(
             "projectUser", projectId=projectId, user=user, role="organiser"
         )
+        projectDir = f"{workingDir}/project/{projectId}"
+        if dirExists(projectDir):
+            Messages.warning(
+                msg="The new project already exists on the file system",
+                logmsg=f"New project {projectId} already exists on the filesystem.",
+            )
+        else:
+            dirMake(projectDir)
+
         return projectId
 
     def deleteProject(self, project):
@@ -243,7 +297,31 @@ class Content(Datamodel):
             The id of the new edition.
         """
         Mongo = self.Mongo
+        Messages = self.Messages
         Auth = self.Auth
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        def fillin(template, values):
+            typ = type(template)
+            if typ is str:
+                for (k, v) in values.items():
+                    template = template.replace(f"«{k}»", v)
+                return template
+            if typ in {list, tuple}:
+                return [fillin(e, values) for e in template]
+            if typ in {dict, AttrDict}:
+                return {k: fillin(v, values) for (k, v) in template.items()}
+            return template
+
+        editionSettingsTemplate = Settings.editionSettingsTemplate
+        viewerDefault = Settings.viewerDefault
+        viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
+        versionDefault = viewerInfo.defaultVersion
+        sceneFile = viewerInfo.sceneFile
+
+        values = dict(viewer=viewerDefault, version=versionDefault, scene=sceneFile)
+        editionSettings = fillin(editionSettingsTemplate, values)
 
         (projectId, project) = Mongo.get("project", project)
 
@@ -273,9 +351,20 @@ class Content(Datamodel):
             title=title,
             projectId=projectId,
             meta=dict(dc=dcMeta),
+            settings=editionSettings,
             isPublished=False,
         )
         Mongo.insertRecord("editionUser", editionId=editionId, user=user, role="editor")
+
+        editionDir = f"{workingDir}/project/{projectId}/edition/{editionId}"
+        if dirExists(editionDir):
+            Messages.warning(
+                msg="The new edition already exists on the file system",
+                logmsg=f"New edition {editionId} already exists on the filesystem.",
+            )
+        else:
+            dirMake(editionDir)
+
         return editionId
 
     def deleteEdition(self, edition):
@@ -329,7 +418,7 @@ class Content(Datamodel):
     def saveValue(self, table, record, key):
         """Saves a value of into a record.
 
-        A record contains a document, which is a (nested) dict.
+        A record is a document, which is a (nested) dict.
         A value is inserted somewhere (deep) in that dict.
 
         The value is given by the request.
@@ -377,12 +466,7 @@ class Content(Datamodel):
         if key == "title":
             update[key] = value
 
-        if (
-            Mongo.updateRecord(
-                table, update, stop=False, _id=recordId
-            )
-            is None
-        ):
+        if Mongo.updateRecord(table, update, stop=False, _id=recordId) is None:
             return dict(
                 stat=False,
                 messages=[["error", "could not update the record in the database"]],
@@ -411,7 +495,7 @@ class Content(Datamodel):
         recordId: string | void
             The id of the relevant record. If not None, it is a project/edition
             record Id, which can be used to locate the cross record between the
-            user collection and the project/edition record where the user's
+            user table and the project/edition record where the user's
             role is stored.
             If None, the user's role is inside the user record.
 
@@ -441,7 +525,7 @@ class Content(Datamodel):
         recordId: string
             The id of the relevant record,
             which can be used to locate the cross record between the
-            user collection and the project/edition record where the user's
+            user table and the project/edition record where the user's
             role is stored.
 
         Returns
@@ -594,6 +678,134 @@ class Content(Datamodel):
 
         return F.formatted(record, "update" in actions, bust=bust, wrapped=wrapped)
 
+    def getBackups(self, project=None):
+        """Produce a backup button and an overview of existing backups.
+
+        Only if it is relevant to the current user in the current run mode.
+
+        The existing backups will be presented as link: a click will trigger a restore
+        from that backup. There will also be delete buttons for each backup.
+
+        Parameters
+        ----------
+        project: AttrDict | ObjectId | string, optional None
+            If None, we deal with site-wide backup.
+            Otherwise we get the backups of this project.
+        """
+        Auth = self.Auth
+        if not Auth.mayBackup(project=project):
+            return ""
+
+        Settings = self.Settings
+        Mongo = self.Mongo
+        H = Settings.H
+        Messages = self.Messages
+
+        dataDir = Settings.dataDir
+        backupBase = f"{dataDir}/backups"
+        projectSlug = ""
+
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+            projectSlug = f"/{projectId}"
+            backupBase += f"/project{projectSlug}"
+
+        backups = []
+
+        if dirExists(backupBase):
+            with os.scandir(backupBase) as dh:
+                for entry in dh:
+                    if entry.is_dir():
+                        name = entry.name
+                        if name != "project":
+                            backups.append(name)
+            backups = list(reversed(sorted(backups)))
+
+        title = "restore this backup"
+        msgs = Messages.client("info", "wait for restore to complete ...", replace=True)
+        backups = (
+            H.small(H.i("No backups"))
+            if len(backups) == 0
+            else H.div(
+                [
+                    [
+                        H.a(
+                            backup,
+                            f"/restore/{backup}{projectSlug}",
+                            title=title,
+                            cls="small",
+                            **msgs,
+                        ),
+                        H.nbsp,
+                        H.iconx("delete", href=f"/delbackup/{backup}{projectSlug}"),
+                        H.br(),
+                    ]
+                    for backup in backups
+                ]
+            )
+        )
+
+        title = (
+            "make a backup of "
+            + ("all" if project is None else "this project")
+            + "data as stored in files and the database"
+        )
+        return H.details(
+            H.a(
+                "make backup",
+                f"/backup{projectSlug}",
+                title=title,
+                cls="small",
+                **Messages.client(
+                    "info", "wait for backup to complete ...", replace=True
+                ),
+            ),
+            backups,
+            "backups",
+        )
+
+    def getDownload(self, table, record):
+        """Display the name and/or upload controls of an uploaded file.
+
+        The user may upload model files and a scene file to an edition,
+        and various png files as icons for projects, edtions, and scenes.
+        Here we produce the control to do so.
+
+        Only if the user has `update` authorisation, an upload/delete widget
+        will be returned.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the relevant record sits
+        record: string | ObjectId | AttrDict
+            The relevant record.
+
+        Returns
+        -------
+        string
+            The name of the file that is currently present, or the indication
+            that no file is present.
+
+            If the user has edit permission for the edition, we display
+            widgets to upload a new file or to delete the existing file.
+        """
+        Settings = self.Settings
+        H = Settings.H
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+
+        actions = Auth.authorise(table, record)
+
+        if "read" not in actions:
+            return None
+
+        return H.iconx(
+            "download", text="download", href=f"/download/{table}/{recordId}"
+        )
+
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
 
@@ -710,7 +922,7 @@ class Content(Datamodel):
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", bare=True)
         if not text:
-            text = "<i>no title</i>"
+            text = H.i("no title")
 
         return H.p(
             [
@@ -723,6 +935,342 @@ class Content(Datamodel):
                 ),
             ]
         )
+
+    def mkBackup(self, project=None):
+        """Makes a backup of data as found in files and db.
+
+        We do site-wide backups and project-specific backups.
+
+        Site-wide backups take the complete working directory on the file system,
+        and the complete relevant database in MongoDb.
+
+        Project-specific backups take only the project directory on the file system,
+        and the relevant project record plus the relevant edition records in MongoDb.
+
+        !!! caution "Site-wide backups affect user data"
+            The set of users and their permissions may be different across backups.
+            After restoring a snaphot, the user that restored it may no longer exist,
+            or have differnt rights.
+
+        !!! caution "Project backups do not affect user data"
+            No user data nor any coupling between users and the project and its editions
+            are modified.
+
+            A consequence is that a backup may contain editions that do not
+            exist anymore and to which no users are coupled.
+            It may be needed to assign current users to editions after a restore.
+
+        Backups are stored in the data directory of the server under `backups`.
+        The site-wode backups are stores under `site`, the project backups
+        under `project/`*projectId*.
+
+        The directory name of the backup is
+        the current date-time up to the second in iso format, but with the `:`
+        replaced by `-`.
+
+        Below that we have directories:
+
+        *   `files`: contains the complete contents of the working directory of
+            the current run mode.
+        *   `db`: a backup of the complete contents of the MongoDb database of the
+            current run mode.
+            In there again a subdivision:
+
+            * [`bson`](https://www.mongodb.com/basics/bson)
+            * `json`
+
+            The name indicates the file format of the backup.
+            In both cases, the data ends up in folders per table,
+            and within those folders we have files per record.
+
+        Parameters
+        ----------
+        project: string, optional None
+            If given, only backs up the given project.
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        if not Auth.mayBackup(project=project):
+            Messages.warning(
+                msg="Reset data is not allowed",
+                logmsg=("Reset data is not allowed"),
+            )
+            return False
+
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
+        activeDir = workingDir
+        backupBase = f"{dataDir}/backups"
+
+        now = dt.utcnow().isoformat(timespec="seconds").replace(":", "-")
+
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+            activeDir = f"{workingDir}/project/{projectId}"
+            backupBase += f"/project/{projectId}"
+
+        backupDir = f"{backupBase}/{now}"
+        backupFileDir = f"{backupDir}/files"
+        backupDbDir = f"{backupDir}/db"
+
+        label = "system wide" if project is None else "project"
+        Messages.info(
+            msg=f"Making backup {now}",
+            logmsg=f"Making {label} backup to {backupDir}",
+        )
+        Messages.info(msg="backup of database ...")
+        good = Mongo.mkBackup(backupDbDir, project=project, asJson=True)
+        if not good:
+            return False
+
+        Messages.info(msg="backup of files ...")
+        dirCopy(activeDir, backupFileDir)
+        Messages.info(msg="backup completed.")
+        return True
+
+    def restore(self, backup, project=None):
+        """Restores data to files and db, from a backup.
+
+        See also `mkBackup()`.
+
+        First a new backup of the current situation will be made.
+
+        Parameters
+        ----------
+        backup: string
+            Name of a backup. The backup must exist.
+        project: string, optional None
+            If given, only restores the given project.
+
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        if not Auth.mayBackup(project=project):
+            Messages.warning(
+                msg="Restoring from a backup is not allowed",
+                logmsg=("Restoring from a backup is not allowed"),
+            )
+            return False
+
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
+        activeDir = workingDir
+        backupBase = f"{dataDir}/backups"
+
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+            activeDir = f"{workingDir}/project/{projectId}"
+            backupBase += f"/project/{projectId}"
+
+        backupDir = f"{backupBase}/{backup}"
+        backupFileDir = f"{backupDir}/files"
+        backupDbDir = f"{backupDir}/db"
+
+        good = True
+        if not dirExists(backupDir):
+            Messages.warning(
+                msg="backup to restore from does not exist",
+                logmsg=f"Backup to restore from ({backupDir}) does not exist",
+            )
+            good = False
+        elif not dirExists(backupFileDir):
+            Messages.warning(
+                msg="backup to restore from does not have file data",
+                logmsg=(
+                    f"Backup to restore from ({backupDir}) "
+                    f"does not have file data"
+                ),
+            )
+            good = False
+        elif not dirExists(backupDbDir):
+            Messages.warning(
+                msg="backup to restore from does not have db data",
+                logmsg=(
+                    f"Backup to restore from ({backupDir}) "
+                    "does not have db data"
+                ),
+            )
+            good = False
+        if not good:
+            return False
+
+        good = self.mkBackup(project=project)
+        if not good:
+            return False
+
+        label = "system wide" if project is None else "project"
+        Messages.info(
+            msg=f"Restoring backup {backup}",
+            logmsg=f"Restoring {label} backup {backupDir}",
+        )
+        Messages.info(msg="restore database ...")
+        good = Mongo.restore(backupDbDir, project=project, clean=True)
+        if not good:
+            return False
+
+        Messages.info(msg="restore files ...")
+        dirCopy(backupFileDir, activeDir)
+        Messages.info(msg="backup completed.")
+        return True
+
+    def delBackup(self, backup, project=None):
+        """Deletes a backup.
+
+        See also `mkBackup()`.
+
+        Parameters
+        ----------
+        backup: string
+            Name of a backup. The backup must exist.
+        project: string, optional None
+            If given, only deletes the backup of this project.
+
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+
+        if not Auth.mayBackup(project=project):
+            Messages.warning(
+                msg="Deleting a backup is not allowed",
+                logmsg=("Deleting a backup is not allowed"),
+            )
+            return False
+
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+
+        dataDir = Settings.dataDir
+        backupBase = f"{dataDir}/backups"
+
+        if project is not None:
+            (projectId, project) = Mongo.get("project", project)
+            backupBase += f"/project/{projectId}"
+
+        backupDir = f"{backupBase}/{backup}"
+
+        if not dirExists(backupDir):
+            Messages.warning(
+                msg="backup to delete does not exist",
+                logmsg=f"Backup to delete ({backupDir}) does not exist",
+            )
+            return False
+
+        label = "system wide" if project is None else "project"
+        Messages.info(
+            msg=f"Deleting backup {backup}",
+            logmsg=f"Deleting {label} backup {backupDir}",
+        )
+        dirRemove(backupDir)
+        Messages.info(msg="backup completed.")
+        return True
+
+    def download(self, table, record):
+        """Responds with a download of a project or edition.
+
+        Parameters
+        ----------
+        table: string
+            The table where the item to be downloaded sits.
+        record: string
+            The record of the item to be downloaded.
+
+        Return
+        ------
+        response
+            A download response.
+        """
+        Settings = self.Settings
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        dataDir = Settings.dataDir
+        workingDir = Settings.workingDir
+        runMode = Settings.runMode
+
+        (recordId, record) = Mongo.get(table, record)
+
+        permitted = Auth.authorise(table, record, action="read")
+
+        if not permitted:
+            logmsg = f"Download not permitted: {table}: {recordId}"
+            msg = f"Download of {table} not permitted"
+            Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            table, record
+        )
+
+        src = f"{workingDir}/project/{projectId}"
+
+        if edition is not None:
+            src += f"/edition/{editionId}"
+
+        sep = "/" if dataDir else ""
+        tempBase = f"{dataDir}{sep}temp/{runMode}"
+        dirMake(tempBase)
+        dst = mkdtemp(dir=tempBase)
+        landing = f"{dst}/{recordId}"
+        fileName = f"{table}-{recordId}.zip"
+
+        if edition is None:
+            yamlDest = f"{landing}/project.yaml"
+        else:
+            yamlDest = f"{landing}/edition.yaml"
+
+        dirCopy(src, landing)
+
+        with open(yamlDest, "w") as yh:
+            yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
+
+        if edition is None:
+            editions = Mongo.getList("edition", projectId=projectId)
+            for ed in editions:
+                edId = ed._id
+                yamlDest = f"{landing}/edition/{edId}/edition.yaml"
+                with open(yamlDest, "w") as yh:
+                    yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
+
+        zipBuffer = BytesIO()
+        with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+
+            def compress(path):
+                sep = "/" if path else ""
+                with os.scandir(f"{landing}{sep}{path}") as dh:
+                    for entry in dh:
+                        name = entry.name
+                        if entry.is_file():
+                            arcFile = f"{path}{sep}{name}"
+                            srcFile = f"{landing}/{arcFile}"
+                            zipFile.write(srcFile, arcFile)
+                        elif entry.is_dir():
+                            compress(f"{path}/{name}")
+
+            compress("")
+        zipData = zipBuffer.getvalue()
+
+        dirRemove(dst)
+
+        headers = {
+            "Expires": "0",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{fileName}"',
+            "Content-Encoding": "identity",
+        }
+
+        return (zipData, headers)
 
     def saveFile(self, record, key, path, fileName, givenFileName=None):
         """Saves a file in the context given by a record.
@@ -751,6 +1299,7 @@ class Content(Datamodel):
             * content: new content for an upload control (only if successful)
         """
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
@@ -766,14 +1315,23 @@ class Content(Datamodel):
         if givenFileName is not None and fileName != givenFileName:
             fileName = givenFileName
 
-        sep = "/" if path else ""
-        filePath = f"{path}{sep}{fileName}"
+        filePath = f"{path}{fileName}"
         fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
             logmsg = f"Upload not permitted: {key}: {fileFullPath}"
-            msg = f"Upload not permitted: {filePath}"
+            msg = f"Upload not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
+            return jsonify(status=False, msg=msg)
+
+        if key == "modelz":
+            destDir = f"{workingDir}/{path}"
+            (good, msg) = self.processModelZip(requestData(), destDir)
+            if good:
+                return jsonify(
+                    status=True, msg=msg, content=H.b("Please refresh the page")
+                )
+            Messages.warning(logmsg=msg)
             return jsonify(status=False, msg=msg)
 
         try:
@@ -781,7 +1339,7 @@ class Content(Datamodel):
                 fh.write(requestData())
         except Exception:
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
-            msg = f"Uploaded file not saved: {filePath}"
+            msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
@@ -790,6 +1348,83 @@ class Content(Datamodel):
         )
 
         return jsonify(status=True, content=content)
+
+    def processModelZip(self, zf, destDir):
+        """Processes zip data with a scene and model files.
+
+        All files in the zip file will be examined, and those with
+        extension svx.json will be saved as voyager.svx.json
+        and those with extensions glb of gltf will be saved under their
+        own names.
+        All pathnames will be ignored, so potentially files may overwrite each other.
+
+        The user is held responsible to submit a suitable file.
+
+        Parameters
+        ----------
+        zf: bytes
+            The raw zip data
+        """
+        Messages = self.Messages
+        Settings = self.Settings
+        viewerDefault = Settings.viewerDefault
+        viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
+        sceneFile = viewerInfo.sceneFile
+
+        msgs = []
+        good = True
+        try:
+            zf = BytesIO(zf)
+            z = ZipFile(zf)
+
+            allFiles = 0
+            sceneFiles = set()
+            modelFiles = set()
+            doubles = set()
+            otherFiles = set()
+
+            for zInfo in z.infolist():
+                if zInfo.filename[-1] == "/":
+                    continue
+                if zInfo.filename.startswith("__MACOS"):
+                    continue
+
+                allFiles += 1
+
+                zName = zInfo.filename
+                zTest = zName.lower()
+
+                if zTest.endswith(".svx.json"):
+                    if zName in sceneFiles:
+                        doubles.add(zName)
+                    else:
+                        sceneFiles.add(zName)
+                        zInfo.filename = sceneFile
+                elif zTest.endswith(".glb") or zTest.endswith(".gltf"):
+                    if zName in modelFiles:
+                        doubles.add(zName)
+                    else:
+                        modelFiles.add(zName)
+                else:
+                    if zName in otherFiles:
+                        doubles.add(zName)
+                    else:
+                        otherFiles.add(zName)
+                z.extract(zInfo, path=destDir)
+
+            msgs.append(f"All files in zip: {allFiles:>3}")
+            msgs.append(f"Files encountered multiple times: {len(doubles):>3} x")
+            msgs.append(f"Scene files: {len(sceneFiles):>3} x")
+            msgs.append(f"Model files: {len(modelFiles):>3} x")
+            msgs.append(f"Other files: {len(otherFiles):>3} x")
+
+        except Exception as e:
+            good = False
+            msgs.append("Something went wrong")
+            Messages.warning(logmsg=str(e))
+
+        msg = "\n".join(msgs)
+        return (good, msg)
 
     def deleteFile(self, record, key, path, fileName, givenFileName=None):
         """Deletes a file in the context given by a record.
@@ -836,13 +1471,13 @@ class Content(Datamodel):
 
         if not permitted:
             logmsg = f"Delete file not permitted: {key}: {fileFullPath}"
-            msg = f"Delete not permitted: {filePath}"
+            msg = f"Delete not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
         if not fileExists(fileFullPath):
             logmsg = f"File does not exist: {key}: {fileFullPath}"
-            msg = f"File does not exist: {filePath}"
+            msg = f"File does not exist: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 
@@ -850,7 +1485,7 @@ class Content(Datamodel):
             fileRemove(fileFullPath)
         except Exception:
             logmsg = f"Could not delete file: {key}: {fileFullPath}"
-            msg = f"File not deleted: {filePath}"
+            msg = f"File not deleted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msg=msg)
 

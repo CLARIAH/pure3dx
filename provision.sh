@@ -54,11 +54,14 @@ done
 if [[ "$docontent" == "v" ]]; then
     echo "Provisioning example data ..."
     mkdir -p data
-    echo 'Copying stuff in pure3d-data/exampledata to pure3dx/data'
-    if [[ -d "data/exampledata" ]]; then
-        rm -rf data/exampledata
-    fi
-    cp -r ../pure3d-data/exampledata data/
+    echo 'Copying stuff in pure3d-data/*data to pure3dx/data'
+    for key in exampledata pilotdata
+    do
+        if [[ -d "data/$key" ]]; then
+            rm -rf data/$key
+        fi
+        cp -r ../pure3d-data/$key data/
+    done
     echo "Done"
 fi
 
