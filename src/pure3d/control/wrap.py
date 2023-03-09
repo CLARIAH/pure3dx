@@ -144,7 +144,9 @@ class Wrap:
         )
         return H.content(*wrapped)
 
-    def sceneMain(self, projectId, edition, sceneFile, viewer, version, action, sceneExists):
+    def sceneMain(
+        self, projectId, edition, sceneFile, viewer, version, action, sceneExists
+    ):
         """Wrap the scene of an edition for the main display.
 
         Parameters
@@ -181,7 +183,9 @@ class Wrap:
         titleText = H.span(sceneFile, cls="entrytitle")
         button = self.contentButton("edition", edition, "delete")
 
-        (frame, buttons) = Viewers.getFrame(edition, actions, viewer, version, action, sceneExists)
+        (frame, buttons) = Viewers.getFrame(
+            edition, actions, viewer, version, action, sceneExists
+        )
         title = H.span(titleText, cls="entrytitle")
         content = f"""{frame}{title}{buttons}"""
         caption = self.wrapCaption(content, button, None, active=True)

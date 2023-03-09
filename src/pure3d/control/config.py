@@ -118,20 +118,50 @@ class Config:
         Settings = self.Settings
         H = Settings.H
         repoDir = Settings.repoDir
+        versionFile = f"{repoDir}/VERSION.txt"
 
-        (long, short) = tuple(
-            check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
-            .decode("ascii")
-            .strip()
-            for args in ([], ["--short"])
-        )
+        try:
+            actual = True
+            (long, short) = tuple(
+                check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
+                .decode("ascii")
+                .strip()
+                for args in ([], ["--short"])
+            )
+            with open(versionFile, "w") as fh:
+                fh.write(f"{long}\t{short}\n")
+        except Exception:
+            actual = False
+            if not fileExists(versionFile):
+                known = False
+                (long, short) = ("", "")
+            else:
+                known = True
+                with open(versionFile) as fh:
+                    try:
+                        (long, short) = fh.read().strip().split("\t")
+                    except Exception:
+                        known = False
+                        (long, short) = ("", "")
+
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        title = "visit the running code on GitHub"
+        if actual:
+            label1 = "this version"
+            text = f"this version is {short}"
+        else:
+            if known:
+                label1 = "previous version"
+                text = f"previous version was {short}"
+            else:
+                label1 = "latest version"
+                text = "unknown version, go to latest version"
+
+        title = f"visit {label1} of the code on GitHub"
         gitLocation = var("gitlocation").removesuffix(".git")
-        href = f"{gitLocation}/tree/{long}"
-        Settings.versionInfo = H.a(short, href, target="_blank", title=title)
+        href = f"{gitLocation}/tree/{long}" if long else gitLocation
+        Settings.versionInfo = H.a(text, href, target="_blank", title=title)
 
     def checkSecret(self):
         """Obtain a secret.
