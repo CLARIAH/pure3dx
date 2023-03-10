@@ -79,7 +79,7 @@ class HtmlElement:
         return v.replace('"', "&quot;")
 
     @classmethod
-    def attStr(thisCls, atts, addClass=None):
+    def attStr(thisCls, atts, addCls=None):
         """Stringify attributes.
 
         !!! hint
@@ -96,9 +96,9 @@ class HtmlElement:
         ----------
         atts: dict
             A dictionary of attributes.
-        addClass: string
+        addCls: string
             An extra `class` attribute. If there is already a class attribute
-            `addClass` will be appended to it.
+            `addCls` will be appended to it.
             Otherwise a fresh class attribute will be created.
 
         Returns
@@ -107,13 +107,13 @@ class HtmlElement:
             The serialzed attributes.
         """
 
-        if addClass:
+        if addCls:
             if atts and CLS in atts:
-                atts[CLS] += f" {addClass}"
+                atts[CLS] += f" {addCls}"
             elif atts:
-                atts[CLS] = addClass
+                atts[CLS] = addCls
             else:
-                atts = dict(cls=addClass)
+                atts = dict(cls=addCls)
         return E.join(
             f""" {thisCls.atNormal(k)}"""
             + (E if v is True else f'''="{thisCls.atEscape(v)}"''')
@@ -121,7 +121,7 @@ class HtmlElement:
             if v is not None and v is not False
         )
 
-    def wrap(self, material, addClass=None, **atts):
+    def wrap(self, material, addCls=None, **atts):
         """Wraps attributes and content into an element.
 
         !!! caution
@@ -134,9 +134,9 @@ class HtmlElement:
             The element content. If the material is not a string but another
             iterable, the items will be joined by the empty string.
 
-        addClass: string
+        addCls: string
             An extra `class` attribute. If there is already a class attribute
-            `addClass` will be appended to it.
+            `addCls` will be appended to it.
             Otherwise a fresh class attribute will be created.
 
         Returns
@@ -148,7 +148,7 @@ class HtmlElement:
 
         name = self.name
         content = asString(material)
-        attributes = self.attStr(atts, addClass=addClass)
+        attributes = self.attStr(atts, addCls=addCls)
         return (
             f"""<{name}{attributes}>"""
             if name in EMPTY_ELEMENTS
@@ -447,7 +447,7 @@ class HtmlElements:
             E,
             tp="checkbox",
             id=var,
-            addClass="option",
+            addCls="option",
             **atts,
         )
 
@@ -695,9 +695,9 @@ class HtmlElements:
         if asChar:
             return icons.get(icon, icons["noicon"])
 
-        addClass = f"symbol i-{icon} "
+        addCls = f"symbol i-{icon} "
         return HtmlElement("span").wrap(
-            (text or "") + iconChar, addClass=addClass, **atts
+            (text or "") + iconChar, addCls=addCls, **atts
         )
 
     def iconx(self, icon, text=None, href=None, **atts):
@@ -733,7 +733,7 @@ class HtmlElements:
         iconTips = Settings.iconTips
 
         iconChar = icons.get(icon, icons["noicon"])
-        addClass = f"icon i-{icon} "
+        addCls = f"icon i-{icon} "
         if href:
             atts["href"] = href
 
@@ -743,7 +743,7 @@ class HtmlElements:
                 atts["title"] = title
 
         return HtmlElement("span" if href is None else "a").wrap(
-            (text or "") + iconChar, addClass=addClass, **atts
+            (text or "") + iconChar, addCls=addCls, **atts
         )
 
     def actionButton(self, name, kind=None, **atts):

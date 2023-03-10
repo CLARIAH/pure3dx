@@ -207,7 +207,7 @@ class Config:
             self.good = False
             return
 
-        Settings.runMode = runMode if runMode in {"test", "pilot"} else {"prod"}
+        Settings.runMode = runMode if runMode in {"test", "pilot"} else "prod"
         """In which mode the app runs.
 
         Values are:
@@ -498,6 +498,7 @@ class Config:
                 cls="large",
                 target="_blank",
             )
+            self.debug(f"{runMode=}")
             banner = H.div(
                 [content, issueLink, dataLink], id="statusbanner", cls=runMode
             )
