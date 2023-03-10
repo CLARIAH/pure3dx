@@ -73,6 +73,8 @@ class Content(Datamodel):
         Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
+        if siteId is None:
+            return ""
 
         return Wrap.projectsMain(site, Mongo.getList("project"))
 
@@ -100,6 +102,8 @@ class Content(Datamodel):
         Wrap = self.Wrap
 
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return ""
 
         return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
 
@@ -155,33 +159,45 @@ class Content(Datamodel):
         Wrap = self.Wrap
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return ""
+
         (viewer, sceneFile) = self.getViewInfo(edition)
         version = Viewers.check(viewer, version)
 
-        scenePath = f"{workingDir}/project/{projectId}/edition/{editionId}/{sceneFile}"
-        sceneExists = fileExists(scenePath)
+        if sceneFile is None:
+            sceneExists = False
+            baseResult = ""
+        else:
+            scenePath = (
+                f"{workingDir}/project/{projectId}/edition/{editionId}/{sceneFile}"
+            )
+            sceneExists = fileExists(scenePath)
+            baseResult = Wrap.sceneMain(
+                projectId, edition, sceneFile, viewer, version, action, sceneExists
+            )
 
         if action is None:
             action = "read"
 
-        (editionId, edition) = Mongo.get("edition", edition)
-
-        baseResult = Wrap.sceneMain(
-            projectId, edition, sceneFile, viewer, version, action, sceneExists
-        )
         zipUpload = (
             ""
-            if sceneExists
+            if sceneExists or sceneFile is None
             else (
                 H.h(4, "Scene plus model files, zipped")
                 + H.div(self.getUpload(edition, "modelz", fileName=modelzFile))
             )
         )
+        sceneUpload = (
+            ""
+            if sceneFile is None
+            else H.div(self.getUpload(edition, "scene", fileName=sceneFile))
+        )
 
         return (
             baseResult
             + H.h(4, "Scene" if sceneExists else "No scene yet")
-            + H.div(self.getUpload(edition, "scene", fileName=sceneFile))
+            + sceneUpload
             + H.h(4, "Model files")
             + H.div(self.getUpload(edition, "model"))
             + zipUpload
@@ -230,6 +246,8 @@ class Content(Datamodel):
         workingDir = Settings.workingDir
 
         (siteId, site) = Mongo.get("site", site)
+        if siteId is None:
+            return None
 
         permitted = Auth.authorise("site", site, action="create", insertTable="project")
         if not permitted:
@@ -275,6 +293,8 @@ class Content(Datamodel):
         Auth = self.Auth
 
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return None
 
         permitted = Auth.authorise("project", project, action="delete")
         if not permitted:
@@ -324,6 +344,8 @@ class Content(Datamodel):
         editionSettings = fillin(editionSettingsTemplate, values)
 
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return None
 
         permitted = Auth.authorise(
             "project", project, action="create", insertTable="edition"
@@ -379,6 +401,8 @@ class Content(Datamodel):
         Auth = self.Auth
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return None
 
         permitted = Auth.authorise("edition", edition, action="delete")
         if not permitted:
@@ -407,6 +431,8 @@ class Content(Datamodel):
         viewerDefault = Viewers.viewerDefault
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return (viewerDefault, None)
 
         editionSettings = edition.settings or AttrDict()
         authorTool = editionSettings.authorTool or AttrDict()
@@ -460,6 +486,11 @@ class Content(Datamodel):
         fieldPath = F.fieldPath
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return dict(
+                stat=False,
+                messages=[["error", "record does not exist"]],
+            )
 
         value = json.loads(requestData())
         update = {f"{nameSpace}.{fieldPath}": value}
@@ -707,6 +738,8 @@ class Content(Datamodel):
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)
+            if projectId is None:
+                return ""
             projectSlug = f"/{projectId}"
             backupBase += f"/project{projectSlug}"
 
@@ -796,11 +829,13 @@ class Content(Datamodel):
         Auth = self.Auth
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return ""
 
         actions = Auth.authorise(table, record)
 
         if "read" not in actions:
-            return None
+            return ""
 
         return H.iconx(
             "download", text="download", href=f"/download/{table}/{recordId}"
@@ -889,6 +924,9 @@ class Content(Datamodel):
         dataPath = base if path is None else f"{base}/{path}"
 
         (table, recordId, record) = self.relevant(project=project, edition=edition)
+        if recordId is None:
+            Messages.error(msg="record does not exist")
+            return ""
 
         permitted = Auth.authorise(table, record, action="read")
 
@@ -919,6 +957,9 @@ class Content(Datamodel):
         Mongo = self.Mongo
 
         (projectId, project) = Mongo.get("project", project)
+        if not project:
+            return ""
+
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", bare=True)
         if not text:
@@ -1011,6 +1052,8 @@ class Content(Datamodel):
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)
+            if projectId is None:
+                return False
             activeDir = f"{workingDir}/project/{projectId}"
             backupBase += f"/project/{projectId}"
 
@@ -1069,6 +1112,8 @@ class Content(Datamodel):
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)
+            if projectId is None:
+                return False
             activeDir = f"{workingDir}/project/{projectId}"
             backupBase += f"/project/{projectId}"
 
@@ -1087,8 +1132,7 @@ class Content(Datamodel):
             Messages.warning(
                 msg="backup to restore from does not have file data",
                 logmsg=(
-                    f"Backup to restore from ({backupDir}) "
-                    f"does not have file data"
+                    f"Backup to restore from ({backupDir}) " f"does not have file data"
                 ),
             )
             good = False
@@ -1096,8 +1140,7 @@ class Content(Datamodel):
             Messages.warning(
                 msg="backup to restore from does not have db data",
                 logmsg=(
-                    f"Backup to restore from ({backupDir}) "
-                    "does not have db data"
+                    f"Backup to restore from ({backupDir}) " "does not have db data"
                 ),
             )
             good = False
@@ -1199,6 +1242,8 @@ class Content(Datamodel):
         runMode = Settings.runMode
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return jsonify(status=False, msg="record does not exist")
 
         permitted = Auth.authorise(table, record, action="read")
 
@@ -1309,6 +1354,8 @@ class Content(Datamodel):
         table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return jsonify(status=False, msg="record does not exist")
 
         permitted = Auth.authorise(table, record, action="update")
 
@@ -1462,6 +1509,8 @@ class Content(Datamodel):
         table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return jsonify(status=False, msg="record does not exist")
 
         permitted = Auth.authorise(table, record, action="update")
 

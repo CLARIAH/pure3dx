@@ -112,6 +112,8 @@ class Datamodel:
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return (None, None, None, None, None, None)
 
         if table == "site":
             (editionId, edition) = (None, None)
@@ -161,6 +163,9 @@ class Datamodel:
             return AttrDict()
 
         (masterId, master) = Mongo.get(masterTable, master)
+        if masterId is None:
+            return AttrDict()
+
         crit = {f"{masterTable}Id": masterId}
 
         detailRecords = AttrDict()
@@ -504,6 +509,8 @@ class Field:
         H = Settings.H
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return ""
 
         tp = self.tp
         caption = self.caption

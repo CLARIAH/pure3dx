@@ -299,7 +299,7 @@ class Collect:
         sceneInFile = f"{editionInPath}/{sceneFile}"
 
         if not fileExists(sceneInFile):
-            Messages.plain(logmsg="\t\tNo scene file")
+            Messages.plain(logmsg=f"\t\tScene file does not exist: {sceneInFile}")
 
         modelFiles = list3d(editionInPath)
         nFiles = len(modelFiles)

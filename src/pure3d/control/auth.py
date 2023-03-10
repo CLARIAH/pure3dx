@@ -136,6 +136,8 @@ class Auth(Users):
         state = None
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return {} if action is None else False
 
         if stateInfo is not None:
             initState = stateInfo.init
@@ -352,6 +354,9 @@ class Auth(Users):
 
         Mongo = self.Mongo
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return False
+
         user = User.user
         projectUser = Mongo.getRecord(
             "projectUser", user=user, projectId=projectId, warn=False

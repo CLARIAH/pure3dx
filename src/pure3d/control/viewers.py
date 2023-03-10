@@ -117,6 +117,8 @@ class Viewers:
         versionActive = self.check(viewer, versionActive)
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return ("", "")
 
         create = "/update" if sceneExists else "/create"
 

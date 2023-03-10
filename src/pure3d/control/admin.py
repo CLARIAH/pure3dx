@@ -367,6 +367,8 @@ class Admin:
 
         Mongo = self.Mongo
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return nope
 
         projects = self.projects
         editionRolesSet = self.editionRolesSet
@@ -893,6 +895,9 @@ class Admin:
             result = Mongo.updateRecord("user", dict(role=newRole), user=u)
         else:
             (recordId, record) = Mongo.get(table, recordId)
+            if recordId is None:
+                return dict(stat=False, messages=[["error", "record does not exist"]])
+
             criteria = {"user": u, f"{table}Id": recordId}
             if newRole is None:
                 result = Mongo.deleteRecord(f"{table}User", **criteria)
@@ -965,8 +970,10 @@ class Admin:
             return dict(stat=False, messages=[["error", f"invalid role: {newRoleRep}"]])
 
         (recordId, record) = Mongo.get(table, recordId)
-        criteria = {"user": u, f"{table}Id": recordId}
+        if recordId is None:
+            return dict(stat=False, messages=[["error", "record does not exist"]])
 
+        criteria = {"user": u, f"{table}Id": recordId}
         crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
 
         if crossRecord:

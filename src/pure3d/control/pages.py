@@ -192,7 +192,10 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
+        if recordId is None:
+            left = None
+        else:
+            left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
         return self.page("home", left=left)
 
     def about(self):
@@ -204,8 +207,11 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
-        right = Content.getValues(table, record, "description@2 + provenance@2")
+        if recordId is None:
+            (left, right) = (None, None)
+        else:
+            left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
+            right = Content.getValues(table, record, "description@2 + provenance@2")
         return self.page("about", left=left, right=right)
 
     def surprise(self):
@@ -217,9 +223,12 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        surpriseMe = Content.getSurprise()
-        left = Content.getValues(table, record, "siteTitle@1")
-        right = surpriseMe
+        if recordId is None:
+            (left, right) = (None, None)
+        else:
+            surpriseMe = Content.getSurprise()
+            left = Content.getValues(table, record, "siteTitle@1")
+            right = surpriseMe
         return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
@@ -231,8 +240,11 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        projects = Content.getProjects()
-        left = Content.getValues(table, record, "siteTitle@2") + projects
+        if recordId is None:
+            left = None
+        else:
+            projects = Content.getProjects()
+            left = Content.getValues(table, record, "siteTitle@2") + projects
         return self.page("projects", left=left)
 
     def admin(self):
@@ -244,8 +256,11 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
-        items = Content.getAdmin()
-        left = Content.getValues(table, record, "siteTitle@2") + items
+        if recordId is None:
+            left = None
+        else:
+            items = Content.getAdmin()
+            left = Content.getValues(table, record, "siteTitle@2") + items
         return self.page("admin", left=left)
 
     def createProject(self, site):
@@ -344,7 +359,12 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
 
+        ref = getReferrer().removeprefix("/")
+        back = f"/{ref}"
+
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return redirectStatus(back, False)
 
         result = Content.deleteProject(project)
 
@@ -356,8 +376,6 @@ class Pages:
                 logmsg=f"Could not delete project {projectId}",
                 msg="failed to delete project",
             )
-            ref = getReferrer().removeprefix("/")
-            back = f"/{ref}"
 
         return redirectStatus(back, True)
 
@@ -388,6 +406,9 @@ class Pages:
         Content = self.Content
 
         (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return redirectStatus("/home", False)
+
         editionId = Content.createEdition(project)
 
         if editionId is None:
@@ -437,10 +458,16 @@ class Pages:
         Auth = self.Auth
 
         (editionId, edition) = Mongo.get("edition", edition)
-        (viewer, sceneFile) = Content.getViewInfo(edition)
+        if edition is None:
+            return self.page("project", left=None, right=None)
 
         projectId = edition.projectId
         (projectId, project) = Mongo.get("project", projectId)
+        if project is None:
+            return self.page("project", left=None, right=None)
+
+        (viewer, sceneFile) = Content.getViewInfo(edition)
+
         breadCrumb = Content.breadCrumb(project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("edition", edition)
@@ -493,7 +520,13 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
 
+        ref = getReferrer().removeprefix("/")
+        back = f"/{ref}"
+
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return redirectStatus(back, False)
+
         projectId = edition.projectId
 
         result = Content.deleteEdition(edition)
@@ -506,8 +539,6 @@ class Pages:
                 logmsg=f"Could not delete edition {editionId}",
                 msg="failed to delete edition",
             )
-            ref = getReferrer().removeprefix("/")
-            back = f"/{ref}"
         return redirectStatus(back, True)
 
     def viewerFrame(self, edition, version, action, subMode):
@@ -534,6 +565,9 @@ class Pages:
         Auth = self.Auth
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return renderTemplate("viewer", viewerCode="")
+
         (viewer, sceneFile) = Content.getViewInfo(edition)
         projectId = edition.projectId
 
@@ -543,7 +577,7 @@ class Pages:
 
         viewerCode = (
             ""
-            if action is None
+            if action is None or sceneFile is None
             else Viewers.genHtml(urlBase, sceneFile, viewer, version, action, subMode)
         )
         return renderTemplate("viewer", viewerCode=viewerCode)
@@ -605,6 +639,8 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant(project=project, edition=edition)
+        if recordId is None:
+            return ""
 
         dataPath = Content.getData(table, record, path)
         return sendFile(dataPath)
@@ -698,6 +734,9 @@ class Pages:
         Auth = self.Auth
 
         (editionId, edition) = Mongo.get("edition", edition)
+        if editionId is None:
+            return False
+
         permitted = Auth.authorise("edition", record=edition, action=action)
 
         if not permitted:
@@ -770,15 +809,26 @@ class Pages:
         Content = self.Content
         Auth = self.Auth
 
-        (table, recordId, record) = Content.relevant()
-
         navigation = self.navigation(url)
-        iconSite = Content.getUpload(record, "iconSite")
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
+        banner = Settings.banner.replace("«backups»", Content.getBackups(project=None))
 
-        banner = Settings.banner.replace(
-            "«backups»", Content.getBackups(project=None)
-        )
+        (table, recordId, record) = Content.relevant()
+        if recordId is None:
+            return renderTemplate(
+                "index",
+                banner=banner,
+                versionInfo=Settings.versionInfo,
+                navigation=navigation,
+                materialLeft=left or "",
+                materialRight=right or "",
+                specialLoginWidget=specialLoginWidget,
+                loginWidget=loginWidget,
+                iconSite="",
+            )
+
+        iconSite = Content.getUpload(record, "iconSite")
+
         return renderTemplate(
             "index",
             banner=banner,
