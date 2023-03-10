@@ -1,10 +1,7 @@
 FROM python:3.11
 
-RUN apt update && apt install -y \
-    vim \
-    git
-
-RUN git clone -b ${gitbranch} ${gitlocation} app
+WORKDIR ./app
+ADD . /app
 RUN pip install -r ./requirements.txt
 
 WORKDIR ./src
