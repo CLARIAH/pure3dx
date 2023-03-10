@@ -7,7 +7,6 @@ docker build -f Dockerfile.local -t pure3dapp:${dockertag} \
   --build-arg gitbranch=${gitbranch} \
   --build-arg SECRET_FILE=${SECRET_FILE} \
   --build-arg DATA_DIR=${DATA_DIR} \
-  --build-arg mysecret=${mysecret} \
   .
 
 if [ "$?" == "0" ]; then

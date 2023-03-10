@@ -4,7 +4,6 @@ ARG gitlocation
 ARG gitbranch
 ARG SECRET_FILE
 ARG DATA_DIR
-ARG mysecret
 
 RUN apt update && apt install -y \
     vim \
@@ -13,7 +12,6 @@ RUN apt update && apt install -y \
 ADD . /app
 WORKDIR ./app
 RUN pip install -r ./requirements.txt
-RUN echo "${mysecret}" > ${SECRET_FILE}
 
 WORKDIR ./src
 ENTRYPOINT ["./start.sh"]

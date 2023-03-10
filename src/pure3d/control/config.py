@@ -498,7 +498,6 @@ class Config:
                 cls="large",
                 target="_blank",
             )
-            self.debug(f"{runMode=}")
             banner = H.div(
                 [content, issueLink, dataLink], id="statusbanner", cls=runMode
             )
