@@ -1243,7 +1243,7 @@ class Content(Datamodel):
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
-            return jsonify(status=False, msg="record does not exist")
+            return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
         permitted = Auth.authorise(table, record, action="read")
 
@@ -1251,7 +1251,7 @@ class Content(Datamodel):
             logmsg = f"Download not permitted: {table}: {recordId}"
             msg = f"Download of {table} not permitted"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["warning", msg]])
 
         (siteId, site, projectId, project, editionId, edition) = self.context(
             table, record
@@ -1304,6 +1304,7 @@ class Content(Datamodel):
 
             compress("")
         zipData = zipBuffer.getvalue()
+        Messages.info(msg=f"{table} downloaded")
 
         dirRemove(dst)
 
@@ -1355,7 +1356,7 @@ class Content(Datamodel):
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
-            return jsonify(status=False, msg="record does not exist")
+            return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
         permitted = Auth.authorise(table, record, action="update")
 
@@ -1369,17 +1370,19 @@ class Content(Datamodel):
             logmsg = f"Upload not permitted: {key}: {fileFullPath}"
             msg = f"Upload not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["warning", msg]])
 
         if key == "modelz":
             destDir = f"{workingDir}/{path}"
-            (good, msg) = self.processModelZip(requestData(), destDir)
+            (good, msgs) = self.processModelZip(requestData(), destDir)
             if good:
                 return jsonify(
-                    status=True, msg=msg, content=H.b("Please refresh the page")
+                    status=True,
+                    msgs=msgs,
+                    content=H.b("Please refresh the page", cls="good"),
                 )
             Messages.warning(logmsg=msg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["error", msg]])
 
         try:
             with open(fileFullPath, "wb") as fh:
@@ -1388,13 +1391,13 @@ class Content(Datamodel):
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
             msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["warning", msg]])
 
         content = self.getUpload(
             record, key, fileName=givenFileName, bust=fileName, wrapped=False
         )
 
-        return jsonify(status=True, content=content)
+        return jsonify(status=True, msgs=[["good", "Done"]], content=content)
 
     def processModelZip(self, zf, destDir):
         """Processes zip data with a scene and model files.
@@ -1459,19 +1462,22 @@ class Content(Datamodel):
                         otherFiles.add(zName)
                 z.extract(zInfo, path=destDir)
 
-            msgs.append(f"All files in zip: {allFiles:>3}")
-            msgs.append(f"Files encountered multiple times: {len(doubles):>3} x")
-            msgs.append(f"Scene files: {len(sceneFiles):>3} x")
-            msgs.append(f"Model files: {len(modelFiles):>3} x")
-            msgs.append(f"Other files: {len(otherFiles):>3} x")
+            nDoubles = len(doubles)
+            nScenes = len(sceneFiles)
+            dLabel = "info" if nDoubles == 0 else "warning"
+            sLabel = "info" if nScenes == 1 else "warning"
+            msgs.append(("info", f"All files in zip: {allFiles:>3}"))
+            msgs.append((dLabel, f"Files encountered multiple times: {nDoubles:>3} x"))
+            msgs.append((sLabel, f"Scene files: {nScenes:>3} x"))
+            msgs.append(("info", f"Model files: {len(modelFiles):>3} x"))
+            msgs.append(("info", f"Other files: {len(otherFiles):>3} x"))
 
         except Exception as e:
             good = False
-            msgs.append("Something went wrong")
+            msgs.append(("error", "Something went wrong"))
             Messages.warning(logmsg=str(e))
 
-        msg = "\n".join(msgs)
-        return (good, msg)
+        return (good, msgs)
 
     def deleteFile(self, record, key, path, fileName, givenFileName=None):
         """Deletes a file in the context given by a record.
@@ -1510,7 +1516,7 @@ class Content(Datamodel):
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
-            return jsonify(status=False, msg="record does not exist")
+            return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
         permitted = Auth.authorise(table, record, action="update")
 
@@ -1522,13 +1528,13 @@ class Content(Datamodel):
             logmsg = f"Delete file not permitted: {key}: {fileFullPath}"
             msg = f"Delete not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["warning", msg]])
 
         if not fileExists(fileFullPath):
             logmsg = f"File does not exist: {key}: {fileFullPath}"
             msg = f"File does not exist: {fileName}"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["warning", msg]])
 
         try:
             fileRemove(fileFullPath)
@@ -1536,10 +1542,10 @@ class Content(Datamodel):
             logmsg = f"Could not delete file: {key}: {fileFullPath}"
             msg = f"File not deleted: {fileName}"
             Messages.warning(logmsg=logmsg)
-            return jsonify(status=False, msg=msg)
+            return jsonify(status=False, msgs=[["error", msg]])
 
         content = self.getUpload(
             record, key, fileName=givenFileName, bust=fileName, wrapped=False
         )
 
-        return jsonify(status=True, content=content)
+        return jsonify(status=True, msgs=[["good", "Done"]], content=content)

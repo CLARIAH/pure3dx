@@ -65,7 +65,6 @@ const processUploads = (task, destElem) => response => {
       addMsg("good", `${task} succeeded`, true)
     }
   } else {
-    console.warn({ stat, messages })
     addMsgs(messages)
   }
 }
@@ -306,8 +305,7 @@ const linkUser = (linkuser, topContent) => {
 
   const abortSave = messages => {
     editMessages.html("")
-    for (const message of messages) {
-      const [tp, msg] = message
+    for (const [tp, msg] of messages) {
       const html = `<span class="msgitem ${tp}">${msg}</span>`
       editMessages.append(html)
     }
@@ -322,7 +320,6 @@ const linkUser = (linkuser, topContent) => {
     eRoles.each((i, eRole) => {
       const eRoleJQ = $(eRole)
       const eStr = eRoleJQ.attr("role") || null
-      console.warn({ role, eStr })
       if (eStr == role) {
         if (!eRoleJQ.hasClass("on")) {
           eRoleJQ.addClass("on")
@@ -485,8 +482,7 @@ const editWidget = editwidget => {
 
   const abortSave = messages => {
     editMessages.html("")
-    for (const message of messages) {
-      const [tp, msg] = message
+    for (const [tp, msg] of messages) {
       const html = `<span class="msgitem ${tp}">${msg}</span>`
       editMessages.append(html)
     }
@@ -570,11 +566,15 @@ const uploadControl = fupload => {
   const fupdate = fuploadJQ.find("span.upload.button")
   const fdelete = fuploadJQ.find("span.delete.button")
 
-  fupdate.off("click").click(() => {
+  fupdate.off("click").click(e => {
+    e.preventDefault()
+    e.stopPropagation()
     finput.click()
   })
 
   fdelete.off("click").click(e => {
+    e.preventDefault()
+    e.stopPropagation()
     const eJQ = $(e.currentTarget)
     const deleteUrl = eJQ.attr("url")
     fetchData(deleteUrl, "delete", fupload)
@@ -605,16 +605,15 @@ const uploadControl = fupload => {
           if (!stat.processed) {
             const { response } = xhr
             if (response) {
-              const { status, msg, content } = response
-              if (status) {
-                addMsg("good", "uploaded", true)
-                for (const m of msg.split("\n")) {
-                  addMsg("info", m, false)
+              const { status, msgs, content } = response
+              if (msgs) {
+                for (const [typ, msg] of msgs) {
+                  addMsg(typ, msg, false)
                 }
+              }
+              if (status) {
                 fuploadJQ.html(content)
                 uploadControl(fupload)
-              } else {
-                addMsg("error", msg, true)
               }
               stat.processed = true
             }
