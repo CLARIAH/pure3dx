@@ -1,5 +1,5 @@
 from textwrap import dedent
-from subprocess import check_output
+from subprocess import check_output, DEVNULL
 
 from control.generic import AttrDict
 from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
@@ -123,7 +123,9 @@ class Config:
         try:
             actual = True
             (long, short) = tuple(
-                check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
+                check_output(
+                    ["git", "rev-parsex", *args, "HEAD"], cwd=repoDir, stderr=DEVNULL
+                )
                 .decode("ascii")
                 .strip()
                 for args in ([], ["--short"])
