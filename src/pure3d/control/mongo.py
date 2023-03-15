@@ -184,11 +184,11 @@ class Mongo:
                         logmsg=f"Cannot create table: `{table}`: {e}",
                     )
             else:
-                (good, result) = self.execute(table, "delete_many", {})
+                (good, count) = self.deleteRecords(table, {})
                 if good:
                     Messages.plain(
-                        msg=f"cleared table `{table}`",
-                        logmsg=f"cleared table `{table}`",
+                        msg=f"cleared table `{table} of {count} records`",
+                        logmsg=f"cleared table `{table} of {count} records`",
                     )
 
     def get(self, table, record):
@@ -287,12 +287,12 @@ class Mongo:
         return [deepAttrDict(record) for record in result] if good else []
 
     def deleteRecord(self, table, stop=True, **criteria):
-        """Updates a single record from a table.
+        """Deletes a single record from a table.
 
         Parameters
         ----------
         table: string
-            The name of the table in which we want to update a single record.
+            The name of the table from which we want to delete a single record.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
@@ -310,6 +310,29 @@ class Mongo:
         """
         (good, result) = self.execute(table, "delete_one", criteria, stop=stop)
         return result.deleted_count > 0 if good else False
+
+    def deleteRecords(self, table, stop=True, **criteria):
+        """Delete multiple records from a table.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table from which we want to delete a records.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
+        criteria: dict
+            A set of criteria to narrow down the selection.
+
+        Returns
+        -------
+        boolean, integer
+            Whether the command completed successfully and
+            how many records have been deleted
+        """
+        (good, result) = self.execute(table, "delete_many", criteria, stop=stop)
+        count = result.deleted_count if good else 0
+        return (good, count)
 
     def updateRecord(self, table, updates, stop=True, **criteria):
         """Updates a single record from a table.
@@ -626,7 +649,7 @@ class Mongo:
 
                     Messages.info(msg=f"table {table} {len(records)} record(s)")
                     if db[table] is not None and clean:
-                        (thisGood, result) = self.execute(table, "delete_many", {})
+                        (thisGood, count) = self.deleteRecords(table, {})
                         if not thisGood:
                             good = False
 
@@ -676,8 +699,8 @@ class Mongo:
 
                     Messages.info(msg=f"Restoring {table} record ...")
                     if db[table] is not None and clean:
-                        (thisGood, result) = self.execute(
-                            table, "delete_many", {"_id": projectId}
+                        (thisGood, count) = self.deleteRecords(
+                            table, {"_id": projectId}
                         )
                     if thisGood:
                         db[table].insert_one(record)
@@ -699,8 +722,8 @@ class Mongo:
 
                     Messages.info(msg=f"Restoring {table} records ...")
                     if db[table] is not None and clean:
-                        (thisGood, result) = self.execute(
-                            table, "delete_many", {"_id": projectId}
+                        (thisGood, count) = self.deleteRecords(
+                            table, {"_id": projectId}
                         )
                     if thisGood:
                         db[table].insert_many(records)

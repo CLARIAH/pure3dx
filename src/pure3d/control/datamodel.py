@@ -40,7 +40,7 @@ class Datamodel:
         datamodel = Settings.datamodel
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
-        self.linkConfig = datamodel.link
+        self.mainLink = datamodel.mainLink
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
@@ -134,7 +134,7 @@ class Datamodel:
         """Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
-        given master record.
+        given master record. But not those in cross-link records.
 
         Details are not retrieved recursively, only the direct details
         of a master are fetched.
@@ -175,6 +175,47 @@ class Datamodel:
             detailRecords[detailTable] = details
 
         return detailRecords
+
+    def getLinkedCrit(self, table, record):
+        """Produce criteria to retrieve the linked records of a record.
+
+        It finds all cross-linked records containing an id of the
+        given record.
+
+        So no detail records.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table in which the record lives.
+        record: string | ObjectId | AttrDict
+            The record.
+
+        Returns
+        -------
+        AttrDict
+            Keys: tables in which linked records exist.
+            Values: the criteria to find those linked records in that table.
+        """
+        Mongo = self.Mongo
+        mainLink = self.mainLink
+
+        linkTables = mainLink[table]
+        if linkTables is None:
+            return AttrDict()
+
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return AttrDict()
+
+        crit = {f"{table}Id": recordId}
+
+        linkCriteria = AttrDict()
+
+        for linkTable in linkTables:
+            linkCriteria[linkTable] = crit
+
+        return linkCriteria
 
     def makeField(self, key):
         """Make a field object and registers it.

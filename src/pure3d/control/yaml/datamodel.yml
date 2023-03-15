@@ -10,12 +10,12 @@ detailMaster:
   project: site
   edition: project
 
-link:
+linkMain:
   projectUser:
     - project
     - user
   editionUser:
-    - project
+    - edition
     - user
 
 fields:

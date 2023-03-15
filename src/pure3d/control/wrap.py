@@ -84,7 +84,7 @@ class Wrap:
             statusCls = css.isVisible[stat]
 
             projectUrl = f"/project/{projectId}"
-            button = self.contentButton("project", project, "delete")
+            button = self.contentButton("project", project, "delete", confirm=True)
             visual = Content.getUpload(project, "iconProject")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, projectUrl
@@ -132,7 +132,7 @@ class Wrap:
             statusCls = css.isPublished[stat]
 
             editionUrl = f"/edition/{editionId}"
-            button = self.contentButton("edition", edition, "delete")
+            button = self.contentButton("edition", edition, "delete", confirm=True)
             visual = Content.getUpload(edition, "iconEdition")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, editionUrl
@@ -181,7 +181,7 @@ class Wrap:
         wrapped = []
 
         titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.contentButton("edition", edition, "delete")
+        button = self.contentButton("edition", edition, "delete", confirm=True)
 
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
@@ -242,6 +242,7 @@ class Wrap:
         record,
         action,
         permitted=None,
+        confirm=False,
         insertTable=None,
         key=None,
         href=None,
@@ -285,6 +286,8 @@ class Wrap:
             record.
         href: string, optional None
             If present, contains the href attribute for the button.
+        confirm: boolean, optional False
+            Whether to ask the user for confirmation
         """
         Auth = self.Auth
         Content = self.Content
@@ -341,8 +344,14 @@ class Wrap:
             href = f"/{table}/{recordId}{keyRepUrl}/{action}" if href is None else href
             tip = f"{can}{name}{keyRepTip} this {table}"
 
+        confirmAtt = {}
+
         if disable:
             href = None
+        else:
+            confirmAtt = dict(confirm="v" if confirm else "x")
 
         fullCls = f"button small {cls}"
-        return H.iconx(action, href=href, title=tip, cls=fullCls) + report
+        return (
+            H.iconx(action, href=href, title=tip, cls=fullCls, **confirmAtt) + report
+        )

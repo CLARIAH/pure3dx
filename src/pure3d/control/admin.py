@@ -100,17 +100,19 @@ class Admin:
         User = Auth.myDetails()
         user = User.user
 
+        self.User = User
+        self.user = user
+
         if not user:
+            self.myRole = None
+            self.inPower = False
             return
 
         myRole = User.role
         inPower = myRole in {"root", "admin"}
 
-        self.User = User
-        self.user = user
         self.myRole = myRole
         self.inPower = inPower
-        user = self.user
 
         userList = Mongo.getList("user")
         projectList = Mongo.getList("project")
@@ -139,8 +141,12 @@ class Admin:
             if role:
                 u = pLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 pId = pLink.projectId
                 pRecord = projects[pId]
+                if pRecord is None:
+                    continue
                 pRecord.setdefault("users", AttrDict())
 
                 if user == u:
@@ -155,8 +161,12 @@ class Admin:
             if role:
                 u = eLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 eId = eLink.editionId
                 eRecord = editions[eId]
+                if eRecord is None:
+                    continue
                 pId = eRecord.projectId
 
                 if user == u:
@@ -465,7 +475,7 @@ class Admin:
         myDetails = H.div(
             [
                 H.h(1, "My details"),
-                self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
+                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
             ],
             id="mydetails",
         )
@@ -473,7 +483,7 @@ class Admin:
         wrapped = []
         wrapped.append(H.h(1, "My projects and editions"))
         wrapped.append(
-            H.div([self.wrapProject(p) for p in projectsMy])
+            H.div([self._wrapProject(p) for p in projectsMy])
             if len(projectsMy)
             else H.div("You do not have a specific role w.r.t. projects and editions.")
         )
@@ -485,7 +495,7 @@ class Admin:
             wrapped = []
             wrapped.append(H.h(1, "All projects and editions"))
             wrapped.append(
-                H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
+                H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
                 if len(projectsAll)
                 else H.div("There are no projects and no editions")
             )
@@ -493,12 +503,12 @@ class Admin:
 
             wrapped = []
             wrapped.append(H.h(1, "Manage users"))
-            wrapped.append(H.div(self.wrapUsers(siteRoles), cls="susers"))
+            wrapped.append(H.div(self._wrapUsers(siteRoles), cls="susers"))
             allUsers = H.div(wrapped, id="allusers")
 
         return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
 
-    def wrapProject(self, project, myOnly=True):
+    def _wrapProject(self, project, myOnly=True):
         """Generate HTML for a project in admin view.
 
         Parameters
@@ -545,7 +555,7 @@ class Admin:
                         H.div(status, cls=f"pestatus {statusCls}"),
                         H.a(title, f"project/{project._id}", cls="ptitle"),
                         H.div(
-                            self.wrapUsers(
+                            self._wrapUsers(
                                 projectRoles, table="project", record=project
                             ),
                             cls="pusers",
@@ -556,14 +566,14 @@ class Admin:
                 H.div(
                     "no editions"
                     if len(theseEditions) == 0
-                    else [self.wrapEdition(e) for e in theseEditions],
+                    else [self._wrapEdition(e) for e in theseEditions],
                     cls="peditions",
                 ),
             ],
             cls="pentry",
         )
 
-    def wrapEdition(self, edition):
+    def _wrapEdition(self, edition):
         """Generate HTML for an edition in admin view.
 
         Parameters
@@ -594,14 +604,14 @@ class Admin:
                 H.div(status, cls=f"pestatus {statusCls}"),
                 H.a(title, f"edition/{edition._id}", cls="etitle"),
                 H.div(
-                    self.wrapUsers(editionRoles, table="edition", record=edition),
+                    self._wrapUsers(editionRoles, table="edition", record=edition),
                     cls="eusers",
                 ),
             ],
             cls="eentry",
         )
 
-    def wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
+    def _wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
         """Generate HTML for a list of users.
 
         It is dependent on the value of table/record whether it is about the users
@@ -653,7 +663,7 @@ class Admin:
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self.wrapUser(
+                    self._wrapUser(
                         u,
                         uRecord,
                         role,
@@ -668,12 +678,12 @@ class Admin:
         (editable, otherRoles) = self.authUser(None, table=table, record=record)
         if editable:
             wrapped.append(
-                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
             )
 
         return "".join(wrapped)
 
-    def wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
         """Generate HTML to add a user in a specified role.
 
         Parameters
@@ -721,7 +731,7 @@ class Admin:
             saveurl=f"/link/user/{table}/{recordId}",
         )
 
-    def wrapUser(
+    def _wrapUser(
         self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId
     ):
         """Generate HTML for a single user and his role.
@@ -758,14 +768,14 @@ class Admin:
         return H.div(
             [
                 H.div(uRecord.nickname, cls="user"),
-                *self.wrapRole(
+                *self._wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
             ],
             cls="userroles",
         )
 
-    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         """Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there

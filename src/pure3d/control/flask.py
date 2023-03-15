@@ -2,6 +2,7 @@ import re
 
 from flask import (
     Flask,
+    current_app,
     request,
     redirect,
     abort,
@@ -21,10 +22,16 @@ PROTOCOL_RE = re.compile(r"""^https?:\/\/""", re.I)
 def appInitializing():
     """Whether the flask web app is already running.
 
-    It is False during the initialization code in the app factory
-    before the flask app is delivered.
+    If there is no `current_app`, we are surely initializing.
+
+    But if flask runs in debug mode, two instances of the server will be started.
+    When the second one is started, there is a second time that there is no
+    `current_app`.
+    In that case we alse inspect the environment variable
+    `WERKZEUG_RUN_MAIN`. If it is set, we have already had the init stage of the
+    first instance.
     """
-    return var("WERKZEUG_RUN_MAIN") is None
+    return var("WERKZEUG_RUN_MAIN") is None and not current_app
 
 
 def appMake(*args, **kwargs):

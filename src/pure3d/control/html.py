@@ -556,6 +556,19 @@ class HtmlElements:
         )
 
     @staticmethod
+    def dialog(material, **atts):
+        """DIALOG.
+
+        A <dialog> element.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("dialog").wrap(material, E, **atts)
+
+    @staticmethod
     def div(material, **atts):
         """DIV.
 

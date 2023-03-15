@@ -83,12 +83,14 @@ body {
   top: 2rem;
   right: 5vw;
   width: 30vw;
+  z-index: 100;
+}
+#messages {
   display: flex;
   flex-flow: column nowrap;
   justify-content: flex-start;
   align-items: stretch;
   align-content: flex-start;
-  z-index: 100;
 }
 
 #statusbanner {
@@ -109,8 +111,8 @@ body {
   background-color: var(--error-back-i);
 }
 #statusbanner.pilot {
-  color: var(--good-fore-i);
-  background-color: var(--good-back-i);
+  color: var(--field-inner-fore);
+  background-color: var(--field-inner-back);
 }
 
 .tabs {

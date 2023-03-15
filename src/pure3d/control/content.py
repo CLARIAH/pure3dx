@@ -281,27 +281,102 @@ class Content(Datamodel):
 
         return projectId
 
-    def deleteProject(self, project):
-        """Deletes a project.
+    def deleteItem(self, table, record):
+        """Deletes an item, project or edition.
 
         Parameters
         ----------
-        project: string | ObjectId | AttrDict
-            The project in question.
+        table: string
+            The kind of item: `project` or `edition`.
+        record: string | ObjectId | AttrDict
+            The item in question.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
         """
+        Settings = self.Settings
+        Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+        workingDir = Settings.workingDir
 
-        (projectId, project) = Mongo.get("project", project)
-        if projectId is None:
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            Messages.warning(
+                msg=f"Delete {table}: no such {table}",
+                logmsg=f"Delete {table}: no {table} {recordId}",
+            )
             return None
 
-        permitted = Auth.authorise("project", project, action="delete")
+        permitted = Auth.authorise(table, record, action="delete")
         if not permitted:
             return None
 
-        result = Mongo.deleteRecord("project", _id=projectId)
-        return result
+        details = self.getDetailRecords(table, record)
+        nDetails = len(details)
+        if nDetails:
+            Messages.warning(
+                msg=f"Cannot delete {table} because it has {nDetails} detail records",
+                logmsg=f"Delete {table} {recordId} prevented: {nDetails} details",
+            )
+            return None
+
+        good = True
+
+        links = self.getLinkedCrit(table, record)
+
+        if links:
+            for (linkTable, linkCriteria) in links.items():
+                (thisGood, count) = Mongo.deleteRecords(
+                    linkTable, stop=False, **linkCriteria
+                )
+                if not thisGood:
+                    good = False
+                    Messages.error(
+                        stop=False,
+                        msg=f"Error during removing link records from {linkTable}",
+                        logmsg=(
+                            "Cannot delete records from "
+                            f"{linkTable} by {linkCriteria}"
+                        ),
+                    )
+                    break
+
+                Messages.info(
+                    msg=f"Deleted {count} link records from {linkTable}",
+                    logmsg=f"Deleted {count} link records from {linkTable}",
+                )
+
+        if not good:
+            return False
+
+        good = Mongo.deleteRecord(table, _id=recordId)
+
+        if not good:
+            return False
+
+        itemDirHead = workingDir
+        itemDirTail = f"{table}/{recordId}"
+        if table == "edition":
+            projectId = record.projectId
+            itemDirHead += f"/project/{projectId}"
+        itemDir = f"{itemDirHead}/{itemDirTail}"
+
+        if dirExists(itemDir):
+            dirRemove(itemDir)
+            Messages.info(
+                msg=f"The {table} directory is removed",
+                logmsg=f"The {table} dir {itemDir} is removed",
+            )
+        else:
+            Messages.warning(
+                msg=f"The {table} directory on file system did not exist",
+                logmsg=f"The {table} dir {itemDir} did not exist",
+            )
+
+        return True
 
     def createEdition(self, project):
         """Creates a new edition.
@@ -389,28 +464,6 @@ class Content(Datamodel):
 
         return editionId
 
-    def deleteEdition(self, edition):
-        """Deletes an edition.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition in question.
-        """
-        Mongo = self.Mongo
-        Auth = self.Auth
-
-        (editionId, edition) = Mongo.get("edition", edition)
-        if editionId is None:
-            return None
-
-        permitted = Auth.authorise("edition", edition, action="delete")
-        if not permitted:
-            return None
-
-        result = Mongo.deleteRecord("edition", _id=editionId)
-        return result
-
     def getViewInfo(self, edition):
         """Gets viewer-related info that an edition is made with.
 
@@ -475,6 +528,7 @@ class Content(Datamodel):
         Auth = self.Auth
         Mongo = self.Mongo
 
+        value = json.loads(requestData())
         permitted = Auth.authorise(table, record, action="update")
 
         if not permitted:
@@ -492,7 +546,6 @@ class Content(Datamodel):
                 messages=[["error", "record does not exist"]],
             )
 
-        value = json.loads(requestData())
         update = {f"{nameSpace}.{fieldPath}": value}
         if key == "title":
             update[key] = value
@@ -1344,6 +1397,9 @@ class Content(Datamodel):
             * a message: messages to display
             * content: new content for an upload control (only if successful)
         """
+        fileContent = requestData()  # essential to have this early on in the body
+        # if not, the error responses might go wrong in some browsers
+
         Settings = self.Settings
         H = Settings.H
         Messages = self.Messages
@@ -1374,7 +1430,7 @@ class Content(Datamodel):
 
         if key == "modelz":
             destDir = f"{workingDir}/{path}"
-            (good, msgs) = self.processModelZip(requestData(), destDir)
+            (good, msgs) = self.processModelZip(fileContent, destDir)
             if good:
                 return jsonify(
                     status=True,
@@ -1386,7 +1442,7 @@ class Content(Datamodel):
 
         try:
             with open(fileFullPath, "wb") as fh:
-                fh.write(requestData())
+                fh.write(fileContent)
         except Exception:
             logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
             msg = f"Uploaded file not saved: {fileName}"

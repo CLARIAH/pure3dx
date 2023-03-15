@@ -335,50 +335,6 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
-    def deleteProject(self, project):
-        """Deletes a project.
-
-        After the operation:
-
-        *   *success*: goes to all projects url, good status
-        *   *failure*: goes back to referrer url, error status
-
-        Returns
-        -------
-        response
-        Parameters
-        ----------
-        project: string | ObjectId | AttrDict
-            The project in question.
-
-        Returns
-        -------
-        response
-        """
-        Messages = self.Messages
-        Mongo = self.Mongo
-        Content = self.Content
-
-        ref = getReferrer().removeprefix("/")
-        back = f"/{ref}"
-
-        (projectId, project) = Mongo.get("project", project)
-        if projectId is None:
-            return redirectStatus(back, False)
-
-        result = Content.deleteProject(project)
-
-        if result:
-            Messages.info(logmsg=f"Deleted project {projectId}", msg="project deleted")
-            back = "/project"
-        else:
-            Messages.warning(
-                logmsg=f"Could not delete project {projectId}",
-                msg="failed to delete project",
-            )
-
-        return redirectStatus(back, True)
-
     def createEdition(self, project):
         """Inserts an edition into a project and shows the new edition.
 
@@ -496,21 +452,20 @@ class Pages:
         )
         return self.page("projects", left=left, right=right)
 
-    def deleteEdition(self, edition):
-        """Deletes an edition.
+    def deleteItem(self, table, record):
+        """Deletes an item, project or edition.
 
         After the operation:
 
-        *   *success*: goes to project url, good status
+        *   *success*: goes to all-projects url or master project url, good status
         *   *failure*: goes to back referrer url, error status
 
-        Returns
-        -------
-        response
         Parameters
         ----------
-        edition: string | ObjectId | AttrDict
-            The edition in question.
+        table: string
+            The kind of item: `project` or `edition`.
+        record: string | ObjectId | AttrDict
+            The item in question.
 
         Returns
         -------
@@ -523,21 +478,22 @@ class Pages:
         ref = getReferrer().removeprefix("/")
         back = f"/{ref}"
 
-        (editionId, edition) = Mongo.get("edition", edition)
-        if editionId is None:
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
             return redirectStatus(back, False)
 
-        projectId = edition.projectId
-
-        result = Content.deleteEdition(edition)
+        result = Content.deleteItem(table, record)
 
         if result:
-            Messages.info(logmsg=f"Deleted edition {editionId}", msg="edition deleted")
-            back = f"/project/{projectId}"
+            Messages.info(logmsg=f"Deleted {table} {recordId}", msg=f"{table} deleted")
+            back = "/project"
+            if table == "edition":
+                projectId = record.projectId
+                back += f"/{projectId}"
         else:
             Messages.warning(
-                logmsg=f"Could not delete edition {editionId}",
-                msg="failed to delete edition",
+                logmsg=f"Could not delete {table} {recordId}",
+                msg=f"failed to delete {table}",
             )
         return redirectStatus(back, True)
 

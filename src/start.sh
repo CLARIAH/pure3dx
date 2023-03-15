@@ -14,17 +14,13 @@ otherwise production mode is assumed.
 ./start.sh
 "
 
-flaskdebug=""
 flaskhost="0.0.0.0"
 
-if [[ "$runmode" == "test" ]]; then
-    flaskdebug="--debug"
-elif [[ "$runmode" == "pilot" ]]; then
-    flaskdebug="--debug"
+if [[ "$flaskdebug" == "v" ]]; then
+    flaskdebugarg="--debug"
 else
-    flaskdebug=""
+    flaskdebugarg=""
 fi
-
 
 cd ..
 repodir="`pwd`"
@@ -35,13 +31,13 @@ fi
 
 cd src/pure3d
 
-export flaskdebug
+export flaskdebugarg
 export repodir
 export runmode
 export FLASK_APP=index
 export WERKZEUG_DEBUG_PIN=off
 
-flask $flaskdebug run --host $flaskhost --port $flaskport &
+flask $flaskdebugarg run --host $flaskhost --port $flaskport &
 pid=$!
 trap "kill $pid" SIGTERM
 wait "$pid"

@@ -13,6 +13,7 @@ services:
     environment:
       SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
+      flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}
       gitlocation: ${gitlocation}

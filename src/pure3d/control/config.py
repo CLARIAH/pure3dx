@@ -353,6 +353,12 @@ class Config:
             masterDetail[master] = detail
         datamodel.masterDetail = masterDetail
 
+        mainLink = AttrDict()
+        for (link, mains) in datamodel.linkMain.items():
+            for main in mains:
+                mainLink.setdefault(main, []).append(link)
+        datamodel.mainLink = mainLink
+
         Settings.datamodel = datamodel
 
     def checkAuth(self):

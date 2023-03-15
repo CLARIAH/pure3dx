@@ -40,6 +40,7 @@ def appFactory(objects):
     webdavMethods = Settings.webdavMethods
 
     app = appMake(__name__, static_folder="../static")
+
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
@@ -201,7 +202,7 @@ def appFactory(objects):
         project: string
             The id of the project record.
         """
-        return Pages.deleteProject(project)
+        return Pages.deleteItem("project", project)
 
     @app.route("/project/<string:project>/edition/create")
     def createEdition(project):
@@ -242,7 +243,7 @@ def appFactory(objects):
         edition: string
             The id of the edition record.
         """
-        return Pages.deleteEdition(edition)
+        return Pages.deleteItem("edition", edition)
 
     @app.route(
         "/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>"

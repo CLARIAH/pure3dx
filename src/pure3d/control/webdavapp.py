@@ -103,6 +103,8 @@ def appFactoryMaster():
     """Factory function for the master flask app.
     """
     app = appMake(__name__)
+    # At the setting below does not seem to have any effect
+    # app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
     return app
 
 

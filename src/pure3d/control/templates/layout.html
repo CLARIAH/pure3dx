@@ -18,13 +18,15 @@
   <body>
     <header id="header">
       <div id="msgbar">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <span class="msgitem {{ category }}">{{ message }}</span>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <div id="messages">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <span class="msgitem {{ category }}">{{ message }}</span>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+        </div>
         <button id="flashdismiss" title="dismiss messages">❎</button>
       </div>
       <div id="topbar">

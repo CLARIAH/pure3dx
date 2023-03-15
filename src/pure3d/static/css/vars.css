@@ -15,10 +15,6 @@
     --action-active-back:              hsla(060,  80%,  70%, 0.9);
     --action-active-border:            hsla(060, 100%,  40%, 1.0);
 
-    --assessment-quoted-fore:          hsla(180,  35%,  10%, 1  );
-    --assessment-quoted-back:          hsla(180,  35%,  92%, 1  );
-    --assessment-quoted-border:        hsla(180,  35%,  35%, 0.5);
-
     --caption-border:                  hsla(  0,   0%,  90%, 1  );
     --caption-border-active:           hsla( 30, 100%,  60%, 1  );
 

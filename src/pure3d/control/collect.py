@@ -97,10 +97,6 @@ class Collect:
 
         We also prevent this from happening twice, which occurs when Flask runs
         in debug mode, since then the code is loaded twice.
-        We guard against this by inspecting the environment variable
-        `WERKZEUG_RUN_MAIN`. If it is set, we are already running the app,
-        and data collection should be inhibited, because it has been done
-        just before Flask started running.
         """
 
         importDir = self.importDir

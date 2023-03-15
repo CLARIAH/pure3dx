@@ -1,8 +1,8 @@
 /*eslint-env jquery*/
 
 const flashInit = () => {
+  const msgbar = $("#messages")
   const dismiss = $("#flashdismiss")
-  const msgbar = $("#msgbar")
 
   dismiss.off("click").click(() => {
     const msgs = msgbar.children("span")
@@ -13,31 +13,33 @@ const flashInit = () => {
 }
 
 const flashUpdate = () => {
-  const msgbar = $("#msgbar")
+  const msgbar = $("#messages")
   const dismiss = $("#flashdismiss")
   const msgs = msgbar.children("span")
   if (msgs.length) {
     dismiss.show()
-  }
-  else {
+  } else {
     dismiss.hide()
   }
 }
 
 const addMsg = (tp, msg, replace = false) => {
-  const msgbar = $("#msgbar")
+  const msgbar = $("#messages")
+  const dismiss = $("#flashdismiss")
+  const msgs = msgbar.children("span")
   const html = `<span class="msgitem ${tp}">${msg}</span>`
   if (replace) {
-    msgbar.html(html)
-  } else {
-    msgbar.append(html)
+    msgs.remove()
   }
+  msgbar.append(html)
+  dismiss.show()
 }
 
 const addMsgs = (messages, replace = false) => {
-  const msgbar = $("#msgbar")
+  const msgbar = $("#messages")
+  const msgs = msgbar.children("span")
   if (replace) {
-    msgbar.html("")
+    msgs.remove()
   }
   for (const message of messages) {
     const [tp, msg] = message
@@ -585,53 +587,62 @@ const uploadControl = fupload => {
     const xhr = new XMLHttpRequest()
     const { upload } = xhr
 
-    const stat = { problem: false, success: false, processed: false }
-
-    const handleEvent = e => {
-      const { type } = e
-
-      if (type == "error" || type == "abort" || type == "timeout") {
-        stat.problem = true
-        addMsg("error", "uploading failed", true)
-      } else if (type == "load" || type == "loadend") {
-        if (!stat.success) {
-          addMsg("good", "uploaded.", true)
-          if (!stat.problem) {
-            stat.success = true
-          }
-        }
-      } else if (type == "readystatechange") {
-        if (stat.success) {
-          if (!stat.processed) {
-            const { response } = xhr
-            if (response) {
-              const { status, msgs, content } = response
-              if (msgs) {
-                for (const [typ, msg] of msgs) {
-                  addMsg(typ, msg, false)
-                }
-              }
-              if (status) {
-                fuploadJQ.html(content)
-                uploadControl(fupload)
-              }
-              stat.processed = true
+    const handleRequestEvent = () => {
+      const { readyState, status, response } = xhr
+      if (readyState === XMLHttpRequest.DONE) {
+        if (status >= 200 && status < 400) {
+          const { status: responseStatus, msgs, content } = response
+          if (msgs) {
+            for (const [typ, msg] of msgs) {
+              addMsg(typ, msg, false)
+            }
+            if (responseStatus) {
+              addMsg("good", "uploaded file saved on the server", false)
+              fuploadJQ.html(content)
+              uploadControl(fupload)
+            } else {
+              addMsg("error", "uploaded file not saved on the server", false)
             }
           }
+        } else {
+          addMsg("error", `Upload ended with status ${status}`, false)
         }
       } else {
-        addMsg("info", "still uploading ...")
+        // pass
+      }
+    }
+    const handleUploadEvent = e => {
+      const { type, lengthComputable, loaded, total } = e
+      const complete = lengthComputable ? Math.round((loaded / total) * 100) : "??"
+      const msg = `uploading (${complete} %)`
+
+      if (type == "loadstart") {
+        addMsg("info", `${msg} ...`)
+      } else if (type == "progress") {
+        addMsg("info", `${msg} ...`)
+      } else if (type == "load") {
+        addMsg("info", `${msg} OK`)
+      } else if (type == "error") {
+        addMsg("info", `${msg} Failed`)
+      } else if (type == "abort") {
+        addMsg("info", `${msg} Aborted`)
+      } else if (type == "timeout") {
+        addMsg("info", `${msg} Timed out`)
+      } else if (type == "loadend") {
+        // pass
+      } else {
+        addMsg("warning", `upload ${type} (??)`)
       }
     }
 
-    upload.addEventListener("loadstart", handleEvent)
-    upload.addEventListener("load", handleEvent)
-    upload.addEventListener("loadend", handleEvent)
-    upload.addEventListener("progress", handleEvent)
-    upload.addEventListener("error", handleEvent)
-    upload.addEventListener("abort", handleEvent)
-    upload.addEventListener("timeout", handleEvent)
-    xhr.addEventListener("readystatechange", handleEvent)
+    upload.addEventListener("loadstart", handleUploadEvent)
+    upload.addEventListener("load", handleUploadEvent)
+    upload.addEventListener("loadend", handleUploadEvent)
+    upload.addEventListener("progress", handleUploadEvent)
+    upload.addEventListener("error", handleUploadEvent)
+    upload.addEventListener("abort", handleUploadEvent)
+    upload.addEventListener("timeout", handleUploadEvent)
+    xhr.addEventListener("readystatechange", handleRequestEvent)
 
     xhr.responseType = "json"
     xhr.open("POST", `${saveUrl}/${theFile.name}`)
@@ -639,14 +650,36 @@ const uploadControl = fupload => {
   })
 }
 
+const confirmInit = () => {
+  const confirmButtons = $(`a[confirm="v"]`)
+  confirmButtons.each((i, confirmButton) => {
+    const confirmButtonJQ = $(confirmButton)
+    const lnk = confirmButtonJQ.attr("href")
+    const tip = confirmButtonJQ.attr("title")
+    console.warn({ lnk, tip })
+    confirmButtonJQ.off("click").click(e => {
+      e.preventDefault()
+      const confirmed = window.confirm(`Are you sure to ${tip}?`)
+      if (confirmed) {
+        window.location.href = lnk
+      }
+      else {
+        // pass
+      }
+    })
+  })
+}
+
 const processMyWork = () => {
   editRoles()
   linkUsers()
+  confirmInit()
 }
 
 $(() => {
   uploadControls()
   editWidgets()
   processMyWork()
+  confirmInit()
   flashInit()
 })
