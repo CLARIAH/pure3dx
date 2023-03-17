@@ -367,7 +367,7 @@ class Users:
 
             enabled = not userActive or isSpecialUser
             for record in sorted(
-                Mongo.getList("user", isSpecial=True),
+                Mongo.getList("user", sort="nickname", isSpecial=True),
                 key=lambda r: r.nickname,
             ):
                 user = record.user

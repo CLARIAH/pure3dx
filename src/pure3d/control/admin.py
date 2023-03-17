@@ -114,9 +114,9 @@ class Admin:
         self.myRole = myRole
         self.inPower = inPower
 
-        userList = Mongo.getList("user")
-        projectList = Mongo.getList("project")
-        editionList = Mongo.getList("edition")
+        userList = Mongo.getList("user", sort="nickname")
+        projectList = Mongo.getList("project", sort="title")
+        editionList = Mongo.getList("edition", sort="title")
         projectLinks = Mongo.getList("projectUser")
         editionLinks = Mongo.getList("editionUser")
 

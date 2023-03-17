@@ -227,9 +227,9 @@ class Config:
         *   All other run modes count as production mode, `prod`.
         """
 
-        debugMode = var("flaskdebug")
+        debugMode = var("flaskdebugarg")
         if debugMode is None:
-            Messages.error(logmsg="Environment variable `flaskdebug` not defined")
+            Messages.error(logmsg="Environment variable `flaskdebugarg` not defined")
             self.good = False
             return
 

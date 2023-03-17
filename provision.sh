@@ -4,35 +4,41 @@ HELP="
 Put additional data within reach of the container.
 
 This can be run on the host, without the need of a running container.
-Although it can be performed when the container is running,
-the container will see the changes.
 
 It can provision the following kinds of data, steered by a list of
 task arguments:
 
 content
     Example data. Example data is a directory with data and additional
-    yaml files. Before the app can make use of it,
-    it has to be imported from within a running container by 
-    
-    ./import.sh content
-
-    which populates a MongoDb.
+    yaml files.
 
 viewers
     Client-side code of 3d viewers. This is a directory
     that needs no further processing within the container.
 
+There are also flag arguments:
+
+--resetexample
+    Will delete the the working example data
+
+--resetpilot
+    Will delete the the working pilot data
+
+When the pure3d app starts with non-existing pilot or empty data,
+it will collect the data from the provisioned directory and initialize
+the relevant MongoDb database accordingly.
 
 Usage
 
 Run it from the toplevel directory in the repo.
 
-./provision.sh [task] [task] ...
+./provision.sh [flag or task] [flag or task] ...
 "
 
 docontent="x"
 doviewers="x"
+resetexample="x"
+resetpilot="x"
 
 while [ ! -z "$1" ]; do
     if [[ "$1" == "--help" ]]; then
@@ -45,6 +51,12 @@ while [ ! -z "$1" ]; do
     elif [[ "$1" == "viewers" ]]; then
         doviewers="v"
         shift
+    elif [[ "$1" == "--resetexample" ]]; then
+        doresetexample="v"
+        shift
+    elif [[ "$1" == "--resetpilot" ]]; then
+        doresetpilot="v"
+        shift
     else
         echo "unrecognized argument '$1'"
         shift
@@ -52,7 +64,7 @@ while [ ! -z "$1" ]; do
 done
 
 if [[ "$docontent" == "v" ]]; then
-    echo "Provisioning example data ..."
+    echo "Provisioning example and pilot data ..."
     mkdir -p data
     echo 'Copying stuff in pure3d-data/*data to pure3dx/data'
     for key in exampledata pilotdata
@@ -73,5 +85,23 @@ if [[ "$doviewers" == "v" ]]; then
         rm -rf data/viewers
     fi
     cp -r ../pure3d-data/viewers data/
+    echo "Done"
+fi
+
+if [[ "$doresetexample" == "v" ]]; then
+    echo "Resetting example data ..."
+    workingdir="data/working/test"
+    if [[ -e "$workingdir" ]]; then
+        rm -rf "$workingdir"
+    fi
+    echo "Done"
+fi
+
+if [[ "$doresetpilot" == "v" ]]; then
+    echo "Resetting pilot data ..."
+    workingdir="data/working/pilot"
+    if [[ -e "$workingdir" ]]; then
+        rm -rf "$workingdir"
+    fi
     echo "Done"
 fi

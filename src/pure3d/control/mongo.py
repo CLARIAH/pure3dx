@@ -263,7 +263,7 @@ class Mongo:
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, stop=True, **criteria):
+    def getList(self, table, stop=True, sort=None, **criteria):
         """Get a list of records from a table.
 
         Parameters
@@ -273,6 +273,12 @@ class Mongo:
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
+        sort: string | function, optional None
+            Sort key. If `None`, the results will not be sorted.
+            If a string, it is the name of a field by which the results
+            will be sorted in ascending order.
+            If a function, the function should take a record as input and return a
+            value. The records will be sorted by this value.
         criteria: dict
             A set of criteria to narrow down the search.
 
@@ -282,9 +288,19 @@ class Mongo:
             The list of records found, empty if no records are found.
             Each record is cast to an AttrDict.
         """
-
         (good, result) = self.execute(table, "find", criteria, {}, stop=stop)
-        return [deepAttrDict(record) for record in result] if good else []
+        if not good:
+            return []
+
+        unsorted = [deepAttrDict(record) for record in result]
+
+        if sort is None:
+            return unsorted
+
+        sortFunc = (lambda r: r[sort] or "") if type(sort) is str else sort
+
+        self.debug(f"XXXXXXXX {table=} {[r[sort] or '' for r in sorted(unsorted, key=sortFunc)]}")
+        return sorted(unsorted, key=sortFunc)
 
     def deleteRecord(self, table, stop=True, **criteria):
         """Deletes a single record from a table.

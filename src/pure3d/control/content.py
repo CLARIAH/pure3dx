@@ -76,7 +76,7 @@ class Content(Datamodel):
         if siteId is None:
             return ""
 
-        return Wrap.projectsMain(site, Mongo.getList("project"))
+        return Wrap.projectsMain(site, Mongo.getList("project", sort="title"))
 
     def getEditions(self, project):
         """Get the list of the editions of a project.
@@ -105,7 +105,9 @@ class Content(Datamodel):
         if projectId is None:
             return ""
 
-        return Wrap.editionsMain(project, Mongo.getList("edition", projectId=projectId))
+        return Wrap.editionsMain(
+            project, Mongo.getList("edition", sort="title", projectId=projectId)
+        )
 
     def getScene(self, projectId, edition, version=None, action=None):
         """Get the scene of an edition of a project.
@@ -1333,7 +1335,7 @@ class Content(Datamodel):
             yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
 
         if edition is None:
-            editions = Mongo.getList("edition", projectId=projectId)
+            editions = Mongo.getList("edition", sort="title", projectId=projectId)
             for ed in editions:
                 edId = ed._id
                 yamlDest = f"{landing}/edition/{edId}/edition.yaml"
