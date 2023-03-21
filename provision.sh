@@ -35,6 +35,9 @@ Run it from the toplevel directory in the repo.
 ./provision.sh [flag or task] [flag or task] ...
 "
 
+fromloc="."
+toloc="../pure3dx/data"
+
 docontent="x"
 doviewers="x"
 resetexample="x"
@@ -65,14 +68,14 @@ done
 
 if [[ "$docontent" == "v" ]]; then
     echo "Provisioning example and pilot data ..."
-    mkdir -p data
-    echo 'Copying stuff in pure3d-data/*data to pure3dx/data'
+    mkdir -p $toloc
+    echo "Copying stuff in $fromloc/*data to $toloc"
     for key in exampledata pilotdata
     do
-        if [[ -d "data/$key" ]]; then
-            rm -rf data/$key
+        if [[ -d $toloc/$key ]]; then
+            rm -rf $toloc/$key
         fi
-        cp -r ../pure3d-data/$key data/
+        cp -r $fromloc/$key $toloc/
     done
     echo "Done"
 fi
@@ -81,16 +84,16 @@ if [[ "$doviewers" == "v" ]]; then
     echo "Provisioning client code of 3d viewers ..."
     mkdir -p data
     echo 'Copying directory pure3d-data/viewers to pure3dx/data'
-    if [[ -d "data/viewers" ]]; then
-        rm -rf data/viewers
+    if [[ -d $toloc/viewers ]]; then
+        rm -rf $toloc/viewers
     fi
-    cp -r ../pure3d-data/viewers data/
+    cp -r $fromloc/viewers $toloc/
     echo "Done"
 fi
 
 if [[ "$doresetexample" == "v" ]]; then
     echo "Resetting example data ..."
-    workingdir="data/working/test"
+    workingdir=$toloc/working/test
     if [[ -e "$workingdir" ]]; then
         rm -rf "$workingdir"
     fi
@@ -99,7 +102,7 @@ fi
 
 if [[ "$doresetpilot" == "v" ]]; then
     echo "Resetting pilot data ..."
-    workingdir="data/working/pilot"
+    workingdir=$toloc/working/pilot
     if [[ -e "$workingdir" ]]; then
         rm -rf "$workingdir"
     fi
