@@ -162,7 +162,7 @@ class Wrap:
         action: string
             The mode in which the viewer should be opened.
         sceneExists: boolean
-            Whether the scen file exists
+            Whether the scene file exists
 
         Returns
         -------

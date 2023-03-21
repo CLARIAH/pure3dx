@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from control.generic import AttrDict
+from control.generic import AttrDict, attResolve
 
 
 class Viewers:
@@ -316,7 +316,9 @@ class Viewers:
             element = modeProps.element
             fileBase = modeProps.fileBase
             subModes = modeProps.subModes or AttrDict()
-            atts = subModes[subMode] or AttrDict()
+            atts = attResolve(subModes[subMode] or AttrDict(), version)
+            if subMode != "create":
+                atts["document"] = sceneFile
 
             return H.content(
                 H.head(
@@ -343,7 +345,6 @@ class Viewers:
                         element,
                         "",
                         root=viewerRoot,
-                        document=sceneFile,
                         resourceroot=f"{viewerStaticRoot}/",
                         **atts,
                     )

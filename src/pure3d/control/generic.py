@@ -1,4 +1,30 @@
+import re
 from datetime import datetime as dt
+
+
+VERSION_COMP_RE = re.compile(
+    r"""
+    ([0-9]*)
+    ([a-z]*)
+    (-?)
+    """,
+    re.X,
+)
+
+OP_VERSION_RE = re.compile(
+    r"""
+    ^
+    (
+        [<>]
+        =?
+    )
+    (
+        .*
+    )
+    $
+    """,
+    re.X,
+)
 
 
 def now():
@@ -9,6 +35,68 @@ def now():
     """
 
     return dt.utcnow().isoformat().split(".")[0].replace(":", "-")
+
+
+def splitComp(c):
+    return [m for m in VERSION_COMP_RE.findall(c) if m[0] or m[1]]
+
+
+def makeComps(v):
+    return [splitComp(c) for c in v.split(".")]
+
+
+def versionCompare(v1, v2):
+    v1comps = makeComps(v1)
+    v2comps = makeComps(v2)
+
+    nV2 = len(v2comps)
+
+    for (i, c1) in enumerate(v1comps):
+        if i >= nV2:
+            return 1
+
+        c2 = v2comps[i]
+        nC2 = len(c2)
+        for (j, s1) in enumerate(c1):
+            if j >= nC2:
+                return 1
+
+            s2 = c2[j]
+            if s1 < s2:
+                return -1
+            if s1 > s2:
+                return 1
+    return 0
+
+
+def attResolve(attSpec, version):
+    default = attSpec.default
+
+    if default is None:
+        return attSpec
+
+    for (k, v) in attSpec.items():
+        if k == "default":
+            continue
+
+        match = OP_VERSION_RE.match(k)
+        if not match:
+            continue
+        (op, cmpVersion) = match.group(1, 2)
+        cmp = versionCompare(version, cmpVersion)
+        if (
+            op == "<"
+            and cmp < 0
+            or op == "<="
+            and cmp <= 0
+            or op == ">"
+            and cmp > 0
+            or op == ">="
+            and cmp > 0
+        ):
+            return v
+
+    return default
 
 
 class AttrDict(dict):
@@ -32,8 +120,7 @@ class AttrDict(dict):
     """
 
     def __init__(self, *args, **kwargs):
-        """Create the data structure from incoming data.
-        """
+        """Create the data structure from incoming data."""
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 

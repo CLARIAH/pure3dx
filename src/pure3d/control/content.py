@@ -139,7 +139,7 @@ class Content(Datamodel):
             The mode in which the viewer should be opened.
             If the mode is `update`, the viewer is opened in edit mode, if the
             scene file exists, otherwise in create mode,  which, in case
-            of the Voyager viewer, means `standalone` mode.
+            of the Voyager viewer, means `dragdrop` mode, in older versions `standalone`.
             All other modes lead to the viewer being opened in read-only
             mode.
             If the mode is read-only, but the scene file is missing, no viewer
@@ -1461,7 +1461,7 @@ class Content(Datamodel):
         """Processes zip data with a scene and model files.
 
         All files in the zip file will be examined, and those with
-        extension svx.json will be saved as voyager.svx.json
+        extension svx.json will be saved as scene.svx.json
         and those with extensions glb of gltf will be saved under their
         own names.
         All pathnames will be ignored, so potentially files may overwrite each other.

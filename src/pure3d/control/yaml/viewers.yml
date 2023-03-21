@@ -23,6 +23,10 @@ viewers:
           update:
             mode: edit
           create:
-            mode: standalone
+            default:
+              mode: edit
+              dragdrop: true
+            "<=0.26.0":
+                mode: standalone
     defaultVersion: "0.24.0"
-    sceneFile: voyager.svx.json
+    sceneFile: scene.svx.json

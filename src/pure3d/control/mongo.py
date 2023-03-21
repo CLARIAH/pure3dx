@@ -299,7 +299,6 @@ class Mongo:
 
         sortFunc = (lambda r: r[sort] or "") if type(sort) is str else sort
 
-        self.debug(f"XXXXXXXX {table=} {[r[sort] or '' for r in sorted(unsorted, key=sortFunc)]}")
         return sorted(unsorted, key=sortFunc)
 
     def deleteRecord(self, table, stop=True, **criteria):
