@@ -139,7 +139,8 @@ class Content(Datamodel):
             The mode in which the viewer should be opened.
             If the mode is `update`, the viewer is opened in edit mode, if the
             scene file exists, otherwise in create mode,  which, in case
-            of the Voyager viewer, means `dragdrop` mode, in older versions `standalone`.
+            of the Voyager viewer, means `dragdrop` mode, in older versions
+            `standalone`.
             All other modes lead to the viewer being opened in read-only
             mode.
             If the mode is read-only, but the scene file is missing, no viewer

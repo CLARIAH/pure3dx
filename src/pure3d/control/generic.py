@@ -1,5 +1,6 @@
 import re
 from datetime import datetime as dt
+from functools import cmp_to_key as keyFromComparison
 
 
 VERSION_COMP_RE = re.compile(
@@ -67,6 +68,10 @@ def versionCompare(v1, v2):
             if s1 > s2:
                 return 1
     return 0
+
+
+def getVersionKeyFunc():
+    return keyFromComparison(versionCompare)
 
 
 def attResolve(attSpec, version):

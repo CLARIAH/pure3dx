@@ -415,12 +415,12 @@ class Pages:
 
         (editionId, edition) = Mongo.get("edition", edition)
         if edition is None:
-            return self.page("project", left=None, right=None)
+            return redirectStatus("/project", True)
 
         projectId = edition.projectId
         (projectId, project) = Mongo.get("project", projectId)
         if project is None:
-            return self.page("project", left=None, right=None)
+            return redirectStatus("/project", True)
 
         (viewer, sceneFile) = Content.getViewInfo(edition)
 

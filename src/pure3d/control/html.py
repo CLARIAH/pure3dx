@@ -116,7 +116,7 @@ class HtmlElement:
                 atts = dict(cls=addCls)
         return E.join(
             f""" {thisCls.atNormal(k)}"""
-            + (E if v is True else f'''="{thisCls.atEscape(v)}"''')
+            + (E if v is True else f'''="{thisCls.atEscape(str(v))}"''')
             for (k, v) in atts.items()
             if v is not None and v is not False
         )

@@ -1,7 +1,7 @@
 from textwrap import dedent
 from subprocess import check_output, DEVNULL
 
-from control.generic import AttrDict
+from control.generic import AttrDict, getVersionKeyFunc
 from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
 from control.html import HtmlElements
@@ -396,11 +396,15 @@ class Config:
 
         yamlDir = Settings.yamlDir
         dataDir = Settings.dataDir
+        runMode = Settings.runMode
 
         viewerDir = f"{dataDir}/viewers"
 
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = "/data/viewers"
+
+        versionKey = getVersionKeyFunc()
+        Settings.versionKey = versionKey
 
         viewersFile = "viewers.yml"
         viewerSettingsFile = f"{yamlDir}/{viewersFile}"
@@ -428,12 +432,10 @@ class Config:
                 continue
             viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f"{viewerDir}/{viewerName}"
-            versions = []
 
-            versionNames = listDirs(viewerPath)
-
-            for versionName in versionNames:
-                versions.append(versionName)
+            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
+            if len(versions) > 1 and runMode == "pilot":
+                versions = versions[0:1]
 
             viewerConfig.versions = versions
 

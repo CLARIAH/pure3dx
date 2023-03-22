@@ -71,7 +71,7 @@ class Viewers:
         versions = viewerInfo.versions
         defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
-            version = defaultVersion if defaultVersion in versions else versions[-1]
+            version = defaultVersion if defaultVersion in versions else versions[0]
         return version
 
     def getFrame(
@@ -109,6 +109,7 @@ class Viewers:
         """
         Settings = self.Settings
         H = Settings.H
+        pilotMode = Settings.runMode == "pilot"
         Mongo = self.Mongo
         actionInfo = self.viewerActions
         viewers = self.viewers
@@ -137,7 +138,23 @@ class Viewers:
             """
             openAtt = vw == viewer
 
-            versions = list(reversed(sorted(viewers[vw].versions)))
+            versions = viewers[vw].versions
+            if len(versions) == 1:
+                version = versions[0]
+                return H.table(
+                    [
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=not pilotMode,
+                            withVersion=not pilotMode,
+                        )
+                    ],
+                    [],
+                    cls="vwv",
+                )
+
             (latest, previous) = (versions[0:1], versions[1:])
 
             openAtt = vw == viewer and len(previous) and versionActive in previous
@@ -171,7 +188,9 @@ class Viewers:
                 open=openAtt,
             )
 
-        def getVersionButtons(version, active, versionAmount=None, withViewer=False):
+        def getVersionButtons(
+            version, active, versionAmount=None, withViewer=False, withVersion=True
+        ):
             """Internal function.
 
             Parameters
@@ -182,8 +201,10 @@ class Viewers:
                 Whether that version of that viewer is currently active.
             versionAmount: int, optional None
                 If passed, contains the number of versions and displays it.
-            withViewer: boolean, optional Fasle
+            withViewer: boolean, optional False
                 Whether to show the viewer name in the first column.
+            withVersion: boolean, optional True
+                Whether to show the version in the second column.
 
             Returns
             -------
@@ -202,7 +223,10 @@ class Viewers:
             return (
                 [
                     (viewer if withViewer else H.nbsp, dict(cls="vwc", title=title)),
-                    (version, dict(cls="vvl vwc", title=title)),
+                    (
+                        version if withVersion else H.nbsp,
+                        dict(cls="vvl vwc", title=title),
+                    ),
                 ]
                 + [
                     getActionButton(
