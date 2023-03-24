@@ -125,11 +125,16 @@ def appFactory():
         See `dispatchWebdav()`.
     """
 
-    objects = prepare()
+    trivial = False
 
-    origApp = appFactoryMain(objects)
-    app = appFactoryMaster()
+    objects = prepare(trivial=trivial)
 
-    app.wsgi_app = dispatchWebdav(origApp, "/webdav/", getWebdavApp(objects))
+    if trivial:
+        app = appFactoryMain(objects)
+    else:
+        origApp = appFactoryMain(objects)
+        app = appFactoryMaster()
+
+        app.wsgi_app = dispatchWebdav(origApp, "/webdav/", getWebdavApp(objects))
 
     return app

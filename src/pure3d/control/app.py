@@ -41,6 +41,9 @@ def appFactory(objects):
 
     app = appMake(__name__, static_folder="../static")
 
+    if Messages is None:
+        return app
+
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
