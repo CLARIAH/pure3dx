@@ -124,7 +124,7 @@ class Config:
             actual = True
             (long, short) = tuple(
                 check_output(
-                    ["git", "rev-parsex", *args, "HEAD"], cwd=repoDir, stderr=DEVNULL
+                    ["git", "rev-parse", *args, "HEAD"], cwd=repoDir, stderr=DEVNULL
                 )
                 .decode("ascii")
                 .strip()
@@ -132,7 +132,11 @@ class Config:
             )
             with open(versionFile, "w") as fh:
                 fh.write(f"{long}\t{short}\n")
-        except Exception:
+        except Exception as e:
+            print(str(e))
+            print(
+                f"Could not get version from git, reading it from file {versionFile}"
+            )
             actual = False
             if not fileExists(versionFile):
                 known = False
