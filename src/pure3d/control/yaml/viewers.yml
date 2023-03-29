@@ -21,7 +21,10 @@ viewers:
         fileBase: voyager-story
         subModes:
           update:
-            mode: edit
+            default:
+              mode: edit
+            ">0.26.0":
+              dragdrop: true
           create:
             default:
               mode: edit
