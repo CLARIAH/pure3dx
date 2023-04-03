@@ -400,7 +400,7 @@ class Config:
 
         yamlDir = Settings.yamlDir
         dataDir = Settings.dataDir
-        runMode = Settings.runMode
+        # runMode = Settings.runMode
 
         viewerDir = f"{dataDir}/viewers"
 
@@ -438,8 +438,8 @@ class Config:
             viewerPath = f"{viewerDir}/{viewerName}"
 
             versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
-            if len(versions) > 1 and runMode == "pilot":
-                versions = versions[0:1]
+            # if len(versions) > 1 and runMode == "pilot":
+            #    versions = versions[0:1]
 
             viewerConfig.versions = versions
 
