@@ -82,6 +82,7 @@ def dispatchWebdav(app, webdavPrefix, webdavApp):
         if aimedAtWebdav:
             theApp = webdavApp
             environ["PATH_INFO"] = f"/auth{url}"
+            # with app.request_context(environ):
             with app.request_context(environ) as ctx:
                 ctx.push()
                 authorized = app.dispatch_request()

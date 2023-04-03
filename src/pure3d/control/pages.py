@@ -662,7 +662,7 @@ class Pages:
             record, key, path, fileName, givenFileName=givenFileName
         )
 
-    def authWebdav(self, edition, path, action):
+    def authWebdav(self, edition, method, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -688,6 +688,9 @@ class Pages:
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+
+        User = Auth.myDetails()
+        user = User.user
 
         (editionId, edition) = Mongo.get("edition", edition)
         if editionId is None:
