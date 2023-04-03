@@ -1,4 +1,11 @@
-from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
+from control.flask import (
+    redirectStatus,
+    renderTemplate,
+    sendFile,
+    appStop,
+    getReferrer,
+    sessionGet,
+)
 
 
 class Pages:
@@ -691,6 +698,8 @@ class Pages:
 
         User = Auth.myDetails()
         user = User.user
+
+        self.debug(f"/AUTH/WEBDAV {sessionGet('user')=} {user=} {method=} {path=}")
 
         (editionId, edition) = Mongo.get("edition", edition)
         if editionId is None:
