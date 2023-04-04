@@ -1,5 +1,6 @@
 from control.generic import AttrDict
 from control.flask import (
+    acg,
     requestArg,
     sessionPop,
     sessionGet,
@@ -30,8 +31,15 @@ class Users:
 
         It is instantiated by a singleton object.
 
-        This object has a member `__User` that contains the data of the current
-        user if there is a current user.
+        !!! note "User details are not stored here"
+            The user details are not stored as members of this object, since
+            this object has been made before the flask app was initialized,
+            hence the object is global in the sefver process, meaning that all
+            workers can see its data.
+
+            Instead, the user details are stored in a so-called *global* in an
+            [Application Context](https://flask.palletsprojects.com/en/2.2.x/appcontext/),
+            where it is visible and modifiable by the current request only.
 
         Parameters
         ----------
@@ -48,18 +56,25 @@ class Users:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
-        self.__User = AttrDict()
-        """Data of the current user.
-
-        If there is no current user, it has no members.
-
-        Otherwise, it has member `user`, the "sub" of the current user.
-        It may also have additional members, such as `name` and `role`.
-        """
-
         self.oidc = None
         """The object that gives access to authentication methods.
         """
+
+    @staticmethod
+    def initUser():
+        """Initialize the storage that keeps the details of the currently
+        logged-in user.
+
+        It will put an empty AttrDict as *global* in the current application context.
+
+        As long as there is no current user, this AttrDict will remain empty.
+        If there is a current user, or a user logs in, it will get a member
+        `user`, which is the *sub* as it comes from the OIDC authenticator or from
+        a special login procedure.
+
+        It may then also have additional members, such as `name` and `role`.
+        """
+        acg.User = AttrDict()
 
     def addAuthenticator(self, oidc):
         """Adds the object that gives access to authentication methods.
@@ -111,7 +126,7 @@ class Users:
 
         referrer = getReferrer()
         (isSpecialUser, user) = self.getUser(fromArg=True)
-        name = self.__User.nickname
+        name = acg.User.nickname
 
         if user and not isSpecialUser and runMode in {"test", "pilot"}:
             Messages.warning(
@@ -175,7 +190,7 @@ class Users:
             )
             return redirectStatus(f"/{referrer}", False)
 
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
             logmsg=f"LOGIN successful: user {name} {user}",
             msg=f"LOGIN successful: user {name}",
@@ -197,7 +212,7 @@ class Users:
         oidc = self.oidc
         Settings = self.Settings
         Messages = self.Messages
-        name = self.__User.nickname
+        name = acg.User.nickname
         runMode = Settings.runMode
 
         (isSpecialUser, user) = self.getUser()
@@ -207,7 +222,7 @@ class Users:
                 sessionPop("user")
             else:
                 oidc.logout()
-            self.__User.clear()
+            acg.User.clear()
             Messages.plain(logmsg="LOGOUT but no user was logged in.")
             return redirectStatus("/", False)
 
@@ -216,7 +231,7 @@ class Users:
         else:
             oidc.logout()
 
-        self.__User.clear()
+        acg.User.clear()
         Messages.plain(
             logmsg=f"LOGOUT successful: user {name} {user}",
             msg=f"{name} logged out",
@@ -248,27 +263,28 @@ class Users:
         if user is not None:
             if isSpecialUser:
                 if not self.__findSpecialUser(user):
-                    self.__User.clear()
+                    acg.User.clear()
                     sessionPop("user")
             else:
                 if not self.__findUser(user, update=False):
-                    self.__User.clear()
+                    acg.User.clear()
                     oidc.logout()
 
     def myDetails(self):
         """Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain a field called `user`?
+        The appplication-context-global `User` is inspected:
+        does it contain a member called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
-            Otherwise a copy of the complete __User record is returned.
+            Otherwise a copy of the complete `User` record is returned.
             unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         """
-        User = self.__User
+        User = acg.User
         return AttrDict(**User) if "user" in User else AttrDict({})
 
     def getUser(self, fromArg=False):
@@ -422,7 +438,7 @@ class Users:
         """Perform the steps to log in a test/pilot user.
 
         This involves looking up the user in the user table,
-        copying its information in the `__User` member of this object,
+        copying its information in the application-context-global `User`,
         and storing the user in the session. After that the user is redirected
         to where he came from.
 
@@ -447,7 +463,7 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         sessionSet("user", user)
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
             logmsg=f"LOGIN successful: {runMode} user {name} {user}",
             msg=f"LOGIN successful: {runMode} user {name}",
@@ -487,11 +503,12 @@ class Users:
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         """
         Messages = self.Messages
         Mongo = self.Mongo
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord("user", user=user)
 
@@ -525,11 +542,12 @@ class Users:
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         """
         Mongo = self.Mongo
         oidc = self.oidc
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord("user", user=user, warn=False)
         newUser = None

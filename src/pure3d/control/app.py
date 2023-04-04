@@ -59,6 +59,7 @@ def appFactory(objects):
             but we definitely must do that, because it identifies who the current
             user is.
         """
+        Auth.initUser()
         if not appInitializing():
             Auth.identify()
 
@@ -482,6 +483,7 @@ def appFactory(objects):
 
             See `control.webdavapp.dispatchWebdav`.
         """
+        Auth.initUser()
         Auth.identify()
         method = requestMethod()
         action = webdavMethods[method]

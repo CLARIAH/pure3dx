@@ -11,10 +11,13 @@ from flask import (
     make_response,
     send_file,
     flash,
+    g,
 )
 
 from control.environment import var
 
+
+acg = g
 
 PROTOCOL_RE = re.compile(r"""^https?:\/\/""", re.I)
 
