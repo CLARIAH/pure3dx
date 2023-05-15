@@ -1,5 +1,5 @@
 from textwrap import dedent
-from subprocess import check_output, DEVNULL
+from subprocess import check_output
 
 from control.generic import AttrDict, getVersionKeyFunc
 from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
@@ -123,9 +123,7 @@ class Config:
         try:
             actual = True
             (long, short) = tuple(
-                check_output(
-                    ["git", "rev-parse", *args, "HEAD"], cwd=repoDir, stderr=DEVNULL
-                )
+                check_output(["git", "rev-parse", *args, "HEAD"], cwd=repoDir)
                 .decode("ascii")
                 .strip()
                 for args in ([], ["--short"])
@@ -133,10 +131,8 @@ class Config:
             with open(versionFile, "w") as fh:
                 fh.write(f"{long}\t{short}\n")
         except Exception as e:
-            print(str(e))
-            print(
-                f"Could not get version from git, reading it from file {versionFile}"
-            )
+            print(e.stderr)
+            print(f"Could not get version from git, reading it from file {versionFile}")
             actual = False
             if not fileExists(versionFile):
                 known = False
