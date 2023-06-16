@@ -199,7 +199,7 @@ class Config:
         Settings.secret_key = readPath(secretFileLoc)
 
     def checkModes(self):
-        """Determine whether flask is running in test/pilot or production mode."""
+        """Determine whether flask is running in test/pilot/custom/prod mode."""
         Messages = self.Messages
         Settings = self.Settings
 
@@ -209,7 +209,12 @@ class Config:
             self.good = False
             return
 
-        Settings.runMode = runMode if runMode in {"test", "pilot"} else "prod"
+        if runMode in {"test", "pilot", "custom"}:
+            runMode = runMode
+        else:
+            runMode = "prod"
+
+        Settings.runMode = runMode
         """In which mode the app runs.
 
         Values are:
@@ -224,6 +229,9 @@ class Config:
             There is a row of pilot users on the interface,
             and that you can log in as one of these users with a single click,
             without any kind of authentication.
+        *   `custom`
+            The app works with custom data.
+            Initially, there is only one admin user, you can log in with a single click.
         *   All other run modes count as production mode, `prod`.
         """
 
@@ -265,6 +273,18 @@ class Config:
         dirMake(workingDir)
         Settings.dataDir = dataDir
         Settings.workingDir = workingDir
+
+        if runMode == "prod":
+            Settings.importDir = None
+        elif runMode in {"pilot", "test", "custom"}:
+            importSubdir = (
+                "exampledata"
+                if runMode == "test"
+                else "pilotdata"
+                if runMode == "pilot"
+                else "customdata"
+            )
+            Settings.importDir = f"{dataDir}/{importSubdir}"
 
     def checkMongo(self):
         """Obtain the connection details for MongDB.
@@ -396,7 +416,6 @@ class Config:
 
         yamlDir = Settings.yamlDir
         dataDir = Settings.dataDir
-        # runMode = Settings.runMode
 
         viewerDir = f"{dataDir}/viewers"
 
@@ -434,8 +453,6 @@ class Config:
             viewerPath = f"{viewerDir}/{viewerName}"
 
             versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
-            # if len(versions) > 1 and runMode == "pilot":
-            #    versions = versions[0:1]
 
             viewerConfig.versions = versions
 
@@ -482,25 +499,30 @@ class Config:
                 if runMode == "pilot"
                 else dedent(
                     """
+                    This site runs in Custom Mode.
+                    Modifications may be overwritten if other custom data is imported.
+                    """
+                )
+                if runMode == "custom"
+                else dedent(
+                    """
                     This site is Work in Progress.
                     """
                 )
             )
-            dataLink = (
-                H.a(
+            dataLink = "«backups»" + H.br()
+            if runMode in {"test", "custom"}:
+                dataLink += H.a(
                     "reset data",
                     "/collect",
                     title="reset data to initial state",
                     cls="small",
                     **Messages.client(
-                        "info", "wait for data reset to complete ...", replace=True
+                        "info",
+                        "wait for data reset to complete ...",
+                        replace=True,
                     ),
                 )
-                if runMode == "test"
-                else "«backups»"
-                if runMode == "pilot"
-                else ""
-            )
             issueLink = H.a(
                 "issues",
                 "https://github.com/CLARIAH/pure3dx/issues",

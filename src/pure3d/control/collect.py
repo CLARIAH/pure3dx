@@ -46,6 +46,11 @@ class Collect:
         The provision step should copy the contents of `pilotdata` to the
         `data` directory of this repo (`pure3dx`).
 
+        For custom mode, there is `customdata` in the `pure3d-data` repo.
+        The provision step should copy the contents of a given directory
+        to first to `customdata` and from there to the `data` directory of
+        `pure3dx`.
+
         If data collection is triggered in test/pilot mode, the user table will
         be wiped, and the test/pilot users present in the example data will be
         imported.
@@ -68,22 +73,15 @@ class Collect:
         self.Mongo = Mongo
         runMode = Settings.runMode
 
-        importSubdir = (
-            "exampledata"
-            if runMode == "test"
-            else "pilotdata"
-            if runMode == "pilot"
-            else None
-        )
-        if importSubdir is None:
+        self.workingDir = Settings.workingDir
+        importDir = Settings.importDir
+
+        if importDir is None:
             Messages.warning(
                 logmsg=f"Cannot collect data in mode {runMode}",
                 msg="No data to collect",
             )
-
-        dataDir = Settings.dataDir
-        self.workingDir = Settings.workingDir
-        self.importDir = None if importSubdir is None else f"{dataDir}/{importSubdir}"
+        self.importDir = importDir
 
     def trigger(self):
         """Determines whether data collection should be done.
@@ -166,6 +164,7 @@ class Collect:
 
         for metaFile in metaFiles:
             meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
+            Messages.plain(logmsg=f"Copy meta file {metaFile} from {metaDir}")
 
         siteId = Mongo.insertRecord("site", **siteCrit, **meta)
         self.siteId = siteId
@@ -342,8 +341,7 @@ class Collect:
         projectIdByName = self.projectIdByName
         editionIdByName = self.editionIdByName
 
-        workflowDir = f"{importDir}/workflow"
-        workflowPath = f"{workflowDir}/init.yml"
+        workflowPath = f"{importDir}/workflow/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
         userRole = workflow["userRole"]
         status = workflow["status"]

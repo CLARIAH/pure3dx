@@ -128,7 +128,7 @@ class Users:
         (isSpecialUser, user) = self.getUser(fromArg=True)
         name = acg.User.nickname
 
-        if user and not isSpecialUser and runMode in {"test", "pilot"}:
+        if user and not isSpecialUser and runMode in {"test", "pilot", "custom"}:
             Messages.warning(
                 logmsg=(
                     "LOGIN attempt while an user is already logged in: "
@@ -218,7 +218,7 @@ class Users:
         (isSpecialUser, user) = self.getUser()
 
         if user is None:
-            if runMode in {"test", "pilot"}:
+            if runMode in {"test", "pilot", "custom"}:
                 sessionPop("user")
             else:
                 oidc.logout()
@@ -313,7 +313,7 @@ class Users:
         user = None
         isSpecialUser = None
 
-        if runMode in {"test", "pilot"}:
+        if runMode in {"test", "pilot", "custom"}:
             user = requestArg("user") if fromArg else sessionGet("user")
             if user:
                 isSpecialUser = True
@@ -378,7 +378,7 @@ class Users:
 
             return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-        if runMode in {"test", "pilot"}:
+        if runMode in {"test", "pilot", "custom"}:
             # row of test/pilot users
 
             enabled = not userActive or isSpecialUser
@@ -412,7 +412,8 @@ class Users:
 
         else:
             # login button
-            content.append(wrap(None, "log in", "log in", "/login", False, True))
+            if runMode != "custom":
+                content.append(wrap(None, "log in", "log in", "/login", False, True))
 
         return (H.content(*specialContent), H.content(*content))
 
@@ -435,7 +436,7 @@ class Users:
         return roles.get(role, role)
 
     def __loginSpecial(self, referrer, user):
-        """Perform the steps to log in a test/pilot user.
+        """Perform the steps to log in a test/pilot/custom user.
 
         This involves looking up the user in the user table,
         copying its information in the application-context-global `User`,

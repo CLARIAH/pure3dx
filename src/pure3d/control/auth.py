@@ -323,7 +323,7 @@ class Auth(Users):
     def mayBackup(self, project=None):
         """Whether the current user is allowed to make backups.
 
-        *   Backups are only allowed in pilot mode.
+        *   Backups are only allowed in all modes.
         *   Site-wide backups are only allowed for power users.
         *   Project backups are only allowed for project organisers and (power users).
 
@@ -338,12 +338,6 @@ class Auth(Users):
         boolean
             whether the relevant backup/restore actions are allowed.
         """
-        Settings = self.Settings
-        runMode = Settings.runMode
-
-        if runMode != "pilot":
-            return False
-
         User = self.myDetails()
 
         if User.role in {"admin", "root"}:

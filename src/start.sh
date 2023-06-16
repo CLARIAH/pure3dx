@@ -9,6 +9,7 @@ Run it from the /src directory in the repo.
 
 Set the env variable runmode to test if you want test mode,
 and to pilot if you want pilotmode,
+and to a path (including a `/` if you want custom mode,
 otherwise production mode is assumed.
 
 ./start.sh

@@ -10,7 +10,7 @@ THREE_EXT = {"glb", "gltf"}
 THREE_EXT_PAT = "|".join(THREE_EXT)
 
 IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
-THREED_RE = re.compile(fr"""^.*\.({THREE_EXT_PAT})$""", re.I)
+THREED_RE = re.compile(rf"""^.*\.({THREE_EXT_PAT})$""", re.I)
 
 
 def readPath(filePath):
@@ -63,15 +63,23 @@ def readYaml(path, defaultEmpty=False):
     return deepAttrDict(data)
 
 
+def dirNm(path):
+    """Get the directory part of a file name."""
+    return os.path.dirname(path)
+
+
+def baseNm(path):
+    """Get the file part of a file name."""
+    return os.path.basename(path)
+
+
 def fileExists(path):
-    """Whether a path exists as file on the file system.
-    """
+    """Whether a path exists as file on the file system."""
     return os.path.isfile(path)
 
 
 def fileRemove(path):
-    """Removes a file if it exists as file.
-    """
+    """Removes a file if it exists as file."""
     if fileExists(path):
         os.remove(path)
 
@@ -87,14 +95,12 @@ def fileCopy(pathSrc, pathDst):
 
 
 def dirExists(path):
-    """Whether a path exists as directory on the file system.
-    """
+    """Whether a path exists as directory on the file system."""
     return os.path.isdir(path)
 
 
 def dirRemove(path):
-    """Removes a directory if it exists as directory.
-    """
+    """Removes a directory if it exists as directory."""
     if dirExists(path):
         rmtree(path)
 
@@ -110,8 +116,7 @@ def dirCopy(pathSrc, pathDst):
 
 
 def dirMake(path):
-    """Creates a directory if it does not already exist as directory.
-    """
+    """Creates a directory if it does not already exist as directory."""
     if not dirExists(path):
         os.makedirs(path, exist_ok=True)
 

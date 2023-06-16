@@ -109,7 +109,6 @@ class Viewers:
         """
         Settings = self.Settings
         H = Settings.H
-        # pilotMode = Settings.runMode == "pilot"
         Mongo = self.Mongo
         actionInfo = self.viewerActions
         viewers = self.viewers

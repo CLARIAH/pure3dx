@@ -61,7 +61,7 @@ class Pages:
         Messages = self.Messages
         runMode = Settings.runMode
 
-        if runMode != "test":
+        if runMode not in {"test", "custom"}:
             Messages.warning(
                 msg="Reset data is not allowed in this mode",
                 logmsg=f"Reset data is not allowed in mode {runMode}",

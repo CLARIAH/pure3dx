@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+echo "OBSOLETE. Use provision.sh in the pure3d-data repo"
+exit
 
 HELP="
 Put additional data within reach of the container.
@@ -9,8 +12,9 @@ It can provision the following kinds of data, steered by a list of
 task arguments:
 
 content
-    Example data. Example data is a directory with data and additional
-    yaml files.
+    Example data and pilot data and custom data.
+    Found under pure3d-data except in the case of custom data, which is in
+    a directory specified in an extra argument.
 
 viewers
     Client-side code of 3d viewers. This is a directory
@@ -24,9 +28,13 @@ There are also flag arguments:
 --resetpilot
     Will delete the the working pilot data
 
-When the pure3d app starts with non-existing pilot or empty data,
+--resetcustom
+    Will delete the the working custom data
+
+When the pure3d app starts with non-existing or empty data,
 it will collect the data from the provisioned directory and initialize
 the relevant MongoDb database accordingly.
+This does not happen in production mode.
 
 Usage
 
@@ -38,10 +46,12 @@ Run it from the toplevel directory in the repo.
 fromloc="."
 toloc="../pure3dx/data"
 
+customdir=""
 docontent="x"
 doviewers="x"
 resetexample="x"
 resetpilot="x"
+resetcustom="x"
 
 while [ ! -z "$1" ]; do
     if [[ "$1" == "--help" ]]; then
@@ -60,6 +70,12 @@ while [ ! -z "$1" ]; do
     elif [[ "$1" == "--resetpilot" ]]; then
         doresetpilot="v"
         shift
+    elif [[ "$1" == "--resetcustom" ]]; then
+        doresetcustom="v"
+        shift
+    elif [[ "$1" =~ "/" ]]; then
+        customdir="$1"
+        shift
     else
         echo "unrecognized argument '$1'"
         shift
@@ -70,7 +86,7 @@ if [[ "$docontent" == "v" ]]; then
     echo "Provisioning example and pilot data ..."
     mkdir -p $toloc
     echo "Copying stuff in $fromloc/*data to $toloc"
-    for key in exampledata pilotdata
+    for key in exampledata pilotdata customdata
     do
         if [[ -d $toloc/$key ]]; then
             rm -rf $toloc/$key
@@ -103,6 +119,15 @@ fi
 if [[ "$doresetpilot" == "v" ]]; then
     echo "Resetting pilot data ..."
     workingdir=$toloc/working/pilot
+    if [[ -e "$workingdir" ]]; then
+        rm -rf "$workingdir"
+    fi
+    echo "Done"
+fi
+
+if [[ "$doresetcustom" == "v" ]]; then
+    echo "Resetting custom data ..."
+    workingdir=$toloc/working/custom
     if [[ -e "$workingdir" ]]; then
         rm -rf "$workingdir"
     fi

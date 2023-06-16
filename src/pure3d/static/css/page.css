@@ -114,6 +114,10 @@ body {
   color: var(--field-inner-fore);
   background-color: var(--field-inner-back);
 }
+#statusbanner.custom {
+  color: var(--special-fore);
+  background-color: var(--special-back);
+}
 
 .tabs {
   display: flex;

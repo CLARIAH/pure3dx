@@ -789,7 +789,8 @@ class Content(Datamodel):
         Messages = self.Messages
 
         dataDir = Settings.dataDir
-        backupBase = f"{dataDir}/backups"
+        runMode = Settings.runMode
+        backupBase = f"{dataDir}/backups/{runMode}"
         projectSlug = ""
 
         if project is not None:
@@ -1057,8 +1058,9 @@ class Content(Datamodel):
             exist anymore and to which no users are coupled.
             It may be needed to assign current users to editions after a restore.
 
-        Backups are stored in the data directory of the server under `backups`.
-        The site-wode backups are stores under `site`, the project backups
+        Backups are stored in the data directory of the server under `backups` and then
+        the run mode (`pilot`, `test`, `prod`).
+        The site-wide backups are stores under `site`, the project backups
         under `project/`*projectId*.
 
         The directory name of the backup is
@@ -1101,8 +1103,9 @@ class Content(Datamodel):
 
         dataDir = Settings.dataDir
         workingDir = Settings.workingDir
+        runMode = Settings.runMode
         activeDir = workingDir
-        backupBase = f"{dataDir}/backups"
+        backupBase = f"{dataDir}/backups/{runMode}"
 
         now = dt.utcnow().isoformat(timespec="seconds").replace(":", "-")
 
@@ -1162,9 +1165,10 @@ class Content(Datamodel):
         Mongo = self.Mongo
 
         dataDir = Settings.dataDir
+        runMode = Settings.runMode
         workingDir = Settings.workingDir
         activeDir = workingDir
-        backupBase = f"{dataDir}/backups"
+        backupBase = f"{dataDir}/backups/{runMode}"
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)
@@ -1250,7 +1254,8 @@ class Content(Datamodel):
         Mongo = self.Mongo
 
         dataDir = Settings.dataDir
-        backupBase = f"{dataDir}/backups"
+        runMode = Settings.runMode
+        backupBase = f"{dataDir}/backups/{runMode}"
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)
