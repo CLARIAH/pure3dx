@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HELP="
+HELP='
 Run Pure3D webapp, optionally start a browsing session as well.
 
 Usage
@@ -13,7 +13,7 @@ and to a path (including a `/` if you want custom mode,
 otherwise production mode is assumed.
 
 ./start.sh
-"
+'
 
 flaskhost="0.0.0.0"
 
