@@ -343,6 +343,7 @@ class Collect:
 
         workflowPath = f"{importDir}/workflow/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
+        Messages.plain(logmsg=f"{workflow=}")
         userRole = workflow["userRole"]
         status = workflow["status"]
 
