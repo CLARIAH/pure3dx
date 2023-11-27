@@ -71,16 +71,10 @@ class Collect:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
-        runMode = Settings.runMode
 
         self.workingDir = Settings.workingDir
         importDir = Settings.importDir
 
-        if importDir is None:
-            Messages.warning(
-                logmsg=f"Cannot collect data in mode {runMode}",
-                msg="No data to collect",
-            )
         self.importDir = importDir
 
     def trigger(self):
@@ -97,16 +91,13 @@ class Collect:
         in debug mode, since then the code is loaded twice.
         """
 
-        importDir = self.importDir
         workingDir = self.workingDir
-        Settings = self.Settings
-        runMode = Settings.runMode
 
         projectDir = f"{workingDir}/project"
         initializing = appInitializing()
         if not initializing:
             return False
-        return runMode != "prod" and importDir is not None and not dirExists(projectDir)
+        return not dirExists(projectDir)
 
     def fetch(self):
         """Performs a data collection."""
@@ -182,6 +173,7 @@ class Collect:
         projectsInPath = f"{importDir}/project"
         projectsOutPath = f"{workingDir}/project"
         dirRemove(projectsOutPath)
+        dirMake(projectsOutPath)
 
         self.projectIdByName = {}
         self.editionIdByName = {}
@@ -343,7 +335,6 @@ class Collect:
 
         workflowPath = f"{importDir}/workflow/init.yml"
         workflow = readYaml(workflowPath, defaultEmpty=True)
-        Messages.plain(logmsg=f"{workflow=}")
         userRole = workflow["userRole"]
         status = workflow["status"]
 

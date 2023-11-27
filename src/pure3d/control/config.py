@@ -274,15 +274,15 @@ class Config:
         Settings.dataDir = dataDir
         Settings.workingDir = workingDir
 
-        if runMode == "prod":
-            Settings.importDir = None
-        elif runMode in {"pilot", "test", "custom"}:
+        if runMode in {"pilot", "test", "custom", "prod"}:
             importSubdir = (
                 "exampledata"
                 if runMode == "test"
                 else "pilotdata"
                 if runMode == "pilot"
                 else "customdata"
+                if runMode == "custom"
+                else "proddata"
             )
             Settings.importDir = f"{dataDir}/{importSubdir}"
 
