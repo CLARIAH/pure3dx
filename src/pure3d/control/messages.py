@@ -43,8 +43,7 @@ class Messages:
         """
 
     def setFlask(self):
-        """Enables messaging to the web interface.
-        """
+        """Enables messaging to the web interface."""
         self.onFlask = True
 
     def debugAdd(self, dest):
@@ -71,8 +70,7 @@ class Messages:
         """
 
         def dbg(m):
-            """Inner function to be set as method to the class.
-            """
+            """Inner function to be set as method to the class."""
             self.debug(logmsg=m)
 
         setattr(dest, "debug", dbg)

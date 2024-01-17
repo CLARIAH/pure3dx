@@ -5,7 +5,7 @@ echo "building pure3dapp docker images from local folder; tagging as docker pure
 docker build -f Dockerfile.local -t pure3dapp:${dockertag} \
   --build-arg gitlocation=${gitlocation} \
   --build-arg gitbranch=${gitbranch} \
-  --build-arg SECRET_FILE=${SECRET_FILE} \
+  --build-arg flasksecret=${flasksecret} \
   --build-arg DATA_DIR=${DATA_DIR} \
   .
 
@@ -19,10 +19,4 @@ fi
 
 sleep 3
 
-docker tag pure3dapp:${dockertag} registry.diginfra.net/vicd/pure3dapp:${dockertag}
-docker tag pure3dapp:${dockertag} registry.diginfra.net/vicd/pure3dapp:latest
-docker images | grep registry.diginfra.net/vicd/pure3dapp:${dockertag}
-if [ "$1" == "push" ];then
-  docker push registry.diginfra.net/vicd/pure3dapp:${dockertag}
-  docker push registry.diginfra.net/vicd/pure3dapp:latest
-fi
+docker tag pure3dapp:${dockertag} pure3dapp:latest

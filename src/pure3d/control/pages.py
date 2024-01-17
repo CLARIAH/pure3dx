@@ -601,7 +601,7 @@ class Pages:
         dataPath = Content.getData(table, record, path)
         return sendFile(dataPath)
 
-    def upload(self, record, key, path, givenFileName=None):
+    def upload(self, record, key, path, targetFileName=None):
         """Upload a file.
 
         Parameters
@@ -612,7 +612,7 @@ class Pages:
             The key of the upload
         path: string
             The save location for the file
-        givenFileName: string, optional None
+        targetFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if is None, the file will be saved with the name from the request.
 
@@ -629,10 +629,10 @@ class Pages:
         path = parts[0] if len(parts) == 2 else ""
 
         return Content.saveFile(
-            record, key, path, fileName, givenFileName=givenFileName
+            record, key, path, fileName, targetFileName=targetFileName
         )
 
-    def deleteFile(self, record, key, path, givenFileName=None):
+    def deleteFile(self, record, key, path, targetFileName=None):
         """Delete a file.
 
         Parameters
@@ -643,7 +643,7 @@ class Pages:
             The key of the upload.
         path: string
             The location of the file.
-        givenFileName: string, optional None
+        targetFileName: string, optional None
             The name of the file.
 
         Returns
@@ -659,7 +659,7 @@ class Pages:
         path = parts[0] if len(parts) == 2 else ""
 
         return Content.deleteFile(
-            record, key, path, fileName, givenFileName=givenFileName
+            record, key, path, fileName, targetFileName=targetFileName
         )
 
     def authWebdav(self, edition, method, path, action):

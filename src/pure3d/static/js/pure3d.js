@@ -568,6 +568,10 @@ const uploadControl = fupload => {
   const fupdate = fuploadJQ.find("span.upload.button")
   const fdelete = fuploadJQ.find("span.delete.button")
 
+  const accept = finput.attr("accept") || ""
+  const acceptExtensions = new Set(accept.split(",").map(x => x.trim().slice(1)))
+  acceptExtensions.delete("")
+
   fupdate.off("click").click(e => {
     e.preventDefault()
     e.stopPropagation()
@@ -584,6 +588,16 @@ const uploadControl = fupload => {
 
   finput.change(() => {
     const theFile = finput.prop("files")[0]
+    const theName = theFile.name
+    const theExt = theName.split(".").slice(-1)[0] || ""
+    if (!acceptExtensions.has(theExt)) {
+      addMsg(
+        "error",
+        `The chosen file is ${theName}, but it's extension is not in the list ` +
+          `of accepted extensions ${accept}. Choose an other file.`
+      )
+      return false
+    }
     const xhr = new XMLHttpRequest()
     const { upload } = xhr
 
@@ -604,6 +618,7 @@ const uploadControl = fupload => {
               addMsg("error", "uploaded file not saved on the server", false)
             }
           }
+          finput.val("")
         } else {
           addMsg("error", `Upload ended with status ${status}`, false)
         }
@@ -656,14 +671,12 @@ const confirmInit = () => {
     const confirmButtonJQ = $(confirmButton)
     const lnk = confirmButtonJQ.attr("href")
     const tip = confirmButtonJQ.attr("title")
-    console.warn({ lnk, tip })
     confirmButtonJQ.off("click").click(e => {
       e.preventDefault()
       const confirmed = window.confirm(`Are you sure to ${tip}?`)
       if (confirmed) {
         window.location.href = lnk
-      }
-      else {
+      } else {
         // pass
       }
     })

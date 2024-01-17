@@ -2,7 +2,7 @@ from textwrap import dedent
 from subprocess import check_output
 
 from control.generic import AttrDict, getVersionKeyFunc
-from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
+from control.files import dirMake, dirExists, fileExists, readYaml, listDirs
 from control.environment import var
 from control.html import HtmlElements
 
@@ -174,29 +174,16 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = var("SECRET_FILE")
+        secret = var("flasksecret")
 
-        if secretFileLoc is None:
-            Messages.error(logmsg="Environment variable `SECRET_FILE` not defined")
-            self.good = False
-            return
-
-        if not fileExists(secretFileLoc):
+        if secret is None:
             Messages.error(
-                logmsg=dedent(
-                    f"""
-                    Missing secret file for sessions: {secretFileLoc}
-                    Create that file with contents a random string like this:
-                    fjOL901Mc3XZy8dcbBnOxNwZsOIBlul")
-                    But do not choose this one.")
-                    Use your password manager to create a random one.
-                    """
-                )
+                logmsg="No secret given for flask: variable `flasksecret` not defined"
             )
             self.good = False
             return
 
-        Settings.secret_key = readPath(secretFileLoc)
+        Settings.secret_key = secret
 
     def checkModes(self):
         """Determine whether flask is running in test/pilot/custom/prod mode."""
@@ -235,13 +222,13 @@ class Config:
         *   All other run modes count as production mode, `prod`.
         """
 
-        debugMode = var("flaskdebugarg")
+        debugMode = var("flaskdebug")
         if debugMode is None:
-            Messages.error(logmsg="Environment variable `flaskdebugarg` not defined")
+            Messages.error(logmsg="Environment variable `flaskdebug` not defined")
             self.good = False
             return
 
-        Settings.debugMode = debugMode == "--debug"
+        Settings.debugMode = debugMode == "v"
         """With debug mode enabled.
 
         This means that the unminified, development versions of the javascript libraries
@@ -322,7 +309,7 @@ class Config:
             self.good = False
             return
 
-        for (k, v) in settings.items():
+        for k, v in settings.items():
             Settings[k] = v
 
     def checkDatamodel(self):
@@ -371,12 +358,12 @@ class Config:
             return
 
         masterDetail = AttrDict()
-        for (detail, master) in datamodel.detailMaster.items():
+        for detail, master in datamodel.detailMaster.items():
             masterDetail[master] = detail
         datamodel.masterDetail = masterDetail
 
         mainLink = AttrDict()
-        for (link, mains) in datamodel.linkMain.items():
+        for link, mains in datamodel.linkMain.items():
             for main in mains:
                 mainLink.setdefault(main, []).append(link)
         datamodel.mainLink = mainLink
@@ -400,7 +387,7 @@ class Config:
         Settings.auth = authData
 
         tableFromRole = AttrDict()
-        for (table, roles) in authData.roles.items():
+        for table, roles in authData.roles.items():
             for role in roles:
                 tableFromRole[role] = table
 

@@ -79,3 +79,9 @@ uploads:
     caption: edition logo
     fileName: icon.png
     show: true
+
+mimeTypes:
+  "model/gltf-binary":
+    - glb
+  "model/gltf+json":
+    - gltf

@@ -73,6 +73,16 @@ def baseNm(path):
     return os.path.basename(path)
 
 
+def extNm(path):
+    """Get the extension part of a file name.
+
+    The dot is not included.
+    If there is no extension, the empty string is returned.
+    """
+    parts = baseNm(path).rsplit(".", 1)
+    return "" if len(parts) == 0 else parts[-1]
+
+
 def fileExists(path):
     """Whether a path exists as file on the file system."""
     return os.path.isfile(path)

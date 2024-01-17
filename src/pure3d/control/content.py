@@ -3,15 +3,25 @@ import os
 from datetime import datetime as dt
 import json
 import yaml
+import magic
 from tempfile import mkdtemp
 from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from control.generic import AttrDict
-from control.files import fileExists, fileRemove, dirExists, dirMake, dirCopy, dirRemove
+from control.files import (
+    fileExists,
+    fileRemove,
+    dirExists,
+    dirMake,
+    dirCopy,
+    dirRemove,
+    extNm,
+)
 from control.datamodel import Datamodel
 from control.flask import requestData
 from control.admin import Admin
+from control.checkgltf import check
 
 
 class Content(Datamodel):
@@ -331,7 +341,7 @@ class Content(Datamodel):
         links = self.getLinkedCrit(table, record)
 
         if links:
-            for (linkTable, linkCriteria) in links.items():
+            for linkTable, linkCriteria in links.items():
                 (thisGood, count) = Mongo.deleteRecords(
                     linkTable, stop=False, **linkCriteria
                 )
@@ -403,7 +413,7 @@ class Content(Datamodel):
         def fillin(template, values):
             typ = type(template)
             if typ is str:
-                for (k, v) in values.items():
+                for k, v in values.items():
                     template = template.replace(f"«{k}»", v)
                 return template
             if typ in {list, tuple}:
@@ -1379,8 +1389,18 @@ class Content(Datamodel):
 
         return (zipData, headers)
 
-    def saveFile(self, record, key, path, fileName, givenFileName=None):
+    def saveFile(self, record, key, path, fileName, targetFileName=None):
         """Saves a file in the context given by a record.
+
+        The parameter `key` refers to a configuration section in the datamodel.
+        This determines what file type to expect.
+        We only accept files whose name has an extension that matches the expected
+        file type.
+
+        The key `modelz` expects a zip file with the files of an edition, in particular
+        a scene file and model files. We make sure that these files have the
+        proper type, and we also perform checks on the other parts of the zip file,
+        namely whether they have decent paths.
 
         Parameters
         ----------
@@ -1392,7 +1412,7 @@ class Content(Datamodel):
             The path from the context directory to the file
         fileName: string
             Name  of the file to be saved as mentioned in the request.
-        givenFileName: string, optional None
+        targetFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if None, the file will be saved with the name from the request.
 
@@ -1402,7 +1422,7 @@ class Content(Datamodel):
             A json response with the status of the save operation:
 
             * a boolean: whether the save succeeded
-            * a message: messages to display
+            * a list of messages to display
             * content: new content for an upload control (only if successful)
         """
         fileContent = requestData()  # essential to have this early on in the body
@@ -1424,10 +1444,12 @@ class Content(Datamodel):
 
         permitted = Auth.authorise(table, record, action="update")
 
-        if givenFileName is not None and fileName != givenFileName:
-            fileName = givenFileName
+        saveName = fileName
 
-        filePath = f"{path}{fileName}"
+        if targetFileName is not None:
+            saveName = targetFileName
+
+        filePath = f"{path}{saveName}"
         fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
@@ -1435,6 +1457,11 @@ class Content(Datamodel):
             msg = f"Upload not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
+
+        (good, msgs) = self.checkFileContent(key, targetFileName, fileName, fileContent)
+
+        if not good:
+            return jsonify(status=False, msgs=msgs)
 
         if key == "modelz":
             destDir = f"{workingDir}/{path}"
@@ -1445,8 +1472,7 @@ class Content(Datamodel):
                     msgs=msgs,
                     content=H.b("Please refresh the page", cls="good"),
                 )
-            Messages.warning(logmsg=msg)
-            return jsonify(status=False, msgs=[["error", msg]])
+            return jsonify(status=False, msgs=msgs)
 
         try:
             with open(fileFullPath, "wb") as fh:
@@ -1458,19 +1484,152 @@ class Content(Datamodel):
             return jsonify(status=False, msgs=[["warning", msg]])
 
         content = self.getUpload(
-            record, key, fileName=givenFileName, bust=fileName, wrapped=False
+            record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
 
         return jsonify(status=True, msgs=[["good", "Done"]], content=content)
+
+    def checkFileContent(self, key, targetFileName, fileName, fileContent):
+        """Performs checks on the name and content of an uploaded file before saving it.
+
+        Parameters
+        ----------
+        key: string
+            The key of the upload. This key determines what kind of file we expect.
+            If None, we do not expect a particular mime type
+        targetFileName: string
+            The prescribed name to save the file under, if None, it will be saved under
+            the name mentioned in the request.
+        fileName: string
+            The name of the file as mentioned in the request.
+        fileContent: bytes
+            The content of the file as bytes
+
+        Returns
+        -------
+        tuple
+            A boolean that tells whether the file content looks OK plus a sequences of
+            messages indicating what is wrong with the content.
+        """
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        mimeTypes = datamodel.mimeTypes
+        uploadConfig = self.getUploadConfig(key) or AttrDict()
+        acceptStr = uploadConfig.accept
+        accept = (
+            None
+            if acceptStr is None
+            else {acc[1:].strip() for acc in acceptStr.split(",")}
+        )
+
+        good = True
+        msgs = []
+
+        fileExt = extNm(fileName)
+
+        if targetFileName is not None:
+            targetExt = extNm(targetFileName)
+
+            if targetExt != fileExt:
+                good = False
+                msgs.append(
+                    [
+                        "error",
+                        (
+                            f"the uploaded file name {fileName} has an extension "
+                            "different from that of the target "
+                            f"file name {targetFileName}"
+                        ),
+                    ]
+                )
+
+            if accept is not None and targetExt not in accept:
+                good = False
+                msgs.append(
+                    [
+                        "error",
+                        (
+                            "Programming error: the prescribed file name "
+                            f"{targetFileName} has an extension not in {acceptStr}"
+                        ),
+                    ]
+                )
+                return (good, msgs)
+
+            fileName = targetFileName
+            fileExt = extNm(fileName)
+
+        if accept is not None and fileExt not in accept:
+            good = False
+            msgs.append(
+                (
+                    "error",
+                    (
+                        f"the uploaded file name {fileName} has an extension "
+                        f"not in {acceptStr}"
+                    ),
+                )
+            )
+            return (good, msgs)
+
+        if fileExt == "gltf":
+            (thisGood, messages) = check(fileContent)
+            if thisGood:
+                mimeType = "model/gltf+json"
+            else:
+                good = False
+                msgs.extend([("error", msg) for msg in messages])
+                mimeType = None
+        else:
+            mimeType = magic.from_buffer(fileContent, mime=True)
+            if mimeType is None:
+                good = False
+                msgs.append(
+                    (
+                        "error",
+                        (
+                            f"could not determined the mime type of {fileName} "
+                            "based on its uploaded content"
+                        ),
+                    )
+                )
+
+        if mimeType is not None:
+            if (
+                fileExt not in mimeTypes.get(mimeType, [])
+                and mimeType.split("/", 1)[-1].split("+", 1)[0].lower()
+                != fileExt.lower()
+            ):
+                good = False
+                msgs.append(
+                    (
+                        "error",
+                        (
+                            f"the uploaded file content of {mimeType} file "
+                            f"{fileName} does not fit its extension {fileExt}"
+                        ),
+                    )
+                )
+
+        return (good, msgs)
 
     def processModelZip(self, zf, destDir):
         """Processes zip data with a scene and model files.
 
         All files in the zip file will be examined, and those with
-        extension svx.json will be saved as scene.svx.json
+        extension svx.json will be saved as scene.svx.json at top level
         and those with extensions glb of gltf will be saved under their
-        own names.
-        All pathnames will be ignored, so potentially files may overwrite each other.
+        own names, also at top level.
+
+        All other files will be saved as is, unless they have extension .svx.json,
+        or .gltf or .glb.
+
+        These files can end up in subdirectories.
+
+        We do not check the file types of the member files other than the svx.json files
+        and the model files (glb, gltf).
+        If the file type for these files does not match their extensions, they will be
+        ignored.
 
         The user is held responsible to submit a suitable file.
 
@@ -1480,13 +1639,10 @@ class Content(Datamodel):
             The raw zip data
         """
         Messages = self.Messages
-        Settings = self.Settings
-        viewerDefault = Settings.viewerDefault
-        viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
-        sceneFile = viewerInfo.sceneFile
 
         msgs = []
         good = True
+
         try:
             zf = BytesIO(zf)
             z = ZipFile(zf)
@@ -1494,8 +1650,9 @@ class Content(Datamodel):
             allFiles = 0
             sceneFiles = set()
             modelFiles = set()
-            doubles = set()
             otherFiles = set()
+
+            goodFiles = []
 
             for zInfo in z.infolist():
                 if zInfo.filename[-1] == "/":
@@ -1506,32 +1663,62 @@ class Content(Datamodel):
                 allFiles += 1
 
                 zName = zInfo.filename
-                zTest = zName.lower()
+                zPath = zName.split("/")
+
+                if len(zPath) == 1:
+                    zDir, zFile = "", zPath[0]
+                else:
+                    zDir = "/".join(zPath[0:-1])
+                    zFile = zPath[-1]
+
+                zTest = zFile.lower()
+                doFileTypeCheck = False
 
                 if zTest.endswith(".svx.json"):
-                    if zName in sceneFiles:
-                        doubles.add(zName)
-                    else:
+                    if zDir == "":
                         sceneFiles.add(zName)
-                        zInfo.filename = sceneFile
+                        doFileTypeCheck = True
+                    else:
+                        msgs.append(
+                            ("warning", "ignoring non-toplevel scene file {zName}")
+                        )
+                        continue
                 elif zTest.endswith(".glb") or zTest.endswith(".gltf"):
-                    if zName in modelFiles:
-                        doubles.add(zName)
-                    else:
+                    if zDir == "":
                         modelFiles.add(zName)
-                else:
-                    if zName in otherFiles:
-                        doubles.add(zName)
+                        doFileTypeCheck = True
                     else:
-                        otherFiles.add(zName)
-                z.extract(zInfo, path=destDir)
+                        msgs.append(
+                            ("warning", "ignoring non-toplevel model file {zName}")
+                        )
+                        continue
+                else:
+                    otherFiles.add(zName)
 
-            nDoubles = len(doubles)
+                if doFileTypeCheck:
+                    fileContent = z.read(zInfo)
+                    (thisGood, theseMsgs) = self.checkFileContent(
+                        None, None, zFile, fileContent
+                    )
+                    if thisGood:
+                        goodFiles.append((zName, fileContent))
+                    else:
+                        good = False
+                        msgs.extend(theseMsgs)
+                else:
+                    goodFiles.append((zInfo, None))
+
+            if good:
+                for zName, fileContent in goodFiles:
+                    if fileContent is None:
+                        z.extract(zName, path=destDir)
+                    else:
+                        with open(f"{destDir}/{zName}", mode="wb") as fh:
+                            fh.write(fileContent)
+
             nScenes = len(sceneFiles)
-            dLabel = "info" if nDoubles == 0 else "warning"
             sLabel = "info" if nScenes == 1 else "warning"
             msgs.append(("info", f"All files in zip: {allFiles:>3}"))
-            msgs.append((dLabel, f"Files encountered multiple times: {nDoubles:>3} x"))
             msgs.append((sLabel, f"Scene files: {nScenes:>3} x"))
             msgs.append(("info", f"Model files: {len(modelFiles):>3} x"))
             msgs.append(("info", f"Other files: {len(otherFiles):>3} x"))
@@ -1543,7 +1730,7 @@ class Content(Datamodel):
 
         return (good, msgs)
 
-    def deleteFile(self, record, key, path, fileName, givenFileName=None):
+    def deleteFile(self, record, key, path, fileName, targetFileName=None):
         """Deletes a file in the context given by a record.
 
         Parameters
@@ -1556,7 +1743,7 @@ class Content(Datamodel):
             The path from the context directory to the file
         fileName: string
             Name  of the file to be saved as mentioned in the request.
-        givenFileName: string, optional None
+        targetFileName: string, optional None
             The name of the file as which the uploaded file will be saved;
             if None, the file will be saved with the name from the request.
 
@@ -1609,7 +1796,7 @@ class Content(Datamodel):
             return jsonify(status=False, msgs=[["error", msg]])
 
         content = self.getUpload(
-            record, key, fileName=givenFileName, bust=fileName, wrapped=False
+            record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
 
         return jsonify(status=True, msgs=[["good", "Done"]], content=content)

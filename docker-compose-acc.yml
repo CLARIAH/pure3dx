@@ -11,10 +11,10 @@ services:
     container_name: pure3dapp
     hostname: pure3dapp
     environment:
-      SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
       runmode: ${runmode}
       flaskport: ${flaskport}
+      flasksecret: ${flasksecret}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
       devstatus: ${devstatus}

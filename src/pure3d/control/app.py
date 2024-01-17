@@ -340,10 +340,10 @@ def appFactory(objects):
         return Content.download(table, record)
 
     @app.route(
-        "/upload/<string:record>/<string:key>/<string:givenFileName>/<path:path>",
+        "/upload/<string:record>/<string:key>/<string:targetFileName>/<path:path>",
         methods=["POST"],
     )
-    def upload(record, key, givenFileName, path):
+    def upload(record, key, targetFileName, path):
         """Upload a file.
 
         Where the file will be stored depends on the context, which is provided by
@@ -357,17 +357,17 @@ def appFactory(objects):
             The key of the upload
         path: string
             The save location for the file
-        givenFileName: string | void
+        targetFileName: string | void
             The name of the file as which the uploaded file will be saved.
         """
-        if givenFileName == "-":
-            givenFileName = None
-        return Pages.upload(record, key, path, givenFileName=givenFileName)
+        if targetFileName == "-":
+            targetFileName = None
+        return Pages.upload(record, key, path, targetFileName=targetFileName)
 
     @app.route(
-        "/deletefile/<string:record>/<string:key>/<string:givenFileName>/<path:path>"
+        "/deletefile/<string:record>/<string:key>/<string:targetFileName>/<path:path>"
     )
-    def deleteFile(record, key, givenFileName, path):
+    def deleteFile(record, key, targetFileName, path):
         """Deletes a file.
 
         This is about files that have been uploaded by users.
@@ -381,12 +381,12 @@ def appFactory(objects):
             The key of the upload.
         path: string
             The location of the file.
-        givenFileName: string | void
+        targetFileName: string | void
             The name of the file.
         """
-        if givenFileName == "-":
-            givenFileName = None
-        return Pages.deleteFile(record, key, path, givenFileName=givenFileName)
+        if targetFileName == "-":
+            targetFileName = None
+        return Pages.deleteFile(record, key, path, targetFileName=targetFileName)
 
     @app.route("/link/user/<string:table>/<string:record>", methods=["POST"])
     def linkUser(table, record):

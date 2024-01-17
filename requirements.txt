@@ -6,4 +6,5 @@ markdown
 pyyaml
 gunicorn
 pymongo
+python-magic
 itsdangerous==2.0.1

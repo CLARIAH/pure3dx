@@ -6,13 +6,14 @@ volumes:
 
 services:
   pure3dapp:
-    image: registry.diginfra.net/vicd/pure3dapp:${dockertag}
+    # image: pure3d:latest
+    image: registry.diginfra.net/dirkr/pure3dapp:${dockertag}
     # restart: unless-stopped
     container_name: pure3dapp
     hostname: pure3dapp
     environment:
-      SECRET_FILE: ${SECRET_FILE}
       DATA_DIR: ${DATA_DIR}
+      flasksecret: ${flasksecret}
       flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}
