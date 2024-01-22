@@ -263,6 +263,71 @@ class Pages:
             left = Content.getValues(table, record, "siteTitle@2") + items
         return self.page("admin", left=left)
 
+    def createUser(self, user):
+        """Creates a new test user.
+
+        After the operation:
+
+        *   *success*: goes to admin url, good status
+        *   *failure*: goes to admin url, error status
+
+        Returns
+        -------
+        response
+        """
+        Messages = self.Messages
+        Content = self.Content
+        result = Content.createUser(user)
+
+        good = result.get("status", False)
+        if good:
+            user = result["name"]
+            Messages.info(
+                logmsg=f"Created user {user}", msg=f"user {user} created"
+            )
+        else:
+            Messages.warning(
+                logmsg=f"Could not create new user {user}",
+                msg=f"failed to create new user {user}",
+            )
+            for (kind, msg) in result.get("messages", []):
+                Messages.message(kind, msg, stop=False)
+
+        newUrl = "/admin"
+        return redirectStatus(newUrl, good)
+
+    def deleteUser(self, user):
+        """Deletes a test user.
+
+        After the operation:
+
+        *   *success*: goes to admin url, good status
+        *   *failure*: goes to admin url, error status
+
+        Returns
+        -------
+        response
+        """
+        Messages = self.Messages
+        Content = self.Content
+        result = Content.deleteUser(user)
+
+        good = result.get("status", False)
+        if good:
+            Messages.info(
+                logmsg=f"Deleted user {user}", msg=f"user {user} deleted"
+            )
+        else:
+            Messages.warning(
+                logmsg=f"Could not delete user {user}",
+                msg=f"failed to delete new user {user}",
+            )
+            for (kind, msg) in result.get("messages", []):
+                Messages.message(kind, msg, stop=False)
+
+        newUrl = "/admin"
+        return redirectStatus(newUrl, good)
+
     def createProject(self, site):
         """Creates a project and shows the new project.
 

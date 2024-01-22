@@ -122,13 +122,13 @@ class Users:
         """
         Messages = self.Messages
         Settings = self.Settings
-        runMode = Settings.runMode
+        runProd = Settings.runProd
 
         referrer = getReferrer()
         (isSpecialUser, user) = self.getUser(fromArg=True)
         name = acg.User.nickname
 
-        if user and not isSpecialUser and runMode in {"test", "pilot", "custom"}:
+        if user and not isSpecialUser and not runProd:
             Messages.warning(
                 logmsg=(
                     "LOGIN attempt while an user is already logged in: "
@@ -213,12 +213,12 @@ class Users:
         Settings = self.Settings
         Messages = self.Messages
         name = acg.User.nickname
-        runMode = Settings.runMode
+        runProd = Settings.runProd
 
         (isSpecialUser, user) = self.getUser()
 
         if user is None:
-            if runMode in {"test", "pilot", "custom"}:
+            if not runProd:
                 sessionPop("user")
             else:
                 oidc.logout()
@@ -308,12 +308,12 @@ class Users:
         """
         oidc = self.oidc
         Settings = self.Settings
-        runMode = Settings.runMode
+        runProd = Settings.runProd
 
         user = None
         isSpecialUser = None
 
-        if runMode in {"test", "pilot", "custom"}:
+        if not runProd:
             user = requestArg("user") if fromArg else sessionGet("user")
             if user:
                 isSpecialUser = True
@@ -347,6 +347,7 @@ class Users:
         Settings = self.Settings
         H = Settings.H
         runMode = Settings.runMode
+        runProd = Settings.runProd
         Mongo = self.Mongo
 
         (isSpecialUser, userActive) = self.getUser()
@@ -378,10 +379,11 @@ class Users:
 
             return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-        if runMode in {"test", "pilot", "custom"}:
+        if not runProd:
             # row of test/pilot users
 
             enabled = not userActive or isSpecialUser
+
             for record in sorted(
                 Mongo.getList("user", sort="nickname", isSpecial=True),
                 key=lambda r: r.nickname,

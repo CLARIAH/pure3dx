@@ -282,6 +282,9 @@ input[type=text]
 	width: calc(100% - 1rem);
 	margin: 0.3rem 0.3rem;
 }
+input[type=text].narrow {
+  width: 50%;
+}
 textarea
 {
 	width: calc(100% - 1rem);

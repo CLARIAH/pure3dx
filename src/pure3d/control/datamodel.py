@@ -176,6 +176,29 @@ class Datamodel:
 
         return detailRecords
 
+    def getUserWork(self, user):
+        """Gets the number of project and edition records of a user.
+
+        We will not delete users if the user is linked to a project or edition.
+        This function counts how many projects and editions a user is linked to.
+
+        Parameters
+        ----------
+        user: string
+            The name of the user (field `user` in the record)
+
+        Returns
+        -------
+        integer
+            The number of projects
+        integer
+            The number of editions
+        """
+        Mongo = self.Mongo
+        nProjects = len(Mongo.getList("projectUser", user=user))
+        nEditions = len(Mongo.getList("EditionUser", user=user))
+        return (nProjects, nEditions)
+
     def getLinkedCrit(self, table, record):
         """Produce criteria to retrieve the linked records of a record.
 

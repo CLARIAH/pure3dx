@@ -95,6 +95,26 @@ const fetchData = (url, task, destElem, data) => {
   }
 }
 
+const createUser = () => {
+  const topContent = $(".myadmin")
+  const userInfo = topContent.find("div.createuser")
+  const button = userInfo.find("a")
+  const userName = userInfo.find("input")
+  const saveUrl = button.attr("href")
+  console.warn({ userInfo, button })
+  button.off("click").click(() => {
+    const name = userName
+      .val()
+      .trim()
+      .replaceAll(" ", ".")
+      .replaceAll(/[^A-Za-z0-9._-]/g, "_")
+      .toLowerCase()
+    button.attr("href", `${saveUrl}/${name}`)
+    console.warn({ name, button })
+    return true
+  })
+}
+
 const editRoles = () => {
   const editroles = $(".editroles")
   const topContent = $(".myadmin")
@@ -685,6 +705,7 @@ const confirmInit = () => {
 
 const processMyWork = () => {
   editRoles()
+  createUser()
   linkUsers()
   confirmInit()
 }

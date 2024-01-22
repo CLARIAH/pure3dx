@@ -202,6 +202,7 @@ class Config:
             runMode = "prod"
 
         Settings.runMode = runMode
+        Settings.runProd = runMode == "prod"
         """In which mode the app runs.
 
         Values are:
@@ -261,17 +262,16 @@ class Config:
         Settings.dataDir = dataDir
         Settings.workingDir = workingDir
 
-        if runMode in {"pilot", "test", "custom", "prod"}:
-            importSubdir = (
-                "exampledata"
-                if runMode == "test"
-                else "pilotdata"
-                if runMode == "pilot"
-                else "customdata"
-                if runMode == "custom"
-                else "proddata"
-            )
-            Settings.importDir = f"{dataDir}/{importSubdir}"
+        importSubdir = (
+            "exampledata"
+            if runMode == "test"
+            else "pilotdata"
+            if runMode == "pilot"
+            else "customdata"
+            if runMode == "custom"
+            else "proddata"
+        )
+        Settings.importDir = f"{dataDir}/{importSubdir}"
 
     def checkMongo(self):
         """Obtain the connection details for MongDB.

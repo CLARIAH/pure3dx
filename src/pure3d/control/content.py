@@ -610,6 +610,45 @@ class Content(Datamodel):
         newRole = json.loads(requestData())
         return Admin(self).saveRole(user, newRole, table, recordId)
 
+    def createUser(self, user):
+        """Creates a new user with a given user name.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+            This should be different from the user names of existing users.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+            * `name`: the name under which the new user has been saved
+        """
+        return Admin(self).createUser(user)
+
+    def deleteUser(self, user):
+        """Deletes a test user with a given user name.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+            This should be a test user, not linked to any project or edition.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        """
+        return Admin(self).deleteUser(user)
+
     def linkUser(self, table, recordId):
         """Links a user in certain role to a project/edition record.
 

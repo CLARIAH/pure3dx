@@ -181,6 +181,24 @@ def appFactory(objects):
         """
         return Pages.admin()
 
+    @app.route("/user/create/<string:user>")
+    def createUser(user):
+        """Create a new test user.
+
+        This only works in test/pilot/custom mode, where an admin may add a user.
+        The user must be different from all existing users in the system.
+        """
+        return Pages.createUser(user)
+
+    @app.route("/user/delete/<string:user>")
+    def deleteUser(user):
+        """Delete a test user.
+
+        This only works in test/pilot/custom mode, where an admin may delete a user.
+        The user must not be currently linked to any project or edition.
+        """
+        return Pages.deleteUser(user)
+
     @app.route("/site/<string:site>/project/create")
     def createProject(site):
         """Create a new project with the current user as organiser.

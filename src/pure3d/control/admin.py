@@ -1,4 +1,9 @@
+import re
+
 from control.generic import AttrDict
+
+
+USERNAME_RE = re.compile(r"[^a-z0-9._-]")
 
 
 class Admin:
@@ -62,6 +67,7 @@ class Admin:
         Mongo = Content.Mongo
         Auth = Content.Auth
 
+        self.Settings = Settings
         self.Mongo = Mongo
         self.Auth = Auth
         self.H = H
@@ -294,7 +300,6 @@ class Admin:
         # side-wide assignments
 
         if table is None or record is None:
-
             # nobody can add site-wide users
 
             if otherUser is None:
@@ -503,7 +508,9 @@ class Admin:
 
             wrapped = []
             wrapped.append(H.h(1, "Manage users"))
-            wrapped.append(H.div(self._wrapUsers(siteRoles), cls="susers"))
+            wrapped.append(
+                H.div(self._wrapUsers(siteRoles, workIndicator=True), cls="susers")
+            )
             allUsers = H.div(wrapped, id="allusers")
 
         return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
@@ -611,7 +618,9 @@ class Admin:
             cls="eentry",
         )
 
-    def _wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
+    def _wrapUsers(
+        self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
+    ):
         """Generate HTML for a list of users.
 
         It is dependent on the value of table/record whether it is about the users
@@ -622,6 +631,9 @@ class Admin:
         itemRoles: dict
             Dictionary keyed by the possible roles and valued by the description
             of that role.
+        workIndicator: boolean, optional False
+            Whether to mention the number of projects and editions the user is
+            involved in.
         table: string, optional None
             Either `project` or `edition`, indicates what users we are listing:
             related to a project or to an edition.
@@ -639,7 +651,12 @@ class Admin:
         string
             The HTML
         """
+        H = self.H
+        Settings = self.Settings
+        runProd = Settings.runProd
         users = self.users
+        inPower = self.inPower
+        doingAllUsers = theseUsers is None
 
         if record is None:
             if theseUsers is None:
@@ -658,7 +675,7 @@ class Admin:
             wrapped.append(f"No {rolesRep} for this {tableRep}")
 
         else:
-            for (u, (uRecord, role)) in sorted(
+            for u, (uRecord, role) in sorted(
                 theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
@@ -672,13 +689,33 @@ class Admin:
                         itemRoles,
                         table,
                         recordId,
+                        workIndicator,
                     )
                 )
 
         (editable, otherRoles) = self.authUser(None, table=table, record=record)
+
         if editable:
             wrapped.append(
                 self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+            )
+
+        if record is None and not runProd and inPower and doingAllUsers:
+            wrapped.append(
+                H.div(
+                    H.content(
+                        H.input(
+                            "", "text", placeholder="new test user name", cls="narrow"
+                        ),
+                        H.iconx(
+                            "create",
+                            title="add a new test user",
+                            href="/user/create",
+                            cls="button small",
+                        ),
+                    ),
+                    cls="createuser",
+                )
             )
 
         return "".join(wrapped)
@@ -732,7 +769,16 @@ class Admin:
         )
 
     def _wrapUser(
-        self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId
+        self,
+        u,
+        uRecord,
+        role,
+        editable,
+        otherRoles,
+        itemRoles,
+        table,
+        recordId,
+        workIndicator,
     ):
         """Generate HTML for a single user and his role.
 
@@ -757,6 +803,9 @@ class Admin:
         recordId: ObjectId or None
             Either None or the id of a project or edition, corresponding to the
             `table` parameter.
+        workIndicator: boolean
+            Whether to mention the number of projects and editions the user is
+            involved in.
 
         Returns
         -------
@@ -764,6 +813,30 @@ class Admin:
             The HTML
         """
         H = self.H
+        Content = self.Content
+
+        if workIndicator:
+            user = uRecord.user
+            (nProjects, nEditions) = Content.getUserWork(user)
+            indicator = [
+                H.span(f"projects: {nProjects},", cls="dreport"),
+                H.nbsp,
+                H.span(f"editions: {nEditions}", cls="dreport"),
+            ]
+            if nProjects == 0 and nEditions == 0 and role == "user":
+                indicator.extend(
+                    [
+                        H.nbsp,
+                        H.iconx(
+                            "delete",
+                            title="delete this user",
+                            href=f"/user/delete/{user}",
+                            cls="button small",
+                        ),
+                    ]
+                )
+        else:
+            indicator = []
 
         return H.div(
             [
@@ -771,6 +844,7 @@ class Admin:
                 *self._wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
+                *indicator,
             ],
             cls="userroles",
         )
@@ -1004,3 +1078,125 @@ class Admin:
 
         self.update()
         return dict(stat=True, messages=[], updated=self.wrap())
+
+    def createUser(self, user):
+        """Creates new user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+            This should be different from the user names of existing users.
+            The name may only contain the ASCII digits and lower case letters,
+            plus dash, dot, and underscore.
+
+            Spaces will be replaced by dots; all other illegal characters by
+            underscores.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        """
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append(("error", "name should not be empty"))
+
+            else:
+                name = USERNAME_RE.sub("_", user.lower().replace(" ", "."))
+                if name != user:
+                    messages.append(("warning", f"user {user} to be saved as {name}"))
+
+                userLong = f"{name:0>16}"
+                userInfo = dict(
+                    nickname=name,
+                    user=userLong,
+                    role="user",
+                    isSpecial=True,
+                )
+                userId = Mongo.insertRecord("user", **userInfo)
+
+                if not userId:
+                    status = False
+                    messages.append(
+                        ("error", f"could not add {name} to the user table")
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append(("error", "adding a user needs admin privileges"))
+            if runProd:
+                messages.append(
+                    ("error", "adding a user not allowed in production mode")
+                )
+
+        return dict(status=status, messages=messages, name=user)
+
+    def deleteUser(self, user):
+        """Deletes a test user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+        The user to be deleted should be a test user, not linked to any project or
+        edition.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        """
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append(("error", "name should not be empty"))
+            else:
+                good = Mongo.deleteRecord("user", isSpecial=True, stop=False, user=user)
+
+                if not good:
+                    status = False
+                    messages.append(
+                        ("error", f"could not delete {user} from the user table")
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append(("error", "deleting a user needs admin privileges"))
+            if runProd:
+                messages.append(
+                    ("error", "deleting a user not allowed in production mode")
+                )
+
+        return dict(status=status, messages=messages)
