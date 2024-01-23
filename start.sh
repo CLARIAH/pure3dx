@@ -1,12 +1,43 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-scp .env pure3d.dev:/tmp/
-scp src/pure3d/control/client_secrets.json pure3d.dev:/tmp/
-ssh pure3d.dev 'source /tmp/.env && if [ -d /tmp/app ];then cd /tmp/app; source .env; sudo git checkout ${gitbranch}; sudo git pull; else sudo git clone -b ${gitbranch} ${gitlocation} /tmp/app; cd /tmp/app; fi && sudo mv /tmp/.env /tmp/app/.env && sudo mv /tmp/client_secrets.json /tmp/app/src/pure3d/control/'
-ssh pure3d.dev 'if [ -d /tmp/pure3d-data ];then sudo git clone https://github.com/CLARIAH/pure3d-data.git /tmp/pure3d-data; else cd /tmp/pure3d-app; sudo git stash; sudo git pull; fi && cd /tmp/app && sudo ./provision.sh content viewers'
+HELP='
+Run Pure3D webapp, optionally start a browsing session as well.
 
-if [ "$1" == "restart-only" ];then
-  ssh pure3d.dev 'cd /tmp/app && sudo ./restart.sh'
+Usage
+
+Run it from the /src directory in the repo.
+
+Set the env variable runmode to test if you want test mode,
+and to pilot if you want pilotmode,
+and to a path (including a `/` if you want custom mode,
+otherwise production mode is assumed.
+
+./start.sh
+'
+
+flaskhost="0.0.0.0"
+
+if [[ "$flaskdebug" == "v" ]]; then
+    flaskdebugarg="--debug"
 else
-  ssh pure3d.dev 'cd /tmp/app && sudo ./build.sh && sudo ./restart.sh'
+    flaskdebugarg=""
 fi
+
+repodir="`pwd`"
+
+if [[ ! -d "data" ]]; then
+    mkdir data
+fi
+
+cd /app/src/pure3d
+
+export flaskdebugarg
+export repodir
+export runmode
+export FLASK_APP=index
+export WERKZEUG_DEBUG_PIN=off
+
+flask $flaskdebugarg run --host $flaskhost --port $flaskport &
+pid=$!
+trap "kill $pid" SIGTERM
+wait "$pid"

@@ -6,8 +6,8 @@ volumes:
 
 services:
   pure3dapp:
-    # image: pure3d:latest
-    image: registry.diginfra.net/dirkr/pure3dapp:${dockertag}
+    # image: pure3dapp:latest
+    image: pure3dapp:latest-loc
     # restart: unless-stopped
     container_name: pure3dapp
     hostname: pure3dapp
@@ -21,7 +21,9 @@ services:
       flaskport: ${flaskport}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
-    entrypoint: ["./start.sh"]
+    entrypoint:
+      - /bin/bash
+      - start.sh
     depends_on:
       - mongodb
     volumes:

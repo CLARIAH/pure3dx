@@ -142,7 +142,7 @@ class Pages:
             ref = getReferrer().removeprefix("/")
             return redirectStatus(f"/{ref}", False)
         good = Content.restore(backup, project=project)
-        back = "/logout" if project is None else f"/project/{projectId}"
+        back = "/alogout" if project is None else f"/project/{projectId}"
         return redirectStatus(back, good)
 
     def delBackup(self, backup, project=None):

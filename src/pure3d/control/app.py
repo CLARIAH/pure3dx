@@ -68,7 +68,7 @@ def appFactory(objects):
         """Get the favicon."""
         return Pages.fileData("favicon.ico")
 
-    @app.route("/login")
+    @app.route("/alogin")
     def login():
         """Perform a user login."""
         return Auth.login()
@@ -80,7 +80,7 @@ def appFactory(objects):
         """Go back to the page the user was on before logging in."""
         return Auth.afterLogin(referrer)
 
-    @app.route("/logout")
+    @app.route("/alogout")
     def logout():
         """Perform a user logout."""
         return Auth.logout()

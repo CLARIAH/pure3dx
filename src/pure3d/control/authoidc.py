@@ -30,7 +30,7 @@ class AuthOidc:
             'OIDC_CLIENT_SECRETS': cls.OIDC_CLIENT_SECRETS,
             # 'OIDC_USER_INFO_ENABLED': True,
             'OIDC_ID_TOKEN_COOKIE_SECURE': False,
-            'OIDC_REQUIRE_VERIFIED_EMAIL': False,
+            # 'OIDC_REQUIRE_VERIFIED_EMAIL': False,
             # 'OIDC_OPENID_REALM': 'auth realm',
             # 'OVERWRITE_REDIRECT_URI': OpenIDConnect.client_secrets.get("redirect_uris"),
         }

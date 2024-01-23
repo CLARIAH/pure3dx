@@ -1,11 +1,14 @@
 FROM python:3.11
 
+ARG gitlocation
+ARG gitbranch
+ARG DATA_DIR
+
 RUN apt update && apt install -y \
-    libmagic1
+    libmagic1 \
+    vim \
+    git
 
-WORKDIR ./app
 ADD . /app
+WORKDIR ./app
 RUN pip install -r ./requirements.txt
-
-WORKDIR ./src
-ENTRYPOINT ["./start.sh"]

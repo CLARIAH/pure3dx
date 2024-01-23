@@ -12,6 +12,3 @@ RUN apt update && apt install -y \
 ADD . /app
 WORKDIR ./app
 RUN pip install -r ./requirements.txt
-
-WORKDIR ./src
-ENTRYPOINT ["./start.sh"]

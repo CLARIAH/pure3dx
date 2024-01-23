@@ -74,6 +74,7 @@ class Config:
         Settings = self.Settings
 
         repoDir = var("repodir")
+
         if repoDir is None:
             Messages.error(
                 logmsg=dedent(

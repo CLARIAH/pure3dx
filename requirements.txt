@@ -1,5 +1,6 @@
 flask
-git+https://github.com/vicding-mi/flask-oidc.git@master#flask-oidc
+# git+https://github.com/vicding-mi/flask-oidc.git@master#flask-oidc
+flask-oidc
 wsgidav
 lxml
 markdown

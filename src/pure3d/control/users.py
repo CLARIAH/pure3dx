@@ -394,7 +394,7 @@ class Users:
 
                 active = user == userActive
                 specialContent.append(
-                    wrap(None, name, role, f"/login?user={user}", active, enabled)
+                    wrap(None, name, role, f"/alogin?user={user}", active, enabled)
                 )
 
         if userActive:
@@ -409,13 +409,13 @@ class Users:
 
             # logout button
             content.append(
-                wrap(None, "log out", f"log out {name}", "/logout", False, True)
+                wrap(None, "log out", f"log out {name}", "/alogout", False, True)
             )
 
         else:
             # login button
             if runMode != "custom":
-                content.append(wrap(None, "log in", "log in", "/login", False, True))
+                content.append(wrap(None, "log in", "log in", "/alogin", False, True))
 
         return (H.content(*specialContent), H.content(*content))
 
