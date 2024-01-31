@@ -57,6 +57,10 @@ _temp/
 #####################
 data/
 
+# Machine dependent executables #
+#####################
+bin/
+
 # Experiments
 _experiments/
 exp_*

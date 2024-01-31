@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PURE 3D</title>
+  <link rel="icon" type="image/x-icon" href="/images/favicon.png">
+  <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="">
+  <main class="min-h-screen flex flex-col justify-stretch items-stretch">
+    {{> main-navigation isHome=true}}
+    <div
+      class="
+        flex flex-col sm:flex-row w-full h-full items-stretch grow
+        content-stretch self-stretch max-w-[1500px] mx-auto
+      "
+    >
+      <div class="w-full sm:w-1/2">
+        <div
+          class="
+            min-h-screen flex flex-col justify-start md:justify-around items-center
+            gap-10 text-white p-4 md:sticky md:top-0  bg-pureblue-600 bg-gradient-to-b
+            from-pureblue-600 to-pureblue-400
+          "
+        >
+          <div class="">
+            <h1 class="text-white text-xl lg:text-3xl lg:mb-10 max-w-md w-full">
+              PURE 3D is a virtual research environment for interactive
+              Digital Heritage and Digital Humanities 3D Scholarly Editions
+            </h1>
+            <p><a href="/about.html" class="text-white">Learn more about PURE 3D</a></p>
+          </div>
+          <div class=" max-w-sm w-full">
+            <img
+              src="/images/home-house.png"
+              alt=""
+              class="mix-blend-screen md:w-full h-36 md:h-auto mx-auto"
+          >
+          </div>
+          <div class=" flex flex-col sm:flex-row gap-4 md:pb-28">
+            <a
+              href="/call_for_projects.html"
+              class="
+                text-white p-3 border border-white rounded-md bg-pureblue-600
+                hover:bg-pureblue-700 transition
+              "
+            >Build a 3D Scholarly Edition</a>
+          </div>
+        </div>
+      </div>
+        
+      <div class="w-full sm:w-1/2 flex flex-col justify-between overflow-y">
+        <h2
+            class="text-lg mt-24 mb-10 text-pureblue-600 ml-6"
+        >3D Scholarly Projects</h2>
+        <div class="bg-puregreen-300 w-full grow content-stretch">
+          <ul
+            class="
+              w-full grid md:grid-cols-1 lg:grid-cols-2 justify-start
+              gap-6 flex-wrap px-6 pb-6
+            "
+          > 
+            {{#each projects}}
+            {{>project-card}}
+            {{/each}}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+  {{>main-footer}}
+</body>
+</html>

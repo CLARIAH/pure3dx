@@ -1,0 +1,38 @@
+locations:
+  dataIn: /app/data/published/input
+  dataOut: /app/data/published/dist
+  partialsIn: «base»/design/components
+  viewers: /app/data/viewers
+  templates: «base»/design/templates
+  texts: «base»/design/texts
+  images: «base»/design/images
+  js: «base»/design/js
+  cssIn: «base»/design/css/input.css
+  cssOut: /app/data/published/dist/css/style.css
+  binDir: /app/bin
+
+markdown:
+  keys:
+    - abstract
+    - description
+    - provenance
+
+list:
+  keys:
+    - creator
+    - contributor
+    - institution
+    - place
+    - period
+    - subject
+
+generation:
+  allprojects:
+    title: "Pure3D Projects"
+  alleditions:
+    title: "Pure3D Editions"
+
+viewers:
+  default: voyager
+  voyager:
+    element: voyager-explorer

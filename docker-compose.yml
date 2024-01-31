@@ -30,6 +30,7 @@ services:
       - "./:/app"
     ports:
       - "${flaskport}:${flaskport}"
+      - "8050:8050"
 
   mongodb:
     image: mongo:5.0.6

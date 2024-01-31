@@ -1,0 +1,55 @@
+<div class="border-b">
+  <div
+      class="
+        w-full max-w-[1500px] mx-auto flex flex-col sm:flex-row justify-between
+        items-center px-6 py-6
+      "
+  >
+    <div class="">
+      <a
+        href="/index.html"
+        aria-label="To the homepage of Pure 3D"
+      ><img src="/images/logo-site.png" alt=""  class="h-6"
+      ></a>
+    </div>
+    <div class="">
+      <nav class="mt-4 sm:mt-0 flex flex-row justify-center flex-wrap gap-2">
+        <a
+            href="/index.html"
+            class="
+              p-1 sm:p-3 hover:rounded hover:bg-pureblue-100 text-pureblue-600
+              font-semibold
+              {{#if isHome}}{{>styles/main-navigation-current}}{{/if}}
+            "
+        >Home</a>
+
+        <a
+            href="/projects.html"
+            class="
+                   p-1 sm:p-3 hover:rounded hover:bg-pureblue-100 text-pureblue-600
+                   font-semibold
+                   {{#if isProject}}{{>styles/main-navigation-current}}{{/if}}
+            "
+        >3D projects</a>
+
+        <a
+            href="/editions.html"
+            class="
+              p-1 sm:p-3 hover:rounded hover:bg-pureblue-100 text-pureblue-600
+              font-semibold
+              {{#if isEdition}}{{>styles/main-navigation-current}}{{/if}}
+            "
+        >3D editions</a>
+
+        <a
+          href="/about.html"
+          class="
+            p-1 sm:p-3 hover:rounded hover:bg-pureblue-100 text-pureblue-600
+            font-semibold
+            {{#if isAbout}}{{>styles/main-navigation-current}}{{/if}}
+          "
+        >About</a>
+      </nav>
+    </div>
+  </div>
+</div>
