@@ -10,6 +10,8 @@ from files import (
     dirUpdate,
     dirNm,
     dirMake,
+    dirAllFiles,
+    dirExists,
     baseNm,
     stripExt,
     abspath,
@@ -18,7 +20,6 @@ from files import (
     readJson,
     writeJson,
     initTree,
-    dirAllFiles,
     expanduser as ex,
 )
 from generic import AttrDict, deepAttrDict, deepdict
@@ -35,7 +36,7 @@ TAILWIND_CFG = "tailwind.config.js"
 
 class Build:
     def __init__(self):
-        baseDir = dirNm(dirNm(abspath(__file__)))
+        baseDir = dirNm(abspath(__file__), 2)
 
         cfgFile = f"{baseDir}/config/{CONFIG_FILE}"
         featuredFile = f"{baseDir}/config/{FEATURED_FILE}"
@@ -51,8 +52,10 @@ class Build:
         self.markdownKeys = set(cfg.markdown.keys)
         self.listKeys = set(cfg.list.keys)
 
+        rootDir = "/app" if dirExists("/app") else dirNm(baseDir, 3)
+
         for k, v in locations.items():
-            v = v.replace("«base»", baseDir)
+            v = v.replace("«root»", rootDir).replace("«base»", baseDir)
             locations[k] = ex(v)
 
         locations.baseDir = baseDir

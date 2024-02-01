@@ -1,15 +1,15 @@
 locations:
-  dataIn: /app/data/published/input
-  dataOut: /app/data/published/dist
+  dataIn: «root»/data/published/input
+  dataOut: «root»/data/published/dist
+  cssOut: «root»/data/published/dist/css/style.css
+  viewers: «root»/data/viewers
+  binDir: «root»/bin
   partialsIn: «base»/design/components
-  viewers: /app/data/viewers
   templates: «base»/design/templates
   texts: «base»/design/texts
   images: «base»/design/images
   js: «base»/design/js
   cssIn: «base»/design/css/input.css
-  cssOut: /app/data/published/dist/css/style.css
-  binDir: /app/bin
 
 markdown:
   keys:

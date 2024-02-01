@@ -129,9 +129,17 @@ def initTree(path, fresh=False, gentle=False):
         os.makedirs(path, exist_ok=True)
 
 
-def dirNm(path):
-    """Get the directory part of a file name."""
-    return os.path.dirname(path)
+def dirNm(path, up=1):
+    """Get the directory part of a file name.
+
+    Parameters
+    ----------
+    up: int, optional 1
+        The number of levels to go up. Should be 1 or higher.
+        If not passed, the parent directory is returned.
+        If it is 0 or lower, the `path` itself is returned.
+    """
+    return path if up < 1 else os.path.dirname(dirNm(path, up - 1))
 
 
 def baseNm(path):
