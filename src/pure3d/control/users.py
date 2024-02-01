@@ -185,7 +185,7 @@ class Users:
 
         if user is None or not self.__findUser(user, update=True):
             Messages.warning(
-                logmsg="LOGIN failed for user {user}",
+                logmsg=f"LOGIN failed for user {user}",
                 msg="failed to log in",
             )
             return redirectStatus(f"/{referrer}", False)

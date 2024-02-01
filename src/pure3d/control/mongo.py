@@ -705,7 +705,7 @@ class Mongo:
                         Messages.warning(
                             msg=f"Multiple {table} records found. Will restore first.",
                             logmsg=(
-                                "Project restore {projectId}: "
+                                f"Project restore {projectId}: "
                                 f"Multiple ({nRecords}) {table} records found."
                             ),
                         )
@@ -748,7 +748,7 @@ class Mongo:
                     Messages.warning(
                         msg=f"Skipping {name} as it is not legal in a project backup",
                         logmsg=(
-                            "Skipping {name} as it is not legal in a project backup"
+                            f"Skipping {name} as it is not legal in a project backup"
                         ),
                     )
 

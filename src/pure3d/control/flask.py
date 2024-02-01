@@ -239,6 +239,10 @@ def getReferrer():
     rootUrl = request.root_url
     rootUrl = PROTOCOL_RE.sub("", rootUrl)
     referrer = request.referrer
+
+    if referrer is None:
+        return "/"
+
     referrer = PROTOCOL_RE.sub("", referrer)
 
     path = referrer.removeprefix(rootUrl)

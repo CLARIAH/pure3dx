@@ -1719,7 +1719,7 @@ class Content(Datamodel):
                         doFileTypeCheck = True
                     else:
                         msgs.append(
-                            ("warning", "ignoring non-toplevel scene file {zName}")
+                            ("warning", f"ignoring non-toplevel scene file {zName}")
                         )
                         continue
                 elif zTest.endswith(".glb") or zTest.endswith(".gltf"):
@@ -1728,7 +1728,7 @@ class Content(Datamodel):
                         doFileTypeCheck = True
                     else:
                         msgs.append(
-                            ("warning", "ignoring non-toplevel model file {zName}")
+                            ("warning", f"ignoring non-toplevel model file {zName}")
                         )
                         continue
                 else:

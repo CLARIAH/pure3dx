@@ -381,7 +381,7 @@ class Config:
         authFile = "authorise.yml"
         authData = readYaml(f"{yamlDir}/{authFile}")
         if authData is None:
-            Messages.error(logmsg="Cannot read {authFile} in {yamlDir}")
+            Messages.error(logmsg=f"Cannot read {authFile} in {yamlDir}")
             self.good = False
             return
 
@@ -417,7 +417,7 @@ class Config:
         viewerSettingsFile = f"{yamlDir}/{viewersFile}"
         viewerSettings = readYaml(viewerSettingsFile)
         if viewerSettings is None:
-            Messages.error(logmsg="Cannot read {viewersFile} in {yamlDir}")
+            Messages.error(logmsg=f"Cannot read {viewersFile} in {yamlDir}")
             self.good = False
             return
 
@@ -433,7 +433,7 @@ class Config:
                 Messages.warning(
                     logmsg=(
                         f"Skipping viewer {viewerName}"
-                        "because not defined in {viewersFile}"
+                        f"because not defined in {viewersFile}"
                     )
                 )
                 continue
