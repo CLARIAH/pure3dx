@@ -37,7 +37,15 @@ export runmode
 export FLASK_APP=index
 export WERKZEUG_DEBUG_PIN=off
 
-flask $flaskdebugarg run --host $flaskhost --port $flaskport &
-pid=$!
+if [[ "$flaskdebugarg" == "--debug" ]]; then
+    echo "running flask dev server"
+    flask $flaskdebugarg run --host $flaskhost --port $flaskport &
+    pid=$!
+else
+    echo "running gunicorn"
+    gunicorn --config gunicornConfig.py --bind "$flaskhost:$flaskport" --access-logfile - index:app &
+    pid=$!
+fi
+
 trap "kill $pid" SIGTERM
 wait "$pid"

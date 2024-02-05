@@ -2,7 +2,7 @@
 
 source .env
 echo "building pure3dapp docker images from local folder; tagging as docker pure3dapp:${dockertag}...."
-docker build -f Dockerfile.local -t pure3dapp:${dockertag}-loc \
+docker build -f Dockerfile -t pure3dapp:${dockertag}-loc \
   --build-arg gitlocation=${gitlocation} \
   --build-arg gitbranch=${gitbranch} \
   --build-arg flasksecret=${flasksecret} \

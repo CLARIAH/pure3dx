@@ -2,7 +2,7 @@ from textwrap import dedent
 from subprocess import check_output
 
 from control.generic import AttrDict, getVersionKeyFunc
-from control.files import dirMake, dirExists, fileExists, readYaml, listDirs
+from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
 from control.html import HtmlElements
 
@@ -175,11 +175,15 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
-        secret = var("flasksecret")
+        CLIENT_SECRET_FILE = "/app/secret/secfile"
+        secret = readPath(CLIENT_SECRET_FILE)
 
-        if secret is None:
+        if not secret:
             Messages.error(
-                logmsg="No secret given for flask: variable `flasksecret` not defined"
+                logmsg=(
+                    "No secret given for flask: "
+                    f"file {CLIENT_SECRET_FILE} does not exist"
+                )
             )
             self.good = False
             return

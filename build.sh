@@ -19,6 +19,7 @@ fi
 
 sleep 3
 
+echo "If login fails, go to registry.huc.knaw.nl and log in and then run this script again"
 docker login registry.huc.knaw.nl
 
 docker tag pure3dapp:${dockertag} registry.huc.knaw.nl/pure3dapp/pure3dapp:${dockertag}
