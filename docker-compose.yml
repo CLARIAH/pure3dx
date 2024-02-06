@@ -13,7 +13,6 @@ services:
     hostname: pure3dapp
     environment:
       DATA_DIR: ${DATA_DIR}
-      flasksecret: ${flasksecret}
       flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}

@@ -32,9 +32,9 @@ SITE = "site"
 DOCS_CFG = {
     "app": dict(
         pkgs=["control"],
-        src="src/pure3d",
-        siteLoc=f"../../{SITE}",
-        templateLoc="../../doctemplates",
+        src="src",
+        siteLoc=f"../{SITE}",
+        templateLoc="../doctemplates",
     ),
 }
 

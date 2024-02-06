@@ -1,7 +1,7 @@
 locations:
-  dataIn: «root»/published/input
-  dataOut: «root»/published/dist
-  cssOut: «root»/published/dist/css/style.css
+  dataIn: «root»/data/published-init
+  dataOut: «root»/published
+  cssOut: «root»/published/css/style.css
   viewers: «root»/data/viewers
   binDir: «root»/bin
   partialsIn: «base»/design/components

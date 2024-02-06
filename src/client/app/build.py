@@ -52,7 +52,7 @@ class Build:
         self.markdownKeys = set(cfg.markdown.keys)
         self.listKeys = set(cfg.list.keys)
 
-        rootDir = "/app" if dirExists("/app") else dirNm(baseDir, 3)
+        rootDir = "/app" if dirExists("/app") else dirNm(baseDir, 2)
 
         for k, v in locations.items():
             v = v.replace("«root»", rootDir).replace("«base»", baseDir)
@@ -474,7 +474,7 @@ class Build:
         filesInDir = f"{dataInDir}/files"
         projectInDir = f"{filesInDir}/project"
         templateDir = locations.templates
-        filesOutDir = f"{dataOutDir}/files"
+        filesOutDir = f"{dataOutDir}"
         projectOutDir = f"{filesOutDir}/project"
         yamlOutDir = f"{dataOutDir}/yaml"
         Handlebars = self.Handlebars

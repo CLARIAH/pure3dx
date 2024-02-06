@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-Handlebars.registerHelper('eq', (a, b) => a == b)
 <html lang="en" class="scroll-smooth">
 
 <head>
@@ -43,7 +42,7 @@ Handlebars.registerHelper('eq', (a, b) => a == b)
           <!-- col 1 -->
           <div class="">
             <{{element}}
-              root="/files/project/{{projectNum}}/edition/{{num}}/"
+              root="/project/{{projectNum}}/edition/{{num}}/"
               resourceroot="/viewers/{{viewer}}/{{version}}/"
               document="{{sceneFile}}"
               id="viewer3d"

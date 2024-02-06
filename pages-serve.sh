@@ -1,4 +1,4 @@
 #!/bin/sh
 
-cd published/dist
+cd published
 python -m http.server 8050

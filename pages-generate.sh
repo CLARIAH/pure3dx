@@ -1,4 +1,4 @@
 #!/bin/sh
 
-cd src/pure3d/client/app
+cd src/client/app
 python build.py

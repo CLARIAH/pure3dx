@@ -29,7 +29,7 @@ if [[ ! -d "data" ]]; then
     mkdir data
 fi
 
-cd /app/src/pure3d
+cd /app/src
 
 export flaskdebugarg
 export repodir

@@ -95,7 +95,7 @@ class Config:
             return
 
         Settings.repoDir = repoDir
-        yamlDir = f"{repoDir}/src/pure3d/control/yaml"
+        yamlDir = f"{repoDir}/src/control/yaml"
         Settings.yamlDir = yamlDir
 
     def checkWebdav(self):
