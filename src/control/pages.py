@@ -73,6 +73,52 @@ class Pages:
         Messages.info(msg="data reset done!")
         return redirectStatus("/home", True)
 
+    def publish(self, edition):
+        """Publish an edition as static pages.
+
+        Parameters
+        ----------
+        edition: string
+            the edition
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
+        Content = self.Content
+
+        good = Content.publish(edition)
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
+
+    def unpublish(self, edition):
+        """Unpublish an edition from the static pages.
+
+        Parameters
+        ----------
+        edition: string
+            the edition
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
+        Content = self.Content
+
+        good = Content.unpublish(edition)
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
+
     def mkBackup(self, project=None):
         """Backup: Save file and database data in a backup directory.
 
@@ -380,6 +426,7 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
         (projectId, project) = Mongo.get("project", project)
+        publishInfo = Content.getPublishInfo("project", project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("project", project)
         backups = Content.getBackups(project=project)
@@ -387,6 +434,7 @@ class Pages:
         editions = Content.getEditions(project)
         left = (
             Content.getValues("project", project, "title@3 + creator@0")
+            + publishInfo
             + actionHeading
             + downloadButton
             + backups
@@ -490,6 +538,7 @@ class Pages:
         (viewer, sceneFile) = Content.getViewInfo(edition)
 
         breadCrumb = Content.breadCrumb(project)
+        publishButton = Content.getPublishInfo("edition", edition)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("edition", edition)
 
@@ -505,6 +554,7 @@ class Pages:
         left = (
             breadCrumb
             + Content.getValues("edition", edition, "title@4")
+            + publishButton
             + actionHeading
             + downloadButton
             + sceneHeading

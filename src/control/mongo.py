@@ -357,7 +357,9 @@ class Mongo:
         table: string
             The name of the table in which we want to update a single record.
         updates: dict
-            The fields that must be updated with the values they must get
+            The fields that must be updated with the values they must get.
+            If the value `None` is specified for a field, that field will be set to
+            null.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.

@@ -154,7 +154,9 @@ class Collect:
         meta = {}
 
         for metaFile in metaFiles:
-            meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
+            meta[metaFile] = readYaml(
+                asFile=f"{metaDir}/{metaFile}.yml", defaultEmpty=True
+            )
             Messages.plain(logmsg=f"Copy meta file {metaFile} from {metaDir}")
 
         siteId = Mongo.insertRecord("site", **siteCrit, **meta)
@@ -277,7 +279,9 @@ class Collect:
         metaFiles = listFiles(metaDir, ".yml")
 
         for metaFile in metaFiles:
-            meta[metaFile] = readYaml(f"{metaDir}/{metaFile}.yml", defaultEmpty=True)
+            meta[metaFile] = readYaml(
+                asFile=f"{metaDir}/{metaFile}.yml", defaultEmpty=True
+            )
 
         title = meta.get("dc", {}).get("title", editionName)
         authorTool = meta.get("settings", {}).get("authorTool", {})
@@ -303,7 +307,7 @@ class Collect:
         editionOutPath = f"{editionsOutPath}/{editionId}"
         dirMake(editionOutPath)
 
-        for (label, files) in (
+        for label, files in (
             ("scene", [sceneFile]),
             ("model", modelFiles),
             ("icon", [iconFile]),
@@ -334,18 +338,18 @@ class Collect:
         editionIdByName = self.editionIdByName
 
         workflowPath = f"{importDir}/workflow/init.yml"
-        workflow = readYaml(workflowPath, defaultEmpty=True)
+        workflow = readYaml(asFile=workflowPath, defaultEmpty=True)
         userRole = workflow["userRole"]
         status = workflow["status"]
 
         userByName = {}
 
-        for (table, statusInfo) in status.items():
+        for table, statusInfo in status.items():
             field = statusInfo["field"]
             values = statusInfo["values"]
             tableRep = table.upper()
 
-            for (outerName, outerValue) in values.items():
+            for outerName, outerValue in values.items():
                 if table == "project":
                     Messages.plain(
                         logmsg=(f"{tableRep} {outerName} {field}: {outerValue}")
@@ -356,7 +360,7 @@ class Collect:
                         _id=projectIdByName[outerName],
                     )
                 elif table == "edition":
-                    for (innerName, innerValue) in outerValue.items():
+                    for innerName, innerValue in outerValue.items():
                         Messages.plain(
                             logmsg=(
                                 f"{tableRep} {outerName}-{innerName}"
@@ -369,10 +373,10 @@ class Collect:
                             _id=editionIdByName[outerName][innerName],
                         )
 
-        for (table, tableUsers) in userRole.items():
+        for table, tableUsers in userRole.items():
             if table != "site":
                 continue
-            for (userName, role) in tableUsers.items():
+            for userName, role in tableUsers.items():
                 user = f"{userName:0>16}"
                 userInfo = dict(
                     nickname=userName,
@@ -383,12 +387,12 @@ class Collect:
                 Mongo.insertRecord("user", **userInfo)
                 userByName[userName] = user
 
-        for (table, tableUsers) in userRole.items():
+        for table, tableUsers in userRole.items():
             if table == "site":
                 continue
             elif table == "project":
-                for (projectName, userInfo) in tableUsers.items():
-                    for (userName, role) in userInfo.items():
+                for projectName, userInfo in tableUsers.items():
+                    for userName, role in userInfo.items():
                         xInfo = dict(
                             user=userByName[userName],
                             projectId=projectIdByName[projectName],
@@ -396,9 +400,9 @@ class Collect:
                         )
                         Mongo.insertRecord("projectUser", **xInfo)
             elif table == "edition":
-                for (projectName, editionInfo) in tableUsers.items():
-                    for (editionName, userInfo) in editionInfo.items():
-                        for (userName, role) in userInfo.items():
+                for projectName, editionInfo in tableUsers.items():
+                    for editionName, userInfo in editionInfo.items():
+                        for userName, role in userInfo.items():
                             xInfo = dict(
                                 user=userByName[userName],
                                 editionId=editionIdByName[projectName][editionName],

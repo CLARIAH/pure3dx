@@ -1,9 +1,8 @@
 locations:
-  dataIn: «root»/data/published-init
-  dataOut: «root»/published
-  cssOut: «root»/published/css/style.css
+  cssOut: «pub»/css/style.css
   viewers: «root»/data/viewers
   binDir: «root»/bin
+  projectDir: «root»/project
   partialsIn: «client»/design/components
   templates: «client»/design/templates
   texts: «client»/design/texts
@@ -33,6 +32,5 @@ generation:
     title: "Pure3D Editions"
 
 viewers:
-  default: voyager
   voyager:
     element: voyager-explorer

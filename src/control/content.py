@@ -25,7 +25,7 @@ from control.checkgltf import check
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap, Publish):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -45,10 +45,15 @@ class Content(Datamodel):
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
+        Wrap: object
+            Singleton instance of `control.wrap.Wrap`.
+        Publish: object
+            Singleton instance of `control.publish.Publish`.
         """
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
         self.Wrap = Wrap
+        self.Publish = Publish
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -947,6 +952,96 @@ class Content(Datamodel):
             "download", text="download", href=f"/download/{table}/{recordId}"
         )
 
+    def getPublishInfo(self, table, record):
+        """Display the number under which a project is published.
+
+        Editions of a project may have been published. If that is the case,
+        the project has been assigned a sequence number, under which it can be
+        found on the static site with published material.
+
+        Here we collect that number, and, for editions, we may put a publish
+        button here.
+
+        Parameters
+        ----------
+        table: string
+            The table in which the relevant record sits
+        record: string | ObjectId | AttrDict
+            The relevant record.
+
+        Returns
+        -------
+        string
+            In case of a project: the number of the project on the static site.
+            In case of an edition: the number of the project and the number of the
+            edition on the static site. If the edition is not yet published, and
+            the user is allowed to publish the edition, then a publish button is
+            also added.
+        """
+        Settings = self.Settings
+        H = Settings.H
+        Mongo = self.Mongo
+        Auth = self.Auth
+
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return ""
+
+        actions = Auth.authorise(table, record)
+
+        if "read" not in actions or table not in {"project", "edition"}:
+            return ""
+
+        (site, siteId, projectId, project, editionId, edition) = self.context(
+            table, record
+        )
+
+        projectPubNum = project.pubNum
+
+        projectPubStr = (
+            H.i("No published editions")
+            if projectPubNum is None
+            else H.span("Published: ")
+            + H.a(f"{projectPubNum}", f"https://published/{projectPubNum}")
+        )
+
+        if table == "project":
+            return H.p(projectPubStr)
+
+        editionPubNum = edition.pubNum
+
+        editionPubStr = (
+            H.i("Not published")
+            if editionPubNum is None or projectPubNum is None
+            else H.span("Published: ")
+            + H.a(
+                f"{projectPubNum}/{editionPubNum}",
+                f"https://published/{projectPubNum}/edition/{editionPubNum}",
+            )
+        )
+
+        editionPubButton = ""
+        editionUnPubButton = ""
+        sep = ""
+
+        if (projectPubNum is None or editionPubNum is None) and "publish" in actions:
+            editionPubButton = H.iconx(
+                "publish", text="publish", href=f"/publish/{recordId}"
+            )
+            sep = H.nbsp
+
+        if (
+            projectPubNum is not None and editionPubNum is not None
+        ) and "unpublish" in actions:
+            editionUnPubButton = H.iconx(
+                "unpublish", text="unpublish", href=f"/unpublish/{recordId}"
+            )
+            sep = H.nbsp
+
+        return H.p(
+            H.content(editionPubStr, sep, editionPubButton, sep, editionUnPubButton)
+        )
+
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
 
@@ -1327,6 +1422,84 @@ class Content(Datamodel):
         dirRemove(backupDir)
         Messages.info(msg="backup completed.")
         return True
+
+    def publish(self, record):
+        """Publish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be published.
+
+        Return
+        ------
+        response
+            A publish status response.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Publish = self.Publish
+
+        (recordId, record) = Mongo.get("edition", record)
+        if recordId is None:
+            Messages.error(
+                msg="record does not exist", logmsg=f"edition {recordId} does not exist"
+            )
+            return False
+
+        permitted = Auth.authorise("edition", record, action="publish")
+
+        if not permitted:
+            logmsg = f"Publish not permitted: edition: {recordId}"
+            msg = "Publishing of edition not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
+            return False
+
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            "edition", record
+        )
+
+        return Publish.updateEdition(site, project, edition, "add")
+
+    def unpublish(self, record):
+        """Unpublish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be unpublished.
+
+        Return
+        ------
+        response
+            An unpublish status response.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Publish = self.Publish
+
+        (recordId, record) = Mongo.get("edition", record)
+        if recordId is None:
+            Messages.error(
+                msg="record does not exist", logmsg=f"edition {recordId} does not exist"
+            )
+            return False
+
+        permitted = Auth.authorise("edition", record, action="unpublish")
+
+        if not permitted:
+            logmsg = f"Unpublish not permitted: edition: {recordId}"
+            msg = "Unpublishing of edition not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
+            return False
+
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            "edition", record
+        )
+
+        return Publish.updateEdition(site, project, edition, "remove")
 
     def download(self, table, record):
         """Responds with a download of a project or edition.

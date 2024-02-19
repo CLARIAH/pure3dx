@@ -95,7 +95,7 @@ class Config:
             return
 
         Settings.repoDir = repoDir
-        yamlDir = f"{repoDir}/src/control/yaml"
+        yamlDir = f"{repoDir}/src/yaml"
         Settings.yamlDir = yamlDir
 
     def checkWebdav(self):
@@ -107,7 +107,7 @@ class Config:
         Settings = self.Settings
         yamlDir = Settings.yamlDir
         webdavFile = "webdav.yml"
-        webdavInfo = readYaml(f"{yamlDir}/{webdavFile}")
+        webdavInfo = readYaml(asFile=f"{yamlDir}/{webdavFile}")
         Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
@@ -247,6 +247,26 @@ class Config:
         Settings = self.Settings
         runMode = Settings.runMode
 
+        pubDir = var("PUB_DIR")
+
+        if pubDir is None:
+            Messages.error(logmsg="Environment variable `PUBA_DIR` not defined")
+            self.good = False
+            return
+
+        pubDir = pubDir.rstrip("/")
+        sep = "/" if pubDir else ""
+        pubModeDir = f"{pubDir}{sep}working/{runMode}"
+
+        if not dirExists(pubDir):
+            Messages.error(logmsg=f"Pub directory does not exist: {pubDir}")
+            self.good = False
+            return
+
+        dirMake(pubModeDir)
+        Settings.pubDir = pubDir
+        Settings.pubModeDir = pubModeDir
+
         dataDir = var("DATA_DIR")
 
         if dataDir is None:
@@ -308,7 +328,7 @@ class Config:
         yamlDir = Settings.yamlDir
 
         settingsFile = "settings.yml"
-        settings = readYaml(f"{yamlDir}/{settingsFile}")
+        settings = readYaml(asFile=f"{yamlDir}/{settingsFile}")
         if settings is None:
             Messages.error(logmsg=f"Cannot read {settingsFile} in {yamlDir}")
             self.good = False
@@ -356,7 +376,7 @@ class Config:
         yamlDir = Settings.yamlDir
 
         datamodelFile = "datamodel.yml"
-        datamodel = readYaml(f"{yamlDir}/{datamodelFile}")
+        datamodel = readYaml(asFile=f"{yamlDir}/{datamodelFile}")
         if datamodel is None:
             Messages.error(logmsg=f"Cannot read {datamodelFile} in {yamlDir}")
             self.good = False
@@ -383,7 +403,7 @@ class Config:
         yamlDir = Settings.yamlDir
 
         authFile = "authorise.yml"
-        authData = readYaml(f"{yamlDir}/{authFile}")
+        authData = readYaml(asFile=f"{yamlDir}/{authFile}")
         if authData is None:
             Messages.error(logmsg=f"Cannot read {authFile} in {yamlDir}")
             self.good = False
@@ -419,7 +439,8 @@ class Config:
 
         viewersFile = "viewers.yml"
         viewerSettingsFile = f"{yamlDir}/{viewersFile}"
-        viewerSettings = readYaml(viewerSettingsFile)
+        viewerSettings = readYaml(asFile=viewerSettingsFile)
+
         if viewerSettings is None:
             Messages.error(logmsg=f"Cannot read {viewersFile} in {yamlDir}")
             self.good = False

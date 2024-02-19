@@ -69,6 +69,8 @@ icons:
   reset: "↩︎"
   update: "✎"
   upload: "↑"
+  publish: "🅿️"
+  unpublish: "⛔️"
 
 iconTips:
   edit_cancel: "reset to last saved value"

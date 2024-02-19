@@ -7,6 +7,10 @@ actions:
     name: edit
   delete:
     name: delete
+  publish:
+    name: publish
+  unpublish:
+    name: unpublish
 
 roles:
   site:
@@ -120,3 +124,31 @@ authRules:
       true: {}
       false:
         organiser: true
+    publish:
+      true:
+        root: false
+        admin: false
+        user: false
+        guest: false
+        null: false
+        organiser: true
+      false:
+        root: false
+        admin: false
+        user: false
+        guest: false
+        null: false
+        organiser: true
+    unpublish:
+      true:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+      false:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false

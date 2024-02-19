@@ -1,6 +1,6 @@
 import os
-import json
 import yaml
+import json
 
 from shutil import rmtree, copytree, copy
 

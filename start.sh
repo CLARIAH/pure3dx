@@ -28,6 +28,9 @@ repodir="`pwd`"
 if [[ ! -d "data" ]]; then
     mkdir data
 fi
+if [[ ! -d "published" ]]; then
+    mkdir published
+fi
 
 cd /app/src
 

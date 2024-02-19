@@ -334,6 +334,28 @@ def appFactory(objects):
         """
         return Pages.fileData(path, project=project, edition=edition)
 
+    @app.route("/publish/<string:record>")
+    def publish(record):
+        """Publish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be published.
+        """
+        return Pages.publish(record)
+
+    @app.route("/unpublish/<string:record>")
+    def unpublish(record):
+        """Unpublish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be unpublished.
+        """
+        return Pages.unpublish(record)
+
     @app.route("/download/<string:table>/<string:record>")
     def download(table, record):
         """Download a project or edition.

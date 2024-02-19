@@ -36,12 +36,12 @@ TAILWIND_CFG = "tailwind.config.js"
 
 class Build:
     def __init__(self):
-        baseDir = dirNm(abspath(__file__), 2)
+        clientDir = dirNm(abspath(__file__), 2)
 
-        cfgFile = f"{baseDir}/config/{CONFIG_FILE}"
-        featuredFile = f"{baseDir}/config/{FEATURED_FILE}"
-        featured = readYaml(asFile=featuredFile)
+        cfgFile = f"{clientDir}/config/{CONFIG_FILE}"
         cfg = readYaml(asFile=cfgFile)
+        featuredFile = f"{clientDir}/config/{FEATURED_FILE}"
+        featured = readYaml(asFile=featuredFile)
 
         self.cfg = cfg
         self.featured = featured
@@ -50,15 +50,15 @@ class Build:
         self.locations = locations
 
         self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.list.keys)
+        self.listKeys = set(cfg.listKeys.keys)
 
-        rootDir = "/app" if dirExists("/app") else dirNm(baseDir, 2)
+        rootDir = "/app" if dirExists("/app") else dirNm(clientDir, 2)
 
         for k, v in locations.items():
-            v = v.replace("«root»", rootDir).replace("«base»", baseDir)
+            v = v.replace("«root»", rootDir).replace("«base»", clientDir)
             locations[k] = ex(v)
 
-        locations.baseDir = baseDir
+        locations.clientDir = clientDir
 
         self.Handlebars = Compiler()
 

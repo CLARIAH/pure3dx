@@ -5,6 +5,7 @@ from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
 from control.wrap import Wrap as WrapCls
 from control.content import Content as ContentCls
+from control.publish import Publish as PublishCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
@@ -25,6 +26,7 @@ def prepare(trivial=False):
     * `control.wrap.Wrap`: several lengthy functions to wrap concepts into HTML
     * `control.datamodel.Datamodel`: factory for handling fields, inherited by `Content`
     * `control.content.Content`: retrieve all data that needs to be displayed
+    * `control.publish.Publish`: publish an edition as static pages
     * `control.auth.Auth`: compute the permission of the current user
       to access content
     * `control.pages.Pages`: high-level functions that
@@ -66,6 +68,7 @@ def prepare(trivial=False):
         Viewers = None
         Wrap = None
         Content = None
+        Publish = None
         Auth = None
         EditSessions = None
         Pages = None
@@ -82,7 +85,8 @@ def prepare(trivial=False):
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Wrap = WrapCls(Settings, Messages, Viewers)
-        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
+        Publish = PublishCls(Settings, Viewers, Messages, Mongo)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap, Publish)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
         EditSessions = EditSessionsCls(Mongo, Auth)
@@ -103,6 +107,7 @@ def prepare(trivial=False):
         Viewers=Viewers,
         Wrap=Wrap,
         Content=Content,
+        Publish=Publish,
         Auth=Auth,
         EditSessions=EditSessions,
         Pages=Pages,

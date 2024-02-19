@@ -13,6 +13,7 @@ services:
     hostname: pure3dapp
     environment:
       DATA_DIR: ${DATA_DIR}
+      PUB_DIR: ${PUB_DIR}
       flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}
