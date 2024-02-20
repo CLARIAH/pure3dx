@@ -10,6 +10,7 @@ from helpers import console, run
 from files import fileExists, initTree
 
 
+TAILWIND_CFG = "tailwind.config.js"
 TAILWIND_VERSION = "v3.3.5"
 
 TARGETS = dict(
@@ -21,20 +22,19 @@ TARGETS = dict(
 
 
 class Tailwind:
-    def __init__(self, locations, configFile):
-        self.locations = locations
-        self.configFile = configFile
+    def __init__(self, Settings):
+        self.Settings = Settings
+        self.install()
 
     def install(self):
-        locations = self.locations
-        clientDir = locations.clientDir
-        binDir = locations.binDir
+        Settings = self.Settings
+        srcDir = Settings.srcDir
+        binDir = Settings.binDir
         initTree(binDir, fresh=False)
-        configFile = self.configFile
-        distDirs = [locations.partialsIn, locations.templates, locations.js]
+        distDirs = [Settings.partialsIn, Settings.templateDir, Settings.jsDir]
 
-        configInPath = f"{clientDir}/config/{configFile}"
-        configOutPath = f"{binDir}/{configFile}"
+        configInPath = f"{srcDir}/{TAILWIND_CFG}"
+        configOutPath = f"{binDir}/{TAILWIND_CFG}"
 
         osName = platform.system().lower().replace("darwin", "macos")
         assert osName in ["linux", "macos"]
@@ -145,17 +145,19 @@ class Tailwind:
             add `w-4` and `h-4` and `fill-blue-700` to the
             safelist.
         """
-        locations = self.locations
-        configFile = self.configFile
-        binDir = locations.binDir
+        Settings = self.Settings
+        binDir = Settings.binDir
         binPath = self.binPath
-        cfgOut = f"{binDir}/{configFile}"
-        cssIn = locations.cssIn
-        cssOut = locations.cssOut
+        cfgOut = f"{binDir}/{TAILWIND_CFG}"
+        cssIn = Settings.cssIn
+        cssOut = Settings.cssOut
         cmdLine = f"""{binPath}  -c {cfgOut} -i {cssIn} -o {cssOut}"""
         good, stdOut, stdErr = run(cmdLine)
+
         if verbose or not good:
             console(stdOut)
             console(stdErr)
+
         console(f"{'tailwind':<10} {'css':<12} {'':<24} to {cssOut}")
+
         return good

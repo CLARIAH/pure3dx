@@ -1,15 +1,3 @@
-locations:
-  cssOut: «pub»/css/style.css
-  viewers: «root»/data/viewers
-  binDir: «root»/bin
-  projectDir: «root»/project
-  partialsIn: «client»/design/components
-  templates: «client»/design/templates
-  texts: «client»/design/texts
-  images: «client»/design/images
-  js: «client»/design/js
-  cssIn: «client»/design/css/input.css
-
 markdown:
   keys:
     - abstract

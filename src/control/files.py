@@ -253,13 +253,13 @@ def dirCopy(pathSrc, pathDst, noclobber=False):
         return False
 
 
-def dirUpdate(pathSrc, pathDst, force=False, delete=True, recursive=True):
+def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
     """Makes a destination dir equal to a source dir by copying newer files only.
 
     Files of the source dir that are missing or older in the destination dir are
     copied from the source to the destination.
     Files and directories in the destination dir that do not exist in the source
-    dir are deleted.
+    dir are deleted, but this can be prevented.
 
     Parameters
     ----------
@@ -274,10 +274,25 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, recursive=True):
         be copied.
     delete: boolean, optional False
         Whether to delete items from the destination that do not exist in the source.
-    recursive: boolean, optional True
-        Whether to perform the action recursively.
-        If it is False, only the files in the source and destination are compared
-        and, if needed, copied or deleted.
+    level: integer, optional -1
+        Whether to merge recursively and to what level. At level 0 we do not merge,
+        but copy each item from source to destination.
+
+        If we start with a negative level, we never reach level 0, so we apply merging
+        always.
+
+        If we start with level 0, we merge the files, but we copy the subdirectories.
+
+        If we start with a positive level, we merge that many levels deep, after which
+        we switch to copying.
+
+    Returns
+    -------
+    tuple
+        *   boolean: whether the action was successful;
+        *   integer: the amount of copy actions to destination directory
+        *   integer: the amount of delete actions in the destination directory
+
     """
 
     if not dirExists(pathSrc):
@@ -287,67 +302,76 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, recursive=True):
     dstPath = pathDst.rstrip("/")
 
     if not dirExists(pathDst):
-        if recursive:
-            return (dirCopy(pathSrc, pathDst), 1, 0)
-        else:
-            if fileExists(pathDst):
+        if fileExists(pathDst):
+            if not delete:
                 return (False, 0, 0)
-            dirMake(pathDst)
 
-            for item in dirContents(pathSrc)[0]:
-                fileCopy(f"{pathSrc}/{item}", f"{pathDst}/{item}")
-            return (True, 1, 0)
+            fileRemove(pathDst)
+
+        return (dirCopy(pathSrc, pathDst), 1, 0)
 
     (good, cActions, dActions) = (True, 0, 0)
-    (srcFiles, srcDirs) = dirContents(pathSrc, asSet=True)
+    (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
     (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
 
-    for item in srcFiles:
-        src = f"{srcPath}/{item}"
-        dst = f"{dstPath}/{item}"
+    for file in srcFiles:
+        src = f"{srcPath}/{file}"
+        dst = f"{dstPath}/{file}"
 
-        if delete and item in dstDirs:
-            if dirExists(dst):
+        if file in dstDirs:
+            if delete:
                 dirRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
 
-        if item not in dstFiles or force or mTime(src) > mTime(dst):
-            if item in dstDirs:
-                if dirExists(dst):
-                    dirRemove(dst)
+        if file not in dstFiles or force or level == 0 or mTime(src) > mTime(dst):
             fileCopy(src, dst)
             cActions += 1
 
-    for item in dstFiles:
-        src = f"{srcPath}/{item}"
-        dst = f"{dstPath}/{item}"
+    for file in dstFiles:
+        src = f"{srcPath}/{file}"
+        dst = f"{dstPath}/{file}"
 
-        if delete and item not in srcFiles:
-            if fileExists(dst):
-                fileRemove(dst)
-                dActions += 1
+        if delete and file not in srcFiles:
+            fileRemove(dst)
+            dActions += 1
 
-    if not recursive:
+    if level == 0:
         return (good, cActions, dActions)
 
-    for item in srcDirs:
-        src = f"{srcPath}/{item}"
-        dst = f"{dstPath}/{item}"
+    for dr in srcDrs:
+        src = f"{srcPath}/{dr}"
+        dst = f"{dstPath}/{dr}"
 
-        (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete)
+        if dr in dstFiles:
+            if delete:
+                fileRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
+
+        if level == 0:
+            dirCopy(src, dst)
+            cActions += 1
+        else:
+            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
 
         if not thisGood:
             good = False
+
         cActions += thisC
         dActions += thisD
 
-    for item in dstDirs:
-        src = f"{srcPath}/{item}"
-        dst = f"{dstPath}/{item}"
+    for dr in dstDirs:
+        src = f"{srcPath}/{dr}"
+        dst = f"{dstPath}/{dr}"
 
-        if delete and item not in srcDirs:
-            if dirExists(dst):
-                dirRemove(dst)
-                dActions += 1
+        if delete and dr not in srcDrs:
+            dirRemove(dst)
+            dActions += 1
 
     return (good, cActions, dActions)
 

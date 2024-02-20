@@ -6,6 +6,7 @@ from control.viewers import Viewers as ViewersCls
 from control.wrap import Wrap as WrapCls
 from control.content import Content as ContentCls
 from control.publish import Publish as PublishCls
+from control.tailwind import Tailwind as TailwindCls
 from control.pages import Pages as PagesCls
 from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
@@ -85,7 +86,8 @@ def prepare(trivial=False):
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Wrap = WrapCls(Settings, Messages, Viewers)
-        Publish = PublishCls(Settings, Viewers, Messages, Mongo)
+        Tailwind = TailwindCls(Settings)
+        Publish = PublishCls(Settings, Viewers, Messages, Mongo, Tailwind)
         Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap, Publish)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()

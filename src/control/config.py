@@ -64,6 +64,7 @@ class Config:
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkDesign,
         ):
             if self.good:
                 method()
@@ -95,7 +96,9 @@ class Config:
             return
 
         Settings.repoDir = repoDir
-        yamlDir = f"{repoDir}/src/yaml"
+        srcDir = f"{repoDir}/src"
+        Settings.srcDir = srcDir
+        yamlDir = f"{srcDir}/yaml"
         Settings.yamlDir = yamlDir
 
     def checkWebdav(self):
@@ -548,3 +551,29 @@ class Config:
             )
 
         Settings.banner = banner
+
+    def checkDesign(self):
+        """Checks the design resources.
+
+        Returns
+        -------
+        void
+            Some values are stored in the `Settings` object.
+        """
+        Settings = self.Settings
+
+        srcDir = Settings.srcDir
+        designDir = f"{srcDir}/design"
+
+        Settings.partialsIn = f"{designDir}/components"
+        Settings.templateDir = f"{designDir}/templates"
+        Settings.textDir = f"{designDir}/texts"
+        Settings.imageDir = f"{designDir}/images"
+        Settings.jsDir = f"{designDir}/js"
+        Settings.cssIn = f"{designDir}/css/input.css"
+
+        pubModeDir = Settings.pubModeDir
+        Settings.cssOut = f"{pubModeDir}/css/style.css"
+
+        dataDir = Settings.dataDir
+        Settings.binDir = f"{dataDir}/bin"

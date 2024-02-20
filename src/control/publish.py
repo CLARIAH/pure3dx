@@ -13,7 +13,6 @@ from files import (
     dirRemove,
     dirAllFiles,
     dirCopy,
-    dirExists,
     fileCopy,
     baseNm,
     stripExt,
@@ -21,24 +20,20 @@ from files import (
     readYaml,
     readJson,
     writeJson,
-    expanduser as ex,
 )
 from generic import AttrDict, deepAttrDict, deepdict
 from helpers import console, prettify, genViewerSelector
-from tailwind import Tailwind
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)
 
-ROOT_DIR = "/app"
 CONFIG_FILE = "client.yaml"
 FEATURED_FILE = "featured.yaml"
-TAILWIND_CFG = "tailwind.config.js"
 DB_FILE = "db.json"
 
 
 class Publish:
-    def __init__(self, Settings, Viewers, Messages, Mongo):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Tailwind):
         """Publishing content as static pages.
 
         It is instantiated by a singleton object.
@@ -54,16 +49,15 @@ class Publish:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
+        Tailwind: object
+            Singleton instance of `control.tailwind.Tailwind`.
         """
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.Viewers = Viewers
-
-        repoDir = Settings.repoDir
-        pubModeDir = Settings.pubModeDir
-        clientDir = f"{repoDir}/src/client"
+        self.Tailwind = Tailwind
 
         yamlDir = Settings.yamlDir
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"
@@ -74,27 +68,10 @@ class Publish:
         featured = readYaml(asFile=featuredFile)
         self.featured = featured
 
-        locations = cfg.locations
-        self.locations = locations
-
         self.markdownKeys = set(cfg.markdown.keys)
         self.listKeys = set(cfg.listKeys.keys)
 
-        for k, v in locations.items():
-            v = (
-                v.replace("«root»", ROOT_DIR)
-                .replace("«client»", clientDir)
-                .replace("«pub»", pubModeDir)
-            )
-            locations[k] = ex(v)
-
-        locations.clientDir = clientDir
-
         self.Handlebars = Compiler()
-
-        T = Tailwind(locations, TAILWIND_CFG)
-        T.install()
-        self.T = T
 
         self.dbData = AttrDict()
         self.data = AttrDict()
@@ -112,8 +89,9 @@ class Publish:
         the maximum number used in the database and on the file system.
         """
         Mongo = self.Mongo
-        locations = self.locations
-        projectDir = locations.projectDir
+        Settings = self.Settings
+        pubModeDir = Settings.pubModeDir
+        projectDir = f"{pubModeDir}/project"
 
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
@@ -178,8 +156,9 @@ class Publish:
             return
 
         Mongo = self.Mongo
-        locations = self.locations
-        projectDir = locations.projectDir
+        Settings = self.Settings
+        pubModeDir = Settings.pubModeDir
+        projectDir = f"{pubModeDir}/project"
 
         def restore(table, record):
             key = "isVisible" if table == "project" else "isPublished"
@@ -435,50 +414,107 @@ class Publish:
         dirRemove(outDir)
 
     def genPages(self, pPubNum, ePubNum):
-        # generate the html pages
-        # concerning specific project and edition pages: restrict to given
-        # project edition
+        """Generate html pages for a published edition.
+
+        We assume the data of the projects and editions is already in place.
+        As to the viewers: we compare the viewers and versions in the
+        `data/viewers` directory with the viewers and versions in the
+        `published/viewers` directory, and we copy viewer versions that are missing
+        in the latter from the former.
+
+        Exactly what will be generated depends on the parameters.
+
+        There are the following things to generate:
+
+        *   **S**: site wide files, outside projects
+        *   **P**: project wide files, outside editions
+        *   **E**: edition pages
+
+        **S** will always be (re)generated.
+
+        If a particular project is specified, the **P** for that project will
+        also be (re)generated.
+
+        If a particular edition is specified, the **E** for that edition will
+        also be (re)generated.
+
+        Parameters
+        ----------
+        pPubNUm, ePubNUm: integer or boolean or void
+            Specifies which project and edition must be (re)generated, if they are
+            integers.
+            The integers is the numbers of the published project and edition.
+
+            The following combinations are possible:
+
+            *   `None`, `None`: only **S** is (re)generated;
+            *   `p`, `None`: **S** and **P** for project with number `p` are
+                (re)generated;
+            *   `p`, `e`: **S** and **P** and **E** are (re)generated for project
+                with number `p` and edition with number `e` within that project;
+            *   `True`, `True`: everything will be regenerated.
+
+        Returns
+        -------
+        boolean
+            Whether the generation was successful.
+        """
+        Messages = self.Messages
         Settings = self.Settings
-        locations = self.locations
+        Tailwind = self.Tailwind
+        viewerDir = Settings.viewerDir
         pubModeDir = Settings.pubModeDir
-        templateDir = locations.templates
         yamlOutDir = f"{pubModeDir}/yaml"
+
+        templateDir = Settings.templateDir
+        partialsIn = Settings.partialsIn
+        jsDir = Settings.jsDir
+        imageDir = Settings.imageDir
+
         Handlebars = self.Handlebars
-        partialsIn = locations.partialsIn
-        T = self.T
 
         partials = {}
         compiledTemplates = {}
 
-        def copyStaticFolder(kind):
-            srcDir = locations[kind]
+        def updateStatic(srcDr):
+            """Copy over static files.
+
+            We are careful: instead of copying a folder, we merge, recursively,
+            the source folder into the destination folder, and we do not delete
+            anything from the destination.
+
+            Hence the parameters `delete=False` and `level=-1` to
+            `dirUpdate()`.
+
+            We do this, because older parts of the site may depend on older
+            static files.
+            """
             dstDir = f"{pubModeDir}/{kind}"
-            (good, c, d) = dirUpdate(srcDir, dstDir)
+            (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f"{c:>3} copied, {d:>3} deleted"
             console(f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
             return good
 
-        def copyViewers():
-            srcDir = locations.viewers
+        def updateViewers():
+            """Copy over viewer versions.
+
+            We are careful: instead of copying the folder with viewers from source to
+            destination, we merge the source viewers with the destination viewers,
+            without deleting destination viewers.
+            And per viewer, instaead of copying the viewer folder from source
+            to destination, we merge the source versions of that viewer with the
+            destination versions of that viewer, without deleting destination versions.
+
+            But per version we just copy, and stop the recursive merging, because each
+            viewer version is an integral whole, and we do not support that the same
+            version of the same viewer is different between source and destination.
+            """
+            srcDr = viewerDir
             dstDir = f"{pubModeDir}/viewers"
-
-            viewersIn = dirContents(srcDir)[1]
-
-            for viewer in viewersIn:
-                viewerSrcDir = f"{srcDir}/{viewer}"
-                viewerDstDir = f"{dstDir}/{viewer}"
-
-                if dirExists(viewerDstDir):
-                    versionsIn = dirContents(viewerSrcDir)
-
-                    for version in versionsIn:
-                        versionSrcDir = f"{viewerSrcDir}/{version}"
-                        versionDstDir = f"{viewerDstDir}/{version}"
-
-                        if not dirExists(versionDstDir):
-                            dirCopy(versionSrcDir, versionDstDir)
-                else:
-                    dirCopy(viewerSrcDir, viewerDstDir)
+            (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
+            report = f"{c:>3} copied, {d:>3} deleted"
+            console(f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
+            return good
 
         def registerPartials():
             good = True
@@ -507,12 +543,8 @@ class Publish:
             console(f"{'compiled':<10} {'partials':<12} {report:<24} to memory")
             return good
 
-        def genCss():
-            """Generate the CSS by means of tailwind."""
-            return T.generate()
-
-        def genTarget(target):
-            items = self.getData(target)
+        def genTarget(target, pNum, eNum):
+            items = self.getData(target, pNum, eNum)
 
             success = 0
             failure = 0
@@ -572,32 +604,81 @@ class Publish:
             console(f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}")
             return good
 
+        pType = type(pPubNum)
+        eType = type(ePubNum)
+        pIsInt = pType is int
+        eIsInt = eType is int
+        pNo = pPubNum is None
+        eNo = ePubNum is None
+        pAll = pPubNum is True
+        eAll = ePubNum is True
+
+        task = (
+            ("site",)
+            if pNo and eNo is None
+            else ("project", pPubNum)
+            if pIsInt and eNo
+            else ("edition", pPubNum, ePubNum)
+            if pIsInt and eIsInt
+            else ("all",)
+            if pAll and eAll
+            else ("none",)
+        )
+
+        if task[0] == "none":
+            Messages.error(
+                msg="Page generation failed",
+                logmsg=(
+                    "Page generation failed because of illegal parameter combination: "
+                    f"project {pPubNum}: {pType} and edition {ePubNum}: {eType}"
+                ),
+            )
+            return
+
+        # site
+        # project p
+        # edition p e
+        # all
+        # none
+
+        kind = task[0]
+
+        targets = []
+
+        targets.append(("site", None, None))
+        targets.append(("textpages", None, None))
+        targets.append(("projects", None, None))
+        targets.append(("editions", None, None))
+
+        if kind == "all":
+            targets.append(("projectpages", None, None))
+            targets.append(("editionpages", None, None))
+
+        elif kind in {"project", "edition"}:
+            targets.append(("projectpages", pPubNum, None))
+
+            if kind == "edition":
+                targets.append(("editionpages", pPubNum, ePubNum))
+
         good = True
 
-        for kind in ("js", "images"):
-            if not copyStaticFolder(kind):
+        for kind in (jsDir, imageDir):
+            if not updateStatic(kind):
                 good = False
 
-        if not copyViewers():
+        if not updateViewers():
             good = False
 
         if not registerPartials():
             good = False
 
-        if not genCss():
+        if not Tailwind.generate():
             good = False
 
         self.getDbData()
 
-        for target in """
-            site
-            textpages
-            projects
-            editions
-            projectpages
-            editionpages
-        """.strip().split():
-            if not genTarget(target):
+        for target in targets:
+            if not genTarget(*target):
                 good = False
 
         if good:
@@ -621,9 +702,8 @@ class Publish:
         Settings = self.Settings
         dbData = self.dbData
 
-        locations = self.locations
         pubModeDir = Settings.pubModeDir
-        projectDir = locations.projectDir
+        projectDir = f"{pubModeDir}/project"
 
         dbData["site"] = readJson(asFile=f"{pubModeDir}/{DB_FILE}")
 
@@ -702,7 +782,7 @@ class Publish:
 
         return r
 
-    def getData(self, kind):
+    def getData(self, kind, pNumGiven, eNumGiven):
         """Prepares page data of a certain kind.
 
         Pages are generated by filling in templates and partials on the basis of
@@ -711,10 +791,44 @@ class Publish:
         and editions. Other pages may need the same kind of data.
         So we store the gathered data under the kinds they have been gathered.
 
+        For some kinds we may restrict the data fetching to specified items:
+        for `projectpages` and `editionpages`.
+
+        When an edition has changed, we want to restrict the regeneration of
+        pages to only those pages that need to change. And we also update things outside
+        the projects and editions.
+
+        Still, when an edition changes, the page with All editions also has to change.
+        And if the edition was the first in a project to be published, a new project
+        will be published as well, and hence the `All projects` page needs to change.
+
+        If an edition is published next to other editions in a project, the project
+        page needs to change, since it contains thumbnails of all its editions.
+
+        So, the general rule is that we will always regenerate the thumbnails and the
+        All-projects and All-edition pages, but not all of the project pages and edition
+        pages.
+
+        !!! note "Not all kinds will be restricted"
+            The kinds `viewers`, `textpages`, `site` will never be restricted.
+
+            The kinds `projects`, `editions` are needed for thumbnails, and are
+            never restricted.
+
+            The kinds `project`, `edition` are called by the collection of kinds
+            `project` and `edition`, and are also not restricted.
+
+            That leaves only the `projectpages` and `editionpages` needing to be
+            restricted.
+
         Parameters
         ----------
         kind: string
             The kind of data we need to prepare.
+        pNumGiven: integer or void
+            Restricts the data fetching to projects with this publication number
+        eNumGiven: integer or void
+            Restricts the data fetching to editions with this publication number
 
         Returns
         -------
@@ -724,6 +838,8 @@ class Publish:
             `kind`. It will not be computed twice.
         """
         Settings = self.Settings
+        textDir = Settings.textDir
+
         cfg = self.cfg
         generation = cfg.generation
         dbData = self.dbData
@@ -755,7 +871,6 @@ class Publish:
             return result
 
         def get_textpages():
-            textDir = cfg.locations.texts
             textFiles = dirContents(textDir)[0]
 
             def getLinks(textFile):
@@ -878,6 +993,9 @@ class Publish:
             result = []
 
             for pNo in sorted(pInfo):
+                if pNumGiven is not None and pNo == pNumGiven:
+                    continue
+
                 pItem = pInfo[pNo]
                 pdc = self.htmlify(pItem.dc)
                 fileName = f"project/{pNo}/index.html"
@@ -929,6 +1047,9 @@ class Publish:
             result = []
 
             for pNo in sorted(pInfo):
+                if pNumGiven is not None and pNo == pNumGiven:
+                    continue
+
                 pItem = pInfo[pNo]
                 projectFileName = f"project/{pNo}/index.html"
                 projectName = pItem.get("title", pNo)
@@ -936,6 +1057,9 @@ class Publish:
                 thisEInfo = eInfo.get(pNo, {})
 
                 for eNo in sorted(thisEInfo):
+                    if eNumGiven is not None and eNo == eNumGiven:
+                        continue
+
                     eItem = thisEInfo[eNo]
                     edc = self.htmlify(eItem.dc)
 
@@ -996,235 +1120,3 @@ class Publish:
 
         data[kind] = result
         return result
-
-    def generate(self):
-        Settings = self.Settings
-        locations = self.locations
-        dataInDir = locations.dataIn
-        pubModeDir = Settings.pubModeDir
-        filesInDir = f"{dataInDir}/files"
-        projectInDir = f"{filesInDir}/project"
-        templateDir = locations.templates
-        filesOutDir = f"{pubModeDir}"
-        projectOutDir = f"{filesOutDir}/project"
-        yamlOutDir = f"{pubModeDir}/yaml"
-        Handlebars = self.Handlebars
-        partialsIn = locations.partialsIn
-        T = self.T
-
-        partials = {}
-        compiledTemplates = {}
-
-        def copyFromExport():
-            """Copies the export data files to the static file area.
-
-            The copy is incremental at the levels of projects and editions.
-
-            That means: projects and editions will not be removed from the static file
-            area.
-
-            So if your export contains a single or a few projects and editions,
-            they will be used to update the static file area without affecting material
-            of the static file area that is outside these projects and editions.
-            """
-
-            goodOuter, cOuter, dOuter = dirUpdate(
-                filesInDir, filesOutDir, recursive=False
-            )
-            c = cOuter
-            d = dOuter
-
-            pMap = {}
-            eMap = {}
-            self.pMap = pMap
-            self.eMap = eMap
-
-            pCount = 0
-
-            for pNum in dirContents(projectOutDir)[1]:
-                pId = readJson(asFile=f"{projectOutDir}/{pNum}/id.json").id
-                pMap[pId] = pNum
-
-            for pId in dirContents(projectInDir)[1]:
-                if pId in pMap:
-                    pNum = pMap[pId]
-                else:
-                    pCount += 1
-                    pNum = pCount
-                    pMap[pId] = pNum
-
-                pInDir = f"{projectInDir}/{pId}"
-                pOutDir = f"{projectOutDir}/{pNum}"
-                goodProject, cProject, dProject = dirUpdate(
-                    pInDir, pOutDir, recursive=False
-                )
-                c += cProject
-                d += dProject
-                writeJson(dict(id=pId), asFile=f"{projectOutDir}/{pNum}/id.json")
-
-                editionInDir = f"{pInDir}/edition"
-                editionOutDir = f"{pOutDir}/edition"
-
-                eCount = 0
-
-                thisEMap = {}
-
-                for eNum in dirContents(editionOutDir)[1]:
-                    eId = readJson(asFile=f"{editionOutDir}/{eNum}/id.json").id
-                    thisEMap[eId] = eNum
-
-                for eId in dirContents(editionInDir)[1]:
-                    if eId in thisEMap:
-                        eNum = thisEMap[eId]
-                    else:
-                        eCount += 1
-                        eNum = eCount
-                        thisEMap[eId] = eNum
-
-                    eInDir = f"{editionInDir}/{eId}"
-                    eOutDir = f"{editionOutDir}/{eNum}"
-                    goodEdition, cEdition, dEdition = dirUpdate(eInDir, eOutDir)
-                    c += cEdition
-                    d += dEdition
-                    writeJson(dict(id=eId), asFile=f"{editionOutDir}/{eNum}/id.json")
-
-                eMap[pId] = thisEMap
-
-            report = f"{c:>3} copied, {d:>3} deleted"
-            console(f"{'updated':<10} {'data':<12} {report:<24} to {filesOutDir}")
-            return goodOuter and goodProject
-
-        def copyStaticFolder(kind):
-            srcDir = locations[kind]
-            dstDir = f"{pubModeDir}/{kind}"
-            (good, c, d) = dirUpdate(srcDir, dstDir)
-            report = f"{c:>3} copied, {d:>3} deleted"
-            console(f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
-            return good
-
-        def registerPartials():
-            good = True
-
-            for partialFile in dirAllFiles(partialsIn):
-                pDir = dirNm(partialFile).replace(partialsIn, "").strip("/")
-                pFile = baseNm(partialFile)
-                if pFile.startswith("."):
-                    continue
-                pName = stripExt(pFile)
-                sep = "" if pDir == "" else "/"
-                partial = f"{pDir}{sep}{pName}"
-
-                with open(partialFile) as fh:
-                    pContent = COMMENT_RE.sub("", fh.read())
-
-                try:
-                    partials[partial] = Handlebars.compile(pContent)
-                except Exception as e:
-                    console(f"{partial} : {str(e)}")
-                    good = False
-
-            report = f"{len(partials):<3} pieces"
-            console(f"{'compiled':<10} {'partials':<12} {report:<24} to memory")
-            return good
-
-        def genCss():
-            """Generate the CSS by means of tailwind."""
-            return T.generate()
-
-        def genTarget(target):
-            items = self.getData(target)
-
-            success = 0
-            failure = 0
-            good = True
-
-            for item in items:
-                templateFile = f"{templateDir}/{item.template}"
-
-                if templateFile in compiledTemplates:
-                    template = compiledTemplates[templateFile]
-                else:
-                    with open(templateFile) as fh:
-                        tContent = COMMENT_RE.sub("", fh.read())
-
-                    try:
-                        template = Handlebars.compile(tContent)
-                    except Exception as e:
-                        console(f"{templateFile} : {str(e)}", error=True)
-                        template = None
-
-                    compiledTemplates[templateFile] = template
-
-                if template is None:
-                    failure += 1
-                    good = False
-                    continue
-
-                try:
-                    result = template(item, partials=partials)
-                except Exception as e:
-                    console(f"Template = {item.template}")
-                    console(f"Item = {item}")
-                    console(str(e))
-                    failure += 1
-                    good = False
-                    continue
-
-                for genDir, asYaml in ((pubModeDir, False), (yamlOutDir, True)):
-                    path = f"{genDir}/{item.fileName}"
-                    if asYaml:
-                        path = path.rsplit(".", 1)[0] + ".yaml"
-                    dirPart = dirNm(path)
-                    dirMake(dirPart)
-
-                    if asYaml:
-                        writeYaml(deepdict(item), asFile=path)
-                    else:
-                        with open(path, "w") as fh:
-                            fh.write(result)
-
-                success += 1
-
-            goodStr = f"{success:>3} ok"
-            badStr = f"{failure:>3} XX" if failure else ""
-            sep = ";" if failure else " "
-            report = f"{goodStr}{sep} {badStr}"
-            console(f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}")
-            return good
-
-        good = True
-
-        if not copyFromExport():
-            good = False
-
-        for kind in ("js", "images", "viewers"):
-            if not copyStaticFolder(kind):
-                good = False
-
-        if not registerPartials():
-            good = False
-
-        if not genCss():
-            good = False
-
-        self.getDbData()
-
-        for target in """
-            site
-            textpages
-            projects
-            editions
-            projectpages
-            editionpages
-        """.strip().split():
-            if not genTarget(target):
-                good = False
-
-        if good:
-            console("All tasks successful")
-        else:
-            console("Some tasks failed", error=True)
-        return good
-
-    def build(self):
-        return self.generate()
