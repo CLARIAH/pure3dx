@@ -85,14 +85,6 @@ def appFactory(objects):
         """Perform a user logout."""
         return Auth.logout()
 
-    @app.route("/collect")
-    def collect():
-        """Reset the database to reflect the pristine example data.
-
-        Works only in test mode, can be invoked by any user.
-        """
-        return Pages.collect()
-
     @app.route("/backup/<string:project>")
     @app.route("/backup/", defaults={"project": None})
     def mkBackup(project=None):
@@ -344,6 +336,17 @@ def appFactory(objects):
             The record of the item to be published.
         """
         return Pages.publish(record)
+
+    @app.route("/republish/<string:record>")
+    def republish(record):
+        """Re-publish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be re-published.
+        """
+        return Pages.republish(record)
 
     @app.route("/unpublish/<string:record>")
     def unpublish(record):

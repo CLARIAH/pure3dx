@@ -2,6 +2,8 @@ import re
 from datetime import datetime as dt
 from functools import cmp_to_key as keyFromComparison
 
+from bson.objectid import ObjectId
+
 
 VERSION_COMP_RE = re.compile(
     r"""
@@ -162,6 +164,12 @@ def deepdict(info):
         A dictionary containing the same info as the input dictionary, but where
         each value of type `AttrDict` is turned into a `dict`.
     """
+    if isinstance(info, dt):
+        return info.isoformat()
+
+    if isinstance(info, ObjectId):
+        return str(info)
+
     tp = type(info)
 
     return (

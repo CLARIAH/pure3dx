@@ -257,14 +257,15 @@ class Config:
             self.good = False
             return
 
-        pubDir = pubDir.rstrip("/")
-        sep = "/" if pubDir else ""
-        pubModeDir = f"{pubDir}{sep}working/{runMode}"
-
         if not dirExists(pubDir):
             Messages.error(logmsg=f"Pub directory does not exist: {pubDir}")
             self.good = False
             return
+
+        pubDir = pubDir.rstrip("/")
+
+        sep = "/" if pubDir else ""
+        pubModeDir = f"{pubDir}{sep}{runMode}"
 
         dirMake(pubModeDir)
         Settings.pubDir = pubDir
@@ -415,6 +416,7 @@ class Config:
         Settings.auth = authData
 
         tableFromRole = AttrDict()
+
         for table, roles in authData.roles.items():
             for role in roles:
                 tableFromRole[role] = table
@@ -490,7 +492,6 @@ class Config:
         """
         Settings = self.Settings
         H = Settings.H
-        Messages = self.Messages
         wip = var("devstatus")
         runMode = Settings.runMode
 
@@ -527,18 +528,7 @@ class Config:
                 )
             )
             dataLink = "«backups»" + H.br()
-            if runMode in {"test", "custom"}:
-                dataLink += H.a(
-                    "reset data",
-                    "/collect",
-                    title="reset data to initial state",
-                    cls="small",
-                    **Messages.client(
-                        "info",
-                        "wait for data reset to complete ...",
-                        replace=True,
-                    ),
-                )
+
             issueLink = H.a(
                 "issues",
                 "https://github.com/CLARIAH/pure3dx/issues",

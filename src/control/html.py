@@ -142,7 +142,7 @@ class HtmlElement:
         Returns
         -------
         string
-            The serialzed element.
+            The serialized element.
 
         """
 

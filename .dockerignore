@@ -1,8 +1,12 @@
+.git
+.github
 data
-published
-site
 doctemplates
-src
 legacy
+published
 secret
+site
+src
+.DS_Store
+.gitignore
 

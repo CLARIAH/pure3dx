@@ -953,7 +953,7 @@ class Content(Datamodel):
         )
 
     def getPublishInfo(self, table, record):
-        """Display the number under which a project is published.
+        """Display the number under which a project/edition is published.
 
         Editions of a project may have been published. If that is the case,
         the project has been assigned a sequence number, under which it can be
@@ -979,6 +979,7 @@ class Content(Datamodel):
             also added.
         """
         Settings = self.Settings
+
         H = Settings.H
         Mongo = self.Mongo
         Auth = self.Auth
@@ -996,51 +997,67 @@ class Content(Datamodel):
             table, record
         )
 
-        projectPubNum = project.pubNum
+        pPubNum = project.pubNum
 
         projectPubStr = (
             H.i("No published editions")
-            if projectPubNum is None
+            if pPubNum is None
             else H.span("Published: ")
-            + H.a(f"{projectPubNum}", f"https://published/{projectPubNum}")
+            + H.a(f"{pPubNum}", f"https://published/{pPubNum}")
         )
 
         if table == "project":
             return H.p(projectPubStr)
 
-        editionPubNum = edition.pubNum
+        ePubNum = edition.pubNum
 
         editionPubStr = (
             H.i("Not published")
-            if editionPubNum is None or projectPubNum is None
+            if ePubNum is None or pPubNum is None
             else H.span("Published: ")
             + H.a(
-                f"{projectPubNum}/{editionPubNum}",
-                f"https://published/{projectPubNum}/edition/{editionPubNum}",
+                f"{pPubNum}/{ePubNum}",
+                f"https://published/{pPubNum}/edition/{ePubNum}",
             )
         )
 
-        editionPubButton = ""
-        editionUnPubButton = ""
-        sep = ""
-
-        if (projectPubNum is None or editionPubNum is None) and "publish" in actions:
-            editionPubButton = H.iconx(
-                "publish", text="publish", href=f"/publish/{recordId}"
-            )
-            sep = H.nbsp
-
-        if (
-            projectPubNum is not None and editionPubNum is not None
-        ) and "unpublish" in actions:
-            editionUnPubButton = H.iconx(
-                "unpublish", text="unpublish", href=f"/unpublish/{recordId}"
-            )
-            sep = H.nbsp
-
-        return H.p(
-            H.content(editionPubStr, sep, editionPubButton, sep, editionUnPubButton)
+        can = dict(
+            publish=ePubNum is None,
+            unpublish=pPubNum is not None and ePubNum is not None,
+            republish=pPubNum is not None and ePubNum is not None,
         )
+
+        buttons = []
+
+        for kind, kindRep, tb, rec, role in (
+            ("publish", "publish", "project", project, "organiser"),
+            ("republish", "re-publish", "site", site, "admin"),
+            ("unpublish", "un-publish", "site", site, "admin"),
+        ):
+            if can[kind]:
+                buttons.append(
+                    H.p(
+                        H.content(
+                            H.span(f"You may {kindRep}:"),
+                            H.nbsp,
+                            H.iconx(
+                                kind,
+                                href=f"/{kind}/{recordId}",
+                                cls="button large",
+                            ),
+                        )
+                    )
+                    if kind in actions
+                    else H.p(
+                        H.content(
+                            H.span(f"You may not {kindRep}. Ask:"),
+                            H.nbsp,
+                            Auth.getInvolvedUsers(tb, rec, role, asString=True),
+                        )
+                    )
+                )
+
+        return H.content(editionPubStr, *buttons)
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.
@@ -1453,6 +1470,45 @@ class Content(Datamodel):
         if not permitted:
             logmsg = f"Publish not permitted: edition: {recordId}"
             msg = "Publishing of edition not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
+            return False
+
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            "edition", record
+        )
+
+        return Publish.updateEdition(site, project, edition, "add")
+
+    def republish(self, record):
+        """Re-ublish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be re-published.
+
+        Return
+        ------
+        response
+            A re-publish status response.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Publish = self.Publish
+
+        (recordId, record) = Mongo.get("edition", record)
+        if recordId is None:
+            Messages.error(
+                msg="record does not exist", logmsg=f"edition {recordId} does not exist"
+            )
+            return False
+
+        permitted = Auth.authorise("edition", record, action="republish")
+
+        if not permitted:
+            logmsg = f"Re-publish not permitted: edition: {recordId}"
+            msg = "Re-publishing of edition not permitted"
             Messages.warning(msg=msg, logmsg=logmsg)
             return False
 

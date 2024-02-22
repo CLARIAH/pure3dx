@@ -11,6 +11,8 @@ actions:
     name: publish
   unpublish:
     name: unpublish
+  republish:
+    name: republish
 
 roles:
   site:
@@ -140,6 +142,19 @@ authRules:
         null: false
         organiser: true
     unpublish:
+      true:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+      false:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+    republish:
       true:
         root: true
         admin: true

@@ -144,6 +144,7 @@ class Admin:
 
         for pLink in projectLinks:
             role = pLink.role
+
             if role:
                 u = pLink.user
                 uRecord = users[u]

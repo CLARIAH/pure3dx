@@ -6,8 +6,9 @@ import ssl
 from urllib.request import urlopen
 from shutil import copyfileobj
 import certifi
-from helpers import console, run
-from files import fileExists, initTree
+
+from control.helpers import console, run
+from control.files import fileExists, initTree
 
 
 TAILWIND_CFG = "tailwind.config.js"

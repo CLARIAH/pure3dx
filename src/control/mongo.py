@@ -263,7 +263,7 @@ class Mongo:
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, stop=True, sort=None, **criteria):
+    def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
         """Get a list of records from a table.
 
         Parameters
@@ -279,6 +279,10 @@ class Mongo:
             will be sorted in ascending order.
             If a function, the function should take a record as input and return a
             value. The records will be sorted by this value.
+        asDict: boolean or string, optional False
+            If False, returns a list of records as result. If True or a string, returns
+            the same records, but now as dict, keyed by the `_id` field if
+            asDict is True, else keyed by the field in dicated by asDict.
         criteria: dict
             A set of criteria to narrow down the search.
 
@@ -295,11 +299,18 @@ class Mongo:
         unsorted = [deepAttrDict(record) for record in result]
 
         if sort is None:
-            return unsorted
+            result = unsorted
+        else:
+            sortFunc = (lambda r: r[sort] or "") if type(sort) is str else sort
+            result = sorted(unsorted, key=sortFunc)
 
-        sortFunc = (lambda r: r[sort] or "") if type(sort) is str else sort
-
-        return sorted(unsorted, key=sortFunc)
+        return (
+            {r[asDict]: r for r in result}
+            if type(asDict) is str
+            else {r._id: r for r in result}
+            if asDict
+            else result
+        )
 
     def deleteRecord(self, table, stop=True, **criteria):
         """Deletes a single record from a table.
@@ -484,7 +495,7 @@ class Mongo:
         """
         newRecord = AttrDict()
 
-        for (k, v) in record.items():
+        for k, v in record.items():
             if k == "_id":
                 continue
             if k.endswith("Id"):

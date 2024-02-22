@@ -1,7 +1,6 @@
 from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
-from control.collect import Collect as CollectCls
 from control.viewers import Viewers as ViewersCls
 from control.wrap import Wrap as WrapCls
 from control.content import Content as ContentCls
@@ -65,7 +64,6 @@ def prepare(trivial=False):
         Settings = AttrDict(dict(secret_key=None))
         Messages = None
         Mongo = None
-        Collect = None
         Viewers = None
         Wrap = None
         Content = None
@@ -79,9 +77,6 @@ def prepare(trivial=False):
         Messages = MessagesCls(Settings)
 
         Mongo = MongoCls(Settings, Messages)
-        Collect = CollectCls(Settings, Messages, Mongo)
-        if Collect.trigger():
-            Collect.fetch()
 
         Viewers = ViewersCls(Settings, Messages, Mongo)
 
@@ -98,14 +93,13 @@ def prepare(trivial=False):
         Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Collect, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Auth)
         Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,
         Messages=Messages,
         Mongo=Mongo,
-        Collect=Collect,
         Viewers=Viewers,
         Wrap=Wrap,
         Content=Content,

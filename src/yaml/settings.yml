@@ -70,6 +70,7 @@ icons:
   update: "✎"
   upload: "↑"
   publish: "🅿️"
+  republish: "↪️"
   unpublish: "⛔️"
 
 iconTips:

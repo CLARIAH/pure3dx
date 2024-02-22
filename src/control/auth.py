@@ -39,7 +39,7 @@ class Auth(Users):
         master record, and `insertTable` should have the table that will
         contain the new record.
 
-        If the action is anything else, `tabale` and `record` refer to
+        If the action is anything else, `table` and `record` refer to
         the relevant record, and `insertTable` should not be passed.
 
         How do the authorisation rules work?

@@ -1,11 +1,12 @@
 import re
 from copy import deepcopy
 from datetime import datetime as dt
+from traceback import format_exception
 
 from pybars import Compiler
 from markdown import markdown
 
-from files import (
+from control.files import (
     dirContents,
     dirUpdate,
     dirNm,
@@ -21,14 +22,14 @@ from files import (
     readJson,
     writeJson,
 )
-from generic import AttrDict, deepAttrDict, deepdict
-from helpers import console, prettify, genViewerSelector
+from control.generic import AttrDict, deepAttrDict, deepdict
+from control.helpers import prettify, genViewerSelector
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)
 
-CONFIG_FILE = "client.yaml"
-FEATURED_FILE = "featured.yaml"
+CONFIG_FILE = "client.yml"
+FEATURED_FILE = "featured.yml"
 DB_FILE = "db.json"
 
 
@@ -76,7 +77,7 @@ class Publish:
         self.dbData = AttrDict()
         self.data = AttrDict()
 
-    def setPubNums(self, project, edition):
+    def getPubNums(self, project, edition):
         """Determine project and edition publication numbers.
 
         Those numbers are inside the project and edition records in the database
@@ -107,8 +108,6 @@ class Publish:
 
                 maxFile = 0 if nFile == 0 else max(itemsFile)
                 pubNum = max((maxDb, maxFile)) + 1
-                update = dict(pubNum=pubNum, **{prop: True})
-                Mongo.updateRecord(kind, update, _id=item._id)
             else:
                 pubNum = pubNumLast
 
@@ -138,7 +137,7 @@ class Publish:
         Messages = self.Messages
 
         if action not in {"add", "remove"}:
-            Messages.error(msg=f"unknown action {action}")
+            Messages.error(msg=f"unknown action {action}", stop=False)
             return
 
         processing = site.processing
@@ -174,23 +173,49 @@ class Publish:
 
         # quit early, without doing anything, if the action is not applicable
 
-        if action == "remove":
+        good = True
+
+        if action == "add":
+            (pPubNum, ePubNum) = self.getPubNums(project, edition)
+
+            if pPubNum is None:
+                Messages.error(
+                    msg="Could not find a publication number for project",
+                    logmsg=f"Could not find a pubnum for project {project._id}",
+                    stop=False,
+                )
+                good = False
+
+            if ePubNum is None:
+                Messages.error(
+                    msg="Could not find a publication number for edition",
+                    logmsg=f"Could not find a pubnum for {project._id}/{edition._id}",
+                    stop=False,
+                )
+                good = False
+
+        elif action == "remove":
             pPubNum = project.pubNum
             ePubNum = edition.pubNum
+            pPubNumNew = pPubNum
+            ePubNumNew = ePubNum
 
             if pPubNum is None:
                 Messages.warning(
-                    msg="Project was not published",
-                    logmsg=f"Projects {project._id} was not published",
+                    msg="Project is not a published one and cannot be unpublished",
+                    logmsg=f"Project {project._id} has no pubnum",
                 )
-                return
+                good = False
 
             if ePubNum is None:
                 Messages.warning(
-                    msg="Edition was not published",
-                    logmsg=f"Edition {project._id}/{edition._id} was not published",
+                    msg="Edition is not a published one and cannot be unpublished",
+                    logmsg=f"Edition {project._id}/{edition._id} has no pubnum",
                 )
-                return
+                good = False
+
+        if not good:
+            return
 
         # put a flag in the database that the site is publishing
         # this will prevent other publishing actions while this action is running
@@ -206,67 +231,67 @@ class Publish:
 
         if action == "add":
             try:
-                (pPubNum, ePubNum) = self.setPubNums(project, edition)
-
-                # add an edition:
-                # first make its project visible and link it to a publication number
-
+                stage = f"set pubnum for project to {pPubNum}"
                 update = dict(pubNum=pPubNum, lastPublished=now, isVisible=True)
                 Mongo.updateRecord("project", update, _id=project._id)
 
-                # then publish the edition in the database
-
+                stage = f"set pubnum for edition to {ePubNum}"
                 update = dict(pubNum=ePubNum, lastPublished=now, isPublished=True)
                 Mongo.updateRecord("edition", update, _id=edition._id)
 
-                # now add the files
-
                 thisProjectDir = f"{projectDir}/{pPubNum}"
 
-                # update the site files (but not the files in the projects)
+                stage = "add site files"
                 self.addSiteFiles(site)
 
-                # update the project files (but not the files in the editions)
-
+                stage = f"add project files to {pPubNum}"
                 self.addProjectFiles(project, pPubNum)
 
-                # put the edition files in place
-
+                stage = f"add edition files to {pPubNum}/{ePubNum}"
                 self.addEditionFiles(project, pPubNum, edition, ePubNum)
 
-                Messages.info(
-                    msg=f"Published as {pPubNum}/{ePubNum}",
-                    logmsg=(
-                        f"Published {project._id}/{edition._id} as {pPubNum}/{ePubNum}",
-                    ),
-                )
+                stage = f"generate static pages for {pPubNum}/{ePubNum}"
+
+                try:
+                    thisGood = self.genPages(pPubNum, ePubNum)
+
+                    if thisGood:
+                        Messages.info(
+                            msg=f"Published edition to {pPubNum}/{ePubNum}",
+                            logmsg=(
+                                f"Published {project._id}/{edition._id} "
+                                f"as {pPubNum}/{ePubNum}"
+                            ),
+                        )
+                    else:
+                        good = False
+
+                except Exception as e1:
+                    Messages.error(logmsg="".join(format_exception(e1)), stop=False)
+                    good = False
+                    raise e1
 
             except Exception as e:
                 Messages.error(
-                    msg="Publishing failed",
-                    logmsg=f"Publishing failed with error {e}",
+                    msg="Publishing of edition failed",
+                    logmsg=(
+                        f"Publishing {project._id}/{edition._id} "
+                        f"as {pPubNum}/{ePubNum} failed with error {e}",
+                        f"at stage '{stage}'",
+                    ),
+                    stop=False,
                 )
-                restore("project", project)
-                restore("edition", edition)
-                Mongo.updateRecord(
-                    "site", dict(processing=False, lastPublished=last), _id=site._id
-                )
-                return
+                good = False
 
             # if all went well, pPubNum and ePubNum are defined
 
-        else:
+        elif action == "remove":
             try:
-                # remove an edition from the database
-
-                pPubNum = project.pubNum
-                ePubNum = edition.pubNum
-
+                stage = f"unset pubnum for edition from {ePubNum} to None"
                 update = dict(pubNum=None, isPublished=False)
                 Mongo.updateRecord("edition", update, _id=edition._id)
 
-                # remove the files of the edition in question
-
+                stage = f"remove edition files {pPubNum}/{ePubNum}"
                 self.removeEditionFiles(pPubNum, ePubNum)
                 Messages.info(
                     msg=f"Unpublished edition {pPubNum}/{ePubNum}",
@@ -275,28 +300,25 @@ class Publish:
                         f"{project._id}/{edition._id}"
                     ),
                 )
-                ePubNum = None
+                ePubNumNew = None
 
                 # check whether there are other published editions in this project
                 # on the file system
 
+                stage = f"check remaining editions in project {pPubNum}"
                 thisProjectDir = f"{projectDir}/{pPubNum}"
                 theseEditions = dirContents(f"{thisProjectDir}/edition")[1]
 
                 if len(theseEditions) == 0:
+                    stage = f"unset pubnum for project from {pPubNum} to None"
                     update = dict(pubNum=None, isVisible=False)
                     Mongo.updateRecord("project", update, _id=project._id)
 
-                    # remove the files of the project in question
-
+                    stage = f"remove project files {pPubNum}"
                     self.removeProjectFiles(pPubNum)
 
-                    pPubNum = None
+                    pPubNumNew = None
 
-                    Messages.info(
-                        msg=f"Unpublished project {pPubNum}",
-                        logmsg=(f"Unpublished project {pPubNum} = {project._id}"),
-                    )
                 else:
                     Messages.info(
                         msg=(
@@ -304,42 +326,68 @@ class Publish:
                             "published editions"
                         ),
                     )
-                    # update the project files (but not the files in the editions)
 
-                    self.addProjectFiles(project, pPubNum)
+                pNumRep = (
+                    pPubNum if pPubNumNew == pPubNum else f"{pPubNum}=>{pPubNumNew}"
+                )
+                eNumRep = (
+                    ePubNum if ePubNumNew == ePubNum else f"{ePubNum}=>{ePubNumNew}"
+                )
 
-                # update the site files (but not the files in the projects)
-                self.addSiteFiles(site)
+                stage = f"regenerate static pages for {pNumRep}/{eNumRep}"
+
+                try:
+                    thisGood = self.genPages(pPubNumNew, ePubNumNew)
+
+                    if thisGood:
+                        Messages.info(
+                            msg=f"Unpublished project {pPubNum}",
+                            logmsg=(f"Unpublished project {pPubNum} = {project._id}"),
+                        )
+                    else:
+                        good = False
+
+                except Exception as e1:
+                    Messages.error(logmsg="".join(format_exception(e1)), stop=False)
+                    good = False
+                    raise e1
 
             except Exception as e:
                 Messages.error(
-                    msg="Publishing failed",
-                    logmsg=f"Publishing failed with error {e}",
+                    msg="Unpublishing of edition failed",
+                    logmsg=(
+                        f"Unpublishing edition {pPubNum}/{ePubNum} = "
+                        f"{project._id}/{edition._id} failed with error {e}."
+                        f"at stage '{stage}'",
+                    ),
+                    stop=False,
                 )
-                restore("project", project)
-                restore("edition", edition)
-                Mongo.updateRecord(
-                    "site", dict(processing=False, lastPublished=last), _id=site._id
-                )
-                return
+                good = False
 
             # if all went well, pPubNum may or may not be None and ePubNum is None
 
         # generate the html files: those of the project and edition in question
         # and some files at the site level that need to be updated
 
-        self.genPages(pPubNum, ePubNum)
-
         # finish off with unsetting the processing flag in the database
 
+        if good:
+            lastPublished = now
+        else:
+            restore("project", project)
+            restore("edition", edition)
+            lastPublished = last
+
         Mongo.updateRecord(
-            "site", dict(processing=False, lastPublished=now), _id=site._id
+            "site", dict(processing=False, lastPublished=lastPublished), _id=site._id
         )
 
     def addSiteFiles(self, site):
         Settings = self.Settings
         workingDir = Settings.workingDir
         pubModeDir = Settings.pubModeDir
+
+        dirMake(pubModeDir)
 
         (files, dirs) = dirContents(workingDir)
 
@@ -375,7 +423,6 @@ class Publish:
 
             dirCopy(f"{inDir}/{x}", f"{outDir}/{x}")
 
-        dirMake(f"{outDir}/edition")
         writeJson(deepdict(project), asFile=f"{outDir}/{DB_FILE}")
 
     def addEditionFiles(self, project, pPubNum, edition, ePubNum):
@@ -385,6 +432,7 @@ class Publish:
 
         inDir = f"{workingDir}/project/{project._id}/edition/{edition._id}"
         outDir = f"{pubModeDir}/project/{pPubNum}/edition/{ePubNum}"
+        dirMake(outDir)
 
         (files, dirs) = dirContents(inDir)
 
@@ -397,7 +445,7 @@ class Publish:
 
             dirCopy(f"{inDir}/{x}", f"{outDir}/{x}")
 
-        writeJson(deepdict(project), asFile=f"{outDir}/{DB_FILE}")
+        writeJson(deepdict(edition), asFile=f"{outDir}/{DB_FILE}")
 
     def removeProjectFiles(self, pPubNum):
         Settings = self.Settings
@@ -476,7 +524,7 @@ class Publish:
         partials = {}
         compiledTemplates = {}
 
-        def updateStatic(srcDr):
+        def updateStatic(kind, srcDr):
             """Copy over static files.
 
             We are careful: instead of copying a folder, we merge, recursively,
@@ -492,7 +540,7 @@ class Publish:
             dstDir = f"{pubModeDir}/{kind}"
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f"{c:>3} copied, {d:>3} deleted"
-            console(f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
+            Messages.info(logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
             return good
 
         def updateViewers():
@@ -513,7 +561,7 @@ class Publish:
             dstDir = f"{pubModeDir}/viewers"
             (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
             report = f"{c:>3} copied, {d:>3} deleted"
-            console(f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
+            Messages.info(logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
             return good
 
         def registerPartials():
@@ -536,11 +584,15 @@ class Publish:
                 try:
                     partials[partial] = Handlebars.compile(pContent)
                 except Exception as e:
-                    console(f"{partial} : {str(e)}")
+                    Messages.error(
+                        f"Error in register partial {partial} : {str(e)}", stop=False
+                    )
                     good = False
 
             report = f"{len(partials):<3} pieces"
-            console(f"{'compiled':<10} {'partials':<12} {report:<24} to memory")
+            Messages.info(
+                logmsg=f"{'compiled':<10} {'partials':<12} {report:<24} to memory"
+            )
             return good
 
         def genTarget(target, pNum, eNum):
@@ -562,7 +614,12 @@ class Publish:
                     try:
                         template = Handlebars.compile(tContent)
                     except Exception as e:
-                        console(f"{templateFile} : {str(e)}", error=True)
+                        Messages.error(
+                            logmsg=(
+                                f"Error compiling template {templateFile} : {str(e)}"
+                            ),
+                            stop=False,
+                        )
                         template = None
 
                     compiledTemplates[templateFile] = template
@@ -575,9 +632,10 @@ class Publish:
                 try:
                     result = template(item, partials=partials)
                 except Exception as e:
-                    console(f"Template = {item.template}")
-                    console(f"Item = {item}")
-                    console(str(e))
+                    Messages.error(
+                        logmsg=(f"Error filling template {item.template} : {str(e)}"),
+                        stop=False,
+                    )
                     failure += 1
                     good = False
                     continue
@@ -601,7 +659,9 @@ class Publish:
             badStr = f"{failure:>3} XX" if failure else ""
             sep = ";" if failure else " "
             report = f"{goodStr}{sep} {badStr}"
-            console(f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}")
+            Messages.info(
+                logmsg=f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}"
+            )
             return good
 
         pType = type(pPubNum)
@@ -615,7 +675,7 @@ class Publish:
 
         task = (
             ("site",)
-            if pNo and eNo is None
+            if pNo and eNo
             else ("project", pPubNum)
             if pIsInt and eNo
             else ("edition", pPubNum, ePubNum)
@@ -632,6 +692,7 @@ class Publish:
                     "Page generation failed because of illegal parameter combination: "
                     f"project {pPubNum}: {pType} and edition {ePubNum}: {eType}"
                 ),
+                stop=False,
             )
             return
 
@@ -662,8 +723,8 @@ class Publish:
 
         good = True
 
-        for kind in (jsDir, imageDir):
-            if not updateStatic(kind):
+        for (kind, srcDir) in (("js", jsDir), ("images", imageDir)):
+            if not updateStatic(kind, srcDir):
                 good = False
 
         if not updateViewers():
@@ -682,9 +743,11 @@ class Publish:
                 good = False
 
         if good:
-            console("All tasks successful")
+            msg = "All tasks successful"
+            Messages.info(logmsg=msg)
         else:
-            console("Some tasks failed", error=True)
+            msg = "Page generation failed"
+            Messages.error(logmsg=msg, msg=msg, stop=False)
         return good
 
     def getDbData(self):
@@ -728,6 +791,41 @@ class Publish:
                 e = int(e)
                 ePath = f"{pPath}/edition/{e}"
                 rEditions.setdefault(p, {})[e] = readJson(asFile=f"{ePath}/{DB_FILE}")
+
+    def sanitizeDC(self, table, dc):
+        """Checks for missing (sub)-fields in the Dublin Core.
+
+        Parameters
+        ----------
+        table: string
+            The kind of info: site, project, or edition. This influences
+            which fields should be present.
+        dc: dict
+            The Dublin Core info
+
+        Returns
+        -------
+        void
+            The dict is changed in place.
+        """
+        if table == "site":
+            return
+        if table == "project":
+            return
+        if table == "edition":
+            k = "rights"
+
+            if k not in dc:
+                dc[k] = {}
+
+            for (k1, default) in (
+                ("license", "All rights reserved"),
+                ("holder", "Unknown"),
+            ):
+                if k1 not in dc[k]:
+                    dc[k][k1] = default
+
+            return
 
     def htmlify(self, info):
         """Translate fields in a dict into html.
@@ -838,6 +936,7 @@ class Publish:
             `kind`. It will not be computed twice.
         """
         Settings = self.Settings
+        Messages = self.Messages
         textDir = Settings.textDir
 
         cfg = self.cfg
@@ -853,9 +952,9 @@ class Publish:
 
             result = []
 
-            for viewer, viewerConfig in Settings.viewers:
+            for viewer, viewerConfig in Settings.viewers.items():
                 versions = viewerConfig.versions
-                element = viewerConfig.read.element
+                element = viewerConfig.modes.read.element
                 isDefault = viewer == defaultViewer
 
                 result.append(
@@ -900,7 +999,9 @@ class Publish:
         def get_site():
             featured = self.featured
             info = dbData[kind]
-            dc = self.htmlify(info.dc)
+            dc = info.dc
+            self.sanitizeDC("site", dc)
+            dc = self.htmlify(dc)
 
             r = AttrDict()
             r.isHome = True
@@ -908,13 +1009,13 @@ class Publish:
             r.fileName = "index.html"
             r.name = dc.title
             r.contentdata = dc
-            projects = self.getData("project")
+            projects = self.getData("project", None, None)
             projectsIndex = {str(p.num): p for p in projects}
             projectsFeatured = []
 
             for p in featured.projects:
                 if p not in projectsIndex:
-                    console(f"WARNING: featured project {p} does not exist")
+                    Messages.warning(f"WARNING: featured project {p} does not exist")
                     continue
 
                 projectsFeatured.append(projectsIndex[p])
@@ -929,7 +1030,7 @@ class Publish:
             r.name = "All Projects"
             r.template = "projects.html"
             r.fileName = "projects.html"
-            r.projects = self.getData("project")
+            r.projects = self.getData("project", None, None)
 
             return [r]
 
@@ -939,7 +1040,7 @@ class Publish:
             r.name = "All Editions"
             r.template = "editions.html"
             r.fileName = "editions.html"
-            r.editions = self.getData("edition")
+            r.editions = self.getData("edition", None, None)
 
             return [r]
 
@@ -949,7 +1050,9 @@ class Publish:
             result = []
 
             for num, item in info.items():
-                dc = self.htmlify(item.dc)
+                dc = item.dc
+                self.sanitizeDC("project", dc)
+                dc = self.htmlify(dc)
 
                 r = AttrDict()
                 r.name = item.title
@@ -970,7 +1073,9 @@ class Publish:
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    dc = self.htmlify(item.dc)
+                    dc = item.dc
+                    self.sanitizeDC("edition", dc)
+                    dc = self.htmlify(dc)
 
                     r = AttrDict()
                     r.projectNum = pNum
@@ -993,7 +1098,7 @@ class Publish:
             result = []
 
             for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo == pNumGiven:
+                if pNumGiven is not None and pNo != pNumGiven:
                     continue
 
                 pItem = pInfo[pNo]
@@ -1031,7 +1136,7 @@ class Publish:
             return result
 
         def get_editionpages():
-            viewers = self.getData("viewers")
+            viewers = self.getData("viewers", None, None)
             viewersLean = tuple(
                 (
                     vw.name,
@@ -1047,7 +1152,7 @@ class Publish:
             result = []
 
             for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo == pNumGiven:
+                if pNumGiven is not None and pNo != pNumGiven:
                     continue
 
                 pItem = pInfo[pNo]
@@ -1057,7 +1162,7 @@ class Publish:
                 thisEInfo = eInfo.get(pNo, {})
 
                 for eNo in sorted(thisEInfo):
-                    if eNumGiven is not None and eNo == eNumGiven:
+                    if eNumGiven is not None and eNo != eNumGiven:
                         continue
 
                     eItem = thisEInfo[eNo]

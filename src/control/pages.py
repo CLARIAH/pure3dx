@@ -2,7 +2,7 @@ from control.flask import redirectStatus, renderTemplate, sendFile, appStop, get
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Mongo, Collect, Content, Auth):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Content, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -28,8 +28,6 @@ class Pages:
             Singleton instance of `control.messages.Messages`.
         Mongo: object
             Singleton instance of `control.mongo.Mongo`.
-        Collect: object
-            Singleton instance of `control.collect.Collect`.
         Content: object
             Singleton instance of `control.content.Content`.
         Auth: object
@@ -40,38 +38,8 @@ class Pages:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
-        self.Collect = Collect
         self.Content = Content
         self.Auth = Auth
-
-    def collect(self):
-        """Data reset: collect the example data again.
-
-        After the operation:
-
-        *   *success*: goes to home page, good status
-        *   *failure*: goes back to referrer url, error status
-
-        Returns
-        -------
-        response
-        """
-        Settings = self.Settings
-        Collect = self.Collect
-        Messages = self.Messages
-        runMode = Settings.runMode
-
-        if runMode not in {"test", "custom"}:
-            Messages.warning(
-                msg="Reset data is not allowed in this mode",
-                logmsg=f"Reset data is not allowed in mode {runMode}",
-            )
-            ref = getReferrer().removeprefix("/")
-            return redirectStatus(f"/{ref}", False)
-
-        Collect.fetch()
-        Messages.info(msg="data reset done!")
-        return redirectStatus("/home", True)
 
     def publish(self, edition):
         """Publish an edition as static pages.
@@ -93,6 +61,29 @@ class Pages:
         Content = self.Content
 
         good = Content.publish(edition)
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
+
+    def republish(self, edition):
+        """Re-publish an edition as static pages.
+
+        Parameters
+        ----------
+        edition: string
+            the edition
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
+        Content = self.Content
+
+        good = Content.republish(edition)
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
