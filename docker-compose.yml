@@ -5,12 +5,11 @@ volumes:
     external: false
 
 services:
-  pure3dapp:
-    # image: pure3dapp:latest
-    image: pure3dapp:latest-loc
+  pure3d_edit:
+    image: pure3d_edit:latest-loc
     # restart: unless-stopped
-    container_name: pure3dapp
-    hostname: pure3dapp
+    container_name: pure3d_edit
+    hostname: pure3d_edit
     environment:
       DATA_DIR: ${DATA_DIR}
       PUB_DIR: ${PUB_DIR}
@@ -30,7 +29,18 @@ services:
       - "./:/app"
     ports:
       - "${flaskport}:${flaskport}"
-      - "8050:8050"
+
+  pure3d_pub:
+    image: nginx:latest 
+    container_name: pure3d_pub
+    hostname: pure3d_pub
+    environment:
+      NGINX_HOST: foobar.com
+      NGINX_PORT: ${nginxport}
+    volumes:
+      - "./published/${runmode}:/usr/share/nginx/html:ro"
+    ports:
+      - "${nginxport}:80"
 
   mongodb:
     image: mongo:5.0.6
