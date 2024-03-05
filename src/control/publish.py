@@ -17,7 +17,6 @@ from control.files import (
     fileCopy,
     baseNm,
     stripExt,
-    writeYaml,
     readYaml,
     readJson,
     writeJson,
@@ -34,7 +33,7 @@ DB_FILE = "db.json"
 
 
 class Publish:
-    def __init__(self, Settings, Viewers, Messages, Mongo, Tailwind):
+    def __init__(self, Settings, Messages, Mongo, Tailwind):
         """Publishing content as static pages.
 
         It is instantiated by a singleton object.
@@ -44,8 +43,6 @@ class Publish:
         Settings: AttrDict
             App-wide configuration data obtained from
             `control.config.Config.Settings`.
-        Viewers: object
-            Singleton instance of `control.viewers.Viewers`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
         Mongo: object
@@ -57,7 +54,6 @@ class Publish:
         self.Messages = Messages
         Messages.debugAdd(self)
         self.Mongo = Mongo
-        self.Viewers = Viewers
         self.Tailwind = Tailwind
 
         yamlDir = Settings.yamlDir
@@ -512,7 +508,7 @@ class Publish:
         Tailwind = self.Tailwind
         viewerDir = Settings.viewerDir
         pubModeDir = Settings.pubModeDir
-        yamlOutDir = f"{pubModeDir}/yaml"
+        dataOutDir = f"{pubModeDir}/json"
 
         templateDir = Settings.templateDir
         partialsIn = Settings.partialsIn
@@ -640,15 +636,16 @@ class Publish:
                     good = False
                     continue
 
-                for genDir, asYaml in ((pubModeDir, False), (yamlOutDir, True)):
+                for genDir, asData in ((pubModeDir, False), (dataOutDir, True)):
                     path = f"{genDir}/{item.fileName}"
-                    if asYaml:
-                        path = path.rsplit(".", 1)[0] + ".yaml"
+                    if asData:
+                        ext = ".json"
+                        path = path.rsplit(".", 1)[0] + ext
                     dirPart = dirNm(path)
                     dirMake(dirPart)
 
-                    if asYaml:
-                        writeYaml(deepdict(item), asFile=path)
+                    if asData:
+                        writeJson(deepdict(item), asFile=path)
                     else:
                         with open(path, "w") as fh:
                             fh.write(result)

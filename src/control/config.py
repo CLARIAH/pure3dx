@@ -8,7 +8,7 @@ from control.html import HtmlElements
 
 
 class Config:
-    def __init__(self, Messages):
+    def __init__(self, Messages, design=False):
         """All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -27,10 +27,17 @@ class Config:
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
+        design: boolean, optional False
+            If True only settings are collected that are needed for
+            static page generation in the `Published` directory,
+            assuming that the project/edition files have already been
+            exported.
         """
         self.Messages = Messages
         Messages.debugAdd(self)
         Messages.info(logmsg="CONFIG INIT")
+        self.design = design
+
         self.good = True
         Settings = AttrDict()
         Settings.H = HtmlElements(Settings, Messages)
@@ -107,6 +114,9 @@ class Config:
         The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         """
+        if self.design:
+            return
+
         Settings = self.Settings
         yamlDir = Settings.yamlDir
         webdavFile = "webdav.yml"
@@ -119,6 +129,9 @@ class Config:
         We represent the version as the short hash of the current commit
         of the git repo that the running code is in.
         """
+        if self.design:
+            return
+
         Settings = self.Settings
         H = Settings.H
         repoDir = Settings.repoDir
@@ -175,6 +188,9 @@ class Config:
         This is secret information used for encrypting sessions.
         It resides somewhere on the file system, outside the pure3d repository.
         """
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -231,6 +247,9 @@ class Config:
         *   All other run modes count as production mode, `prod`.
         """
 
+        if self.design:
+            return
+
         debugMode = var("flaskdebug")
         if debugMode is None:
             Messages.error(logmsg="Environment variable `flaskdebug` not defined")
@@ -253,7 +272,7 @@ class Config:
         pubDir = var("PUB_DIR")
 
         if pubDir is None:
-            Messages.error(logmsg="Environment variable `PUBA_DIR` not defined")
+            Messages.error(logmsg="Environment variable `PUB_DIR` not defined")
             self.good = False
             return
 
@@ -279,16 +298,20 @@ class Config:
             return
 
         dataDir = dataDir.rstrip("/")
-        sep = "/" if dataDir else ""
-        workingDir = f"{dataDir}{sep}working/{runMode}"
 
         if not dirExists(dataDir):
             Messages.error(logmsg=f"Working data directory does not exist: {dataDir}")
             self.good = False
             return
 
-        dirMake(workingDir)
         Settings.dataDir = dataDir
+
+        if self.design:
+            return
+
+        sep = "/" if dataDir else ""
+        workingDir = f"{dataDir}{sep}working/{runMode}"
+        dirMake(workingDir)
         Settings.workingDir = workingDir
 
         importSubdir = (
@@ -308,6 +331,9 @@ class Config:
         It is not checked whether connection with MongoDb actually works
         with these credentials.
         """
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -327,6 +353,9 @@ class Config:
 
     def checkSettings(self):
         """Read the yaml file with application settings."""
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
         yamlDir = Settings.yamlDir
@@ -374,6 +403,9 @@ class Config:
         The property `caption` is a label that may accompany a field value
         on the interface.
         """
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -401,6 +433,9 @@ class Config:
 
     def checkAuth(self):
         """Read the yaml file with the authorisation rules."""
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -490,6 +525,9 @@ class Config:
             The banner is stored in the `banner` member of the
             `Settings` object.
         """
+        if self.design:
+            return
+
         Settings = self.Settings
         H = Settings.H
         wip = var("devstatus")

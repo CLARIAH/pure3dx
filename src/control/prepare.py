@@ -13,7 +13,7 @@ from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
 
 
-def prepare(trivial=False):
+def prepare(design=False, trivial=False):
     """Prepares the way for setting up the Flask webapp.
 
     Several classes are instantiated with a singleton object;
@@ -46,8 +46,15 @@ def prepare(trivial=False):
 
     Parameters
     ----------
+    design: boolean, optional False
+        If True, overrides the `trivial` parameter.
+        It will initialize those objects that are needed for
+        static page generation in the `Published` directory,
+        assuming that the project/edition files have already been
+        exported.
     trivial: boolean, optional False
-        If True, skips the initialization of most objects.
+        If `design` is False and `trivial` is True, skips the initialization of
+        most objects.
         Useful if the pure3d app container should run without doing anything.
         This happens when we just want to start the container and run shell commands
         inside it, for example after a complicated refactoring when the flask app has
@@ -60,7 +67,16 @@ def prepare(trivial=False):
         by the singleton objects themselves.
 
     """
-    if trivial:
+    if design:
+        Settings = ConfigCls(MessagesCls(None), design=True).Settings
+        Messages = MessagesCls(Settings)
+        Tailwind = TailwindCls(Settings)
+
+        return AttrDict(
+            Settings=Settings, Messages=Messages, Mongo=None, Tailwind=Tailwind
+        )
+
+    elif trivial:
         Settings = AttrDict(dict(secret_key=None))
         Messages = None
         Mongo = None
@@ -82,7 +98,7 @@ def prepare(trivial=False):
 
         Wrap = WrapCls(Settings, Messages, Viewers)
         Tailwind = TailwindCls(Settings)
-        Publish = PublishCls(Settings, Viewers, Messages, Mongo, Tailwind)
+        Publish = PublishCls(Settings, Messages, Mongo, Tailwind)
         Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap, Publish)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
