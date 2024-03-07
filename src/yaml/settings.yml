@@ -18,6 +18,9 @@ siteCrit:
   name: "site"
 
 modelzFile: models.zip
+tocFile: toc.html
+unusedDir: unused
+dbFile: db.json
 
 editionSettingsTemplate:
   authorTool:
@@ -69,6 +72,7 @@ icons:
   reset: "↩︎"
   update: "✎"
   upload: "↑"
+  precheck: "⁉️"
   publish: "🅿️"
   republish: "↪️"
   unpublish: "⛔️"

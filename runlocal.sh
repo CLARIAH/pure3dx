@@ -1,11 +1,13 @@
-appname=pure3d
-approot=~/github/CLARIAH/${appname}x
+app=$K_NAME
+approot="$K_LOCALDIR"
 
 HELP="
 
+Run local app $app
+
 USAGE
 
-./${appname}.sh [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
+runlocal [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
 "
 
 cd $approot
@@ -48,6 +50,7 @@ function appup {
         echo "runmode not set to either prod, test, pilot, or custom"
         good="x"
     fi
+
 
     if [[ "$good" == "v" ]]; then
         export runmode
@@ -103,6 +106,7 @@ function appmongo {
     if [[ "$runmode" == "" ]]; then
         mongo --port $port -u root -p example --authenticationDatabase admin
     else
+        echo mongo --port $port -u root -p example --authenticationDatabase admin ${app}_$runmode
         mongo --port $port -u root -p example --authenticationDatabase admin ${app}_$runmode
     fi
 }
@@ -134,6 +138,10 @@ command="$1"
 if [ -z "$1" ]; then
     echo "no command given"
     printf "$HELP"
+    exit
+elif [ "$1" == "--help" ]; then
+    printf "$HELP"
+    exit
 fi
 
 command="$1"

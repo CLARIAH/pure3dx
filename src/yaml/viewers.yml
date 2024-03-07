@@ -31,5 +31,4 @@ viewers:
               dragdrop: true
             "<=0.26.0":
                 mode: standalone
-    defaultVersion: "0.35.1"
     sceneFile: scene.svx.json

@@ -71,7 +71,7 @@ class Viewers:
         versions = viewerInfo.versions
         defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
-            version = defaultVersion if defaultVersion in versions else versions[0]
+            version = defaultVersion
         return version
 
     def getFrame(

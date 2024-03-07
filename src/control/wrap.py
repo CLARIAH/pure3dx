@@ -73,12 +73,15 @@ class Wrap:
         for project in projects:
             projectId = project._id
             permitted = Auth.authorise("project", project, action="read")
+
             if not permitted:
                 continue
 
             title = project.title
+
             if not title:
                 title = H("no title")
+
             stat = project.isVisible
             status = representations.isVisible[stat]
             statusCls = css.isVisible[stat]

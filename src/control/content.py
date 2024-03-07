@@ -1022,6 +1022,7 @@ class Content(Datamodel):
         )
 
         can = dict(
+            precheck=True,
             publish=ePubNum is None,
             unpublish=pPubNum is not None and ePubNum is not None,
             republish=pPubNum is not None and ePubNum is not None,
@@ -1029,10 +1030,20 @@ class Content(Datamodel):
 
         buttons = []
 
-        for kind, kindRep, tb, rec, role in (
-            ("publish", "publish", "project", project, "organiser"),
-            ("republish", "re-publish", "site", site, "admin"),
-            ("unpublish", "un-publish", "site", site, "admin"),
+        for kind, kindRep, tbRecRoles in (
+            (
+                "precheck",
+                "check articles",
+                (
+                    ("edition", edition, "editor"),
+                    ("project", project, "organiser"),
+                    ("site", site, "admin"),
+                    ("site", site, "root"),
+                ),
+            ),
+            ("publish", "publish", (("project", project, "organiser"),)),
+            ("republish", "re-publish", (("site", site, "admin"),)),
+            ("unpublish", "un-publish", (("site", site, "admin"),)),
         ):
             if can[kind]:
                 buttons.append(
@@ -1050,9 +1061,9 @@ class Content(Datamodel):
                     if kind in actions
                     else H.p(
                         H.content(
-                            H.span(f"You may not {kindRep}. Ask:"),
+                            H.span(f"You may not {kindRep}. Ask"),
                             H.nbsp,
-                            Auth.getInvolvedUsers(tb, rec, role, asString=True),
+                            Auth.getInvolvedUsers(tbRecRoles, asString=True),
                         )
                     )
                 )
@@ -1095,7 +1106,7 @@ class Content(Datamodel):
 
         return viewerPath
 
-    def getData(self, table, record, path):
+    def getDataFile(self, table, record, path, content=False, lenient=False):
         """Gets a data file from the file system.
 
         All data files are located under a specific directory on the server.
@@ -1112,14 +1123,23 @@ class Content(Datamodel):
             The id of the project in question.
         edition: string | ObjectId | AttrDict
             The id of the edition in question.
+        content: boolean, optional False
+            If True, delivers the content of the file, instead of the path
+        lenient: boolean, optional False
+            If True, do not complain if the file does not exist.
 
         Returns
         -------
         string
             The full path of the data file, if it exists.
-            Otherwise, we raise an error that will lead to a 404 response.
+            But if the `content` parameter is True, we deliver the content of the file.
+
+            Otherwise, we raise an error that will lead to a 404 response, except
+            when `lenient` is True.
+
         """
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Auth = self.Auth
 
@@ -1149,18 +1169,37 @@ class Content(Datamodel):
         permitted = Auth.authorise(table, record, action="read")
 
         fexists = fileExists(dataPath)
-        if not permitted or not fexists:
-            logmsg = f"Accessing {dataPath}: "
-            if not permitted:
-                logmsg += "not allowed. "
-            if not fexists:
-                logmsg += "does not exist. "
-            Messages.error(
-                msg=f"Accessing file {path}",
-                logmsg=logmsg,
+
+        if permitted and fexists:
+            if content:
+                with open(dataPath) as fh:
+                    result = fh.read()
+            else:
+                result = dataPath
+        else:
+            result = (
+                ""
+                if content
+                else dataPath
+                if lenient
+                else H.span(dataPath, cls="error")
             )
 
-        return dataPath
+            if not lenient:
+                logmsg = f"Accessing {dataPath}: "
+
+                if not permitted:
+                    logmsg += "not allowed. "
+                if not fexists:
+                    logmsg += "does not exist. "
+
+                Messages.error(
+                    msg=f"Accessing file {path}",
+                    logmsg=logmsg,
+                )
+                result = "" if content else dataPath
+
+        return result
 
     def breadCrumb(self, project):
         """Makes a link to the landing page of a project.
@@ -1440,6 +1479,47 @@ class Content(Datamodel):
         Messages.info(msg="backup completed.")
         return True
 
+    def precheck(self, record):
+        """Check the articles of an edition prior to publishing.
+
+        Parameters
+        ----------
+        record: string
+            The record of the edition to be checked.
+
+        Return
+        ------
+        response
+            A status response.
+
+            It will also generate a a bunch of toc files in the edition.
+        """
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Publish = self.Publish
+
+        (recordId, record) = Mongo.get("edition", record)
+        if recordId is None:
+            Messages.error(
+                msg="record does not exist", logmsg=f"edition {recordId} does not exist"
+            )
+            return False
+
+        permitted = Auth.authorise("edition", record, action="precheck")
+
+        if not permitted:
+            logmsg = f"Checking articles not permitted: edition: {recordId}"
+            msg = "Checking articles of edition not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
+            return False
+
+        (siteId, site, projectId, project, editionId, edition) = self.context(
+            "edition", record
+        )
+
+        return Publish.checkEdition(project, edition)
+
     def publish(self, record):
         """Publish an edition.
 
@@ -1516,7 +1596,7 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.updateEdition(site, project, edition, "add")
+        return Publish.updateEdition(site, project, edition, "add", again=True)
 
     def unpublish(self, record):
         """Unpublish an edition.

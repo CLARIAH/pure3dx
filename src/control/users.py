@@ -436,7 +436,7 @@ class Users:
         roles = Settings.auth.roles
         return roles.get(role, role)
 
-    def getInvolvedUsers(self, table, record, role, asString=False):
+    def getInvolvedUsers(self, tableRecordRoles, asString=False):
         """Finds the users involved in a specific role with respect to something.
 
         By this method you can find the organisers of a project, the editors of
@@ -447,12 +447,10 @@ class Users:
         table: string
             Either `site`, `project` or `edition`.
             This indicates the kind of thing that the users are related to.
-        record: AttrDict
-            The specific project or edition that the users are related to.
-            It can also be the one and only site record.
-            whose users should be listed.
-        role: string
-            The role in which the user is related to the site, project, or edition.
+        tableRecordRoles: tuple
+            The tuple consists of tuples `(table, record, role)`
+            The users connected to that record in that table in that role
+            should be added to the list.
             All roles are specified in the `yaml/authorise.yml` file.
 
         Returns
@@ -469,56 +467,61 @@ class Users:
 
                 *   user field in the user table
                 *   full name
+                *   table of the record to which the user is linked
+                *   role in which the user is linked to that record
 
-            If `asString` is True, this data structure will be wrapped in HTML
+            If `asString` is True, this data structure will be wrapped in HTML.
         """
         Mongo = self.Mongo
         Settings = self.Settings
         H = Settings.H
         auth = Settings.auth
 
-        roles = auth.roles[table]
+        involvedUsers = []
 
-        allowed = self.authorise(table, record, action="read")
-        roleRep = None
-        users = None
+        for table, record, role in tableRecordRoles:
+            roles = auth.roles[table]
+            allowed = self.authorise(table, record, action="read")
+            users = None
 
-        if allowed and roles is not None and role in roles:
-            roleRep = roles[role]
+            if allowed and roles is not None and roles.get(role, None) is not None:
+                userInfo = Mongo.getList("user", sort="nickname", asDict="user")
 
-            userInfo = Mongo.getList("user", sort="nickname", asDict="user")
+                if table == "site":
+                    relatedUsers = [
+                        uInfo for uInfo in userInfo.values() if uInfo.role == role
+                    ]
+                else:
+                    criteria = {f"{table}Id": record._id, "role": role}
+                    relatedUserList = Mongo.getList(f"{table}User", **criteria)
+                    relatedUsers = sorted(
+                        (userInfo[r.user] for r in relatedUserList),
+                        key=lambda x: x.nickname,
+                    )
+                users = tuple((u.user, u.nickname) for u in relatedUsers)
 
-            if table == "site":
-                relatedUsers = [
-                    uInfo for uInfo in userInfo.values() if uInfo.role == role
-                ]
-            else:
-                criteria = {f"{table}Id": record._id, "role": role}
-                relatedUserList = Mongo.getList(f"{table}User", **criteria)
-                relatedUsers = sorted(
-                    (userInfo[r.user] for r in relatedUserList),
-                    key=lambda x: x.nickname,
-                )
-            users = tuple((u.user, u.nickname) for u in relatedUsers)
+                involvedUsers.append((table, role, users))
 
         if not asString:
-            return (roleRep, users)
+            return tuple(involvedUsers)
 
-        if not allowed:
-            return H.i("undisclosed")
+        html = []
 
-        if roleRep is None:
-            tableRep = "the {table}" if table == "site" else f"{table}s"
-            return H.i(f"{role} is an unknown role w.r.t. {tableRep}")
+        for table, role, users in sorted(involvedUsers, key=lambda x: -len(x[2])):
+            roles = auth.roles[table]
+            roleRep = roles[role]
+            artRep = "the" if table == "site" else "this"
 
-        if len(users) == 0:
-            tableRep = "the {table}" if table == "site" else f"this {table}"
-            return H.i(f"no users in role {role} w.r.t. this {table}")
+            label = H.content(artRep, H.nbsp, H.i(f"{table} {roleRep}"), ":", H.nbsp)
 
-        return ", ".join(
-            H.span((H.i(f"{table} {roleRep}", uid=u), H.nbsp, name))
-            for (u, name) in users
-        )
+            userRep = (
+                "no one"
+                if len(users) == 0
+                else " or ".join(H.span(name, uid=u) for (u, name) in users)
+            )
+            html.append(f"{label}{userRep}")
+
+        return "; ".join(html)
 
     def __loginSpecial(self, referrer, user):
         """Perform the steps to log in a test/pilot/custom user.

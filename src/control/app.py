@@ -299,11 +299,11 @@ def appFactory(objects):
         """
         return Pages.viewerResource(path)
 
+    @app.route("/data/project/<string:project>/edition/<string:edition>/<path:path>")
     @app.route(
         "/data/project/<string:project>/edition/<string:edition>/",
         defaults=dict(path=None),
     )
-    @app.route("/data/project/<string:project>/edition/<string:edition>/<path:path>")
     @app.route(
         "/data/project/<string:project>/", defaults=dict(edition=None, path=None)
     )
@@ -325,6 +325,19 @@ def appFactory(objects):
             The id of an edition under which the resource is to be found.
         """
         return Pages.fileData(path, project=project, edition=edition)
+
+    @app.route("/precheck/<string:record>")
+    def precheck(record):
+        """Check the links in the articles before publishing, but do not yet publish.
+
+        This action is meant for edition editors, to prepare the edition for publishing.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be published.
+        """
+        return Pages.precheck(record)
 
     @app.route("/publish/<string:record>")
     def publish(record):

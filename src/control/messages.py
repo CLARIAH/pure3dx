@@ -80,35 +80,42 @@ class Messages:
 
         See `Messages.message()`
         """
-        self.message("debug", msg=msg, logmsg=logmsg)
+        self.message("debug", msg, logmsg)
 
     def error(self, msg=None, logmsg=None, stop=True):
         """Issue an error message.
 
         See `Messages.message()`
         """
-        self.message("error", msg=msg, logmsg=logmsg, stop=stop)
+        self.message("error", msg, logmsg, stop=stop)
 
     def warning(self, msg=None, logmsg=None):
         """Issue a warning message.
 
         See `Messages.message()`
         """
-        self.message("warning", msg=msg, logmsg=logmsg)
+        self.message("warning", msg, logmsg)
+
+    def good(self, msg=None, logmsg=None):
+        """Issue a success message.
+
+        See `Messages.message()`
+        """
+        self.message("good", msg, logmsg)
 
     def info(self, msg=None, logmsg=None):
         """Issue a informational message.
 
         See `Messages.message()`
         """
-        self.message("info", msg=msg, logmsg=logmsg)
+        self.message("info", msg, logmsg)
 
     def plain(self, msg=None, logmsg=None):
         """Issue a informational message, without bells and whistles.
 
         See `Messages.message()`
         """
-        self.message("plain", msg=msg, logmsg=logmsg)
+        self.message("plain", msg, logmsg)
 
     def message(self, tp, msg, logmsg, stop=True):
         """Workhorse to issue a message in a variety of ways.

@@ -7,6 +7,8 @@ actions:
     name: edit
   delete:
     name: delete
+  precheck:
+    name: check articles
   publish:
     name: publish
   unpublish:
@@ -126,6 +128,23 @@ authRules:
       true: {}
       false:
         organiser: true
+    precheck:
+      true:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+        organiser: true
+        editor: true
+      false:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+        organiser: true
+        editor: true
     publish:
       true:
         root: false
@@ -133,7 +152,8 @@ authRules:
         user: false
         guest: false
         null: false
-        organiser: true
+        organiser: false
+        editor: false
       false:
         root: false
         admin: false
@@ -141,6 +161,7 @@ authRules:
         guest: false
         null: false
         organiser: true
+        editor: false
     unpublish:
       true:
         root: true
@@ -148,12 +169,16 @@ authRules:
         user: false
         guest: false
         null: false
+        organiser: false
+        editor: false
       false:
-        root: true
-        admin: true
+        root: false
+        admin: false
         user: false
         guest: false
         null: false
+        organiser: false
+        editor: false
     republish:
       true:
         root: true
@@ -161,9 +186,13 @@ authRules:
         user: false
         guest: false
         null: false
+        organiser: false
+        editor: false
       false:
-        root: true
-        admin: true
+        root: false
+        admin: false
         user: false
         guest: false
         null: false
+        organiser: false
+        editor: false

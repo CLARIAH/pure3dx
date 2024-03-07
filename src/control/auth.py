@@ -145,7 +145,9 @@ class Auth(Users):
                 state = initState
             else:
                 stateField = stateInfo.field
-                state = record.get(stateField, initState)
+                state = record.get(stateField, None)
+                if state is None:
+                    state = initState
 
         # we select the rules for the given state, if any
 
@@ -304,6 +306,7 @@ class Auth(Users):
                 continue
 
             permission = False
+
             for presentRole in userRoles:
                 if requiredRoles.get(presentRole, False):
                     permission = True

@@ -41,6 +41,30 @@ class Pages:
         self.Content = Content
         self.Auth = Auth
 
+    def precheck(self, edition):
+        """Check the articles of an edition prior to publishing.
+
+        Parameters
+        ----------
+        edition: string
+            the edition
+
+        After the operation:
+
+        Goes back to the referrer url.
+        The check operation will have generated a table of contents for the
+        articles and media files, and these will be shown on the edition page.
+
+        Returns
+        -------
+        response
+        """
+        Content = self.Content
+
+        good = Content.precheck(edition)
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
+
     def publish(self, edition):
         """Publish an edition as static pages.
 
@@ -319,15 +343,13 @@ class Pages:
         good = result.get("status", False)
         if good:
             user = result["name"]
-            Messages.info(
-                logmsg=f"Created user {user}", msg=f"user {user} created"
-            )
+            Messages.info(logmsg=f"Created user {user}", msg=f"user {user} created")
         else:
             Messages.warning(
                 logmsg=f"Could not create new user {user}",
                 msg=f"failed to create new user {user}",
             )
-            for (kind, msg) in result.get("messages", []):
+            for kind, msg in result.get("messages", []):
                 Messages.message(kind, msg, stop=False)
 
         newUrl = "/admin"
@@ -351,15 +373,13 @@ class Pages:
 
         good = result.get("status", False)
         if good:
-            Messages.info(
-                logmsg=f"Deleted user {user}", msg=f"user {user} deleted"
-            )
+            Messages.info(logmsg=f"Deleted user {user}", msg=f"user {user} deleted")
         else:
             Messages.warning(
                 logmsg=f"Could not delete user {user}",
                 msg=f"failed to delete new user {user}",
             )
-            for (kind, msg) in result.get("messages", []):
+            for kind, msg in result.get("messages", []):
                 Messages.message(kind, msg, stop=False)
 
         newUrl = "/admin"
@@ -517,6 +537,8 @@ class Pages:
         Mongo = self.Mongo
         Auth = self.Auth
 
+        tocFile = Settings.tocFile
+
         (editionId, edition) = Mongo.get("edition", edition)
         if edition is None:
             return redirectStatus("/project", True)
@@ -555,7 +577,8 @@ class Pages:
             "edition",
             edition,
             "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
-        )
+        ) + Content.getDataFile("edition", edition, tocFile, content=True, lenient=True)
+
         return self.page("projects", left=left, right=right)
 
     def deleteItem(self, table, record):
@@ -704,7 +727,7 @@ class Pages:
         if recordId is None:
             return ""
 
-        dataPath = Content.getData(table, record, path)
+        dataPath = Content.getDataFile(table, record, path)
         return sendFile(dataPath)
 
     def upload(self, record, key, path, targetFileName=None):
@@ -956,7 +979,7 @@ class Pages:
 
         divContent = []
 
-        for (tab, label, enabled, authorised) in TABS:
+        for tab, label, enabled, authorised in TABS:
             if not authorised:
                 continue
             active = "active" if url == tab else ""

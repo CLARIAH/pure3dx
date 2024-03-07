@@ -165,8 +165,7 @@ class HtmlElements:
     """
 
     def __init__(self, Settings, Messages):
-        """Gives the HtmlElements access to Settings and Messages.
-        """
+        """Gives the HtmlElements access to Settings and Messages."""
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
@@ -276,8 +275,7 @@ class HtmlElements:
             return E
 
         def _wrapValue(value, isOuter):
-            """Inner function to be called recursively.
-            """
+            """Inner function to be called recursively."""
             if isOuter:
                 elem = outerElem
                 args = outerArgs
@@ -709,9 +707,7 @@ class HtmlElements:
             return icons.get(icon, icons["noicon"])
 
         addCls = f"symbol i-{icon} "
-        return HtmlElement("span").wrap(
-            (text or "") + iconChar, addCls=addCls, **atts
-        )
+        return HtmlElement("span").wrap((text or "") + iconChar, addCls=addCls, **atts)
 
     def iconx(self, icon, text=None, href=None, **atts):
         """iconx.
@@ -960,7 +956,7 @@ class HtmlElements:
 
         html = []
 
-        for (file, exists, imgUrl) in items:
+        for file, exists, imgUrl in items:
             fileRep = self.he(file)
 
             itemCls = "withimage" if imgUrl else "withoutimage"
@@ -1058,6 +1054,31 @@ class HtmlElements:
         """
 
         return HtmlElement("meta").wrap(E, **atts)
+
+    @staticmethod
+    def ol(items, tp="1", **atts):
+        """OL.
+
+        Ordered list.
+
+        Parameters
+        ----------
+        tp: string, optional "1"
+            The type of ordered list, see the
+            [HTML spec](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ol)
+        items: iterable of string
+            These are the list items.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("ol").wrap(
+            [HtmlElement("li").wrap(item) for item in items],
+            type=tp,
+            **atts,
+        )
 
     @staticmethod
     def p(material, **atts):
@@ -1173,6 +1194,27 @@ class HtmlElements:
         return HtmlElement("textarea").wrap(content, **atts)
 
     @staticmethod
+    def ul(items, **atts):
+        """UL.
+
+        Unordered list.
+
+        Parameters
+        ----------
+        items: iterable of string
+            These are the list items.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("ul").wrap(
+            [HtmlElement("li").wrap(item) for item in items],
+            **atts,
+        )
+
+    @staticmethod
     def wrapTable(data, td):
         """Rows and cells.
 
@@ -1191,9 +1233,9 @@ class HtmlElements:
 
         tr = HtmlElement("tr").wrap
         material = []
-        for (rowData, rowAtts) in data:
+        for rowData, rowAtts in data:
             rowMaterial = []
-            for (cellData, cellAtts) in rowData:
+            for cellData, cellAtts in rowData:
                 rowMaterial.append(td(cellData, **cellAtts))
             material.append(tr(rowMaterial, **rowAtts))
         return material
