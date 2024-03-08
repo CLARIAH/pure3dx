@@ -13,14 +13,14 @@ from control.files import (
     writeJson,
 )
 from control.generic import deepdict
-from control.precheck import Precheck
+from control.precheck import Precheck as PrecheckCls
 from control.generate import Generate as GenerateCls
 
 
 CONFIG_FILE = "client.yml"
 
 
-class Publish(Precheck):
+class Publish:
     def __init__(self, Settings, Messages, Mongo, Tailwind, Handlebars):
         """Publishing content as static pages.
 
@@ -45,15 +45,12 @@ class Publish(Precheck):
         self.Handlebars = Handlebars
         Messages.debugAdd(self)
 
-        Precheck.__init__(self)
+        self.Precheck = PrecheckCls(Settings, Messages)
 
         yamlDir = Settings.yamlDir
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"
         cfg = readYaml(asFile=yamlFile)
         self.cfg = cfg
-
-        self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.listKeys.keys)
 
     def getPubNums(self, project, edition):
         """Determine project and edition publication numbers.
@@ -116,13 +113,14 @@ class Publish(Precheck):
         Messages = self.Messages
         Tailwind = self.Tailwind
         Handlebars = self.Handlebars
-        Generate = GenerateCls(Settings, Messages, Tailwind, Handlebars)
+        cfg = self.cfg
+        Generate = GenerateCls(Settings, Messages, Tailwind, Handlebars, cfg)
 
         try:
             good = Generate.genPages(pPubNum, ePubNum)
 
         except Exception as e1:
-            Messages.error(logmsg="".join(e[0] for e in format_exception(e1)), stop=False)
+            Messages.error(logmsg="".join(format_exception(e1)), stop=False)
             good = False
 
         return good
@@ -131,6 +129,7 @@ class Publish(Precheck):
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        Precheck = self.Precheck
 
         if action not in {"add", "remove"}:
             Messages.error(msg=f"unknown action {action}", stop=False)
@@ -182,7 +181,7 @@ class Publish(Precheck):
         good = True
 
         if action == "add":
-            thisGood = self.checkEdition(project, edition)
+            thisGood = Precheck.checkEdition(project, edition)
 
             if thisGood:
                 Messages.info("Article validation OK")
@@ -232,6 +231,7 @@ class Publish(Precheck):
 
         if good:
             thisProjectDir = f"{projectDir}/{pPubNum}"
+            logmsg = None
 
             if action == "add":
                 try:
@@ -266,18 +266,19 @@ class Publish(Precheck):
                         good = False
 
                 except Exception as e:
+                    good = False
+                    logmsg = (
+                        f"Publishing {project._id}/{edition._id} "
+                        f"as {pPubNum}/{ePubNum} failed with error {e}"
+                        f"at stage '{stage}'"
+                    )
+
+                if not good:
                     Messages.error(
                         msg="Publishing of edition failed",
-                        logmsg=(
-                            f"Publishing {project._id}/{edition._id} "
-                            f"as {pPubNum}/{ePubNum} failed with error {e}"
-                            f"at stage '{stage}'"
-                        ),
+                        logmsg=logmsg,
                         stop=False,
                     )
-                    good = False
-
-                if not good and not again:
                     self.removeEditionFiles(pPubNum, ePubNum)
                     theseEditions = dirContents(f"{thisProjectDir}/edition")[1]
 
@@ -337,24 +338,25 @@ class Publish(Precheck):
                     if self.generatePages(pPubNum, ePubNum):
                         Messages.info(
                             msg=f"Unpublished project {pPubNum}",
-                            logmsg=(
-                                f"Unpublished project {pPubNum} = {project._id}"
-                            ),
+                            logmsg=(f"Unpublished project {pPubNum} = {project._id}"),
                         )
                     else:
                         good = False
 
                 except Exception as e:
+                    good = False
+                    logmsg = (
+                        f"Unpublishing edition {pPubNum}/{ePubNum} = "
+                        f"{project._id}/{edition._id} failed with error {e}."
+                        f"at stage '{stage}'"
+                    )
+
+                if not good:
                     Messages.error(
                         msg="Unpublishing of edition failed",
-                        logmsg=(
-                            f"Unpublishing edition {pPubNum}/{ePubNum} = "
-                            f"{project._id}/{edition._id} failed with error {e}."
-                            f"at stage '{stage}'"
-                        ),
+                        logmsg=logmsg,
                         stop=False,
                     )
-                    good = False
 
         # finish off with unsetting the processing flag in the database
 

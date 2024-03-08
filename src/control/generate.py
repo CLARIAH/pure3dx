@@ -17,6 +17,7 @@ from control.files import (
 )
 from control.generic import AttrDict, deepAttrDict, deepdict
 from control.helpers import prettify, genViewerSelector
+from control.precheck import Precheck as PrecheckCls
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)
@@ -25,15 +26,18 @@ FEATURED_FILE = "featured.yml"
 
 
 class Generate:
-    def __init__(self, Settings, Messages, Tailwind, Handlebars):
+    def __init__(self, Settings, Messages, Tailwind, Handlebars, cfg):
         """All about generating static pages."""
         self.Settings = Settings
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
+        self.cfg = cfg
+        self.markdownKeys = set(cfg.markdown.keys)
+        self.listKeys = set(cfg.listKeys.keys)
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        Settings = self.Settings
+        self.Precheck = PrecheckCls(Settings, Messages)
 
         yamlDir = Settings.yamlDir
         featuredFile = f"{yamlDir}/{FEATURED_FILE}"
@@ -412,6 +416,8 @@ class Generate:
             if not genTarget(*target):
                 good = False
 
+            self.debug(f"{target=} {good=}")
+
         if good:
             msg = "All tasks successful"
             Messages.info(logmsg=msg)
@@ -477,10 +483,11 @@ class Generate:
         """
         Settings = self.Settings
         Messages = self.Messages
+        Precheck = self.Precheck
         textDir = Settings.textDir
 
         cfg = self.cfg
-        generation = cfg.generation
+        generation1 = cfg.generation
         dbData = self.dbData
         data = self.data
 
@@ -723,7 +730,7 @@ class Generate:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = self.checkEdition(pNo, eNo, asPublished=True)
+                    er.toc = Precheck.checkEdition(pNo, eNo, asPublished=True)
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name

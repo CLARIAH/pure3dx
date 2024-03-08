@@ -7,9 +7,11 @@ from control.files import dirContents, fileExists
 
 
 class Precheck:
-    def __init__(self):
+    def __init__(self, Settings, Messages):
         """All about checking the files of an edition prior to publishing."""
-        pass
+        self.Settings = Settings
+        self.Messages = Messages
+        Messages.debugAdd(self)
 
     def checkEdition(self, project, edition, asPublished=False):
         """Checks the article and media files in an editon and produces a toc.
