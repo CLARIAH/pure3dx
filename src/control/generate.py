@@ -1,7 +1,6 @@
 import re
 from copy import deepcopy
 
-from pybars import Compiler
 from markdown import markdown
 
 from control.files import (
@@ -26,9 +25,13 @@ FEATURED_FILE = "featured.yml"
 
 
 class Generate:
-    def __init__(self, Tailwind):
+    def __init__(self, Settings, Messages, Tailwind, Handlebars):
         """All about generating static pages."""
+        self.Settings = Settings
         self.Tailwind = Tailwind
+        self.Handlebars = Handlebars
+        self.Messages = Messages
+        Messages.debugAdd(self)
 
         Settings = self.Settings
 
@@ -37,7 +40,8 @@ class Generate:
         featured = readYaml(asFile=featuredFile)
         self.featured = featured
 
-        self.Handlebars = Compiler()
+        self.data = AttrDict()
+        self.dbData = AttrDict()
 
     def sanitizeDC(self, table, dc):
         """Checks for missing (sub)-fields in the Dublin Core.
@@ -176,6 +180,7 @@ class Generate:
         Messages = self.Messages
         Settings = self.Settings
         Tailwind = self.Tailwind
+        Handlebars = self.Handlebars
         viewerDir = Settings.viewerDir
         pubModeDir = Settings.pubModeDir
         dataOutDir = f"{pubModeDir}/json"
@@ -185,12 +190,8 @@ class Generate:
         jsDir = Settings.jsDir
         imageDir = Settings.imageDir
 
-        Handlebars = self.Handlebars
-
         partials = {}
         compiledTemplates = {}
-
-        self.data = AttrDict()
 
         def updateStatic(kind, srcDr):
             """Copy over static files.
@@ -408,7 +409,6 @@ class Generate:
         self.getDbData()
 
         for target in targets:
-            self.debug(f"{target=}")
             if not genTarget(*target):
                 good = False
 
@@ -782,7 +782,6 @@ class Generate:
         Settings = self.Settings
         dbFile = Settings.dbFile
 
-        self.dbData = AttrDict()
         dbData = self.dbData
 
         pubModeDir = Settings.pubModeDir

@@ -44,10 +44,14 @@ def appFactory(objects):
     if Messages is None:
         return app
 
+    Messages.info(logmsg="Web app is set up")
+
     app.secret_key = Settings.secret_key
 
     oidc = AuthOidc.prepare(app)
     Auth.addAuthenticator(oidc)
+
+    Messages.info(logmsg="Authentication oidc is set up")
 
     @app.before_request
     def identify():
@@ -60,6 +64,7 @@ def appFactory(objects):
             user is.
         """
         Auth.initUser()
+
         if not appInitializing():
             Auth.identify()
 

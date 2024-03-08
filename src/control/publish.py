@@ -14,14 +14,14 @@ from control.files import (
 )
 from control.generic import deepdict
 from control.precheck import Precheck
-from control.generate import Generate
+from control.generate import Generate as GenerateCls
 
 
 CONFIG_FILE = "client.yml"
 
 
-class Publish(Precheck, Generate):
-    def __init__(self, Settings, Messages, Mongo, Tailwind):
+class Publish(Precheck):
+    def __init__(self, Settings, Messages, Mongo, Tailwind, Handlebars):
         """Publishing content as static pages.
 
         It is instantiated by a singleton object.
@@ -39,13 +39,13 @@ class Publish(Precheck, Generate):
             Singleton instance of `control.tailwind.Tailwind`.
         """
         self.Settings = Settings
-        self.Messages = Messages
-        Messages.debugAdd(self)
-        Messages.debugAdd(self)
+        self.Tailwind = Tailwind
         self.Mongo = Mongo
+        self.Messages = Messages
+        self.Handlebars = Handlebars
+        Messages.debugAdd(self)
 
         Precheck.__init__(self)
-        Generate.__init__(self, Tailwind)
 
         yamlDir = Settings.yamlDir
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"
@@ -110,6 +110,22 @@ class Publish(Precheck, Generate):
         ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir, prop)
 
         return (pPubNum, ePubNum)
+
+    def generatePages(self, pPubNum, ePubNum):
+        Settings = self.Settings
+        Messages = self.Messages
+        Tailwind = self.Tailwind
+        Handlebars = self.Handlebars
+        Generate = GenerateCls(Settings, Messages, Tailwind, Handlebars)
+
+        try:
+            good = Generate.genPages(pPubNum, ePubNum)
+
+        except Exception as e1:
+            Messages.error(logmsg="".join(e[0] for e in format_exception(e1)), stop=False)
+            good = False
+
+        return good
 
     def updateEdition(self, site, project, edition, action, again=False):
         Settings = self.Settings
@@ -238,22 +254,15 @@ class Publish(Precheck, Generate):
 
                     stage = f"generate static pages for {pPubNum}/{ePubNum}"
 
-                    try:
-                        thisGood = self.genPages(pPubNum, ePubNum)
-
-                        if thisGood:
-                            Messages.info(
-                                msg=f"Published edition to {pPubNum}/{ePubNum}",
-                                logmsg=(
-                                    f"Published {project._id}/{edition._id} "
-                                    f"as {pPubNum}/{ePubNum}"
-                                ),
-                            )
-                        else:
-                            good = False
-
-                    except Exception as e1:
-                        Messages.error(logmsg="".join(format_exception(e1)), stop=False)
+                    if self.generatePages(pPubNum, ePubNum):
+                        Messages.info(
+                            msg=f"Published edition to {pPubNum}/{ePubNum}",
+                            logmsg=(
+                                f"Published {project._id}/{edition._id} "
+                                f"as {pPubNum}/{ePubNum}"
+                            ),
+                        )
+                    else:
                         good = False
 
                 except Exception as e:
@@ -261,8 +270,8 @@ class Publish(Precheck, Generate):
                         msg="Publishing of edition failed",
                         logmsg=(
                             f"Publishing {project._id}/{edition._id} "
-                            f"as {pPubNum}/{ePubNum} failed with error {e}",
-                            f"at stage '{stage}'",
+                            f"as {pPubNum}/{ePubNum} failed with error {e}"
+                            f"at stage '{stage}'"
                         ),
                         stop=False,
                     )
@@ -325,23 +334,15 @@ class Publish(Precheck, Generate):
 
                     stage = f"regenerate static pages for {pNumRep}/{eNumRep}"
 
-                    try:
-                        thisGood = self.genPages(pPubNumNew, ePubNumNew)
-
-                        if thisGood:
-                            Messages.info(
-                                msg=f"Unpublished project {pPubNum}",
-                                logmsg=(
-                                    f"Unpublished project {pPubNum} = {project._id}"
-                                ),
-                            )
-                        else:
-                            good = False
-
-                    except Exception as e1:
-                        Messages.error(logmsg="".join(format_exception(e1)), stop=False)
+                    if self.generatePages(pPubNum, ePubNum):
+                        Messages.info(
+                            msg=f"Unpublished project {pPubNum}",
+                            logmsg=(
+                                f"Unpublished project {pPubNum} = {project._id}"
+                            ),
+                        )
+                    else:
                         good = False
-                        raise e1
 
                 except Exception as e:
                     Messages.error(
@@ -349,7 +350,7 @@ class Publish(Precheck, Generate):
                         logmsg=(
                             f"Unpublishing edition {pPubNum}/{ePubNum} = "
                             f"{project._id}/{edition._id} failed with error {e}."
-                            f"at stage '{stage}'",
+                            f"at stage '{stage}'"
                         ),
                         stop=False,
                     )

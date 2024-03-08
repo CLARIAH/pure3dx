@@ -1,3 +1,5 @@
+from pybars import Compiler
+
 from control.messages import Messages as MessagesCls
 from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
@@ -7,7 +9,6 @@ from control.content import Content as ContentCls
 from control.publish import Publish as PublishCls
 from control.tailwind import Tailwind as TailwindCls
 from control.pages import Pages as PagesCls
-from control.editsessions import EditSessions as EditSessionsCls
 from control.auth import Auth as AuthCls
 from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
@@ -85,7 +86,6 @@ def prepare(design=False, trivial=False):
         Content = None
         Publish = None
         Auth = None
-        EditSessions = None
         Pages = None
         AuthOidc = None
     else:
@@ -98,11 +98,11 @@ def prepare(design=False, trivial=False):
 
         Wrap = WrapCls(Settings, Messages, Viewers)
         Tailwind = TailwindCls(Settings)
-        Publish = PublishCls(Settings, Messages, Mongo, Tailwind)
+        Handlebars = Compiler()
+        Publish = PublishCls(Settings, Messages, Mongo, Tailwind, Handlebars)
         Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap, Publish)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
-        EditSessions = EditSessionsCls(Mongo, Auth)
 
         Wrap.addAuth(Auth)
         Content.addAuth(Auth)
@@ -121,7 +121,6 @@ def prepare(design=False, trivial=False):
         Content=Content,
         Publish=Publish,
         Auth=Auth,
-        EditSessions=EditSessions,
         Pages=Pages,
         AuthOidc=AuthOidc,
     )
