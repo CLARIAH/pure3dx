@@ -149,14 +149,14 @@ def dirNm(path, up=1):
     return path if up < 1 else os.path.dirname(dirNm(path, up - 1))
 
 
-def baseNm(path):
+def fileNm(path):
     """Get the file part of a file name."""
     return os.path.basename(path)
 
 
 def stripExt(path):
     """Strip the extension of a file name, if there is one."""
-    (d, f) = (dirNm(path), baseNm(path))
+    (d, f) = (dirNm(path), fileNm(path))
     sep = "/" if d else ""
     return f"{d}{sep}{f.rsplit('.', 1)[0]}"
 
@@ -580,7 +580,7 @@ def extNm(path):
     The dot is not included.
     If there is no extension, the empty string is returned.
     """
-    parts = baseNm(path).rsplit(".", 1)
+    parts = fileNm(path).rsplit(".", 1)
     return "" if len(parts) == 0 else parts[-1]
 
 

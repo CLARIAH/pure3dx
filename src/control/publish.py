@@ -21,7 +21,7 @@ CONFIG_FILE = "client.yml"
 
 
 class Publish:
-    def __init__(self, Settings, Messages, Mongo, Tailwind, Handlebars):
+    def __init__(self, Settings, Messages, Mongo, Content, Tailwind, Handlebars):
         """Publishing content as static pages.
 
         It is instantiated by a singleton object.
@@ -39,13 +39,15 @@ class Publish:
             Singleton instance of `control.tailwind.Tailwind`.
         """
         self.Settings = Settings
-        self.Tailwind = Tailwind
-        self.Mongo = Mongo
         self.Messages = Messages
+        self.Mongo = Mongo
+        self.Content = Content
+        self.Tailwind = Tailwind
         self.Handlebars = Handlebars
         Messages.debugAdd(self)
+        Content.addPublish(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages)
+        self.Precheck = PrecheckCls(Settings, Messages, Content)
 
         yamlDir = Settings.yamlDir
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"
@@ -111,10 +113,11 @@ class Publish:
     def generatePages(self, pPubNum, ePubNum):
         Settings = self.Settings
         Messages = self.Messages
+        Content = self.Content
         Tailwind = self.Tailwind
         Handlebars = self.Handlebars
         cfg = self.cfg
-        Generate = GenerateCls(Settings, Messages, Tailwind, Handlebars, cfg)
+        Generate = GenerateCls(Settings, Messages, Content, Tailwind, Handlebars, cfg)
 
         try:
             good = Generate.genPages(pPubNum, ePubNum)
@@ -181,7 +184,7 @@ class Publish:
         good = True
 
         if action == "add":
-            thisGood = Precheck.checkEdition(project, edition)
+            thisGood = Precheck.checkEdition(project, edition._id, edition)
 
             if thisGood:
                 Messages.info("Article validation OK")

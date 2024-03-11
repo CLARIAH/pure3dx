@@ -123,6 +123,17 @@ def appFactory():
     !!! note "Authorisation"
         Authorisation of WebDAV requests happens in the main app.
         See `dispatchWebdav()`.
+
+    !!! caution "Requirements for the server"
+        When this Flask app runs and the Voyager software is run in edit mode,
+        the client will fire a sequence  of webdav requests to the server.
+
+        When the app is served by the default Flask development server, these
+        requests will almost surely block the whole application.
+
+        The solution is to run the app through a task runner like Gunicorn.
+        However, the app does not run in debug mode then, so tracing errors becomes
+        more difficult then.
     """
 
     trivial = False

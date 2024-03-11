@@ -15,14 +15,13 @@ cd $approot
 function appup {
     # start the app, including its services
 
-    flaskdebug="v"
+    flaskdebug="x"
     runmode=""
     good="v"
 
     while [ ! -z "$1" ]; do
         if [[ "$1" == "prod" ]]; then
             runmode="prod"
-            flaskdebug="x"
             shift
         elif [[ "$1" == "test" ]]; then
             runmode="test"

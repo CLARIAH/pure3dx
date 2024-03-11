@@ -99,8 +99,8 @@ def prepare(design=False, trivial=False):
         Wrap = WrapCls(Settings, Messages, Viewers)
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
-        Publish = PublishCls(Settings, Messages, Mongo, Tailwind, Handlebars)
-        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap, Publish)
+        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
+        Publish = PublishCls(Settings, Messages, Mongo, Content, Tailwind, Handlebars)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
 

@@ -4,7 +4,7 @@ from copy import deepcopy
 from markdown import markdown
 
 from control.files import (
-    baseNm,
+    fileNm,
     dirNm,
     dirUpdate,
     dirAllFiles,
@@ -26,7 +26,7 @@ FEATURED_FILE = "featured.yml"
 
 
 class Generate:
-    def __init__(self, Settings, Messages, Tailwind, Handlebars, cfg):
+    def __init__(self, Settings, Messages, Content, Tailwind, Handlebars, cfg):
         """All about generating static pages."""
         self.Settings = Settings
         self.Tailwind = Tailwind
@@ -37,7 +37,7 @@ class Generate:
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages)
+        self.Precheck = PrecheckCls(Settings, Messages, Content)
 
         yamlDir = Settings.yamlDir
         featuredFile = f"{yamlDir}/{FEATURED_FILE}"
@@ -242,7 +242,7 @@ class Generate:
 
             for partialFile in dirAllFiles(partialsIn):
                 pDir = dirNm(partialFile).replace(partialsIn, "").strip("/")
-                pFile = baseNm(partialFile)
+                pFile = fileNm(partialFile)
 
                 if pFile.startswith("."):
                     continue
@@ -415,8 +415,6 @@ class Generate:
         for target in targets:
             if not genTarget(*target):
                 good = False
-
-            self.debug(f"{target=} {good=}")
 
         if good:
             msg = "All tasks successful"
@@ -730,7 +728,9 @@ class Generate:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(pNo, eNo, asPublished=True)
+                    er.toc = Precheck.checkEdition(
+                        pNo, eNo, eItem, asPublished=True
+                    )
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name

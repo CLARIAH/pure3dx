@@ -110,6 +110,13 @@ class Messages:
         """
         self.message("info", msg, logmsg)
 
+    def special(self, msg=None, logmsg=None):
+        """Issue an emphasised informational message.
+
+        See `Messages.message()`
+        """
+        self.message("special", msg, logmsg)
+
     def plain(self, msg=None, logmsg=None):
         """Issue a informational message, without bells and whistles.
 

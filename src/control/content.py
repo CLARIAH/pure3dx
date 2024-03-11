@@ -25,7 +25,7 @@ from control.checkgltf import check
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap, Publish):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -47,13 +47,10 @@ class Content(Datamodel):
             Singleton instance of `control.mongo.Mongo`.
         Wrap: object
             Singleton instance of `control.wrap.Wrap`.
-        Publish: object
-            Singleton instance of `control.publish.Publish`.
         """
         super().__init__(Settings, Messages, Mongo)
         self.Viewers = Viewers
         self.Wrap = Wrap
-        self.Publish = Publish
 
     def addAuth(self, Auth):
         """Give this object a handle to the Auth object.
@@ -62,6 +59,14 @@ class Content(Datamodel):
         a handle to Auth after their initialization.
         """
         self.Auth = Auth
+
+    def addPublish(self, Publish):
+        """Give this object a handle to the Publish object.
+
+        Because of cyclic dependencies some objects require to be given
+        a handle to Publish after their initialization.
+        """
+        self.Publish = Publish
 
     def getSurprise(self):
         """Get the data that belongs to the surprise-me functionality."""
@@ -1518,7 +1523,7 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.checkEdition(project, edition)
+        return Publish.Precheck.checkEdition(project, editionId, edition)
 
     def publish(self, record):
         """Publish an edition.
