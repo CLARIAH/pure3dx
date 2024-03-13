@@ -17,6 +17,7 @@ from control.files import (
     dirCopy,
     dirRemove,
     extNm,
+    readYaml,
 )
 from control.datamodel import Datamodel
 from control.flask import requestData
@@ -561,6 +562,7 @@ class Content(Datamodel):
 
         nameSpace = F.nameSpace
         fieldPath = F.fieldPath
+        tp = F.tp
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
@@ -569,9 +571,10 @@ class Content(Datamodel):
                 messages=[["error", "record does not exist"]],
             )
 
-        update = {f"{nameSpace}.{fieldPath}": value}
+        sValue = value if tp == "text" else readYaml(value, plain=True, ignore=True)
+        update = {f"{nameSpace}.{fieldPath}": sValue}
         if key == "title":
-            update[key] = value
+            update[key] = sValue
 
         if Mongo.updateRecord(table, update, stop=False, _id=recordId) is None:
             return dict(
@@ -989,6 +992,9 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
+        pubUrl = Settings.pubUrl
+        published = Settings.published
+
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return ""
@@ -1008,7 +1014,9 @@ class Content(Datamodel):
             H.i("No published editions")
             if pPubNum is None
             else H.span("Published: ")
-            + H.a(f"{pPubNum}", f"https://published/{pPubNum}")
+            + H.a(
+                f"{pPubNum}", f"{pubUrl}/project/{pPubNum}/index.html", target=published
+            )
         )
 
         if table == "project":
@@ -1022,7 +1030,8 @@ class Content(Datamodel):
             else H.span("Published: ")
             + H.a(
                 f"{pPubNum}/{ePubNum}",
-                f"https://published/{pPubNum}/edition/{ePubNum}",
+                f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
+                target=published,
             )
         )
 

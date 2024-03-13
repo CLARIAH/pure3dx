@@ -1,7 +1,7 @@
 from markdown import markdown
 
 from control.generic import AttrDict, now
-from control.files import fileExists, listFilesAccepted
+from control.files import fileExists, listFilesAccepted, writeYaml
 
 
 class Datamodel:
@@ -449,7 +449,7 @@ class Field:
         """The value type of the field.
 
         Value types can be string, integer, but also date times, and values
-        from an other table (value lists).
+        from an other table (value lists), or structured values.
         """
 
         self.caption = key
@@ -581,13 +581,14 @@ class Field:
         key = self.key
 
         bare = self.bare(record)
+        logical = self.logical(record)
         bareRep = bare or H.i(f"no {key}")
 
         if tp == "text":
             readonlyContent = markdown(bareRep, tight=False)
         else:
             readonlyContent = H.wrapValue(
-                bareRep,
+                logical,
                 outerElem="span",
                 outerAtts=dict(cls=outerCls),
                 innerElem="span",
@@ -600,9 +601,11 @@ class Field:
             cancelButton = H.actionButton("edit_cancel")
             saveButton = H.actionButton("edit_save")
             messages = H.div("", cls="editmsgs")
+            orig = bare if tp == "text" else writeYaml(logical)
             editableContent = H.textarea(
-                "", cls="editcontent", saveurl=saveUrl, origValue=bare
+                "", cls="editcontent", saveurl=saveUrl, origValue=orig
             )
+
             content = "".join(
                 [
                     H.span(readonlyContent, cls="readonlycontent"),

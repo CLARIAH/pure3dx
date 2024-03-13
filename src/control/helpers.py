@@ -138,13 +138,15 @@ def hScalar(x):
     return (len(x) < 60 if type(x) is str else True, xRep)
 
 
-def hScalar0(x):
+def hScalar0(x, tight=True):
     tpv = type(x)
 
     if tpv is dict:
         (k, v) = list(x.items())[0]
+        label = f"<b>{k}</b>"
     else:
         v = list(x)[0]
+        label = ""
 
     (simple, vRep) = hData(v)
 
@@ -161,20 +163,17 @@ def hScalar0(x):
         if simple
         else (
             f"""<li><details open>
-                <summary><b>{k}</b>:</summary>
+                <summary>{label}:</summary>
                 {vRep}
                 </details></li>"""
-            if tpv is dict
-            else f"""<li><details open>
-                <summary>:</summary>
-                {vRep}
-                </details></li>"""
+            if tight
+            else f"""<li>{label}: {vRep}</li>"""
         )
     )
     return (simple, html)
 
 
-def hList(x, outer=False):
+def hList(x, outer=False, tight=True):
     elem = f"{'o' if outer else 'u'}l"
     html = []
     html.append(f"<{elem}>")
@@ -202,6 +201,8 @@ def hList(x, outer=False):
 
             html.append(
                 f"""<li><details><summary>{title}:</summary>{vRep}</details></li>"""
+                if tight
+                else f"""<li>{title}: {vRep}</li>"""
             )
 
     html.append(f"</{elem}>")
@@ -209,7 +210,7 @@ def hList(x, outer=False):
     return "".join(html)
 
 
-def hDict(x, outer=False):
+def hDict(x, outer=False, tight=True):
     html = []
 
     elem = f"{'o' if outer else 'u'}l"
@@ -223,6 +224,8 @@ def hDict(x, outer=False):
         else:
             html.append(
                 f"""<li><details><summary><b>{k}</b>:</summary>{vRep}</details></li>"""
+                if tight
+                else f"""<li><b>{k}</b>: {vRep}</li>"""
             )
 
     html.append(f"</{elem}>")
@@ -230,7 +233,7 @@ def hDict(x, outer=False):
     return "".join(html)
 
 
-def hData(x):
+def hData(x, tight=True):
     if not x:
         return (True, hEmpty(x))
 
@@ -243,16 +246,16 @@ def hData(x):
         return (
             (True, hEmpty(x))
             if len(x) == 0
-            else hScalar0(x)
+            else hScalar0(x, tight=tight)
             if len(x) == 1 and tpv is not dict
-            else (False, hDict(x))
+            else (False, hDict(x, tight=tight))
             if tpv is dict
-            else (False, hList(x))
+            else (False, hList(x, tight=tight))
         )
     return hScalar(x)
 
 
-def showDict(title, data, *keys):
+def showDict(title, data, *keys, tight=True):
     """Shows selected keys of a dictionary in a pretty way.
 
     Parameters
@@ -260,6 +263,9 @@ def showDict(title, data, *keys):
     keys: iterable of string
         For each key passed to this function, the information for that key
         will be displayed. If no keys are passed, all keys will be displayed.
+
+    tight: boolean, optional True
+        Whether to use the details element to compactify the representation.
 
     Returns
     -------
@@ -269,8 +275,16 @@ def showDict(title, data, *keys):
 
     keys = set(keys)
 
-    html = hDict({k: v for (k, v) in data.items() if not keys or k in keys}, outer=True)
+    html = hDict(
+        {k: v for (k, v) in data.items() if not keys or k in keys},
+        outer=True,
+        tight=tight,
+    )
     openRep = "open" if keys else ""
-    html = f"<details {openRep}><summary>{title}</summary>{html}</details>"
+    html = (
+        f"<details {openRep}><summary>{title}</summary>{html}</details>"
+        if tight
+        else f"<div>{title}</div><div>{html}</div>"
+    )
 
     return html

@@ -444,7 +444,17 @@ class Pages:
         editionHeading = H.h(3, "Editions")
         editions = Content.getEditions(project)
         left = (
-            Content.getValues("project", project, "title@3 + creator@0")
+            Content.getValues(
+                "project",
+                project,
+                " + ".join(
+                    """
+                    title@3
+                    creator@0
+                    contributor@0
+                    """.strip().split()
+                ),
+            )
             + publishInfo
             + actionHeading
             + downloadButton
@@ -455,7 +465,17 @@ class Pages:
         right = Content.getValues(
             "project",
             project,
-            "abstract@4 + description@4 + provenance@4 + instructionalMethod@4",
+            " + ".join(
+                """
+                abstract@4
+                description@4
+                provenance@4
+                instructionalMethod@4
+                period@4
+                place@4
+                subject@4
+                """.strip().split()
+            ),
         )
         return self.page("projects", left=left, right=right)
 

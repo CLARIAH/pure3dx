@@ -290,6 +290,15 @@ class Config:
         Settings.pubDir = pubDir
         Settings.pubModeDir = pubModeDir
 
+        pubUrl = var("PUB_URL")
+
+        if pubUrl is None:
+            Messages.error(logmsg="Environment variable `PUB_URL` not defined")
+            self.good = False
+            return
+
+        Settings.pubUrl = pubUrl
+
         dataDir = var("DATA_DIR")
 
         if dataDir is None:

@@ -535,27 +535,57 @@ def writeJson(data, asFile=None):
         json.dump(data, fh, ensure_ascii=False)
 
 
-def readYaml(text=None, plain=False, asFile=None, preferTuples=True, defaultEmpty=True):
+def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
     """Reads a yaml file.
 
     Parameters
     ----------
-    filePath: string
-        The path of the file on the file system.
+    text: string, optional None
+        The input text, should be valid YAML, but see `ignore`.
+        If not given, the text is read from the file whose path is
+        given in `asFile`
+    asFile: string, optional None
+        The path of the file on the file system from which the YAML is read.
+        If not given, `text` is used. See also `ignore`.
+    plain: boolean, optional False
+        If True, the result is (recursively) converted to an AttrDict
+    preferTuples: optional True
+        When converting to an AttrDict, values of type lists are replaced by
+        tuples.
+        Has only effect if `plain` is False.
+    defaultEmpty: boolean, False
+        If True, when the yaml text is None or the file named by `asFile` does
+        not exist, it returns an empty dict or AttrDict.
+        If False, `None` is returned in such cases.
+    ignore: boolean, False
+        If the text is not valid YAML, do not raise an exception, but
+        return the text itself.
 
     Returns
     -------
-    AttrDict | void
+    AttrDict | void | string
         The data content of the yaml file if it exists.
     """
     if asFile is None:
-        cfg = yaml.load(text, Loader=yaml.FullLoader)
+        yamlText = text
     else:
         if fileExists(asFile):
             with open(asFile, encoding="utf8") as fh:
-                cfg = yaml.load(fh, Loader=yaml.FullLoader)
+                yamlText = fh.read()
         else:
-            cfg = {} if defaultEmpty else None
+            yamlText = None
+
+    if yamlText is None:
+        cfg = {} if defaultEmpty else None
+    else:
+        try:
+            cfg = yaml.load(yamlText, Loader=yaml.FullLoader)
+        except Exception as e:
+            if ignore:
+                cfg = text
+            else:
+                cfg = None
+                raise e
 
     return (
         cfg

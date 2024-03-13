@@ -21,6 +21,9 @@ modelzFile: models.zip
 tocFile: toc.html
 unusedDir: unused
 dbFile: db.json
+published: published
+article: article
+media: media
 
 editionSettingsTemplate:
   authorTool:

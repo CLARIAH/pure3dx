@@ -82,6 +82,8 @@ class Precheck:
         pubModeDir = Settings.pubModeDir
         tocFile = Settings.tocFile
         unusedDir = Settings.unusedDir
+        article = Settings.article
+        media = Settings.media
 
         if asPublished:
             editionDir = f"{pubModeDir}/project/{project}/edition/{edition}"
@@ -136,8 +138,8 @@ class Precheck:
             model=collections.defaultdict(list),
         )
 
-        targetA = {} if asPublished else dict(target="article")
-        targetM = {} if asPublished else dict(target="media")
+        targetA = {} if asPublished else dict(target=article)
+        targetM = {} if asPublished else dict(target=media)
         preUrl = "" if asPublished else f"{editionUrl}/"
 
         def wrapToc(toc, outer=False):

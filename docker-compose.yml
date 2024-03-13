@@ -13,6 +13,7 @@ services:
     environment:
       DATA_DIR: ${DATA_DIR}
       PUB_DIR: ${PUB_DIR}
+      PUB_URL: ${PUB_URL}
       flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}
@@ -35,7 +36,7 @@ services:
     container_name: pure3d_pub
     hostname: pure3d_pub
     environment:
-      NGINX_HOST: foobar.com
+      NGINX_HOST: ${nginxhost}
       NGINX_PORT: ${nginxport}
     volumes:
       - "./published/${runmode}:/usr/share/nginx/html:ro"

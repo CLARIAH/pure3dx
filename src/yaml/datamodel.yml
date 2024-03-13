@@ -28,12 +28,10 @@ fields:
     caption: "{kind}: {value}"
   abstract:
     nameSpace: dc
-    fieldPath: abstract
     tp: text
     caption: Intro
   description:
     nameSpace: dc
-    fieldPath: description
     tp: text
     caption: Description
   provenance:
@@ -47,6 +45,21 @@ fields:
   creator:
     nameSpace: dc
     caption: "by {value}"
+  contributor:
+    nameSpace: dc
+    caption: "and {value}"
+  period:
+    nameSpace: dc
+    fieldPath: coverage.period
+    caption: Period
+  place:
+    nameSpace: dc
+    fieldPath: coverage.place
+    caption: Place
+  subject:
+    nameSpace: dc
+    caption: Subjects
+
 
 uploads:
   model:
