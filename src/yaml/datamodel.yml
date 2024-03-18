@@ -23,6 +23,8 @@ fields:
     nameSpace: dc
     fieldPath: title
     caption: "{value}"
+  featured:
+    caption: "featured projects {value}"
   title:
     nameSpace: dc
     caption: "{kind}: {value}"

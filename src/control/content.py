@@ -572,7 +572,8 @@ class Content(Datamodel):
             )
 
         sValue = value if tp == "text" else readYaml(value, plain=True, ignore=True)
-        update = {f"{nameSpace}.{fieldPath}": sValue}
+        nameSpaceRep = "" if not nameSpace else f"{nameSpace}."
+        update = {f"{nameSpaceRep}{fieldPath}": sValue}
         if key == "title":
             update[key] = sValue
 
@@ -691,7 +692,7 @@ class Content(Datamodel):
         (newRole, newUser) = json.loads(requestData())
         return Admin(self).linkUser(newUser, newRole, table, recordId)
 
-    def getValue(self, table, record, key, level=None, bare=False):
+    def getValue(self, table, record, key, level=None, manner="formatted"):
         """Retrieve a metadata value.
 
         Metadata sits in a big, potentially deeply nested dictionary of keys
@@ -718,8 +719,11 @@ class Content(Datamodel):
             * `0`: No heading level
             * `None`: no formatting at all
 
-        bare: boolean, optional None
-            Get the bare value, without HTML wrapping and without buttons.
+        manner: string, optional wrapped
+            If it is "formatted", the value is represented fully wrapped in HTML,
+            possibly with edit/save controls.
+            If it is "bare", the value is represented as a simple string.
+            If it is "logical", the logical value is returned.
 
         Returns
         -------
@@ -736,8 +740,11 @@ class Content(Datamodel):
 
         F = self.makeField(key)
 
-        if bare:
-            return F.bare(record)
+        isBare = manner == "bare"
+        isLogical = manner == "logical"
+
+        if isBare or isLogical:
+            return (F.bare if isBare else F.logical)(record)
 
         editable = Auth.authorise(table, record, action="update")
         return F.formatted(table, record, editable=editable, level=level)
@@ -1056,10 +1063,25 @@ class Content(Datamodel):
                 ),
             ),
             ("publish", "publish", (("project", project, "organiser"),)),
+            (
+                ("publishf", "publish"),
+                "publish even if some checks fail",
+                (("project", project, "organiser"),),
+            ),
             ("republish", "re-publish", (("site", site, "admin"),)),
+            (
+                ("republishf", "republish"),
+                "re-publish even if some checks fail",
+                (("site", site, "admin"),),
+            ),
             ("unpublish", "un-publish", (("site", site, "admin"),)),
         ):
-            if can[kind]:
+            asKind = kind
+
+            if type(kind) is tuple:
+                (kind, asKind) = kind
+
+            if can[asKind]:
                 buttons.append(
                     H.p(
                         H.content(
@@ -1072,7 +1094,7 @@ class Content(Datamodel):
                             ),
                         )
                     )
-                    if kind in actions
+                    if asKind in actions
                     else H.p(
                         H.content(
                             H.span(f"You may not {kindRep}. Ask"),
@@ -1232,7 +1254,7 @@ class Content(Datamodel):
             return ""
 
         projectUrl = f"/project/{projectId}"
-        text = self.getValue("project", project, "title", bare=True)
+        text = self.getValue("project", project, "title", manner="bare")
         if not text:
             text = H.i("no title")
 
@@ -1534,13 +1556,15 @@ class Content(Datamodel):
 
         return Publish.Precheck.checkEdition(project, editionId, edition)
 
-    def publish(self, record):
+    def publish(self, record, force):
         """Publish an edition.
 
         Parameters
         ----------
         record: string
             The record of the item to be published.
+        force: boolean
+            If True, ignore when some checks fail
 
         Return
         ------
@@ -1571,15 +1595,17 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.updateEdition(site, project, edition, "add")
+        return Publish.updateEdition(site, project, edition, "add", force=force)
 
-    def republish(self, record):
+    def republish(self, record, force):
         """Re-ublish an edition.
 
         Parameters
         ----------
         record: string
             The record of the item to be re-published.
+        force: boolean
+            If True, ignore when some checks fail
 
         Return
         ------
@@ -1610,7 +1636,9 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.updateEdition(site, project, edition, "add", again=True)
+        return Publish.updateEdition(
+            site, project, edition, "add", force=force, again=True
+        )
 
     def unpublish(self, record):
         """Unpublish an edition.
@@ -1650,6 +1678,29 @@ class Content(Datamodel):
         )
 
         return Publish.updateEdition(site, project, edition, "remove")
+
+    def generate(self):
+        """Regenerate the HTML for the published site.
+
+        Return
+        ------
+        response
+            A publish status response.
+        """
+        Messages = self.Messages
+        Auth = self.Auth
+        Publish = self.Publish
+
+        site = self.relevant()[-1]
+        permitted = Auth.authorise("site", site, action="republish")
+
+        if not permitted:
+            logmsg = "Generate pages is not permitted"
+            msg = "Generate pages is not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
+            return False
+
+        return Publish.generatePages(None, None)
 
     def download(self, table, record):
         """Responds with a download of a project or edition.

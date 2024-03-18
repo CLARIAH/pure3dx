@@ -353,7 +353,18 @@ def appFactory(objects):
         record: string
             The record of the item to be published.
         """
-        return Pages.publish(record)
+        return Pages.publish(record, False)
+
+    @app.route("/publishf/<string:record>")
+    def publishf(record):
+        """Publish an edition.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be published, even if some checks fail.
+        """
+        return Pages.publish(record, True)
 
     @app.route("/republish/<string:record>")
     def republish(record):
@@ -364,7 +375,18 @@ def appFactory(objects):
         record: string
             The record of the item to be re-published.
         """
-        return Pages.republish(record)
+        return Pages.republish(record, False)
+
+    @app.route("/republishf/<string:record>")
+    def republishf(record):
+        """Re-publish an edition, even if some checks fail.
+
+        Parameters
+        ----------
+        record: string
+            The record of the item to be re-published.
+        """
+        return Pages.republish(record, True)
 
     @app.route("/unpublish/<string:record>")
     def unpublish(record):
@@ -376,6 +398,18 @@ def appFactory(objects):
             The record of the item to be unpublished.
         """
         return Pages.unpublish(record)
+
+    @app.route("/generate")
+    def generate():
+        """Regenerates the static HTML for all published projects and editions.
+
+        This is not a full publishing action, no data will be exported from the
+        authoring system to the publishing system.
+
+        The only thing that happens is that all published projects and editions
+        are wrapped in static HTML pages again.
+        """
+        return Pages.generate()
 
     @app.route("/download/<string:table>/<string:record>")
     def download(table, record):

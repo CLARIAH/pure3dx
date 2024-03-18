@@ -273,7 +273,7 @@ span.fileupload.iconedition img {
   border: 0.3rem solid var(--edit-dirty-border);
 }
 
-#mydetails,#myprojects,#allprojects,#allusers {
+#mydetails,#myprojects,#pubprojects,#allprojects,#allusers {
   margin-top: 1rem;
   margin-bottom: 1rem;
   padding-top: 1rem;

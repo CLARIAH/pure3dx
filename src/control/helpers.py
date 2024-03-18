@@ -112,8 +112,37 @@ def htmlEsc(val):
     return (
         ""
         if val is None
-        else (str(val).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+        else str(val)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
     )
+
+
+def htmlUnEsc(val):
+    """Unescape certain HTML entities by their character values.
+
+    Parameters
+    ----------
+    val: string
+        The input value
+    """
+
+    return (
+        ""
+        if val is None
+        else str(val)
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", '"')
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+    )
+
+
+ISSUE_KEYS = {"url", "urls", "uri", "uris"}
 
 
 def hEmpty(x):
@@ -128,134 +157,172 @@ def hEmpty(x):
     )
 
 
-def hScalar(x):
+def hScalar(x, issues={}, isIssueKey=False):
     if type(x) is str:
         x = htmlEsc(x)
         if "\n" in x:
             x = x.replace("\n", "<br>")
 
-    xRep = f"<code>{x}</code>"
-    return (len(x) < 60 if type(x) is str else True, xRep)
+    cls = issues[x] if isIssueKey and x in issues else ""
+    xRep = f"""<code class="{cls}">{x}</code>"""
+    return (len(x) < 60 if type(x) is str else True, xRep, cls)
 
 
-def hScalar0(x, tight=True):
+def hScalar0(x, tight=True, issues={}, isIssueKey=False):
     tpv = type(x)
 
     if tpv is dict:
         (k, v) = list(x.items())[0]
         label = f"<b>{k}</b>"
+        cls = ""
     else:
         v = list(x)[0]
         label = ""
+        cls = issues[v] if isIssueKey and v in issues else ""
 
-    (simple, vRep) = hData(v)
+    (simple, vRep, clsDeep) = hData(v, issues=issues, isIssueKey=False)
 
     html = (
         (
             f"{{<b>{k}</b>: {vRep}}}"
             if tpv is dict
-            else f"[{vRep}]"
+            else f"""[<span class="{cls}">{vRep}</span>]"""
             if tpv is list
-            else f"({vRep})"
+            else f"""(<span class="{cls}">{vRep}</span>)"""
             if tpv is tuple
-            else f"{{{vRep}}}"
+            else f"""{{<span class="{cls}">{vRep}</span>}}"""
         )
         if simple
         else (
             f"""<li><details open>
                 <summary>{label}:</summary>
-                {vRep}
+                <span class="{cls}">{vRep}</span>
                 </details></li>"""
             if tight
             else f"""<li>{label}: {vRep}</li>"""
         )
     )
-    return (simple, html)
+    return (simple, html, cls)
 
 
-def hList(x, outer=False, tight=True):
+def hList(x, outer=False, tight=True, issues={}, isIssueKey=False):
     elem = f"{'o' if outer else 'u'}l"
     html = []
     html.append(f"<{elem}>")
 
-    for v in x:
-        (simple, vRep) = hData(v)
+    outerCls = ""
+
+    for i, v in enumerate(x):
+        (simple, vRep, cls) = hData(v, issues=issues, isIssueKey=isIssueKey)
+
+        if (
+            outerCls == ""
+            and cls == "warning"
+            or outerCls != "error"
+            and cls == "error"
+        ):
+            outerCls = cls
 
         if simple:
             html.append(f"""<li>{vRep}</li>""")
         else:
-            title = ""
-
             if type(v) is dict:
-                if "name" in v:
-                    title = v["name"]
-                    title = f"(name): {title}"
-                elif "titles" in v:
+                idStr = f"""(#{v["id"]})""" if "id" in v else ""
+                nameStr = f"""({v["name"]})""" if "name" in v else ""
+                titleStr = ""
+
+                if "titles" in v:
                     titles = v["titles"]
 
                     if type(titles) is dict:
-                        title = titles.get("EN", "")
+                        titleStr = (
+                            titles["EN"]
+                            if "EN" in titles
+                            else ""
+                            if len(titles) == 0
+                            else titles[sorted(titles.keys())[0]]
+                        )
+                        if titleStr == "":
+                            titleStr = "??"
 
-                        if title:
-                            title = f"(title): {title}"
+                head = " ".join(x for x in (idStr, nameStr, titleStr) if x != "")
+            else:
+                head = f"{i + 1}"
 
             html.append(
-                f"""<li><details><summary>{title}:</summary>{vRep}</details></li>"""
+                (
+                    f"""<li><details><summary class="{cls}">{head}:</summary>"""
+                    f"""{vRep}</details></li>"""
+                )
                 if tight
-                else f"""<li>{title}: {vRep}</li>"""
+                else f"""<li class="{cls}">{head}: {vRep}</li>"""
             )
 
     html.append(f"</{elem}>")
 
-    return "".join(html)
+    return ("".join(html), outerCls)
 
 
-def hDict(x, outer=False, tight=True):
+def hDict(x, outer=False, tight=True, issues={}):
     html = []
 
     elem = f"{'o' if outer else 'u'}l"
     html.append(f"<{elem}>")
 
+    outerCls = ""
+
     for k, v in sorted(x.items(), key=lambda y: str(y)):
-        (simple, vRep) = hData(v)
+        (simple, vRep, cls) = hData(
+            v, tight=tight, issues=issues, isIssueKey=k in ISSUE_KEYS
+        )
+        if (
+            outerCls == ""
+            and cls == "warning"
+            or outerCls != "error"
+            and cls == "error"
+        ):
+            outerCls = cls
 
         if simple:
-            html.append(f"""<li><b>{k}</b>: {vRep}</li>""")
+            html.append(f"""<li><b class="{cls}">{k}</b>: {vRep}</li>""")
         else:
             html.append(
-                f"""<li><details><summary><b>{k}</b>:</summary>{vRep}</details></li>"""
+                (
+                    f"""<li><details><summary><b class="{cls}">{k}</b>:</summary>"""
+                    f"""{vRep}</details></li>"""
+                )
                 if tight
-                else f"""<li><b>{k}</b>: {vRep}</li>"""
+                else f"""<li><b class="{cls}">{k}</b>: {vRep}</li>"""
             )
 
     html.append(f"</{elem}>")
 
-    return "".join(html)
+    return ("".join(html), outerCls)
 
 
-def hData(x, tight=True):
+def hData(x, tight=True, issues={}, isIssueKey=False):
     if not x:
-        return (True, hEmpty(x))
+        return (True, hEmpty(x), "")
 
     tpv = type(x)
 
     if tpv is str or tpv is float or tpv is int or tpv is bool:
-        return hScalar(x)
+        return hScalar(x, issues=issues, isIssueKey=isIssueKey)
 
     if tpv is list or tpv is tuple or tpv is set or tpv is dict:
         return (
-            (True, hEmpty(x))
+            (True, hEmpty(x), "")
             if len(x) == 0
-            else hScalar0(x, tight=tight)
+            else hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
             if len(x) == 1 and tpv is not dict
-            else (False, hDict(x, tight=tight))
+            else (False, *hDict(x, tight=tight, issues=issues))
             if tpv is dict
-            else (False, hList(x, tight=tight))
+            else (False, *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey))
         )
-    return hScalar(x)
+    return hScalar(x, issues=issues, isIssueKey=isIssueKey)
 
 
-def showDict(title, data, *keys, tight=True):
+def showDict(title, data, *keys, tight=True, issues={}):
     """Shows selected keys of a dictionary in a pretty way.
 
     Parameters
@@ -275,16 +342,20 @@ def showDict(title, data, *keys, tight=True):
 
     keys = set(keys)
 
-    html = hDict(
+    (html, cls) = hDict(
         {k: v for (k, v) in data.items() if not keys or k in keys},
         outer=True,
         tight=tight,
+        issues=issues,
     )
     openRep = "open" if keys else ""
     html = (
-        f"<details {openRep}><summary>{title}</summary>{html}</details>"
+        (
+            f"""<details {openRep}><summary class="{cls}">{title}</summary>"""
+            f"""{html}</details>"""
+        )
         if tight
-        else f"<div>{title}</div><div>{html}</div>"
+        else f"""<div class="{cls}">{title}</div><div>{html}</div>"""
     )
 
     return html

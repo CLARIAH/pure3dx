@@ -19,7 +19,6 @@ siteCrit:
 
 modelzFile: models.zip
 tocFile: toc.html
-unusedDir: unused
 dbFile: db.json
 published: published
 article: article
@@ -77,7 +76,9 @@ icons:
   upload: "↑"
   precheck: "⁉️"
   publish: "🅿️"
+  publishf: "🅿️❗️"
   republish: "↪️"
+  republishf: "↪️❗️"
   unpublish: "⛔️"
 
 iconTips:

@@ -65,13 +65,15 @@ class Pages:
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
-    def publish(self, edition):
+    def publish(self, edition, force):
         """Publish an edition as static pages.
 
         Parameters
         ----------
         edition: string
             the edition
+        force: boolean
+            If True, ignore when some checks fail
 
         After the operation:
 
@@ -84,17 +86,19 @@ class Pages:
         """
         Content = self.Content
 
-        good = Content.publish(edition)
+        good = Content.publish(edition, force)
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
-    def republish(self, edition):
+    def republish(self, edition, force):
         """Re-publish an edition as static pages.
 
         Parameters
         ----------
         edition: string
             the edition
+        force: boolean
+            If True, ignore when some checks fail
 
         After the operation:
 
@@ -107,7 +111,7 @@ class Pages:
         """
         Content = self.Content
 
-        good = Content.republish(edition)
+        good = Content.republish(edition, force)
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
@@ -131,6 +135,24 @@ class Pages:
         Content = self.Content
 
         good = Content.unpublish(edition)
+        ref = getReferrer().removeprefix("/")
+        return redirectStatus(f"/{ref}", good)
+
+    def generate(self):
+        """Regenerate the static HTML pages for the whole published site.
+
+        After the operation:
+
+        *   *success*: goes back to referrer url, good status
+        *   *failure*: goes back to referrer url, error status
+
+        Returns
+        -------
+        response
+        """
+        Content = self.Content
+
+        good = Content.generate()
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 

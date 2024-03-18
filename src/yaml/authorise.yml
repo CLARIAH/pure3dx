@@ -60,6 +60,14 @@ authRules:
     delete:
       root: true
       admin: true
+    republish:
+      root: true
+      admin: true
+      user: false
+      guest: false
+      null: false
+      organiser: false
+      editor: false
 
   project:
     state:
@@ -95,6 +103,23 @@ authRules:
       false:
         root: true
         admin: true
+    republish:
+      true:
+        root: true
+        admin: true
+        user: false
+        guest: false
+        null: false
+        organiser: false
+        editor: false
+      false:
+        root: false
+        admin: false
+        user: false
+        guest: false
+        null: false
+        organiser: false
+        editor: false
 
   edition:
     state:

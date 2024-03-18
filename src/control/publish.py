@@ -74,7 +74,7 @@ class Publish:
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
 
-        def getNum(kind, item, pubNumLast, condition, itemsDir, prop):
+        def getNum(kind, item, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
                 itemsDb = Mongo.getList(kind, stop=False, **condition)
                 nDb = len(itemsDb)
@@ -95,18 +95,16 @@ class Publish:
         pubNumLast = pPubNumLast
         condition = {}
         itemsDir = projectDir
-        prop = "isVisible"
 
-        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir, prop)
+        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
 
         kind = "edition"
         item = edition
         pubNumLast = ePubNumLast
         condition = dict(projectId=project._id)
         itemsDir = f"{projectDir}/{pPubNum}/edition"
-        prop = "isPublished"
 
-        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir, prop)
+        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
 
         return (pPubNum, ePubNum)
 
@@ -128,7 +126,7 @@ class Publish:
 
         return good
 
-    def updateEdition(self, site, project, edition, action, again=False):
+    def updateEdition(self, site, project, edition, action, force=False, again=False):
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
@@ -187,10 +185,14 @@ class Publish:
             thisGood = Precheck.checkEdition(project, edition._id, edition)
 
             if thisGood:
-                Messages.info("Article validation OK")
+                Messages.info("Edition validation OK")
             else:
-                Messages.info("Article validation not OK")
+                Messages.info("Edition validation not OK")
                 good = False
+
+                if force:
+                    Messages.info("Continuing nevertheless")
+                    good = True
 
             (pPubNum, ePubNum) = self.getPubNums(project, edition)
 

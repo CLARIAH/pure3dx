@@ -6,16 +6,31 @@ from unicodedata import normalize as un
 from control.files import (
     dirNm,
     dirContents,
-    dirMake,
     dirRemove,
-    fileNm,
-    fileMove,
     fileRemove,
     fileExists,
     readJson,
     writeYaml,
 )
-from control.helpers import showDict
+from control.helpers import showDict, htmlUnEsc
+
+
+ONLINE_RE = re.compile(r"""^https?://""", re.I)
+MAILTO_RE = re.compile(r"""^mailto:""", re.I)
+
+STATUS = dict(
+    unconfined=("error", "link(s) to  a file outside the edition"),
+    external=("good", "external link(s)"),
+    resolved=("good", "resolved link(s)"),
+    missing=("error", "link(s) with missing target"),
+    unreferenced=("warning", "file(s) that are not referenced from anywhere"),
+)
+
+SKIP = set(
+    """
+ .DS_Store
+""".strip().split()
+)
 
 
 class Precheck:
@@ -37,9 +52,9 @@ class Precheck:
 
         *   All links in the articles are either external links, or they point at an
             existing file within the edition.
-        *   All non-html files are referred to by a link in an html file. However,
-            you may put unreferenced files in a directory called *unused* to
-            ignore this requirement.
+        *   All non-html files are referred to by a link in an html file.
+            Not meeting this requirement does not block publishing, but
+            unreferenced files will not be published.
 
         We also create a table of contents of all html files in the edition, so they
         can be inspected outside the Voyager.
@@ -81,7 +96,6 @@ class Precheck:
         workingDir = Settings.workingDir
         pubModeDir = Settings.pubModeDir
         tocFile = Settings.tocFile
-        unusedDir = Settings.unusedDir
         article = Settings.article
         media = Settings.media
 
@@ -106,115 +120,21 @@ class Precheck:
             re.X | re.I,
         )
 
-        ONLINE_RE = re.compile(r"""^https?://""", re.I)
-        MAILTO_RE = re.compile(r"""^mailto:""", re.I)
-
-        STATUS = {
-            0: ("good", "resolved"),
-            1: ("error", "missing"),
-            2: ("good", "outside Pure3d"),
-            3: ("error", "outside the article files"),
-            4: ("warning", "exists but non-exact reference"),
-        }
-
-        SKIP = set(
-            """
-         .DS_Store
-        """.strip().split()
-        )
-
-        tocInfo = []
         sceneInfo = []
         references = []
 
-        fileList = dict(
-            media=[],
-            article=[],
-            model=[],
+        filesFound = dict(media=[], articles=[], models=[])
+        filesReferenced = collections.defaultdict(collections.Counter)
+        filesIssues = dict(
+            unconfined=collections.defaultdict(collections.Counter),
+            missing=collections.defaultdict(collections.Counter),
         )
-        fileIndex = dict(
-            media=collections.defaultdict(list),
-            article=collections.defaultdict(list),
-            model=collections.defaultdict(list),
+        statusIndex = dict(
+            unconfined=0, external=0, resolved=0, missing=0, unreferenced=0
         )
-
         targetA = {} if asPublished else dict(target=article)
         targetM = {} if asPublished else dict(target=media)
         preUrl = "" if asPublished else f"{editionUrl}/"
-
-        def wrapToc(toc, outer=False):
-            items = []
-
-            for i, name in enumerate(sorted(toc, key=lambda f: f.lower())):
-                subToc = toc[name]
-
-                if type(subToc) is str:
-                    sep = "" if subToc == "" else "/"
-                    item = H.a(
-                        name.removesuffix(".html"),
-                        f"{preUrl}{subToc}{sep}{name}",
-                        **targetA,
-                    )
-                else:
-                    item = H.details(name, wrapToc(subToc), f"toc-{i}")
-
-                items.append(item)
-
-            return (H.content if outer else H.ul)(items)
-
-        def wrapFiles(kind):
-            items = []
-
-            for i, (file, referents) in enumerate(
-                sorted(
-                    fileIndex[kind].items(), key=lambda x: (-len(x[1]), x[0].lower())
-                )
-            ):
-                refsDict = collections.defaultdict(list)
-
-                for refFile, ln in referents:
-                    refsDict[refFile].append(ln)
-
-                refs = {}
-
-                for refFile, lns in refsDict.items():
-                    n = len(lns)
-                    cls = "error" if n == 0 else "info" if n == 1 else "special"
-                    refStr = H.span(", ".join(str(ln) for ln in sorted(lns)), cls=cls)
-                    refs[refFile] = refStr
-
-                items.append(
-                    H.details(
-                        H.a(file, f"{preUrl}{file}", **targetM),
-                        H.ul(
-                            H.a(
-                                f"{refFile} : {refStr}", f"{preUrl}{refFile}", **targetA
-                            )
-                            for (refFile, refStr) in sorted(
-                                refs.items(), key=lambda x: (x[0].lower(), x[1].lower())
-                            )
-                        ),
-                        f"{kind}-{i}",
-                    )
-                )
-            return H.details(
-                f"{kind} files and the files that refer to them", items, kind
-            )
-
-        def wrapScene(sceneInfo):
-            return showDict(sceneFile, sceneInfo)
-
-        def wrapReport():
-            return (
-                H.h(3, "Scene information")
-                + wrapScene(sceneInfo)
-                + H.h(3, "Table of Models")
-                + wrapFiles("model")
-                + H.h(3, "Table of contents")
-                + wrapToc(tocInfo, outer=True)
-                + H.h(3, "Table of Media")
-                + wrapFiles("media")
-            )
 
         def getUris(data, underUri):
             td = type(data)
@@ -225,7 +145,7 @@ class Precheck:
             if td is dict:
                 return set().union(
                     *(
-                        getUris(item, underUri or k == "uri" or k == "uris")
+                        getUris(item, underUri or k in {"uri", "uris", "url", "urls"})
                         for (k, item) in data.items()
                     )
                 )
@@ -252,23 +172,22 @@ class Precheck:
 
         def checkScene():
             scene = readJson(asFile=scenePath, plain=True)
-            writeYaml(scene, asFile=scenePath.removesuffix("json") + "yaml")
+            sceneYaml = scenePath.removesuffix("json") + "yaml"
+            writeYaml(scene, asFile=sceneYaml)
+            self.debug(f"{scenePath=} {sceneYaml=}")
 
             for uri in sorted(getUris(scene, False)):
-                references.append(("", sceneFile, "uri", "model", uri))
+                references.append((sceneFile, "models", un("NFC", htmlUnEsc(uri))))
 
             return scene
 
-        def checkFile(path, name):
-            nPath = len(path)
-            pathRep = "/".join(path)
-            sep1 = "/" if nPath > 0 and editionDir else ""
-            sep2 = "/" if nPath > 0 or editionDir else ""
+        def checkFile(target):
+            sep = "/" if editionDir else ""
 
-            with open(f"{editionDir}{sep1}{pathRep}{sep2}{name}") as fh:
+            with open(f"{editionDir}{sep}{target}") as fh:
                 for i, line in enumerate(fh):
                     for kind, url in REF_RE.findall(line):
-                        references.append((path, name, i, kind, url))
+                        references.append((target, kind, un("NFC", htmlUnEsc(url))))
 
         def checkFiles(path):
             nPath = len(path)
@@ -276,181 +195,194 @@ class Precheck:
             sep = "/" if nPath > 0 and editionDir else ""
             (files, dirs) = dirContents(f"{editionDir}{sep}{pathRep}")
 
-            toc = {}
-
             for name in files:
                 namel = name.lower()
-                if nPath > 0 and namel.endswith(".html"):
-                    checkFile(path, name)
-                    toc[name] = pathRep
-                    fileList["article"].append((path, name))
-                elif (nPath == 0 or nPath == 1 and path[0] == unusedDir) and (
-                    namel.endswith(".glb") or namel.endswith("gltf")
-                ):
-                    fileList["model"].append((path, name))
-                elif nPath > 0 and name not in SKIP:
-                    fileList["media"].append((path, name))
-
-            for name in dirs:
-                subToc = checkFiles(path + (name,))
-
-                if len(subToc):
-                    toc[name] = subToc
-
-            return toc
-
-        def checkLinks():
-            unusedMiddle = f"/{unusedDir}/"
-            unusedStart = f"{unusedDir}/"
-
-            links = collections.defaultdict(
-                lambda: collections.defaultdict(lambda: collections.defaultdict(list))
-            )
-
-            for kind, thisFileList in fileList.items():
-                thisFileIndex = fileIndex[kind]
-
-                for path, name in thisFileList:
-                    nPath = len(path)
-                    pathRep = "/".join(path)
-                    sep = "/" if nPath > 0 else ""
-                    thisFileIndex[un("NFC", f"{pathRep}{sep}{name}")] = []
-
-            for path, name, ln, kind, url in references:
                 nPath = len(path)
                 pathRep = "/".join(path)
-                sep = "" if nPath == 0 else "/"
-                filePath = f"{pathRep}{sep}{name}"
-                refPath = un("NFC", f"{pathRep}{sep}{uq(url)}")
-                sep1 = "/" if refPath and editionDir else ""
+                sep = "/" if nPath > 0 else ""
+                target = un("NFC", f"{pathRep}{sep}{name}")
+
+                if nPath > 0 and namel.endswith(".html"):
+                    checkFile(target)
+                    filesFound["articles"].append(target)
+                elif nPath == 0 and (namel.endswith(".glb") or namel.endswith("gltf")):
+                    filesFound["models"].append(target)
+                elif nPath > 0 and name not in SKIP:
+                    filesFound["media"].append(target)
+
+            for name in dirs:
+                checkFiles(path + (name,))
+
+        def checkLinks():
+            for kind, thisFileList in filesFound.items():
+                for target in thisFileList:
+                    filesReferenced[target] = collections.Counter()
+
+            for source, kind, url in references:
+                sourcePath = source
+                sourceDir = dirNm(sourcePath)
+                sep = "/" if sourceDir and url else ""
+                targetPath = un("NFC", f"{sourceDir}{sep}{uq(url)}")
+                sep1 = "/" if targetPath and editionDir else ""
 
                 if url.startswith(".."):
-                    status = 3
+                    status = "unconfined"
+                    filesIssues[status][targetPath][sourcePath] += 1
                 elif ONLINE_RE.match(url) or MAILTO_RE.match(url):
-                    status = 2
-                elif fileExists(f"{editionDir}{sep1}{refPath}"):
-                    if all(refPath not in fileIndex[kind] for kind in fileIndex):
-                        status = 4
-                    else:
-                        status = 0
-                        kind = (
-                            "article"
-                            if refPath.endswith(".html")
-                            else "model"
-                            if refPath.endswith(".glb") or refPath.endswith("gltf")
-                            else "media"
-                        )
-                        fileIndex[kind][refPath].append((filePath, ln))
+                    status = "external"
+                elif fileExists(f"{editionDir}{sep1}{targetPath}"):
+                    status = "resolved"
+                    kind = (
+                        "articles"
+                        if targetPath.endswith(".html")
+                        else "models"
+                        if targetPath.endswith(".glb") or targetPath.endswith("gltf")
+                        else "media"
+                    )
+                    filesReferenced[targetPath][sourcePath] += 1
                 else:
-                    status = 1
+                    status = "missing"
+                    filesIssues[status][targetPath][sourcePath] += 1
 
-                links[status][url][filePath].append(ln)
+                statusIndex[status] += 1
 
             good = True
 
-            stats = collections.Counter()
-
             Messages.special(msg="Quality control report")
 
-            for status, linkData in sorted(links.items()):
-                (kind, statusRep) = STATUS[status]
-
-                stats[kind] += 1
-
-                if kind == "good":
-                    continue
-                elif kind == "error":
-                    good = False
-
-                msg = f"{statusRep} links:"
-                Messages.message(kind, msg, None, stop=False)
-
-                for url, locData in sorted(
-                    linkData.items(), key=lambda x: x[0].lower()
-                ):
-                    Messages.plain(msg=f"* {url}")
-
-                    for fp, lns in sorted(locData.items(), key=lambda x: x[0].lower()):
-                        Messages.plain(
-                            msg=f"in {fp} at "
-                            + (
-                                ", ".join(
-                                    f"{ln + 1}" if type(ln) is int else ln for ln in lns
-                                )
-                            )
-                        )
-
             if asPublished:
-                nUnusedF = 0
+                nUnref = 0
 
-                for kind, thisFileIndex in fileIndex.items():
-                    for f, m in thisFileIndex.items():
-                        if len(m) > 0:
-                            continue
-                        if not f.startswith(unusedStart) and unusedMiddle not in f:
-                            continue
+                for target, sources in filesReferenced.items():
+                    if len(sources) > 0:
+                        continue
 
-                        fPath = f"{editionDir}/{f}"
-                        fileRemove(fPath)
-                        nUnusedF += 1
+                    fPath = f"{editionDir}/{target}"
+                    fileRemove(fPath)
+                    nUnref += 1
 
                 removeEmptyDirs(editionDir)
 
-                if nUnusedF:
+                if nUnref:
                     Messages.warning(
-                        f"{nUnusedF} unreferenced files prevented from being published"
+                        f"{nUnref} unreferenced files skipped from being published"
                     )
-
             else:
-                for kind, thisFileIndex in fileIndex.items():
-                    nMoved = 0
-                    nUnused = 0
+                for sources in filesReferenced.values():
+                    if len(sources) == 0:
+                        statusIndex["unreferenced"] += 1
 
-                    for f, m in thisFileIndex.items():
-                        if len(m) > 0:
-                            continue
-                        if f.startswith(unusedStart) or unusedMiddle in f:
-                            nUnused += 1
-                            continue
+                for kind, n in statusIndex.items():
+                    (msgKind, kindRep) = STATUS[kind]
+                    if msgKind in {"error", "warning"} and n == 0:
+                        msgKind = "good"
+                    Messages.message(msgKind, f"{n} {kindRep}", None, stop=False)
 
-                        fPath = f"{editionDir}/{f}"
-                        parent = dirNm(fPath)
-                        name = fileNm(fPath)
-                        dirMake(f"{parent}/{unusedDir}")
-                        fileMove(fPath, f"{parent}/{unusedDir}/{name}")
-                        nMoved += 1
-
-                    onceReferenced = sum(
-                        1 for m in thisFileIndex.values() if len(m) == 1
-                    )
-                    multiReferenced = sum(
-                        1 for m in thisFileIndex.values() if len(m) > 1
-                    )
-
-                    Messages.special(msg=f"{len(thisFileIndex)} {kind} files of which:")
-                    Messages.good(msg=f"{multiReferenced} referenced more than once")
-                    Messages.good(msg=f"{onceReferenced} referenced exactly once")
-                    if nUnused == 0 and nMoved == 0:
-                        Messages.good(msg="No unreferenced files")
-                    else:
-                        Messages.warning(
-                            msg=f"{nUnused} not referenced, put in {unusedDir}",
-                        )
+                    if msgKind == "error":
+                        good = False
 
             return good
 
+        def wrapScene(sceneInfo):
+            issues = {}
+
+            for (status, theseFiles) in filesIssues.items():
+                for file in theseFiles:
+                    issues[file] = STATUS[status][0]
+
+            return showDict(sceneFile, sceneInfo, issues=issues)
+
+        def wrapFiles(kind):
+            items = []
+
+            theseFiles = filesFound[kind]
+
+            outerCls = ""
+
+            for i, target in enumerate(sorted(theseFiles, key=lambda x: x.lower())):
+                sources = filesReferenced[target]
+
+                total = sum(sources.values())
+                cls = "warning" if total == 0 else "" if total == 1 else "special"
+
+                if (
+                    cls == "warning"
+                    and outerCls == ""
+                    or cls == "error"
+                    and outerCls != "error"
+                ):
+                    outerCls = cls
+
+                entryHead = H.a(target, f"{preUrl}{target}", **targetM, cls=cls)
+                sourceEntries = H.ul(
+                    H.li(
+                        [
+                            H.a(s, f"{preUrl}{s}", **targetA),
+                            H.span(f" - {n} x", cls="small mono"),
+                        ],
+                    )
+                    for (s, n) in sorted(sources.items(), key=lambda x: x[0].lower())
+                )
+                items.append(
+                    H.li(
+                        H.div(entryHead)
+                        if total == 0
+                        else H.details(entryHead, sourceEntries, f"{kind}-{i}")
+                    )
+                )
+            kindRep = kind[0].upper() + kind[1:]
+            return H.details(
+                H.b(f"Table of {kindRep}", cls=outerCls), H.ul(items), kind
+            )
+
+        def wrapIssues(status):
+            items = []
+
+            theseFiles = filesIssues[status]
+
+            if len(theseFiles) == 0:
+                return ""
+
+            for i, target in enumerate(sorted(theseFiles, key=lambda x: x.lower())):
+                sources = theseFiles[target]
+
+                cls = "error"
+
+                entryHead = H.a(target, f"{preUrl}{target}", **targetM, cls=cls)
+                sourceEntries = H.ul(
+                    H.li(
+                        [
+                            H.a(s, f"{preUrl}{s}", **targetA),
+                            H.span(f" - {n} x", cls="small mono"),
+                        ],
+                    )
+                    for (s, n) in sorted(sources.items(), key=lambda x: x[0].lower())
+                )
+                items.append(H.li(H.details(entryHead, sourceEntries, f"issues-{i}")))
+            statusRep = STATUS[status][1]
+            return H.details(H.b(f"Table of {statusRep}", cls=cls), H.ul(items), status)
+
+        def wrapReport():
+            return (
+                H.h(3, "Scene information")
+                + wrapScene(sceneInfo)
+                + wrapFiles("models")
+                + wrapFiles("articles")
+                + wrapFiles("media")
+                + wrapIssues("unconfined")
+                + wrapIssues("missing")
+            )
+
         sceneInfo = checkScene()
-        tocInfo = checkFiles(())
-
+        checkFiles(())
         good = checkLinks()
-
-        toc = wrapReport()
+        allTocs = wrapReport()
 
         if asPublished:
-            return toc
+            return allTocs
 
         with open(f"{editionDir}/{tocFile}", "w") as fh:
-            fh.write(toc)
+            fh.write(allTocs)
 
         Messages.special(msg="Outcome")
 

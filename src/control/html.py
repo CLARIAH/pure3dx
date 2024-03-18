@@ -149,6 +149,7 @@ class HtmlElement:
         name = self.name
         content = asString(material)
         attributes = self.attStr(atts, addCls=addCls)
+
         return (
             f"""<{name}{attributes}>"""
             if name in EMPTY_ELEMENTS
@@ -1023,6 +1024,23 @@ class HtmlElements:
         )
 
     @staticmethod
+    def li(material, **atts):
+        """LI.
+
+        List item.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("li").wrap(material, **atts)
+
+    @staticmethod
     def link(rel, href, **atts):
         """LINK.
 
@@ -1074,11 +1092,7 @@ class HtmlElements:
         string(html)
         """
 
-        return HtmlElement("ol").wrap(
-            [HtmlElement("li").wrap(item) for item in items],
-            type=tp,
-            **atts,
-        )
+        return HtmlElement("ol").wrap(items, type=tp, **atts)
 
     @staticmethod
     def p(material, **atts):
@@ -1209,10 +1223,7 @@ class HtmlElements:
         string(html)
         """
 
-        return HtmlElement("ul").wrap(
-            [HtmlElement("li").wrap(item) for item in items],
-            **atts,
-        )
+        return HtmlElement("ul").wrap(items, **atts)
 
     @staticmethod
     def wrapTable(data, td):

@@ -120,6 +120,7 @@ class Admin:
         self.myRole = myRole
         self.inPower = inPower
 
+        siteRecord = Mongo.getRecord("site")
         userList = Mongo.getList("user", sort="nickname")
         projectList = Mongo.getList("project", sort="title")
         editionList = Mongo.getList("edition", sort="title")
@@ -132,6 +133,7 @@ class Admin:
 
         myIds = AttrDict()
 
+        self.site = siteRecord
         self.users = users
         self.projects = projects
         self.editions = editions
@@ -499,6 +501,8 @@ class Admin:
 
         if inPower:
             wrapped = []
+            wrapped.append(self._wrapPubProjects())
+
             wrapped.append(H.h(1, "All projects and editions"))
             wrapped.append(
                 H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
@@ -515,6 +519,49 @@ class Admin:
             allUsers = H.div(wrapped, id="allusers")
 
         return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
+
+    def _wrapPubProjects(self):
+        """Generate HTML for the published projects in admin view.
+
+        Currently, it provides
+
+        *   a control to edit the list of featured published projects in a
+            rather coarse manner.
+        *   a control to regenerate the static pages
+
+        Parameters
+        ----------
+        project: AttrDict
+            A project record
+        myOnly: boolean, optional False
+            Whether to show only the editions in the project that are associated
+            with the current user.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+
+        Content = self.Content
+        (table, siteId, site) = Content.relevant()
+
+        wrapped = []
+        wrapped.append(H.h(1, "Published projects"))
+        wrapped.append(H.h(2, "Featured published projects"))
+        wrapped.append(Content.getValue(table, site, "featured"))
+        wrapped.append(H.h(2, "Regenerate HTML for published projects"))
+
+        wrapped.append(
+            H.a(
+                "Regenerate",
+                "/generate",
+                title="Regenerate HTML for published projects",
+                cls="button large",
+            )
+        )
+        return H.div(wrapped, id="pubprojects")
 
     def _wrapProject(self, project, myOnly=True):
         """Generate HTML for a project in admin view.
@@ -538,7 +585,7 @@ class Admin:
         representations = self.representations
         css = self.css
 
-        stat = project.isVisible
+        stat = project.isVisible or False
         status = representations.isVisible[stat]
         statusCls = css.isVisible[stat]
 
@@ -599,7 +646,7 @@ class Admin:
         representations = self.representations
         css = self.css
 
-        stat = edition.isPublished
+        stat = edition.isPublished or False
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
@@ -1147,6 +1194,7 @@ class Admin:
                     ("error", "adding a user not allowed in production mode")
                 )
 
+        self.update()
         return dict(status=status, messages=messages, name=user)
 
     def deleteUser(self, user):
@@ -1200,4 +1248,5 @@ class Admin:
                     ("error", "deleting a user not allowed in production mode")
                 )
 
+        self.update()
         return dict(status=status, messages=messages)

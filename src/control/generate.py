@@ -10,7 +10,6 @@ from control.files import (
     dirAllFiles,
     dirContents,
     dirMake,
-    readYaml,
     stripExt,
     readJson,
     writeJson,
@@ -21,8 +20,6 @@ from control.precheck import Precheck as PrecheckCls
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)
-
-FEATURED_FILE = "featured.yml"
 
 
 class Generate:
@@ -39,9 +36,13 @@ class Generate:
 
         self.Precheck = PrecheckCls(Settings, Messages, Content)
 
-        yamlDir = Settings.yamlDir
-        featuredFile = f"{yamlDir}/{FEATURED_FILE}"
-        featured = readYaml(asFile=featuredFile)
+        site = Content.relevant()[-1]
+        featured = Content.getValue("site", site, "featured", manner="logical")
+
+        if type(featured) is not list:
+            Messages.warning(msg="The featured projects are not given as list, will be set to 1,2,3")
+            featured = [1, 2, 3]
+
         self.featured = featured
 
         self.data = AttrDict()
@@ -543,6 +544,7 @@ class Generate:
 
         def get_site():
             featured = self.featured
+
             info = dbData[kind]
             dc = info.dc
             self.sanitizeDC("site", dc)
@@ -555,10 +557,10 @@ class Generate:
             r.name = dc.title
             r.contentdata = dc
             projects = self.getData("project", None, None)
-            projectsIndex = {str(p.num): p for p in projects}
+            projectsIndex = {p.num: p for p in projects}
             projectsFeatured = []
 
-            for p in featured.projects:
+            for p in featured:
                 if p not in projectsIndex:
                     Messages.warning(f"WARNING: featured project {p} does not exist")
                     continue
@@ -606,7 +608,7 @@ class Generate:
                 r.description = dc.description
                 r.abstract = dc.abstract
                 r.subjects = dc.subject
-                r.visible = item.isVisible
+                r.visible = item.isVisible or False
                 result.append(r)
 
             return result
@@ -631,7 +633,7 @@ class Generate:
                     r.abstract = dc.abstract
                     r.description = dc.description
                     r.subjects = dc.subject
-                    r.published = item.isPublished
+                    r.published = item.isPublished or False
                     result.append(r)
 
             return result
@@ -655,7 +657,7 @@ class Generate:
                 pr.fileName = fileName
                 pr.num = pNo
                 pr.name = pItem.title
-                pr.visible = pItem.isVisible
+                pr.visible = pItem.isVisible or False
                 pr.contentdata = pdc
                 pr.editions = []
 
@@ -672,7 +674,7 @@ class Generate:
                     er.num = eNo
                     er.name = eItem.title
                     er.contentdata = edc
-                    er.published = eItem.isPublished
+                    er.published = eItem.isPublished or False
 
                     pr.editions.append(er)
 
@@ -722,7 +724,7 @@ class Generate:
                     er.num = eNo
                     er.name = eItem.title
                     er.contentdata = edc
-                    er.isPublished = eItem.ispublished
+                    er.isPublished = eItem.ispublished or False
                     settings = eItem.settings
                     authorTool = settings.authorTool
                     origViewer = authorTool.name
