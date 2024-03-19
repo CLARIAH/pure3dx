@@ -7,6 +7,7 @@ import magic
 from tempfile import mkdtemp
 from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
+from traceback import format_exception
 
 from control.generic import AttrDict
 from control.files import (
@@ -20,7 +21,7 @@ from control.files import (
     readYaml,
 )
 from control.datamodel import Datamodel
-from control.flask import requestData
+from control.flask import requestData, getReferrer, redirectStatus
 from control.admin import Admin
 from control.checkgltf import check
 
@@ -1750,57 +1751,78 @@ class Content(Datamodel):
         tempBase = f"{dataDir}{sep}temp/{runMode}"
         dirMake(tempBase)
         dst = mkdtemp(dir=tempBase)
-        landing = f"{dst}/{recordId}"
-        fileName = f"{table}-{recordId}.zip"
+        Messages.info(logmsg=f"CREATED TEMP DIR {dst}")
 
-        if edition is None:
-            yamlDest = f"{landing}/project.yaml"
-        else:
-            yamlDest = f"{landing}/edition.yaml"
+        good = True
 
-        dirCopy(src, landing)
+        try:
+            landing = f"{dst}/{recordId}"
+            fileName = f"{table}-{recordId}.zip"
 
-        with open(yamlDest, "w") as yh:
-            yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
+            if edition is None:
+                yamlDest = f"{landing}/project.yaml"
+            else:
+                yamlDest = f"{landing}/edition.yaml"
 
-        if edition is None:
-            editions = Mongo.getList("edition", sort="title", projectId=projectId)
-            for ed in editions:
-                edId = ed._id
-                yamlDest = f"{landing}/edition/{edId}/edition.yaml"
-                with open(yamlDest, "w") as yh:
-                    yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
+            dirCopy(src, landing)
 
-        zipBuffer = BytesIO()
-        with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+            with open(yamlDest, "w") as yh:
+                yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
 
-            def compress(path):
-                sep = "/" if path else ""
-                with os.scandir(f"{landing}{sep}{path}") as dh:
-                    for entry in dh:
-                        name = entry.name
-                        if entry.is_file():
-                            arcFile = f"{path}{sep}{name}"
-                            srcFile = f"{landing}/{arcFile}"
-                            zipFile.write(srcFile, arcFile)
-                        elif entry.is_dir():
-                            compress(f"{path}/{name}")
+            if edition is None:
+                editions = Mongo.getList("edition", sort="title", projectId=projectId)
 
-            compress("")
-        zipData = zipBuffer.getvalue()
-        Messages.info(msg=f"{table} downloaded")
+                for ed in editions:
+                    edId = ed._id
+                    yamlDest = f"{landing}/edition/{edId}/edition.yaml"
+
+                    with open(yamlDest, "w") as yh:
+                        yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
+
+            zipBuffer = BytesIO()
+
+            with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+
+                def compress(path):
+                    sep = "/" if path else ""
+                    with os.scandir(f"{landing}{sep}{path}") as dh:
+                        for entry in dh:
+                            name = entry.name
+                            if entry.is_file():
+                                arcFile = f"{path}{sep}{name}"
+                                srcFile = f"{landing}/{arcFile}"
+                                zipFile.write(srcFile, arcFile)
+                            elif entry.is_dir():
+                                compress(f"{path}/{name}")
+
+                compress("")
+
+            zipData = zipBuffer.getvalue()
+            Messages.info(msg=f"{table} downloaded")
+
+        except Exception as e:
+            msg = "Could not assemble the data for download"
+            Messages.error(msg=msg, logmsg=msg)
+            Messages.error(logmsg="".join(format_exception(e)), stop=False)
+            good = False
 
         dirRemove(dst)
+        Messages.info(logmsg=f"DELETED TEMP DIR {dst}")
 
-        headers = {
-            "Expires": "0",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/zip",
-            "Content-Disposition": f'attachment; filename="{fileName}"',
-            "Content-Encoding": "identity",
-        }
+        if good:
+            headers = {
+                "Expires": "0",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Content-Type": "application/zip",
+                "Content-Disposition": f'attachment; filename="{fileName}"',
+                "Content-Encoding": "identity",
+            }
 
-        return (zipData, headers)
+            return (zipData, headers)
+
+        else:
+            ref = getReferrer().removeprefix("/")
+            return redirectStatus(f"/{ref}", False)
 
     def saveFile(self, record, key, path, fileName, targetFileName=None):
         """Saves a file in the context given by a record.
