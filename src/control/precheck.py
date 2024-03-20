@@ -34,11 +34,11 @@ SKIP = set(
 
 
 class Precheck:
-    def __init__(self, Settings, Messages, Content):
+    def __init__(self, Settings, Messages, Viewers):
         """All about checking the files of an edition prior to publishing."""
         self.Settings = Settings
         self.Messages = Messages
-        self.Content = Content
+        self.Viewers = Viewers
         Messages.debugAdd(self)
 
     def checkEdition(self, project, edition, eInfo, asPublished=False):
@@ -89,7 +89,7 @@ class Precheck:
             If `asPublished` is True, it returns the toc as a string, otherwise
             it returns whether the edition passed all checks.
         """
-        Content = self.Content
+        Viewers = self.Viewers
         Messages = self.Messages
         Settings = self.Settings
         H = Settings.H
@@ -105,8 +105,7 @@ class Precheck:
             editionDir = f"{workingDir}/project/{project._id}/edition/{edition}"
             editionUrl = f"/data/project/{project._id}/edition/{edition}"
 
-        sceneFile = Content.getViewInfo(eInfo)[1]
-        self.debug(f"{edition=} {eInfo=} {sceneFile=}")
+        sceneFile = Viewers.getViewInfo(eInfo)[1]
         scenePath = f"{editionDir}/{sceneFile}"
 
         REF_RE = re.compile(
@@ -167,14 +166,12 @@ class Precheck:
             (files, dirs) = dirContents(base)
 
             if len(files) == 0 and len(dirs) == 0:
-                self.debug(f"REMOVE {base}")
                 dirRemove(base)
 
         def checkScene():
             scene = readJson(asFile=scenePath, plain=True)
             sceneYaml = scenePath.removesuffix("json") + "yaml"
             writeYaml(scene, asFile=sceneYaml)
-            self.debug(f"{scenePath=} {sceneYaml=}")
 
             for uri in sorted(getUris(scene, False)):
                 references.append((sceneFile, "models", un("NFC", htmlUnEsc(uri))))

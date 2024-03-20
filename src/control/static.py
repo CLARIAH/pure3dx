@@ -12,6 +12,7 @@ from control.files import (
     dirMake,
     stripExt,
     readJson,
+    readYaml,
     writeJson,
 )
 from control.generic import AttrDict, deepAttrDict, deepdict
@@ -20,30 +21,26 @@ from control.precheck import Precheck as PrecheckCls
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)
+CONFIG_FILE = "client.yml"
 
 
-class Generate:
-    def __init__(self, Settings, Messages, Content, Tailwind, Handlebars, cfg):
+class Static:
+    def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
         """All about generating static pages."""
         self.Settings = Settings
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
-        self.cfg = cfg
-        self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.listKeys.keys)
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages, Content)
+        self.Precheck = PrecheckCls(Settings, Messages, Viewers)
 
-        site = Content.relevant()[-1]
-        featured = Content.getValue("site", site, "featured", manner="logical")
-
-        if type(featured) is not list:
-            Messages.warning(msg="The featured projects are not given as list, will be set to 1,2,3")
-            featured = [1, 2, 3]
-
-        self.featured = featured
+        yamlDir = Settings.yamlDir
+        yamlFile = f"{yamlDir}/{CONFIG_FILE}"
+        cfg = readYaml(asFile=yamlFile)
+        self.cfg = cfg
+        self.markdownKeys = set(cfg.markdown.keys)
+        self.listKeys = set(cfg.listKeys.keys)
 
         self.data = AttrDict()
         self.dbData = AttrDict()
@@ -136,7 +133,7 @@ class Generate:
 
         return r
 
-    def genPages(self, pPubNum, ePubNum):
+    def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         """Generate html pages for a published edition.
 
         We assume the data of the projects and editions is already in place.
@@ -197,6 +194,34 @@ class Generate:
 
         partials = {}
         compiledTemplates = {}
+
+        if type(featured) is list:
+            msg = "skipping featured project '{}'"
+            featuredParsed = set()
+
+            for f in featured:
+                if type(f) is int:
+                    featuredParsed.add(f)
+                elif type(f) is str:
+                    if f.isdecimal():
+                        featuredParsed.add(int(f))
+                    else:
+                        Messages.warning(msg=msg.format(f))
+                else:
+                    Messages.warning(msg=msg.format(f))
+
+            featured = sorted(featuredParsed)
+
+        else:
+            Messages.warning(
+                msg="The featured projects are not given as list, will be set to 1,2,3"
+            )
+            featured = [1, 2, 3]
+
+        Messages.special(
+            msg=f"Featured projects: {', '.join(str(f) for f in featured)}"
+        )
+        self.featured = featured
 
         def updateStatic(kind, srcDr):
             """Copy over static files.
@@ -730,9 +755,7 @@ class Generate:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(
-                        pNo, eNo, eItem, asPublished=True
-                    )
+                    er.toc = Precheck.checkEdition(pNo, eNo, eItem, asPublished=True)
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name

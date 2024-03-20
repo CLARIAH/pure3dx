@@ -12,6 +12,8 @@ runlocal [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
 
 cd $approot
 
+source .env
+
 function appup {
     # start the app, including its services
 
@@ -103,10 +105,10 @@ function appmongo {
     done
 
     if [[ "$runmode" == "" ]]; then
-        mongo --port $port -u root -p example --authenticationDatabase admin
+        mongo --port $port -u $mongouser -p $mongopassword --authenticationDatabase admin
     else
         echo mongo --port $port -u root -p example --authenticationDatabase admin ${app}_$runmode
-        mongo --port $port -u root -p example --authenticationDatabase admin ${app}_$runmode
+        mongo --port $port -u $mongouser -p $mongopassword --authenticationDatabase admin ${app}_$runmode
     fi
 }
 

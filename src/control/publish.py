@@ -9,19 +9,17 @@ from control.files import (
     fileCopy,
     fileExists,
     fileRemove,
-    readYaml,
     writeJson,
 )
 from control.generic import deepdict
 from control.precheck import Precheck as PrecheckCls
-from control.generate import Generate as GenerateCls
-
-
-CONFIG_FILE = "client.yml"
+from control.static import Static as StaticCls
 
 
 class Publish:
-    def __init__(self, Settings, Messages, Mongo, Content, Tailwind, Handlebars):
+    def __init__(
+        self, Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+    ):
         """Publishing content as static pages.
 
         It is instantiated by a singleton object.
@@ -40,6 +38,7 @@ class Publish:
         """
         self.Settings = Settings
         self.Messages = Messages
+        self.Viewers = Viewers
         self.Mongo = Mongo
         self.Content = Content
         self.Tailwind = Tailwind
@@ -47,12 +46,9 @@ class Publish:
         Messages.debugAdd(self)
         Content.addPublish(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages, Content)
-
-        yamlDir = Settings.yamlDir
-        yamlFile = f"{yamlDir}/{CONFIG_FILE}"
-        cfg = readYaml(asFile=yamlFile)
-        self.cfg = cfg
+        self.Precheck = (
+            None if Content is None else PrecheckCls(Settings, Messages, Viewers)
+        )
 
     def getPubNums(self, project, edition):
         """Determine project and edition publication numbers.
@@ -111,14 +107,18 @@ class Publish:
     def generatePages(self, pPubNum, ePubNum):
         Settings = self.Settings
         Messages = self.Messages
+        Viewers = self.Viewers
         Content = self.Content
         Tailwind = self.Tailwind
         Handlebars = self.Handlebars
-        cfg = self.cfg
-        Generate = GenerateCls(Settings, Messages, Content, Tailwind, Handlebars, cfg)
+
+        site = Content.relevant()[-1]
+        featured = Content.getValue("site", site, "featured", manner="logical")
+
+        Static = StaticCls(Settings, Messages, Viewers, Tailwind, Handlebars)
 
         try:
-            good = Generate.genPages(pPubNum, ePubNum)
+            good = Static.genPages(pPubNum, ePubNum, featured=featured)
 
         except Exception as e1:
             Messages.error(logmsg="".join(format_exception(e1)), stop=False)

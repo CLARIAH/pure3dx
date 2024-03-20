@@ -14,7 +14,7 @@ from control.generic import AttrDict
 from control.authoidc import AuthOidc as AuthOidcCls
 
 
-def prepare(design=False, trivial=False):
+def prepare(design=False, migrate=False, trivial=False):
     """Prepares the way for setting up the Flask webapp.
 
     Several classes are instantiated with a singleton object;
@@ -47,6 +47,10 @@ def prepare(design=False, trivial=False):
 
     Parameters
     ----------
+    migrate: boolean, optional False
+        If True, overrides the `trivial` parameter.
+        It will initialize those objects that are needed for
+        the migration of data.
     design: boolean, optional False
         If True, overrides the `trivial` parameter.
         It will initialize those objects that are needed for
@@ -68,13 +72,24 @@ def prepare(design=False, trivial=False):
         by the singleton objects themselves.
 
     """
+    if migrate:
+        Settings = ConfigCls(MessagesCls(None), migrate=True).Settings
+        Messages = MessagesCls(Settings)
+        Mongo = MongoCls(Settings, Messages)
+
+        return AttrDict(Settings=Settings, Messages=Messages, Mongo=Mongo)
+
     if design:
         Settings = ConfigCls(MessagesCls(None), design=True).Settings
         Messages = MessagesCls(Settings)
         Tailwind = TailwindCls(Settings)
+        Handlebars = Compiler()
 
         return AttrDict(
-            Settings=Settings, Messages=Messages, Mongo=None, Tailwind=Tailwind
+            Settings=Settings,
+            Messages=Messages,
+            Tailwind=Tailwind,
+            Handlebars=Handlebars,
         )
 
     elif trivial:
@@ -91,16 +106,15 @@ def prepare(design=False, trivial=False):
     else:
         Settings = ConfigCls(MessagesCls(None)).Settings
         Messages = MessagesCls(Settings)
+        Viewers = ViewersCls(Settings, Messages)
 
         Mongo = MongoCls(Settings, Messages)
-
-        Viewers = ViewersCls(Settings, Messages, Mongo)
 
         Wrap = WrapCls(Settings, Messages, Viewers)
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
-        Content = ContentCls(Settings, Viewers, Messages, Mongo, Wrap)
-        Publish = PublishCls(Settings, Messages, Mongo, Content, Tailwind, Handlebars)
+        Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
+        Publish = PublishCls(Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars)
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
 

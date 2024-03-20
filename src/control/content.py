@@ -27,7 +27,7 @@ from control.checkgltf import check
 
 
 class Content(Datamodel):
-    def __init__(self, Settings, Viewers, Messages, Mongo, Wrap):
+    def __init__(self, Settings, Messages, Viewers, Mongo, Wrap):
         """Retrieving content from database and file system.
 
         This class has methods to retrieve various pieces of content
@@ -187,7 +187,7 @@ class Content(Datamodel):
         if editionId is None:
             return ""
 
-        (viewer, sceneFile) = self.getViewInfo(edition)
+        (viewer, sceneFile) = Viewers.getViewInfo(edition)
         version = Viewers.check(viewer, version)
 
         if sceneFile is None:
@@ -488,36 +488,6 @@ class Content(Datamodel):
             dirMake(editionDir)
 
         return editionId
-
-    def getViewInfo(self, edition):
-        """Gets viewer-related info that an edition is made with.
-
-        Parameters
-        ----------
-        edition: string | ObjectId | AttrDict
-            The edition record.
-
-        Returns
-        -------
-        tuple of string
-            * The name of the viewer
-            * The name of the scene
-
-        """
-        Mongo = self.Mongo
-        Viewers = self.Viewers
-        viewerDefault = Viewers.viewerDefault
-
-        (editionId, edition) = Mongo.get("edition", edition)
-        if editionId is None:
-            return (viewerDefault, None)
-
-        editionSettings = edition.settings or AttrDict()
-        authorTool = editionSettings.authorTool or AttrDict()
-        viewer = authorTool.name or viewerDefault
-        sceneFile = authorTool.sceneFile
-
-        return (viewer, sceneFile)
 
     def saveValue(self, table, record, key):
         """Saves a value of into a record.
@@ -1285,7 +1255,7 @@ class Content(Datamodel):
         !!! caution "Site-wide backups affect user data"
             The set of users and their permissions may be different across backups.
             After restoring a snaphot, the user that restored it may no longer exist,
-            or have differnt rights.
+            or have different rights.
 
         !!! caution "Project backups do not affect user data"
             No user data nor any coupling between users and the project and its editions

@@ -575,6 +575,7 @@ class Pages:
         """
         Settings = self.Settings
         H = Settings.H
+        Viewers = self.Viewers
         Content = self.Content
         Mongo = self.Mongo
         Auth = self.Auth
@@ -590,7 +591,7 @@ class Pages:
         if project is None:
             return redirectStatus("/project", True)
 
-        (viewer, sceneFile) = Content.getViewInfo(edition)
+        (viewer, sceneFile) = Viewers.getViewInfo(edition)
 
         breadCrumb = Content.breadCrumb(project)
         publishButton = Content.getPublishInfo("edition", edition)
@@ -686,7 +687,6 @@ class Pages:
         -------
         response
         """
-        Content = self.Content
         Mongo = self.Mongo
         Viewers = self.Viewers
         Auth = self.Auth
@@ -695,7 +695,7 @@ class Pages:
         if editionId is None:
             return renderTemplate("viewer", viewerCode="")
 
-        (viewer, sceneFile) = Content.getViewInfo(edition)
+        (viewer, sceneFile) = Viewers.getViewInfo(edition)
         projectId = edition.projectId
 
         urlBase = f"project/{projectId}/edition/{editionId}/"

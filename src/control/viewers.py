@@ -4,7 +4,7 @@ from control.generic import AttrDict, attResolve
 
 
 class Viewers:
-    def __init__(self, Settings, Messages, Mongo):
+    def __init__(self, Settings, Messages):
         """Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -19,13 +19,10 @@ class Viewers:
             `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        Mongo: object
-            Singleton instance of `control.mongo.Mongo`.
         """
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.Mongo = Mongo
         self.viewers = Settings.viewers
         self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
@@ -74,6 +71,34 @@ class Viewers:
             version = defaultVersion
         return version
 
+    def getViewInfo(self, edition):
+        """Gets viewer-related info that an edition is made with.
+
+        Parameters
+        ----------
+        edition: AttrDict
+            The edition record.
+
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
+
+        """
+        viewerDefault = self.viewerDefault
+
+        editionId = edition._id
+        if editionId is None:
+            return (viewerDefault, None)
+
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
+
+        return (viewer, sceneFile)
+
     def getFrame(
         self, edition, actions, viewer, versionActive, actionActive, sceneExists
     ):
@@ -83,7 +108,7 @@ class Viewers:
 
         Parameters
         ----------
-        edition: string | ObjectId | AttrDict
+        edition: AttrDict
             The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
@@ -109,14 +134,13 @@ class Viewers:
         """
         Settings = self.Settings
         H = Settings.H
-        Mongo = self.Mongo
         actionInfo = self.viewerActions
         viewers = self.viewers
 
         filteredActions = {a for a in actions if a in actionInfo and a != "create"}
         versionActive = self.check(viewer, versionActive)
 
-        (editionId, edition) = Mongo.get("edition", edition)
+        editionId = edition._id
         if editionId is None:
             return ("", "")
 

@@ -1,14 +1,22 @@
+import sys
+
 from control.prepare import prepare
-from control.publish import Publish
+from control.static import Static as StaticCls
 
 
-def build():
+def build(featured):
     objects = prepare(design=True)
 
-    P = Publish(objects.Settings, objects.Messages, objects.Mongo, objects.Tailwind)
+    Static = StaticCls(
+        objects.Settings,
+        objects.Messages,
+        objects.Viewers,
+        objects.Tailwind,
+        objects.Handlebars,
+    )
 
-    P.genPages(None, None)
+    Static.genPages(None, None, featured)
 
 
 if __name__ == "__main__":
-    build()
+    build(sys.argv[1:])
