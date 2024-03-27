@@ -75,9 +75,8 @@ def prepare(design=False, migrate=False, trivial=False):
     if migrate:
         Settings = ConfigCls(MessagesCls(None), migrate=True).Settings
         Messages = MessagesCls(Settings)
-        Mongo = MongoCls(Settings, Messages)
 
-        return AttrDict(Settings=Settings, Messages=Messages, Mongo=Mongo)
+        return AttrDict(Settings=Settings, Messages=Messages)
 
     if design:
         Settings = ConfigCls(MessagesCls(None), design=True).Settings

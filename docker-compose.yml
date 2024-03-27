@@ -19,11 +19,14 @@ services:
       devstatus: ${devstatus}
       gitlocation: ${gitlocation}
       flaskport: ${flaskport}
+      mongohost: ${mongohost}
+      mongoport: ${mongoport}
+      mongoportouter: ${mongoportouter}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
     entrypoint:
       - /bin/bash
-      - start.sh
+      - src/start.sh
     depends_on:
       - mongodb
     volumes:
@@ -45,7 +48,7 @@ services:
 
   mongodb:
     image: mongo:5.0.6
-    hostname: mongodb
+    hostname: "${mongohost}"
     container_name: mongodb
     volumes:
       - "mongodb-volume:/data/db"
@@ -53,4 +56,4 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${mongouser}
       MONGO_INITDB_ROOT_PASSWORD: ${mongopassword}
     ports:
-      - "37017:27017"
+      - "${mongoportouter}:${mongoport}"

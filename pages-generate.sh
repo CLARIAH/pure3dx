@@ -7,11 +7,8 @@ HELP="
 where x, y, z are integers that specify the features projects.
 "
 
-cd src
-pushd ..
-
 repodir="`pwd`"
-popd
+cd src
 
 
 if [[ "$1" == "--help" ]]; then

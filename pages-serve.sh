@@ -7,4 +7,4 @@ else
 fi
 
 cd published/$runmode
-python -m http.server 8080
+python -m http.server 8080 --bind localhost

@@ -362,6 +362,9 @@ class Config:
         Messages = self.Messages
         Settings = self.Settings
 
+        mongoHost = var("mongohost")
+        mongoPort = var("mongoport")
+        mongoPortOuter = var("mongoportouter")
         mongoUser = var("mongouser")
         mongoPassword = var("mongopassword")
 
@@ -373,14 +376,14 @@ class Config:
             Messages.error(logmsg="Environment variable `mongopassword` not defined")
             self.good = False
 
+        Settings.mongoHost = mongoHost
+        Settings.mongoPort = int(mongoPort)
+        Settings.mongoPortOuter = int(mongoPortOuter)
         Settings.mongoUser = mongoUser
         Settings.mongoPassword = mongoPassword
 
     def checkSettings(self):
         """Read the yaml file with application settings."""
-        if self.migrate:
-            return
-
         Messages = self.Messages
         Settings = self.Settings
         yamlDir = Settings.yamlDir

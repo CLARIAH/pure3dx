@@ -622,7 +622,7 @@ class Mongo:
     def restore(self, src, project=None, clean=True):
         """Restores the database from record files in table folders.
 
-        We do site-wide restores project-specific restores.
+        We do site-wide restores or project-specific restores.
 
         See also `control.content.Content.restore`
 

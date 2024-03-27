@@ -82,7 +82,6 @@ function appmongo {
     # open the host mongo client and connect to the mongod service of the app
     runmode=""
     good="v"
-    port=37017
 
     while [ ! -z "$1" ]; do
         if [[ "$1" == "prod" ]]; then
@@ -105,10 +104,10 @@ function appmongo {
     done
 
     if [[ "$runmode" == "" ]]; then
-        mongo --port $port -u $mongouser -p $mongopassword --authenticationDatabase admin
+        mongo --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin
     else
-        echo mongo --port $port -u root -p example --authenticationDatabase admin ${app}_$runmode
-        mongo --port $port -u $mongouser -p $mongopassword --authenticationDatabase admin ${app}_$runmode
+        echo mongo --port $mongoportouter -u root -p example --authenticationDatabase admin ${app}_$runmode
+        mongo --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin ${app}_$runmode
     fi
 }
 

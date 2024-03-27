@@ -571,6 +571,7 @@ class Static:
             featured = self.featured
 
             info = dbData[kind]
+            self.debug(f"{kind=} {info=}")
             dc = info.dc
             self.sanitizeDC("site", dc)
             dc = self.htmlify(dc)
