@@ -624,6 +624,82 @@ class Pages:
 
         return self.page("projects", left=left, right=right)
 
+    def fromPub(self, projectIdGiven, editionIdGiven):
+        """Redirect to a project or edition or the home page.
+
+        If the edition or project does not exist, show a friendly message.
+        """
+        Mongo = self.Mongo
+        Messages = self.Messages
+        Settings = self.Settings
+        backPrefix = Settings.backPrefix
+        authorLabel = Settings.authorLabel
+
+        homeUrl = "/"
+
+        if projectIdGiven is None and editionIdGiven is None:
+            return redirectStatus(homeUrl, True)
+
+        projectIdVerified = None
+        editionIdVerified = None
+
+        if editionIdGiven is not None:
+            (editionIdVerified, editionVerified) = Mongo.get("edition", editionIdGiven)
+            if editionVerified is not None:
+                projectIdVerifiedFromEdition = editionVerified.projectId
+
+        if projectIdGiven is not None:
+            (projectIdVerified, projectVerified) = Mongo.get("project", projectIdGiven)
+
+        if editionIdGiven is not None:
+            if editionIdVerified is None:
+                Messages.error(
+                    msg=f"This edition no longer exists in {authorLabel}",
+                    logmsg=f"{backPrefix}: Edition {editionIdGiven} no longer exists",
+                    stop=False,
+                )
+                newUrl = (
+                    homeUrl
+                    if projectIdVerified is None
+                    else f"/project/{projectIdVerified}"
+                )
+
+            else:
+                if projectIdGiven and projectIdVerified != projectIdVerifiedFromEdition:
+                    Messages.warning(
+                        msg=(
+                            "Found the edition but in a different project "
+                            f"in {authorLabel}"
+                        ),
+                        logmsg=(
+                            f"{backPrefix}: Edition {editionIdGiven} does not"
+                            f"belong to project {projectIdGiven}"
+                        ),
+                    )
+                else:
+                    Messages.good(
+                        msg=("Found the edition and project " f"in {authorLabel}"),
+                    )
+
+                newUrl = f"/edition/{editionIdVerified}"
+
+        else:  # now projectIdGiven is not None
+            if projectIdVerified is None:
+                Messages.error(
+                    msg=f"This project no longer exists in {authorLabel}",
+                    logmsg=f"{backPrefix}: Project {projectIdGiven} no longer exists",
+                    stop=False,
+                )
+                newUrl = homeUrl
+
+            else:
+                Messages.good(
+                    msg=("Found the project " f"in {authorLabel}"),
+                )
+                newUrl = f"/project/{projectIdVerified}"
+
+        return redirectStatus(newUrl, True)
+
     def deleteItem(self, table, record):
         """Deletes an item, project or edition.
 
@@ -989,20 +1065,23 @@ class Pages:
         """
         Settings = self.Settings
         H = Settings.H
+        pubUrl = Settings.pubUrl
+        published = Settings.published
 
         # 1st column: url
         # 2nd column: interface string
         # 3rd column: True: enabled, False: disabled
-        # 4th column: authorised
+        # 4th column: implemented
 
         TABS = (
             ("home", "Home", True, True),
             ("about", "About", True, True),
             ("project", "3D Projects", True, True),
+            (pubUrl, "Published Projects ⌲", True, True),
             ("admin", "My Work", True, True),
-            ("directory", "3D Directory", False, True),
-            ("surpriseme", "Surprise Me", True, True),
-            ("advancedsearch", "Advanced Search", False, True),
+            ("directory", "3D Directory", False, False),
+            ("surpriseme", "Surprise Me", True, False),
+            ("advancedsearch", "Advanced Search", False, False),
         )
 
         search = H.span(
@@ -1021,20 +1100,25 @@ class Pages:
 
         divContent = []
 
-        for tab, label, enabled, authorised in TABS:
-            if not authorised:
+        for tab, label, enabled, implemented in TABS:
+            if not implemented:
                 continue
+
             active = "active" if url == tab else ""
+
             if enabled:
                 elem = "a"
                 cls = active
-                href = [f"/{tab}"]
+                href = [tab if "/" in tab else f"/{tab}"]
+                target = dict(target=published) if "/" in tab else {}
             else:
                 elem = "span"
                 cls = "disabled"
                 href = []
+                target = {}
+
             fullCls = f"button large {cls}"
-            divContent.append(H.elem(elem, label, *href, cls=fullCls))
+            divContent.append(H.elem(elem, label, *href, cls=fullCls, **target))
 
         divContent.append(search)
 

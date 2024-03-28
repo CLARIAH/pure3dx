@@ -993,7 +993,10 @@ class Content(Datamodel):
             if pPubNum is None
             else H.span("Published: ")
             + H.a(
-                f"{pPubNum}", f"{pubUrl}/project/{pPubNum}/index.html", target=published
+                f"{pPubNum} ⌲",
+                f"{pubUrl}/project/{pPubNum}/index.html",
+                target=published,
+                cls="button large",
             )
         )
 
@@ -1002,15 +1005,18 @@ class Content(Datamodel):
 
         ePubNum = edition.pubNum
 
-        editionPubStr = (
-            H.i("Not published")
-            if ePubNum is None or pPubNum is None
-            else H.span("Published: ")
-            + H.a(
-                f"{pPubNum}/{ePubNum}",
+        editionPubRow = (
+            (
+                H.i("Not published")
+                if ePubNum is None or pPubNum is None
+                else H.span("Published: ")
+            ),
+            H.a(
+                f"{pPubNum}/{ePubNum} ⌲",
                 f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
                 target=published,
-            )
+                cls="button large",
+            ),
         )
 
         can = dict(
@@ -1020,7 +1026,7 @@ class Content(Datamodel):
             republish=pPubNum is not None and ePubNum is not None,
         )
 
-        buttons = []
+        rows = []
 
         for kind, kindRep, tbRecRoles in (
             (
@@ -1036,16 +1042,24 @@ class Content(Datamodel):
             ("publish", "publish", (("project", project, "organiser"),)),
             (
                 ("publishf", "publish"),
-                "publish even if some checks fail",
+                "force-publish",
                 (("project", project, "organiser"),),
             ),
-            ("republish", "re-publish", (("site", site, "admin"),)),
+            (
+                "republish",
+                "re-publish",
+                (("site", site, "admin"), ("site", site, "root")),
+            ),
             (
                 ("republishf", "republish"),
-                "re-publish even if some checks fail",
-                (("site", site, "admin"),),
+                "force-re-publish",
+                (("site", site, "admin"), ("site", site, "root")),
             ),
-            ("unpublish", "un-publish", (("site", site, "admin"),)),
+            (
+                "unpublish",
+                "un-publish",
+                (("site", site, "admin"), ("site", site, "root")),
+            ),
         ):
             asKind = kind
 
@@ -1053,29 +1067,26 @@ class Content(Datamodel):
                 (kind, asKind) = kind
 
             if can[asKind]:
-                buttons.append(
-                    H.p(
-                        H.content(
-                            H.span(f"You may {kindRep}:"),
-                            H.nbsp,
-                            H.iconx(
-                                kind,
-                                href=f"/{kind}/{recordId}",
-                                cls="button large",
-                            ),
-                        )
+                rows.append(
+                    (
+                        H.span(f"You may {kindRep}:"),
+                        H.iconx(
+                            kind,
+                            href=f"/{kind}/{recordId}",
+                            cls="button large",
+                        ),
                     )
                     if asKind in actions
-                    else H.p(
-                        H.content(
-                            H.span(f"You may not {kindRep}. Ask"),
-                            H.nbsp,
-                            Auth.getInvolvedUsers(tbRecRoles, asString=True),
-                        )
+                    else (
+                        H.span(f"You may not {kindRep}"),
+                        Auth.getInvolvedUsers(tbRecRoles, asString=True),
                     )
                 )
 
-        return H.content(editionPubStr, *buttons)
+        return H.table(
+            [([(cell, {}) for cell in editionPubRow], {})],
+            [([(cell, {}) for cell in row], {}) for row in rows],
+        )
 
     def getViewerFile(self, path):
         """Gets a viewer-related file from the file system.

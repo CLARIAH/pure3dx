@@ -20,14 +20,16 @@ else
     shift
 fi
 
+source .env
+
 DATA_DIR="$repodir/data"
 PUB_DIR="$repodir/published"
-PUB_URL="http://localhost:8080"
 
 export repodir
 export runmode
 export DATA_DIR
 export PUB_DIR
 export PUB_URL
+export AUTHOR_URL
 
 python design.py "$@"

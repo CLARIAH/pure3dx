@@ -62,7 +62,7 @@ class Precheck:
         To that, we add a table of the media files, together with the information
         which html files refer to them.
 
-        The table of contents in the Pure3d edit app is slightly different from
+        The table of contents in the Pure3d author app is slightly different from
         that in the Pure3d pub app, because the internal links work differently.
 
         You can trigger the generation of a toc that works for the published edition
@@ -76,7 +76,7 @@ class Precheck:
             The id of the edition in question.
         asPublished: boolean, optional False
             If False, the project and edition refer to the edition in the
-            Pure3D edit app, and the toc file will be created there.
+            Pure3D author app, and the toc file will be created there.
 
             If True, the project and edition are numbers that refer to the
             published edition;

@@ -509,6 +509,9 @@ class Static:
         Messages = self.Messages
         Precheck = self.Precheck
         textDir = Settings.textDir
+        authorUrl = Settings.authorUrl
+        backPrefix = Settings.backPrefix
+        authorRoot = f"{authorUrl}/{backPrefix}/"
 
         cfg = self.cfg
         generation1 = cfg.generation
@@ -555,6 +558,7 @@ class Static:
             for textFile in textFiles:
                 r = AttrDict()
                 r.template = "text.html"
+                r.authorLink = authorRoot
                 r.name = prettify(textFile.removesuffix(".html"))
                 r["is" + r.name] = True
                 r.fileName = textFile
@@ -571,7 +575,6 @@ class Static:
             featured = self.featured
 
             info = dbData[kind]
-            self.debug(f"{kind=} {info=}")
             dc = info.dc
             self.sanitizeDC("site", dc)
             dc = self.htmlify(dc)
@@ -580,6 +583,7 @@ class Static:
             r.isHome = True
             r.template = "home.html"
             r.fileName = "index.html"
+            r.authorLink = authorRoot
             r.name = dc.title
             r.contentdata = dc
             projects = self.getData("project", None, None)
@@ -603,6 +607,7 @@ class Static:
             r.name = "All Projects"
             r.template = "projects.html"
             r.fileName = "projects.html"
+            r.authorLink = authorRoot
             r.projects = self.getData("project", None, None)
 
             return [r]
@@ -613,6 +618,7 @@ class Static:
             r.name = "All Editions"
             r.template = "editions.html"
             r.fileName = "editions.html"
+            r.authorLink = authorRoot
             r.editions = self.getData("edition", None, None)
 
             return [r]
@@ -675,6 +681,7 @@ class Static:
                     continue
 
                 pItem = pInfo[pNo]
+                pId = pItem._id
                 pdc = self.htmlify(pItem.dc)
                 fileName = f"project/{pNo}/index.html"
 
@@ -683,6 +690,7 @@ class Static:
                 pr.fileName = fileName
                 pr.num = pNo
                 pr.name = pItem.title
+                pr.authorLink = f"{authorRoot}{pId}"
                 pr.visible = pItem.isVisible or False
                 pr.contentdata = pdc
                 pr.editions = []
@@ -729,6 +737,7 @@ class Static:
                     continue
 
                 pItem = pInfo[pNo]
+                pId = pItem._id
                 projectFileName = f"project/{pNo}/index.html"
                 projectName = pItem.get("title", pNo)
 
@@ -739,6 +748,7 @@ class Static:
                         continue
 
                     eItem = thisEInfo[eNo]
+                    eId = eItem._id
                     edc = self.htmlify(eItem.dc)
 
                     er = AttrDict()
@@ -746,6 +756,7 @@ class Static:
                     er.projectNum = pNo
                     er.projectName = projectName
                     er.projectFileName = projectFileName
+                    er.authorLink = f"{authorRoot}{pId}/{eId}"
                     fileBase = f"project/{pNo}/edition/{eNo}/index"
                     er.num = eNo
                     er.name = eItem.title

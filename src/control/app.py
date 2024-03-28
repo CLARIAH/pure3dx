@@ -53,6 +53,8 @@ def appFactory(objects):
 
     Messages.info(logmsg="Authentication oidc is set up")
 
+    backPrefix = Settings.backPrefix
+
     @app.before_request
     def identify():
         """Get details of the current user.
@@ -303,6 +305,26 @@ def appFactory(objects):
             Path on the file system where the resource resides.
         """
         return Pages.viewerResource(path)
+
+    @app.route(f"/{backPrefix}/", defaults=dict(project=None, edition=None))
+    @app.route(f"/{backPrefix}/<string:project>", defaults=dict(edition=None))
+    @app.route(f"/{backPrefix}/<string:project>/<string:edition>")
+    def fromPub(project, edition):
+        """Presents the home page or landing page of a project or edition.
+
+        These urls are used by the publishing app to refer back to projects/editions
+        in their authoring environment. But, after publishing, editions and projects
+        may have been removed from the authoring environment.
+        If that is the case, a friendly warning should be shown.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        edition: string
+            The id of the edition record.
+        """
+        return Pages.fromPub(project, edition)
 
     @app.route("/data/project/<string:project>/edition/<string:edition>/<path:path>")
     @app.route(

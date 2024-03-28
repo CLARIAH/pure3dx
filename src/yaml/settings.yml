@@ -21,6 +21,8 @@ dbFile: db.json
 published: published
 article: article
 media: media
+backPrefix: frompub
+authorLabel: the author environment
 
 editionSettingsTemplate:
   authorTool:

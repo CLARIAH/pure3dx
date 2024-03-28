@@ -336,6 +336,15 @@ class Config:
 
         Settings.pubUrl = pubUrl
 
+        authorUrl = var("AUTHOR_URL")
+
+        if authorUrl is None:
+            Messages.error(logmsg="Environment variable `AUTHOR_URL` not defined")
+            self.good = False
+            return
+
+        Settings.authorUrl = authorUrl
+
         if self.design:
             return
 

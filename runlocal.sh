@@ -70,7 +70,7 @@ function appdown {
 
 function apppeek {
     # shell into the running app locally
-    docker exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" -it ${app}_edit /bin/bash -l
+    docker exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" -it ${app}_author /bin/bash -l
 }
 
 function apppeekpub {

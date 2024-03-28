@@ -1244,11 +1244,13 @@ class HtmlElements:
 
         tr = HtmlElement("tr").wrap
         material = []
+
         for rowData, rowAtts in data:
             rowMaterial = []
             for cellData, cellAtts in rowData:
                 rowMaterial.append(td(cellData, **cellAtts))
             material.append(tr(rowMaterial, **rowAtts))
+
         return material
 
 

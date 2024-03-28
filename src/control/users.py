@@ -507,21 +507,27 @@ class Users:
 
         html = []
 
+        seenUsers = set()
+
         for table, role, users in sorted(involvedUsers, key=lambda x: -len(x[2])):
+            if len(users) == 0:
+                continue
+
+            userIds = {u[0] for u in users}
+
+            if len(userIds - seenUsers) == 0:
+                continue
+
+            seenUsers |= userIds
+
             roles = auth.roles[table]
             roleRep = roles[role]
-            artRep = "the" if table == "site" else "this"
 
-            label = H.content(artRep, H.nbsp, H.i(f"{table} {roleRep}"), ":", H.nbsp)
+            label = H.i(f"{table} {roleRep}")
+            userRep = " or ".join(H.span(name, uid=u) for (u, name) in users)
+            html.append(f"{userRep}{H.nbsp}({label})")
 
-            userRep = (
-                "no one"
-                if len(users) == 0
-                else " or ".join(H.span(name, uid=u) for (u, name) in users)
-            )
-            html.append(f"{label}{userRep}")
-
-        return "; ".join(html)
+        return f"ask: {'; '.join(html)}"
 
     def __loginSpecial(self, referrer, user):
         """Perform the steps to log in a test/pilot/custom user.

@@ -46,6 +46,9 @@
   border-radius: 3px 3px 0px 0px;
   box-shadow: 0 0.5rem 0.8rem #00000080;
 }
+th {
+  text-align: left;
+}
 
 .radio {
   display: none;

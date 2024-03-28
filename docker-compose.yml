@@ -5,15 +5,16 @@ volumes:
     external: false
 
 services:
-  pure3d_edit:
-    image: pure3d_edit:latest-loc
+  pure3d_author:
+    image: pure3d_author:latest-loc
     # restart: unless-stopped
-    container_name: pure3d_edit
-    hostname: pure3d_edit
+    container_name: pure3d_author
+    hostname: pure3d_author
     environment:
       DATA_DIR: ${DATA_DIR}
       PUB_DIR: ${PUB_DIR}
       PUB_URL: ${PUB_URL}
+      AUTHOR_URL: ${AUTHOR_URL}
       flaskdebug: ${flaskdebug}
       runmode: ${runmode}
       devstatus: ${devstatus}
