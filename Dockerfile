@@ -7,6 +7,8 @@ ARG DATA_DIR
 RUN apt update && apt install -y \
     libmagic1 \
     vim \
+    rsync \
+    less \
     git
 
 ADD . /app

@@ -7,6 +7,8 @@ HELP="
 where x, y, z are integers that specify the features projects.
 "
 
+source .env
+
 repodir="`pwd`"
 cd src
 
@@ -19,8 +21,6 @@ else
     runmode="$1"
     shift
 fi
-
-source .env
 
 DATA_DIR="$repodir/data"
 PUB_DIR="$repodir/published"

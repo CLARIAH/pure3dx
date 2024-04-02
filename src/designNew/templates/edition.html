@@ -1,0 +1,88 @@
+{{> general/html-header}}
+{{> responsive-header}}
+{{> bar-gradient-color}}
+{{> bar-info infoText="<strong>Did you know?</strong><br>A project is a collection of narratives in 3D and may entail
+multiple 3D scholary editions."}}
+<div class="">
+
+
+
+  <main class="px-4 w-full text-center my-16">
+    <div class="max-w-2xl mx-auto">
+      <h1 class="text-2xl mb-16 ">25 Northumberland Road</h1>
+      <p class="text-left">Contested Memories is a long-term research project investigating the Battle of Mount Street
+        Bridge through new technologies. The battle was the first confrontation on Wednesday 26 April 1916 between the
+        Irish Volunteers and the British troops sent to quell the Irish Easter Rising. The 3D editions developed as part
+        of the project each tell the story of the battle from a different perspective, focusing on key buildings and
+        combatants.</p>
+      <div class="w-full flex">
+        <button class="{{> styles/button-basic isGrey=true}} my-8">Back to project</button>
+      </div>
+    </div>
+  </main>
+
+
+  <div class="px-4 w-full max-w-xl mx-auto flex flex-col gap-16 mb-16">
+    {{> edition-select title="Other editions by this project"}}
+  </div>
+  {{> bar-gradient-grey}}
+
+  <div class="flex flex-col md:flex-row w-full gap-8 max-w-5xl m-auto mb-20">
+    <div class="w-full md:w-2/3 bg-p3D-900">
+
+      <voyager-explorer root="data/project/64eca653b1520537c7ac5b05/edition/64eca653b1520537c7ac5b06/"
+        resourceroot="data/viewers/voyager/0.31.0/" document="scene.svx.json" id="viewer3d" class=""
+        style="display: block; position: relative; height: 450px"></voyager-explorer>
+      <div class="w-full text-sm  text-neutral-500 flex items-center justify-end gap-2"> <span>Select Voyager
+          version</span>
+
+        <select name="" id="v_version"
+          onchange="voyagerVersion('edition_the-battle-at-25-northumberland-road-a-3d-scholarly-edition.html')">
+          <option class="p-2" value="0.24.0">0.24.0</option>
+          <option class="p-2" value="0.26.0">0.26.0</option>
+          <option class="p-2" value="0.26.1-4-g6c678b0">0.26.1-4-g6c678b0</option>
+          <option class="p-2" value="0.28.0">0.28.0</option>
+          <option class="p-2" value="0.29.1">0.29.1</option>
+          <option class="p-2" value="0.31.0" selected>0.31.0</option>
+        </select>
+
+      </div>
+    </div>
+    <div class="bg-neutral-100 w-full md:w-1/3 p-4">
+
+      <h2 class="text-lg mt-4 mb-1" id="creators">Creators</h2>
+
+      <ul>
+        <li class="">Susan Schreibman</li>
+        <li class="">Kelly Gillikin Schoueri</li>
+        <li class="">John Kaulakis</li>
+        <li class="">Luca Moine</li>
+        <li class="">Sandra Martinez Böhme</li>
+      </ul>
+      <h2 class="text-lg mt-4 mb-1" id="rights">Rights</h2>
+
+      <dl class="flex flex-row flex-wrap">
+        <dt class="italic w-1/3">License</dt>
+
+        <dd class="w-2/3">CC - BY - NC - ND</dd>
+        <dt class="italic w-1/3">Rights holder</dt>
+
+        <dd class="w-2/3">Susan Schreibman</dd>
+      </dl>
+      <h2 class="text-lg mt-4 mb-1" id="institution">Institution</h2>
+      Maastricht University
+      <h2 class="text-lg mt-4 mb-1" id="period">Period</h2>
+      1916-04-24 / 1916-04-27
+      <h2 class="text-lg mt-4 mb-1" id="place">Place</h2>
+      Dublin, Ireland
+    </div>
+  </div>
+
+
+
+  {{> bar-gradient-color}}
+  {{> main_footer}}
+
+</div>
+
+{{> general/html-footer}}

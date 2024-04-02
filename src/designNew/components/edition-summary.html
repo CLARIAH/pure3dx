@@ -1,0 +1,19 @@
+
+<div class="w-full flex flex-col md:flex-row gap-8">
+    <div class="w-full md:w-2/5 ">
+        <div class="p-1 border shadow">
+            <img src="images/{{image}}" class="" alt="" loading="lazy">
+        </div>
+        
+    </div>
+    <div class="w-full md:w-3/5">
+        <h2>{{title}}</h2>
+        <em>{{actor}}</em>
+        <p>{{text}}</p>
+        <div class="flex justify-between my-4 gap-4">
+            <a href="">Go to project</a>
+            <a class="{{> styles/button-basic isDark=true}}">Go to edition</a>
+        </div>
+    </div>
+    
+</div>

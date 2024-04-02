@@ -1,0 +1,19 @@
+
+  <header class="px-6 py-4 w-full max-w-[1700px] mx-auto flex flex-col lg:flex-row gap-4 justify-between font-semibold">
+    
+    <div class="flex flex-row items-end gap-4 justify-center lg:justify-start">
+
+      <a href="/index.html" aria-label="To the homepage of Pure 3D" class="w-[220px]">
+        <img src="images/logo_pure3d.png" alt="" class="w-full">
+      </a>
+      <div class="max-w-sm w-[350px] text-sm md:text-base">A Virtual Research Environment for<br> 3D Digital Humanities And Heritage</div>
+    </div>
+  
+    <nav class="flex items-center flex-wrap gap-3 w-full justify-center lg:justify-end" aria-label="Main site navigation">
+      <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">Search</a>
+      <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">Home</a>
+      <a href="/about.html" class="no-underline {{#if isAbout}}{{>styles/main_navigation-current}}{{/if}}">3D Projects</a>
+      <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">3D Editions</a>
+      <a href="/about.html" class="no-underline {{#if isAbout}}{{>styles/main_navigation-current}}{{/if}}">About</a>
+    </nav>
+  </header>

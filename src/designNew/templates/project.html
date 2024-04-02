@@ -1,0 +1,80 @@
+{{> general/html-header}}
+{{> responsive-header}}
+{{> bar-gradient-color}}
+{{> bar-info infoText="<strong>Did you know?</strong><br>A project is a collection of narratives in 3D and may entail
+multiple 3D scholary editions."}}
+<div class="">
+
+
+
+  <main class="w-full text-center my-16">
+    <div class="max-w-2xl mx-auto">
+      <h1 class="text-2xl mb-16 ">Contested Memories: the Battle of Mount Street Bridge</h1>
+      <p class="text-left">Contested Memories is a long-term research project investigating the Battle of Mount Street
+        Bridge through new technologies. The battle was the first confrontation on Wednesday 26 April 1916 between the
+        Irish Volunteers and the British troops sent to quell the Irish Easter Rising. The 3D editions developed as part
+        of the project each tell the story of the battle from a different perspective, focusing on key buildings and
+        combatants.</p>
+      <div class="w-full flex justify-end">
+        <button class="{{> styles/button-basic isGrey=true}} my-8">All projects</button>
+      </div>
+    </div>
+  </main>
+  {{> bar-gradient-grey}}
+
+  <div
+    class="px-4 py-4 w-full max-w-4xl mx-auto flex flex-col gap-16 mb-16 bg-neutral-100 rounded h-40 overflow-y-scroll">
+    <div class="flex flex-col md:flex-row flex-wrap">
+      <div class="text-sm md:w-1/4">
+        <h2>Creators</h2>
+        <ul>
+          <li>Name 1</li>
+          <li>Name 2</li>
+          <li>Name 3</li>
+        </ul>
+      </div>
+      <div class="text-sm md:w-1/4">
+        <h2>Creators</h2>
+        <ul>
+          <li>Name 1</li>
+          <li>Name 2</li>
+          <li>Name 3</li>
+        </ul>
+      </div>
+      <div class="text-sm md:w-1/4">
+        <h2>Creators</h2>
+        <ul>
+          <li>Name 1</li>
+          <li>Name 2</li>
+          <li>Name 3</li>
+        </ul>
+      </div>
+      <div class="text-sm md:w-1/4">
+        <h2>Creators</h2>
+        <ul>
+          <li>Name 1</li>
+          <li>Name 2</li>
+          <li>Name 3</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="px-4 py-4 w-full max-w-4xl mx-auto border border-neutral-200 rounded-t">Editions</h2>
+  <div class="px-4 py-2 w-full max-w-4xl mx-auto flex flex-col md:flex-row flex-wrap gap-x-10 mb-8 bg-neutral-200 rounded-b h-[800px] overflow-y-scroll">
+
+  {{> edition-card2}}
+  {{> edition-card2}}
+  {{> edition-card2}}
+
+  </div>
+
+
+
+  {{> bar-gradient-color}}
+  {{> main_footer}}
+
+</div>
+
+{{> general/html-footer}}

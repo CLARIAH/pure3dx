@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  h1 {
+    @apply font-semibold
+  }
+
+  h2 {
+    @apply font-semibold
+  }
+
+  h3 {
+    @apply font-semibold
+  }
+
+  a {
+    @apply underline underline-offset-2 decoration-neutral-900/30 hover:decoration-neutral-900/60;
+  }
+}
