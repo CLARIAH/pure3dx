@@ -10,10 +10,10 @@
     </div>
   
     <nav class="flex items-center flex-wrap gap-3 w-full justify-center lg:justify-end" aria-label="Main site navigation">
-      <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">Search</a>
       <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">Home</a>
-      <a href="/about.html" class="no-underline {{#if isAbout}}{{>styles/main_navigation-current}}{{/if}}">3D Projects</a>
-      <a href="/index.html" class="no-underline {{#if isHome}}{{>styles/main_navigation-current}}{{/if}}">3D Editions</a>
+      <a href="/projects.html" class="no-underline {{#if isProjects}}{{>styles/main_navigation-current}}{{/if}}">3D Projects</a>
+      <a href="/editions.html" class="no-underline {{#if isEditions}}{{>styles/main_navigation-current}}{{/if}}">3D Editions</a>
       <a href="/about.html" class="no-underline {{#if isAbout}}{{>styles/main_navigation-current}}{{/if}}">About</a>
+      <a href="{{authorLink}}" class="no-underline">Edit</a>
     </nav>
   </header>

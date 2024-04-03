@@ -2,7 +2,7 @@
 
 USAGE
 
-python migrate.py source destination
+python migrate.py [options] source destination
 
 You have to specify from where and to where the file and db data must be migrated.
 
@@ -16,6 +16,13 @@ Migration will never overwrite files or databases.
 If the destination exists and is not empty, the operation will fail.
 
 If the source does not exist, migration will fail too, obviously.
+
+Options:
+
+--dbonly
+    Only migrate the database, no file system operations/checks will be performed
+--fileonly
+    Only migrate the filesystem, no mongodb operations/checks will be performed
 """
 
 import sys
@@ -218,6 +225,20 @@ def main(args):
         print(HELP)
         return 0
 
+    newargs = []
+    fileOnly = False
+    dbOnly = False
+
+    for arg in args:
+        if arg == "--dbonly":
+            dbOnly = True
+        elif arg == "--fileonly":
+            fileOnly = True
+        else:
+            newargs.append(arg)
+
+    args = newargs
+
     if len(args) != 2:
         print("I need exactly two arguments: source and destination")
         return -1
@@ -261,11 +282,13 @@ def main(args):
         dstFiles = f"{dst}/files"
         dstDb = f"{dst}/db"
 
-    if not copyDir(srcFiles, dstFiles):
-        return 1
+    if not dbOnly:
+        if not copyDir(srcFiles, dstFiles):
+            return 1
 
-    if not copyDb(Settings, srcMode, srcDb, dstMode, dstDb):
-        return 1
+    if not fileOnly:
+        if not copyDb(Settings, srcMode, srcDb, dstMode, dstDb):
+            return 1
 
     return 0
 

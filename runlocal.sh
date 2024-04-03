@@ -1,4 +1,4 @@
-app=$K_NAME
+app=$K_NAMESPACE
 approot="$K_LOCALDIR"
 
 HELP="
