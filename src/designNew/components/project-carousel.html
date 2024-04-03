@@ -10,105 +10,13 @@
 </div>
 
 <script>
-    let loopIndex = (currIndex, diff, arr) => {
-        let indexMax = arr.length -1;
-        let newIndex = currIndex+diff;
-        
-        if ( (newIndex < 0) ) {
-            newIndex = indexMax + newIndex+1
-        } else if (  (newIndex > indexMax) ) {
-            newIndex = newIndex - indexMax-1;
-        }
-        return newIndex;
-    }
+import { Caroussel } from "js/caroussel.js"
 
-    
-
-    const projects = [
-        { "projectImg": "project-img1.png", "projectLink": "home1.html", "projectName": "Project A", "projectDescription": "aaaa aa a aaA" },
-        { "projectImg": "project-img2.png", "projectLink": "home2.html", "projectName": "Project B", "projectDescription": "abbbbb bb b" },
-        { "projectImg": "project-img3.png", "projectLink": "home3.html", "projectName": "Project C", "projectDescription": "ccccc c c cc" },
-        { "projectImg": "project-img4.png", "projectLink": "home4.html", "projectName": "Project D", "projectDescription": "adddd dd ddd" },
-        { "projectImg": "project-img5.png", "projectLink": "home5.html", "projectName": "Project E", "projectDescription": "eeee eeee eee" },
-        { "projectImg": "project-img6.png", "projectLink": "home6.html", "projectName": "Project F", "projectDescription": "ffff ffff ff" },
-        { "projectImg": "project-img7.png", "projectLink": "home7.html", "projectName": "Project G", "projectDescription": "gggg ggg gg" },
-        { "projectImg": "project-img8.png", "projectLink": "home8.html", "projectName": "Project H", "projectDescription": "hhh hhhh hh" }
-    ];
-    
-    let currentPosition = 0;
-    let projectsCards= '';
-    let projectContainer = document.getElementById('projectContainer')
-
-    projects.forEach((project, index) => {
-        projectsCards+= `<div href="${project.projectLink}" class="absolute mx-auto left-0 right-0 bg-white transition-all z-0 bg-white" 
-        id="pc${index}" style="width:300px; z-index:0">
-            <img src="images/${project.projectImg}" class="w-full" alt="" loading="lazy" id="pimg${index}">
-            </div>`
-    });
-    projectContainer.innerHTML = projectsCards;
-
-    let rotateItems = (direction) => {
-        currentPosition = loopIndex(currentPosition, direction, projects);
-
-        document.getElementById('pc'+(loopIndex(currentPosition, -2, projects))).style.zIndex = '30';
-        document.getElementById('pc'+(loopIndex(currentPosition, -2, projects))).style.width = '325px';
-        document.getElementById('pc'+(loopIndex(currentPosition, -2, projects))).style.transform = 'translateX(-250px)';
-        document.getElementById('pimg'+(loopIndex(currentPosition, -2, projects))).style.opacity = '0.5';
-        document.getElementById('pc'+(loopIndex(currentPosition, -2, projects))).style.filter = "blur(4px)";
-
-        document.getElementById('pc'+(loopIndex(currentPosition, -1, projects))).style.zIndex = '40';
-        document.getElementById('pc'+(loopIndex(currentPosition, -1, projects))).style.width = '350px';
-        document.getElementById('pc'+(loopIndex(currentPosition, -1, projects))).style.transform = 'translateX(-150px)';
-        document.getElementById('pimg'+(loopIndex(currentPosition, -1, projects))).style.opacity = '0.7';
-        document.getElementById('pc'+(loopIndex(currentPosition, -1, projects))).style.filter = "blur(2px)";
-
-        document.getElementById('pc'+currentPosition).style.zIndex = '50';
-        document.getElementById('pc'+currentPosition).style.width = '400px';
-        document.getElementById('pc'+currentPosition).style.transform = 'translateX(0px)';
-        document.getElementById('pimg'+currentPosition).style.opacity = '1';
-        document.getElementById('pc'+currentPosition).style.filter = "blur(0px)";
-        
-        document.getElementById('pc'+(loopIndex(currentPosition, 1, projects))).style.zIndex = '40';
-        document.getElementById('pc'+(loopIndex(currentPosition, 1, projects))).style.width = '350px';
-        document.getElementById('pc'+(loopIndex(currentPosition, 1, projects))).style.transform = 'translateX(150px)';
-        document.getElementById('pimg'+(loopIndex(currentPosition, 1, projects))).style.opacity = '0.7';
-        document.getElementById('pc'+(loopIndex(currentPosition, 1, projects))).style.filter = "blur(2px)";
-        
-        document.getElementById('pc'+(loopIndex(currentPosition, 2, projects))).style.zIndex = '30';
-        document.getElementById('pc'+(loopIndex(currentPosition, 2, projects))).style.width = '325px';
-        document.getElementById('pc'+(loopIndex(currentPosition, 2, projects))).style.transform = 'translateX(250px)';
-        document.getElementById('pimg'+(loopIndex(currentPosition, 2, projects))).style.opacity = '0.5';
-        document.getElementById('pc'+(loopIndex(currentPosition, 2, projects))).style.filter = "blur(4px)";
-
-        document.getElementById('sumTitle').innerHTML = projects[currentPosition].projectName;
-        document.getElementById('sumDescription').innerHTML = projects[currentPosition].projectDescription;
-        document.getElementById('sumImg').src = 'images/'+projects[currentPosition].projectImg;
-        document.getElementById('sumlink').href = projects[currentPosition].projectLink;
-
-
-    }
-
-    rotateItems(0)
+const projects = [
+  {{#each projects}}{{>project-obj}}{{/each}}
+]
+  
+const car = new Caroussel(projects, "projectContainer")
+car.roll()
 
 </script>
-
-
-
-
-{{!-- comment 
-
-{{> rotate-image id="1" z="0" blur="4" size="w-52" opacity="50" translate="-translate-x-72 translate-y-4"
-source="project-img1.png"}}
-{{> rotate-image id="2" z="10" blur="3" size="w-60" opacity="70" translate="-translate-x-48 translate-y-4"
-source="project-img2.png"}}
-{{> rotate-image id="3" z="20" blur="1" size="w-64" opacity="85" translate="-translate-x-24 translate-y-2"
-source="project-img4.png"}}
-{{> rotate-image id="4" z="30" blur="0" size="w-72" opacity="100" translate="translate-x-0"
-source="project-img3.png"}}
-{{> rotate-image id="5" z="20" blur="1" size="w-64" opacity="85" translate="translate-x-24 translate-y-2"
-source="project-img5.png"}}
-{{> rotate-image id="6" z="10" blur="3" size="w-60" opacity="70" translate="translate-x-48 translate-y-3"
-source="project-img6.png"}}
-{{> rotate-image id="7" z="0" blur="4" size="w-52" opacity="50" translate="translate-x-72 translate-y-4"
-source="project-img7.png"}}
---}}

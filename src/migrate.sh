@@ -1,7 +1,11 @@
 #!/bin/sh
 
 cd ..
-source .env
+
+if [[ -f .env ]]; then
+    source .env
+fi
+
 repodir="`pwd`"
 cd src
 
