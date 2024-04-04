@@ -87,10 +87,10 @@ export class Caroussel {
       pimg.style.opacity = opacity
     }
 
-    document.getElementById("sumTitle").innerHTML = this.data[this.curP].projectName
-    document.getElementById("sumDescription").innerHTML = this.data[this.curP].projectDescription
+    document.getElementById("sumTitle").innerHTML = this.data[this.curP].name
+    document.getElementById("sumDescription").innerHTML = this.data[this.curP].description
     document.getElementById("sumImg").src = `images/${this.data[this.curP].projectImg}`
-    document.getElementById("sumlink").href = this.data[this.curP].projectLink
+    document.getElementById("sumlink").href = this.data[this.curP].fileName
   }
   roll() {
     this.adaptContainer()

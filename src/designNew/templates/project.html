@@ -26,36 +26,28 @@ multiple 3D scholary editions."}}
     class="px-4 py-4 w-full max-w-4xl mx-auto flex flex-col gap-16 mb-16 bg-neutral-100 rounded h-40 overflow-y-scroll">
     <div class="flex flex-col md:flex-row flex-wrap">
       <div class="text-sm md:w-1/4">
-        <h2>Creators</h2>
-        <ul>
-          <li>Name 1</li>
-          <li>Name 2</li>
-          <li>Name 3</li>
-        </ul>
+        <h2>Creator(s)</h2>
+          <ul>
+            {{#each contentdata.creator}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
       </div>
       <div class="text-sm md:w-1/4">
-        <h2>Creators</h2>
-        <ul>
-          <li>Name 1</li>
-          <li>Name 2</li>
-          <li>Name 3</li>
-        </ul>
+        <h2>Contributor(s)</h2>
+          <ul>
+            {{#each contentdata.contributor}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
       </div>
       <div class="text-sm md:w-1/4">
-        <h2>Creators</h2>
-        <ul>
-          <li>Name 1</li>
-          <li>Name 2</li>
-          <li>Name 3</li>
-        </ul>
-      </div>
-      <div class="text-sm md:w-1/4">
-        <h2>Creators</h2>
-        <ul>
-          <li>Name 1</li>
-          <li>Name 2</li>
-          <li>Name 3</li>
-        </ul>
+        <h2>Subject(s)</h2>
+          <ul>
+            {{#each contentdata.subject}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
       </div>
     </div>
 

@@ -5,8 +5,14 @@
 <div class="flex relative h-64" id="projectContainer">
 </div>
 <div class="flex justify-between mt-4 w-full absolute">
-    <button onclick="rotateItems(-1)" class="text-6xl font-bold p-6">&#8249;</button>
-    <button onclick="rotateItems(1)" class="text-6xl font-bold p-6">&#8250;</button>
+    <button
+        id="rotback"
+        class="text-6xl font-bold p-6"
+    >&#8249;</button>
+    <button
+        id="rotnext"
+        class="text-6xl font-bold p-6"
+    >&#8250;</button>
 </div>
 
 <script>
@@ -14,9 +20,17 @@ import { Caroussel } from "js/caroussel.js"
 
 const projects = [
   {{#each projects}}{{>project-obj}}{{/each}}
+  { num: 1, name: "blabla" },
 ]
   
 const car = new Caroussel(projects, "projectContainer")
 car.roll()
+
+for (const { rot, dr } of [
+  { rot: rotback, dr: -1 },
+  { rot: rotnext, dr: 1 },
+]) {
+  document.getElementById(rot).addEventListener("click", e => car.rotateItems(dr))
+}
 
 </script>
