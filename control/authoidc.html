@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/authoidc.py#L1-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/authoidc.py#L1-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask_oidc import OpenIDConnect
 import json
@@ -41,7 +41,7 @@ def _json_loads(content):
 
 
 class AuthOidc:
-    OIDC_CLIENT_SECRETS = &#34;/app/src/pure3d/secret/client_secrets.json&#34;
+    OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
     def load_secrets(cls):
@@ -60,7 +60,7 @@ class AuthOidc:
             &#39;OIDC_CLIENT_SECRETS&#39;: cls.OIDC_CLIENT_SECRETS,
             # &#39;OIDC_USER_INFO_ENABLED&#39;: True,
             &#39;OIDC_ID_TOKEN_COOKIE_SECURE&#39;: False,
-            &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
+            # &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
             # &#39;OIDC_OPENID_REALM&#39;: &#39;auth realm&#39;,
             # &#39;OVERWRITE_REDIRECT_URI&#39;: OpenIDConnect.client_secrets.get(&#34;redirect_uris&#34;),
         }
@@ -99,10 +99,10 @@ class AuthOidc:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/authoidc.py#L13-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/authoidc.py#L13-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AuthOidc:
-    OIDC_CLIENT_SECRETS = &#34;/app/src/pure3d/secret/client_secrets.json&#34;
+    OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
     def load_secrets(cls):
@@ -121,7 +121,7 @@ class AuthOidc:
             &#39;OIDC_CLIENT_SECRETS&#39;: cls.OIDC_CLIENT_SECRETS,
             # &#39;OIDC_USER_INFO_ENABLED&#39;: True,
             &#39;OIDC_ID_TOKEN_COOKIE_SECURE&#39;: False,
-            &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
+            # &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
             # &#39;OIDC_OPENID_REALM&#39;: &#39;auth realm&#39;,
             # &#39;OVERWRITE_REDIRECT_URI&#39;: OpenIDConnect.client_secrets.get(&#34;redirect_uris&#34;),
         }
@@ -159,7 +159,7 @@ class AuthOidc:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/authoidc.py#L16-L20" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/authoidc.py#L16-L20" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def load_secrets(cls):
@@ -176,7 +176,7 @@ def load_secrets(cls):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/authoidc.py#L22-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/authoidc.py#L22-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def prepare(cls, app):
@@ -189,7 +189,7 @@ def prepare(cls, app):
         &#39;OIDC_CLIENT_SECRETS&#39;: cls.OIDC_CLIENT_SECRETS,
         # &#39;OIDC_USER_INFO_ENABLED&#39;: True,
         &#39;OIDC_ID_TOKEN_COOKIE_SECURE&#39;: False,
-        &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
+        # &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
         # &#39;OIDC_OPENID_REALM&#39;: &#39;auth realm&#39;,
         # &#39;OVERWRITE_REDIRECT_URI&#39;: OpenIDConnect.client_secrets.get(&#34;redirect_uris&#34;),
     }

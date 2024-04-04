@@ -26,9 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L1-L988" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L1-L1252" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from control.generic import AttrDict
+<pre><code class="python">import re
+
+from control.generic import AttrDict
+
+
+USERNAME_RE = re.compile(r&#34;[^a-z0-9._-]&#34;)
 
 
 class Admin:
@@ -92,6 +97,7 @@ class Admin:
         Mongo = Content.Mongo
         Auth = Content.Auth
 
+        self.Settings = Settings
         self.Mongo = Mongo
         self.Auth = Auth
         self.H = H
@@ -116,7 +122,7 @@ class Admin:
         self.update()
 
     def update(self):
-        &#34;&#34;&#34;Reread the collections of users, projects, editions.
+        &#34;&#34;&#34;Reread the tables of users, projects, editions.
 
         Typically needed when you have used an admin function to perform
         a user administration action.
@@ -130,21 +136,24 @@ class Admin:
         User = Auth.myDetails()
         user = User.user
 
+        self.User = User
+        self.user = user
+
         if not user:
+            self.myRole = None
+            self.inPower = False
             return
 
         myRole = User.role
         inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
 
-        self.User = User
-        self.user = user
         self.myRole = myRole
         self.inPower = inPower
-        user = self.user
 
-        userList = Mongo.getList(&#34;user&#34;)
-        projectList = Mongo.getList(&#34;project&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;)
+        siteRecord = Mongo.getRecord(&#34;site&#34;)
+        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
         projectLinks = Mongo.getList(&#34;projectUser&#34;)
         editionLinks = Mongo.getList(&#34;editionUser&#34;)
 
@@ -154,6 +163,7 @@ class Admin:
 
         myIds = AttrDict()
 
+        self.site = siteRecord
         self.users = users
         self.projects = projects
         self.editions = editions
@@ -166,11 +176,16 @@ class Admin:
 
         for pLink in projectLinks:
             role = pLink.role
+
             if role:
                 u = pLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 pId = pLink.projectId
                 pRecord = projects[pId]
+                if pRecord is None:
+                    continue
                 pRecord.setdefault(&#34;users&#34;, AttrDict())
 
                 if user == u:
@@ -185,8 +200,12 @@ class Admin:
             if role:
                 u = eLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 eId = eLink.editionId
                 eRecord = editions[eId]
+                if eRecord is None:
+                    continue
                 pId = eRecord.projectId
 
                 if user == u:
@@ -310,13 +329,10 @@ class Admin:
         otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
 
         nope = (False, frozenset())
-        fineAdmin = (True, frozenset([&#34;admin&#34;]))
-        fineRoot = (True, frozenset([&#34;root&#34;]))
 
         # side-wide assignments
 
         if table is None or record is None:
-
             # nobody can add site-wide users
 
             if otherUser is None:
@@ -329,20 +345,23 @@ class Admin:
             #   if there are no admins
             #     any authenticated user may promote himself to admin
 
+            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
             if nRoots == 0:
                 if user == otherUser:
                     if nAdmins == 0:
                         if myRole == &#34;user&#34;:
+                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
                             return fineAdmin
                     else:
                         if myRole == &#34;admin&#34;:
+                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
                             return fineRoot
 
             # from here on, only admins and roots can change roles
             if not iAmInPower:
                 return nope
 
-            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
             fine = (True, remainingRoles)
 
             # root is all powerful, only limited by other roots
@@ -396,6 +415,8 @@ class Admin:
 
         Mongo = self.Mongo
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return nope
 
         projects = self.projects
         editionRolesSet = self.editionRolesSet
@@ -492,7 +513,7 @@ class Admin:
         myDetails = H.div(
             [
                 H.h(1, &#34;My details&#34;),
-                self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
+                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
             ],
             id=&#34;mydetails&#34;,
         )
@@ -500,7 +521,7 @@ class Admin:
         wrapped = []
         wrapped.append(H.h(1, &#34;My projects and editions&#34;))
         wrapped.append(
-            H.div([self.wrapProject(p) for p in projectsMy])
+            H.div([self._wrapProject(p) for p in projectsMy])
             if len(projectsMy)
             else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
         )
@@ -510,9 +531,11 @@ class Admin:
 
         if inPower:
             wrapped = []
+            wrapped.append(self._wrapPubProjects())
+
             wrapped.append(H.h(1, &#34;All projects and editions&#34;))
             wrapped.append(
-                H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
+                H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
                 if len(projectsAll)
                 else H.div(&#34;There are no projects and no editions&#34;)
             )
@@ -520,12 +543,57 @@ class Admin:
 
             wrapped = []
             wrapped.append(H.h(1, &#34;Manage users&#34;))
-            wrapped.append(H.div(self.wrapUsers(siteRoles), cls=&#34;susers&#34;))
+            wrapped.append(
+                H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+            )
             allUsers = H.div(wrapped, id=&#34;allusers&#34;)
 
         return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)
 
-    def wrapProject(self, project, myOnly=True):
+    def _wrapPubProjects(self):
+        &#34;&#34;&#34;Generate HTML for the published projects in admin view.
+
+        Currently, it provides
+
+        *   a control to edit the list of featured published projects in a
+            rather coarse manner.
+        *   a control to regenerate the static pages
+
+        Parameters
+        ----------
+        project: AttrDict
+            A project record
+        myOnly: boolean, optional False
+            Whether to show only the editions in the project that are associated
+            with the current user.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+
+        Content = self.Content
+        (table, siteId, site) = Content.relevant()
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Published projects&#34;))
+        wrapped.append(H.h(2, &#34;Featured published projects&#34;))
+        wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
+        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
+
+        wrapped.append(
+            H.a(
+                &#34;Regenerate&#34;,
+                &#34;/generate&#34;,
+                title=&#34;Regenerate HTML for published projects&#34;,
+                cls=&#34;button large&#34;,
+            )
+        )
+        return H.div(wrapped, id=&#34;pubprojects&#34;)
+
+    def _wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
 
         Parameters
@@ -547,7 +615,7 @@ class Admin:
         representations = self.representations
         css = self.css
 
-        stat = project.isVisible
+        stat = project.isVisible or False
         status = representations.isVisible[stat]
         statusCls = css.isVisible[stat]
 
@@ -563,7 +631,7 @@ class Admin:
         )
         title = project.title
         if not title:
-            title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+            title = H.i(&#34;no title&#34;)
 
         return H.div(
             [
@@ -572,7 +640,7 @@ class Admin:
                         H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                         H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;),
                         H.div(
-                            self.wrapUsers(
+                            self._wrapUsers(
                                 projectRoles, table=&#34;project&#34;, record=project
                             ),
                             cls=&#34;pusers&#34;,
@@ -583,14 +651,14 @@ class Admin:
                 H.div(
                     &#34;no editions&#34;
                     if len(theseEditions) == 0
-                    else [self.wrapEdition(e) for e in theseEditions],
+                    else [self._wrapEdition(e) for e in theseEditions],
                     cls=&#34;peditions&#34;,
                 ),
             ],
             cls=&#34;pentry&#34;,
         )
 
-    def wrapEdition(self, edition):
+    def _wrapEdition(self, edition):
         &#34;&#34;&#34;Generate HTML for an edition in admin view.
 
         Parameters
@@ -608,27 +676,29 @@ class Admin:
         representations = self.representations
         css = self.css
 
-        stat = edition.isPublished
+        stat = edition.isPublished or False
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
         title = edition.title
         if not title:
-            title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+            title = H.i(&#34;no title&#34;)
 
         return H.div(
             [
                 H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                 H.a(title, f&#34;edition/{edition._id}&#34;, cls=&#34;etitle&#34;),
                 H.div(
-                    self.wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
+                    self._wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
                     cls=&#34;eusers&#34;,
                 ),
             ],
             cls=&#34;eentry&#34;,
         )
 
-    def wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
+    def _wrapUsers(
+        self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
+    ):
         &#34;&#34;&#34;Generate HTML for a list of users.
 
         It is dependent on the value of table/record whether it is about the users
@@ -639,6 +709,9 @@ class Admin:
         itemRoles: dict
             Dictionary keyed by the possible roles and valued by the description
             of that role.
+        workIndicator: boolean, optional False
+            Whether to mention the number of projects and editions the user is
+            involved in.
         table: string, optional None
             Either `project` or `edition`, indicates what users we are listing:
             related to a project or to an edition.
@@ -656,7 +729,12 @@ class Admin:
         string
             The HTML
         &#34;&#34;&#34;
+        H = self.H
+        Settings = self.Settings
+        runProd = Settings.runProd
         users = self.users
+        inPower = self.inPower
+        doingAllUsers = theseUsers is None
 
         if record is None:
             if theseUsers is None:
@@ -675,12 +753,12 @@ class Admin:
             wrapped.append(f&#34;No {rolesRep} for this {tableRep}&#34;)
 
         else:
-            for (u, (uRecord, role)) in sorted(
+            for u, (uRecord, role) in sorted(
                 theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self.wrapUser(
+                    self._wrapUser(
                         u,
                         uRecord,
                         role,
@@ -689,18 +767,38 @@ class Admin:
                         itemRoles,
                         table,
                         recordId,
+                        workIndicator,
                     )
                 )
 
         (editable, otherRoles) = self.authUser(None, table=table, record=record)
+
         if editable:
             wrapped.append(
-                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+            )
+
+        if record is None and not runProd and inPower and doingAllUsers:
+            wrapped.append(
+                H.div(
+                    H.content(
+                        H.input(
+                            &#34;&#34;, &#34;text&#34;, placeholder=&#34;new test user name&#34;, cls=&#34;narrow&#34;
+                        ),
+                        H.iconx(
+                            &#34;create&#34;,
+                            title=&#34;add a new test user&#34;,
+                            href=&#34;/user/create&#34;,
+                            cls=&#34;button small&#34;,
+                        ),
+                    ),
+                    cls=&#34;createuser&#34;,
+                )
             )
 
         return &#34;&#34;.join(wrapped)
 
-    def wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML to add a user in a specified role.
 
         Parameters
@@ -748,8 +846,17 @@ class Admin:
             saveurl=f&#34;/link/user/{table}/{recordId}&#34;,
         )
 
-    def wrapUser(
-        self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId
+    def _wrapUser(
+        self,
+        u,
+        uRecord,
+        role,
+        editable,
+        otherRoles,
+        itemRoles,
+        table,
+        recordId,
+        workIndicator,
     ):
         &#34;&#34;&#34;Generate HTML for a single user and his role.
 
@@ -774,6 +881,9 @@ class Admin:
         recordId: ObjectId or None
             Either None or the id of a project or edition, corresponding to the
             `table` parameter.
+        workIndicator: boolean
+            Whether to mention the number of projects and editions the user is
+            involved in.
 
         Returns
         -------
@@ -781,18 +891,43 @@ class Admin:
             The HTML
         &#34;&#34;&#34;
         H = self.H
+        Content = self.Content
+
+        if workIndicator:
+            user = uRecord.user
+            (nProjects, nEditions) = Content.getUserWork(user)
+            indicator = [
+                H.span(f&#34;projects: {nProjects},&#34;, cls=&#34;dreport&#34;),
+                H.nbsp,
+                H.span(f&#34;editions: {nEditions}&#34;, cls=&#34;dreport&#34;),
+            ]
+            if nProjects == 0 and nEditions == 0 and role == &#34;user&#34;:
+                indicator.extend(
+                    [
+                        H.nbsp,
+                        H.iconx(
+                            &#34;delete&#34;,
+                            title=&#34;delete this user&#34;,
+                            href=f&#34;/user/delete/{user}&#34;,
+                            cls=&#34;button small&#34;,
+                        ),
+                    ]
+                )
+        else:
+            indicator = []
 
         return H.div(
             [
                 H.div(uRecord.nickname, cls=&#34;user&#34;),
-                *self.wrapRole(
+                *self._wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
+                *indicator,
             ],
             cls=&#34;userroles&#34;,
         )
 
-    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there
@@ -922,6 +1057,9 @@ class Admin:
             result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
         else:
             (recordId, record) = Mongo.get(table, recordId)
+            if recordId is None:
+                return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
+
             criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
             if newRole is None:
                 result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
@@ -994,8 +1132,10 @@ class Admin:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
 
         (recordId, record) = Mongo.get(table, recordId)
-        criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
+        if recordId is None:
+            return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
+        criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
         crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
 
         if crossRecord:
@@ -1015,7 +1155,131 @@ class Admin:
             return dict(stat=False, messages=[[&#34;error&#34;, msg]])
 
         self.update()
-        return dict(stat=True, messages=[], updated=self.wrap())</code></pre>
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def createUser(self, user):
+        &#34;&#34;&#34;Creates new user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+            This should be different from the user names of existing users.
+            The name may only contain the ASCII digits and lower case letters,
+            plus dash, dot, and underscore.
+
+            Spaces will be replaced by dots; all other illegal characters by
+            underscores.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+
+            else:
+                name = USERNAME_RE.sub(&#34;_&#34;, user.lower().replace(&#34; &#34;, &#34;.&#34;))
+                if name != user:
+                    messages.append((&#34;warning&#34;, f&#34;user {user} to be saved as {name}&#34;))
+
+                userLong = f&#34;{name:0&gt;16}&#34;
+                userInfo = dict(
+                    nickname=name,
+                    user=userLong,
+                    role=&#34;user&#34;,
+                    isSpecial=True,
+                )
+                userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
+
+                if not userId:
+                    status = False
+                    messages.append(
+                        (&#34;error&#34;, f&#34;could not add {name} to the user table&#34;)
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append((&#34;error&#34;, &#34;adding a user needs admin privileges&#34;))
+            if runProd:
+                messages.append(
+                    (&#34;error&#34;, &#34;adding a user not allowed in production mode&#34;)
+                )
+
+        self.update()
+        return dict(status=status, messages=messages, name=user)
+
+    def deleteUser(self, user):
+        &#34;&#34;&#34;Deletes a test user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+        The user to be deleted should be a test user, not linked to any project or
+        edition.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+            else:
+                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
+
+                if not good:
+                    status = False
+                    messages.append(
+                        (&#34;error&#34;, f&#34;could not delete {user} from the user table&#34;)
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append((&#34;error&#34;, &#34;deleting a user needs admin privileges&#34;))
+            if runProd:
+                messages.append(
+                    (&#34;error&#34;, &#34;deleting a user not allowed in production mode&#34;)
+                )
+
+        self.update()
+        return dict(status=status, messages=messages)</code></pre>
 </details>
 </section>
 <section>
@@ -1065,7 +1329,7 @@ of ids.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L4-L988" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L9-L1252" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Admin:
     def __init__(self, Content):
@@ -1128,6 +1392,7 @@ of ids.</p></div>
         Mongo = Content.Mongo
         Auth = Content.Auth
 
+        self.Settings = Settings
         self.Mongo = Mongo
         self.Auth = Auth
         self.H = H
@@ -1152,7 +1417,7 @@ of ids.</p></div>
         self.update()
 
     def update(self):
-        &#34;&#34;&#34;Reread the collections of users, projects, editions.
+        &#34;&#34;&#34;Reread the tables of users, projects, editions.
 
         Typically needed when you have used an admin function to perform
         a user administration action.
@@ -1166,21 +1431,24 @@ of ids.</p></div>
         User = Auth.myDetails()
         user = User.user
 
+        self.User = User
+        self.user = user
+
         if not user:
+            self.myRole = None
+            self.inPower = False
             return
 
         myRole = User.role
         inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
 
-        self.User = User
-        self.user = user
         self.myRole = myRole
         self.inPower = inPower
-        user = self.user
 
-        userList = Mongo.getList(&#34;user&#34;)
-        projectList = Mongo.getList(&#34;project&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;)
+        siteRecord = Mongo.getRecord(&#34;site&#34;)
+        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
         projectLinks = Mongo.getList(&#34;projectUser&#34;)
         editionLinks = Mongo.getList(&#34;editionUser&#34;)
 
@@ -1190,6 +1458,7 @@ of ids.</p></div>
 
         myIds = AttrDict()
 
+        self.site = siteRecord
         self.users = users
         self.projects = projects
         self.editions = editions
@@ -1202,11 +1471,16 @@ of ids.</p></div>
 
         for pLink in projectLinks:
             role = pLink.role
+
             if role:
                 u = pLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 pId = pLink.projectId
                 pRecord = projects[pId]
+                if pRecord is None:
+                    continue
                 pRecord.setdefault(&#34;users&#34;, AttrDict())
 
                 if user == u:
@@ -1221,8 +1495,12 @@ of ids.</p></div>
             if role:
                 u = eLink.user
                 uRecord = users[u]
+                if uRecord is None:
+                    continue
                 eId = eLink.editionId
                 eRecord = editions[eId]
+                if eRecord is None:
+                    continue
                 pId = eRecord.projectId
 
                 if user == u:
@@ -1346,13 +1624,10 @@ of ids.</p></div>
         otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
 
         nope = (False, frozenset())
-        fineAdmin = (True, frozenset([&#34;admin&#34;]))
-        fineRoot = (True, frozenset([&#34;root&#34;]))
 
         # side-wide assignments
 
         if table is None or record is None:
-
             # nobody can add site-wide users
 
             if otherUser is None:
@@ -1365,20 +1640,23 @@ of ids.</p></div>
             #   if there are no admins
             #     any authenticated user may promote himself to admin
 
+            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
             if nRoots == 0:
                 if user == otherUser:
                     if nAdmins == 0:
                         if myRole == &#34;user&#34;:
+                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
                             return fineAdmin
                     else:
                         if myRole == &#34;admin&#34;:
+                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
                             return fineRoot
 
             # from here on, only admins and roots can change roles
             if not iAmInPower:
                 return nope
 
-            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
             fine = (True, remainingRoles)
 
             # root is all powerful, only limited by other roots
@@ -1432,6 +1710,8 @@ of ids.</p></div>
 
         Mongo = self.Mongo
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return nope
 
         projects = self.projects
         editionRolesSet = self.editionRolesSet
@@ -1528,7 +1808,7 @@ of ids.</p></div>
         myDetails = H.div(
             [
                 H.h(1, &#34;My details&#34;),
-                self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
+                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
             ],
             id=&#34;mydetails&#34;,
         )
@@ -1536,7 +1816,7 @@ of ids.</p></div>
         wrapped = []
         wrapped.append(H.h(1, &#34;My projects and editions&#34;))
         wrapped.append(
-            H.div([self.wrapProject(p) for p in projectsMy])
+            H.div([self._wrapProject(p) for p in projectsMy])
             if len(projectsMy)
             else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
         )
@@ -1546,9 +1826,11 @@ of ids.</p></div>
 
         if inPower:
             wrapped = []
+            wrapped.append(self._wrapPubProjects())
+
             wrapped.append(H.h(1, &#34;All projects and editions&#34;))
             wrapped.append(
-                H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
+                H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
                 if len(projectsAll)
                 else H.div(&#34;There are no projects and no editions&#34;)
             )
@@ -1556,12 +1838,57 @@ of ids.</p></div>
 
             wrapped = []
             wrapped.append(H.h(1, &#34;Manage users&#34;))
-            wrapped.append(H.div(self.wrapUsers(siteRoles), cls=&#34;susers&#34;))
+            wrapped.append(
+                H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+            )
             allUsers = H.div(wrapped, id=&#34;allusers&#34;)
 
         return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)
 
-    def wrapProject(self, project, myOnly=True):
+    def _wrapPubProjects(self):
+        &#34;&#34;&#34;Generate HTML for the published projects in admin view.
+
+        Currently, it provides
+
+        *   a control to edit the list of featured published projects in a
+            rather coarse manner.
+        *   a control to regenerate the static pages
+
+        Parameters
+        ----------
+        project: AttrDict
+            A project record
+        myOnly: boolean, optional False
+            Whether to show only the editions in the project that are associated
+            with the current user.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+
+        Content = self.Content
+        (table, siteId, site) = Content.relevant()
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Published projects&#34;))
+        wrapped.append(H.h(2, &#34;Featured published projects&#34;))
+        wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
+        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
+
+        wrapped.append(
+            H.a(
+                &#34;Regenerate&#34;,
+                &#34;/generate&#34;,
+                title=&#34;Regenerate HTML for published projects&#34;,
+                cls=&#34;button large&#34;,
+            )
+        )
+        return H.div(wrapped, id=&#34;pubprojects&#34;)
+
+    def _wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
 
         Parameters
@@ -1583,7 +1910,7 @@ of ids.</p></div>
         representations = self.representations
         css = self.css
 
-        stat = project.isVisible
+        stat = project.isVisible or False
         status = representations.isVisible[stat]
         statusCls = css.isVisible[stat]
 
@@ -1599,7 +1926,7 @@ of ids.</p></div>
         )
         title = project.title
         if not title:
-            title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+            title = H.i(&#34;no title&#34;)
 
         return H.div(
             [
@@ -1608,7 +1935,7 @@ of ids.</p></div>
                         H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                         H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;),
                         H.div(
-                            self.wrapUsers(
+                            self._wrapUsers(
                                 projectRoles, table=&#34;project&#34;, record=project
                             ),
                             cls=&#34;pusers&#34;,
@@ -1619,14 +1946,14 @@ of ids.</p></div>
                 H.div(
                     &#34;no editions&#34;
                     if len(theseEditions) == 0
-                    else [self.wrapEdition(e) for e in theseEditions],
+                    else [self._wrapEdition(e) for e in theseEditions],
                     cls=&#34;peditions&#34;,
                 ),
             ],
             cls=&#34;pentry&#34;,
         )
 
-    def wrapEdition(self, edition):
+    def _wrapEdition(self, edition):
         &#34;&#34;&#34;Generate HTML for an edition in admin view.
 
         Parameters
@@ -1644,27 +1971,29 @@ of ids.</p></div>
         representations = self.representations
         css = self.css
 
-        stat = edition.isPublished
+        stat = edition.isPublished or False
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
         title = edition.title
         if not title:
-            title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
+            title = H.i(&#34;no title&#34;)
 
         return H.div(
             [
                 H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                 H.a(title, f&#34;edition/{edition._id}&#34;, cls=&#34;etitle&#34;),
                 H.div(
-                    self.wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
+                    self._wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
                     cls=&#34;eusers&#34;,
                 ),
             ],
             cls=&#34;eentry&#34;,
         )
 
-    def wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
+    def _wrapUsers(
+        self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
+    ):
         &#34;&#34;&#34;Generate HTML for a list of users.
 
         It is dependent on the value of table/record whether it is about the users
@@ -1675,6 +2004,9 @@ of ids.</p></div>
         itemRoles: dict
             Dictionary keyed by the possible roles and valued by the description
             of that role.
+        workIndicator: boolean, optional False
+            Whether to mention the number of projects and editions the user is
+            involved in.
         table: string, optional None
             Either `project` or `edition`, indicates what users we are listing:
             related to a project or to an edition.
@@ -1692,7 +2024,12 @@ of ids.</p></div>
         string
             The HTML
         &#34;&#34;&#34;
+        H = self.H
+        Settings = self.Settings
+        runProd = Settings.runProd
         users = self.users
+        inPower = self.inPower
+        doingAllUsers = theseUsers is None
 
         if record is None:
             if theseUsers is None:
@@ -1711,12 +2048,12 @@ of ids.</p></div>
             wrapped.append(f&#34;No {rolesRep} for this {tableRep}&#34;)
 
         else:
-            for (u, (uRecord, role)) in sorted(
+            for u, (uRecord, role) in sorted(
                 theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self.wrapUser(
+                    self._wrapUser(
                         u,
                         uRecord,
                         role,
@@ -1725,18 +2062,38 @@ of ids.</p></div>
                         itemRoles,
                         table,
                         recordId,
+                        workIndicator,
                     )
                 )
 
         (editable, otherRoles) = self.authUser(None, table=table, record=record)
+
         if editable:
             wrapped.append(
-                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+            )
+
+        if record is None and not runProd and inPower and doingAllUsers:
+            wrapped.append(
+                H.div(
+                    H.content(
+                        H.input(
+                            &#34;&#34;, &#34;text&#34;, placeholder=&#34;new test user name&#34;, cls=&#34;narrow&#34;
+                        ),
+                        H.iconx(
+                            &#34;create&#34;,
+                            title=&#34;add a new test user&#34;,
+                            href=&#34;/user/create&#34;,
+                            cls=&#34;button small&#34;,
+                        ),
+                    ),
+                    cls=&#34;createuser&#34;,
+                )
             )
 
         return &#34;&#34;.join(wrapped)
 
-    def wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML to add a user in a specified role.
 
         Parameters
@@ -1784,8 +2141,17 @@ of ids.</p></div>
             saveurl=f&#34;/link/user/{table}/{recordId}&#34;,
         )
 
-    def wrapUser(
-        self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId
+    def _wrapUser(
+        self,
+        u,
+        uRecord,
+        role,
+        editable,
+        otherRoles,
+        itemRoles,
+        table,
+        recordId,
+        workIndicator,
     ):
         &#34;&#34;&#34;Generate HTML for a single user and his role.
 
@@ -1810,6 +2176,9 @@ of ids.</p></div>
         recordId: ObjectId or None
             Either None or the id of a project or edition, corresponding to the
             `table` parameter.
+        workIndicator: boolean
+            Whether to mention the number of projects and editions the user is
+            involved in.
 
         Returns
         -------
@@ -1817,18 +2186,43 @@ of ids.</p></div>
             The HTML
         &#34;&#34;&#34;
         H = self.H
+        Content = self.Content
+
+        if workIndicator:
+            user = uRecord.user
+            (nProjects, nEditions) = Content.getUserWork(user)
+            indicator = [
+                H.span(f&#34;projects: {nProjects},&#34;, cls=&#34;dreport&#34;),
+                H.nbsp,
+                H.span(f&#34;editions: {nEditions}&#34;, cls=&#34;dreport&#34;),
+            ]
+            if nProjects == 0 and nEditions == 0 and role == &#34;user&#34;:
+                indicator.extend(
+                    [
+                        H.nbsp,
+                        H.iconx(
+                            &#34;delete&#34;,
+                            title=&#34;delete this user&#34;,
+                            href=f&#34;/user/delete/{user}&#34;,
+                            cls=&#34;button small&#34;,
+                        ),
+                    ]
+                )
+        else:
+            indicator = []
 
         return H.div(
             [
                 H.div(uRecord.nickname, cls=&#34;user&#34;),
-                *self.wrapRole(
+                *self._wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
+                *indicator,
             ],
             cls=&#34;userroles&#34;,
         )
 
-    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there
@@ -1958,6 +2352,9 @@ of ids.</p></div>
             result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
         else:
             (recordId, record) = Mongo.get(table, recordId)
+            if recordId is None:
+                return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
+
             criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
             if newRole is None:
                 result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
@@ -2030,8 +2427,10 @@ of ids.</p></div>
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
 
         (recordId, record) = Mongo.get(table, recordId)
-        criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
+        if recordId is None:
+            return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
+        criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
         crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
 
         if crossRecord:
@@ -2051,7 +2450,131 @@ of ids.</p></div>
             return dict(stat=False, messages=[[&#34;error&#34;, msg]])
 
         self.update()
-        return dict(stat=True, messages=[], updated=self.wrap())</code></pre>
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def createUser(self, user):
+        &#34;&#34;&#34;Creates new user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+            This should be different from the user names of existing users.
+            The name may only contain the ASCII digits and lower case letters,
+            plus dash, dot, and underscore.
+
+            Spaces will be replaced by dots; all other illegal characters by
+            underscores.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+
+            else:
+                name = USERNAME_RE.sub(&#34;_&#34;, user.lower().replace(&#34; &#34;, &#34;.&#34;))
+                if name != user:
+                    messages.append((&#34;warning&#34;, f&#34;user {user} to be saved as {name}&#34;))
+
+                userLong = f&#34;{name:0&gt;16}&#34;
+                userInfo = dict(
+                    nickname=name,
+                    user=userLong,
+                    role=&#34;user&#34;,
+                    isSpecial=True,
+                )
+                userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
+
+                if not userId:
+                    status = False
+                    messages.append(
+                        (&#34;error&#34;, f&#34;could not add {name} to the user table&#34;)
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append((&#34;error&#34;, &#34;adding a user needs admin privileges&#34;))
+            if runProd:
+                messages.append(
+                    (&#34;error&#34;, &#34;adding a user not allowed in production mode&#34;)
+                )
+
+        self.update()
+        return dict(status=status, messages=messages, name=user)
+
+    def deleteUser(self, user):
+        &#34;&#34;&#34;Deletes a test user.
+
+        This action is only valid in test, pilot or custom mode.
+        The current user must be an admin or root.
+        The user to be deleted should be a test user, not linked to any project or
+        edition.
+
+        Parameters
+        ----------
+        user: string
+            The user name of the user.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the create action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        runProd = Settings.runProd
+        inPower = self.inPower
+
+        status = True
+        messages = []
+
+        if inPower and not runProd:
+            if len(user) == 0:
+                status = False
+                messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+            else:
+                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
+
+                if not good:
+                    status = False
+                    messages.append(
+                        (&#34;error&#34;, f&#34;could not delete {user} from the user table&#34;)
+                    )
+        else:
+            status = False
+
+            if not inPower:
+                messages.append((&#34;error&#34;, &#34;deleting a user needs admin privileges&#34;))
+            if runProd:
+                messages.append(
+                    (&#34;error&#34;, &#34;deleting a user not allowed in production mode&#34;)
+                )
+
+        self.update()
+        return dict(status=status, messages=messages)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -2151,7 +2674,7 @@ user is allowed to remove the role of the target user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L168-L423" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L187-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authUser(self, otherUser, table=None, record=None):
     &#34;&#34;&#34;Check whether a user may change the role of another user.
@@ -2268,13 +2791,10 @@ user is allowed to remove the role of the target user.</p>
     otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
 
     nope = (False, frozenset())
-    fineAdmin = (True, frozenset([&#34;admin&#34;]))
-    fineRoot = (True, frozenset([&#34;root&#34;]))
 
     # side-wide assignments
 
     if table is None or record is None:
-
         # nobody can add site-wide users
 
         if otherUser is None:
@@ -2287,20 +2807,23 @@ user is allowed to remove the role of the target user.</p>
         #   if there are no admins
         #     any authenticated user may promote himself to admin
 
+        remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
         if nRoots == 0:
             if user == otherUser:
                 if nAdmins == 0:
                     if myRole == &#34;user&#34;:
+                        fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
                         return fineAdmin
                 else:
                     if myRole == &#34;admin&#34;:
+                        fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
                         return fineRoot
 
         # from here on, only admins and roots can change roles
         if not iAmInPower:
             return nope
 
-        remainingRoles = frozenset(siteRolesSet - {None, otherRole})
         fine = (True, remainingRoles)
 
         # root is all powerful, only limited by other roots
@@ -2354,6 +2877,8 @@ user is allowed to remove the role of the target user.</p>
 
     Mongo = self.Mongo
     (recordId, record) = Mongo.get(table, record)
+    if recordId is None:
+        return nope
 
     projects = self.projects
     editionRolesSet = self.editionRolesSet
@@ -2411,6 +2936,197 @@ user is allowed to remove the role of the target user.</p>
     return nope</code></pre>
 </details>
 </dd>
+<dt id="control.admin.Admin.createUser"><code class="name flex">
+<span>def <span class="ident">createUser</span></span>(<span>self, user)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates new user.</p>
+<p>This action is only valid in test, pilot or custom mode.
+The current user must be an admin or root.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
+<dd>
+<p>The user name of the user.
+This should be different from the user names of existing users.
+The name may only contain the ASCII digits and lower case letters,
+plus dash, dot, and underscore.</p>
+<p>Spaces will be replaced by dots; all other illegal characters by
+underscores.</p>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the create action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L1130-L1198" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def createUser(self, user):
+    &#34;&#34;&#34;Creates new user.
+
+    This action is only valid in test, pilot or custom mode.
+    The current user must be an admin or root.
+
+    Parameters
+    ----------
+    user: string
+        The user name of the user.
+        This should be different from the user names of existing users.
+        The name may only contain the ASCII digits and lower case letters,
+        plus dash, dot, and underscore.
+
+        Spaces will be replaced by dots; all other illegal characters by
+        underscores.
+
+    Returns
+    -------
+    dict
+        Contains the following keys:
+
+        * `status`: whether the create action was successful
+        * `messages`: messages issued during the process
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Settings = self.Settings
+    runProd = Settings.runProd
+    inPower = self.inPower
+
+    status = True
+    messages = []
+
+    if inPower and not runProd:
+        if len(user) == 0:
+            status = False
+            messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+
+        else:
+            name = USERNAME_RE.sub(&#34;_&#34;, user.lower().replace(&#34; &#34;, &#34;.&#34;))
+            if name != user:
+                messages.append((&#34;warning&#34;, f&#34;user {user} to be saved as {name}&#34;))
+
+            userLong = f&#34;{name:0&gt;16}&#34;
+            userInfo = dict(
+                nickname=name,
+                user=userLong,
+                role=&#34;user&#34;,
+                isSpecial=True,
+            )
+            userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
+
+            if not userId:
+                status = False
+                messages.append(
+                    (&#34;error&#34;, f&#34;could not add {name} to the user table&#34;)
+                )
+    else:
+        status = False
+
+        if not inPower:
+            messages.append((&#34;error&#34;, &#34;adding a user needs admin privileges&#34;))
+        if runProd:
+            messages.append(
+                (&#34;error&#34;, &#34;adding a user not allowed in production mode&#34;)
+            )
+
+    self.update()
+    return dict(status=status, messages=messages, name=user)</code></pre>
+</details>
+</dd>
+<dt id="control.admin.Admin.deleteUser"><code class="name flex">
+<span>def <span class="ident">deleteUser</span></span>(<span>self, user)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes a test user.</p>
+<p>This action is only valid in test, pilot or custom mode.
+The current user must be an admin or root.
+The user to be deleted should be a test user, not linked to any project or
+edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
+<dd>The user name of the user.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the create action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L1200-L1252" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteUser(self, user):
+    &#34;&#34;&#34;Deletes a test user.
+
+    This action is only valid in test, pilot or custom mode.
+    The current user must be an admin or root.
+    The user to be deleted should be a test user, not linked to any project or
+    edition.
+
+    Parameters
+    ----------
+    user: string
+        The user name of the user.
+
+    Returns
+    -------
+    dict
+        Contains the following keys:
+
+        * `status`: whether the create action was successful
+        * `messages`: messages issued during the process
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Settings = self.Settings
+    runProd = Settings.runProd
+    inPower = self.inPower
+
+    status = True
+    messages = []
+
+    if inPower and not runProd:
+        if len(user) == 0:
+            status = False
+            messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
+        else:
+            good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
+
+            if not good:
+                status = False
+                messages.append(
+                    (&#34;error&#34;, f&#34;could not delete {user} from the user table&#34;)
+                )
+    else:
+        status = False
+
+        if not inPower:
+            messages.append((&#34;error&#34;, &#34;deleting a user needs admin privileges&#34;))
+        if runProd:
+            messages.append(
+                (&#34;error&#34;, &#34;deleting a user not allowed in production mode&#34;)
+            )
+
+    self.update()
+    return dict(status=status, messages=messages)</code></pre>
+</details>
+</dd>
 <dt id="control.admin.Admin.linkUser"><code class="name flex">
 <span>def <span class="ident">linkUser</span></span>(<span>self, u, newRole, table, recordId)</span>
 </code></dt>
@@ -2447,7 +3163,7 @@ will be updated, otherwise a new link will be created.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L916-L988" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L1054-L1128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def linkUser(self, u, newRole, table, recordId):
     &#34;&#34;&#34;Links a user in certain role to a project/edition record.
@@ -2500,8 +3216,10 @@ will be updated, otherwise a new link will be created.</p>
         return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
 
     (recordId, record) = Mongo.get(table, recordId)
-    criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
+    if recordId is None:
+        return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
+    criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
     crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
 
     if crossRecord:
@@ -2560,7 +3278,7 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L842-L914" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L977-L1052" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveRole(self, u, newRole, table=None, recordId=None):
     &#34;&#34;&#34;Saves a role into a user or cross table record.
@@ -2615,6 +3333,9 @@ are listing: site-wide users or users related to a project or to an edition.</dd
         result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
     else:
         (recordId, record) = Mongo.get(table, recordId)
+        if recordId is None:
+            return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
+
         criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
         if newRole is None:
             result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
@@ -2641,7 +3362,7 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 <span>def <span class="ident">update</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Reread the collections of users, projects, editions.</p>
+<div class="desc"><p>Reread the tables of users, projects, editions.</p>
 <p>Typically needed when you have used an admin function to perform
 a user administration action.</p>
 <p>This may change the permissions and hence the visiblity of projects and editions.
@@ -2649,10 +3370,10 @@ It also changes the possible user management actions in the future.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L88-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L94-L185" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def update(self):
-    &#34;&#34;&#34;Reread the collections of users, projects, editions.
+    &#34;&#34;&#34;Reread the tables of users, projects, editions.
 
     Typically needed when you have used an admin function to perform
     a user administration action.
@@ -2666,21 +3387,24 @@ It also changes the possible user management actions in the future.</p></div>
     User = Auth.myDetails()
     user = User.user
 
+    self.User = User
+    self.user = user
+
     if not user:
+        self.myRole = None
+        self.inPower = False
         return
 
     myRole = User.role
     inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
 
-    self.User = User
-    self.user = user
     self.myRole = myRole
     self.inPower = inPower
-    user = self.user
 
-    userList = Mongo.getList(&#34;user&#34;)
-    projectList = Mongo.getList(&#34;project&#34;)
-    editionList = Mongo.getList(&#34;edition&#34;)
+    siteRecord = Mongo.getRecord(&#34;site&#34;)
+    userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
+    projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
+    editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
     projectLinks = Mongo.getList(&#34;projectUser&#34;)
     editionLinks = Mongo.getList(&#34;editionUser&#34;)
 
@@ -2690,6 +3414,7 @@ It also changes the possible user management actions in the future.</p></div>
 
     myIds = AttrDict()
 
+    self.site = siteRecord
     self.users = users
     self.projects = projects
     self.editions = editions
@@ -2702,11 +3427,16 @@ It also changes the possible user management actions in the future.</p></div>
 
     for pLink in projectLinks:
         role = pLink.role
+
         if role:
             u = pLink.user
             uRecord = users[u]
+            if uRecord is None:
+                continue
             pId = pLink.projectId
             pRecord = projects[pId]
+            if pRecord is None:
+                continue
             pRecord.setdefault(&#34;users&#34;, AttrDict())
 
             if user == u:
@@ -2721,8 +3451,12 @@ It also changes the possible user management actions in the future.</p></div>
         if role:
             u = eLink.user
             uRecord = users[u]
+            if uRecord is None:
+                continue
             eId = eLink.editionId
             eRecord = editions[eId]
+            if eRecord is None:
+                continue
             pId = eRecord.projectId
 
             if user == u:
@@ -2747,7 +3481,7 @@ It shows a list of users and their site-wide roles, which can be changed.</p></d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L425-L496" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/admin.py#L446-L521" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrap(self):
     &#34;&#34;&#34;Produce a list of projects and editions and users for root/admin usage.
@@ -2789,7 +3523,7 @@ It shows a list of users and their site-wide roles, which can be changed.</p></d
     myDetails = H.div(
         [
             H.h(1, &#34;My details&#34;),
-            self.wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
+            self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
         ],
         id=&#34;mydetails&#34;,
     )
@@ -2797,7 +3531,7 @@ It shows a list of users and their site-wide roles, which can be changed.</p></d
     wrapped = []
     wrapped.append(H.h(1, &#34;My projects and editions&#34;))
     wrapped.append(
-        H.div([self.wrapProject(p) for p in projectsMy])
+        H.div([self._wrapProject(p) for p in projectsMy])
         if len(projectsMy)
         else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
     )
@@ -2807,9 +3541,11 @@ It shows a list of users and their site-wide roles, which can be changed.</p></d
 
     if inPower:
         wrapped = []
+        wrapped.append(self._wrapPubProjects())
+
         wrapped.append(H.h(1, &#34;All projects and editions&#34;))
         wrapped.append(
-            H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
+            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
             if len(projectsAll)
             else H.div(&#34;There are no projects and no editions&#34;)
         )
@@ -2817,542 +3553,12 @@ It shows a list of users and their site-wide roles, which can be changed.</p></d
 
         wrapped = []
         wrapped.append(H.h(1, &#34;Manage users&#34;))
-        wrapped.append(H.div(self.wrapUsers(siteRoles), cls=&#34;susers&#34;))
+        wrapped.append(
+            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+        )
         allUsers = H.div(wrapped, id=&#34;allusers&#34;)
 
     return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapEdition"><code class="name flex">
-<span>def <span class="ident">wrapEdition</span></span>(<span>self, edition)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML for an edition in admin view.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>edition</code></strong> :&ensp;<code>AttrDict</code></dt>
-<dd>An edition record</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L563-L599" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapEdition(self, edition):
-    &#34;&#34;&#34;Generate HTML for an edition in admin view.
-
-    Parameters
-    ----------
-    edition: AttrDict
-        An edition record
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    H = self.H
-    editionRoles = self.editionRoles
-    representations = self.representations
-    css = self.css
-
-    stat = edition.isPublished
-    status = representations.isPublished[stat]
-    statusCls = css.isPublished[stat]
-
-    title = edition.title
-    if not title:
-        title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
-
-    return H.div(
-        [
-            H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
-            H.a(title, f&#34;edition/{edition._id}&#34;, cls=&#34;etitle&#34;),
-            H.div(
-                self.wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
-                cls=&#34;eusers&#34;,
-            ),
-        ],
-        cls=&#34;eentry&#34;,
-    )</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapLinkUser"><code class="name flex">
-<span>def <span class="ident">wrapLinkUser</span></span>(<span>self, roles, itemRoles, table, recordId)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML to add a user in a specified role.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>roles</code></strong> :&ensp;<code>string | void</code></dt>
-<dd>The choice of roles that a new user can get.</dd>
-<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Dictionary keyed by the possible roles and valued by the description
-of that role.</dd>
-<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>Either None or <code>project</code> or <code>edition</code>, indicates to what we are linking
-users: site-wide users or users related to a project or to an edition.</dd>
-<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
-<dd>Either None or the id of a project or edition, corresponding to the
-<code>table</code> parameter.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L673-L719" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapLinkUser(self, roles, itemRoles, table, recordId):
-    &#34;&#34;&#34;Generate HTML to add a user in a specified role.
-
-    Parameters
-    ----------
-    roles: string | void
-        The choice of roles that a new user can get.
-    itemRoles: dict
-        Dictionary keyed by the possible roles and valued by the description
-        of that role.
-    table: string
-        Either None or `project` or `edition`, indicates to what we are linking
-        users: site-wide users or users related to a project or to an edition.
-    recordId: ObjectId or None
-        Either None or the id of a project or edition, corresponding to the
-        `table` parameter.
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    H = self.H
-    users = self.users
-
-    linkButton = H.actionButton(&#34;edit_link&#34;)
-    cancelButton = H.actionButton(&#34;edit_cancel&#34;)
-    saveButton = H.actionButton(&#34;edit_save&#34;)
-    messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
-
-    roleChoice = H.div(
-        [H.div(itemRoles[r], cls=&#34;role button&#34;, role=r) for r in roles],
-        cls=&#34;chooseroles&#34;,
-    )
-    userChoice = H.div(
-        [
-            H.div(uRecord.nickname, cls=&#34;user button&#34;, user=u)
-            for (u, uRecord) in users.items()
-        ],
-        cls=&#34;chooseusers&#34;,
-    )
-
-    return H.div(
-        [linkButton, cancelButton, saveButton, messages, roleChoice, userChoice],
-        cls=&#34;linkusers&#34;,
-        saveurl=f&#34;/link/user/{table}/{recordId}&#34;,
-    )</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapProject"><code class="name flex">
-<span>def <span class="ident">wrapProject</span></span>(<span>self, project, myOnly=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML for a project in admin view.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict</code></dt>
-<dd>A project record</dd>
-<dt><strong><code>myOnly</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>Whether to show only the editions in the project that are associated
-with the current user.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L498-L561" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapProject(self, project, myOnly=True):
-    &#34;&#34;&#34;Generate HTML for a project in admin view.
-
-    Parameters
-    ----------
-    project: AttrDict
-        A project record
-    myOnly: boolean, optional False
-        Whether to show only the editions in the project that are associated
-        with the current user.
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    H = self.H
-    myIds = self.myIds
-    projectRoles = self.projectRoles
-    representations = self.representations
-    css = self.css
-
-    stat = project.isVisible
-    status = representations.isVisible[stat]
-    statusCls = css.isVisible[stat]
-
-    editions = project.editions or AttrDict()
-
-    theseEditions = sorted(
-        (
-            e
-            for e in editions.values()
-            if not myOnly or e._id in (myIds.edition or set())
-        ),
-        key=lambda x: (x.title, x._id),
-    )
-    title = project.title
-    if not title:
-        title = &#34;&lt;i&gt;no title&lt;/i&gt;&#34;
-
-    return H.div(
-        [
-            H.div(
-                [
-                    H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
-                    H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;),
-                    H.div(
-                        self.wrapUsers(
-                            projectRoles, table=&#34;project&#34;, record=project
-                        ),
-                        cls=&#34;pusers&#34;,
-                    ),
-                ],
-                cls=&#34;phead&#34;,
-            ),
-            H.div(
-                &#34;no editions&#34;
-                if len(theseEditions) == 0
-                else [self.wrapEdition(e) for e in theseEditions],
-                cls=&#34;peditions&#34;,
-            ),
-        ],
-        cls=&#34;pentry&#34;,
-    )</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapRole"><code class="name flex">
-<span>def <span class="ident">wrapRole</span></span>(<span>self, u, itemRoles, role, editable, otherRoles, table, recordId)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML for a role.</p>
-<p>This may or may not be an editable widget, depending on whether there
-are options to choose from.</p>
-<p>Site-wide users have a single site-wide role. But project/edition users
-can have zero or one role wrt projects/editions.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>u</code></strong> :&ensp;<code>string</code></dt>
-<dd>The eppn of the user.</dd>
-<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Dictionary keyed by the possible roles and valued by the description
-of that role.</dd>
-<dt><strong><code>role</code></strong> :&ensp;<code>string | void</code></dt>
-<dd>The actual role of the user, or None if the user has no role.</dd>
-<dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Whether the current user may change the role of this user.</dd>
-<dt><strong><code>otherRoles</code></strong> :&ensp;<code>frozenset</code></dt>
-<dd>The other roles that the target user may be assigned by the current user.</dd>
-<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>Either None or <code>project</code> or <code>edition</code>, indicates what users we
-are listing: site-wide users or users related to a project or to an edition.</dd>
-<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
-<dd>Either None or the id of a project or edition, corresponding to the
-<code>table</code> parameter.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L765-L840" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
-    &#34;&#34;&#34;Generate HTML for a role.
-
-    This may or may not be an editable widget, depending on whether there
-    are options to choose from.
-
-    Site-wide users have a single site-wide role. But project/edition users
-    can have zero or one role wrt projects/editions.
-
-    Parameters
-    ----------
-    u: string
-        The eppn of the user.
-    itemRoles: dict
-        Dictionary keyed by the possible roles and valued by the description
-        of that role.
-    role: string | void
-        The actual role of the user, or None if the user has no role.
-    editable: boolean
-        Whether the current user may change the role of this user.
-    otherRoles: frozenset
-        The other roles that the target user may be assigned by the current user.
-    table: string
-        Either None or `project` or `edition`, indicates what users we
-        are listing: site-wide users or users related to a project or to an edition.
-    recordId: ObjectId or None
-        Either None or the id of a project or edition, corresponding to the
-        `table` parameter.
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    roleRank = self.roleRank
-    H = self.H
-
-    actualRole = H.div(itemRoles[role], role=role, cls=&#34;role&#34;)
-    tableRep = f&#34;/{table}&#34; if table else &#34;&#34;
-    recordRep = f&#34;/{recordId}&#34; if table else &#34;&#34;
-
-    allRoles = sorted({role} | otherRoles, key=roleRank)
-
-    if editable:
-        saveUrl = f&#34;/save/role/{u}/{tableRep}{recordRep}&#34;
-        updateButton = H.actionButton(&#34;edit_assign&#34;)
-        cancelButton = H.actionButton(&#34;edit_cancel&#34;)
-        saveButton = H.actionButton(&#34;edit_save&#34;)
-        messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
-
-        widget = H.div(
-            [
-                updateButton,
-                saveButton,
-                cancelButton,
-                messages,
-                H.div(
-                    [
-                        H.div(
-                            itemRoles[r],
-                            cls=&#34;role button &#34; + (&#34;on&#34; if r == role else &#34;&#34;),
-                            role=r,
-                        )
-                        for r in allRoles
-                    ],
-                    cls=&#34;edit roles&#34;,
-                    saveurl=saveUrl,
-                    origvalue=role,
-                ),
-            ],
-            cls=&#34;editroles&#34;,
-        )
-    else:
-        widget = &#34;&#34;
-
-    return [actualRole, widget]</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapUser"><code class="name flex">
-<span>def <span class="ident">wrapUser</span></span>(<span>self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML for a single user and his role.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>u</code></strong> :&ensp;<code>string</code></dt>
-<dd>The eppn of the user.</dd>
-<dt><strong><code>uRecord</code></strong> :&ensp;<code>AttrDict</code></dt>
-<dd>The user record.</dd>
-<dt><strong><code>role</code></strong> :&ensp;<code>string | void</code></dt>
-<dd>The actual role of the user, or None if the user has no role.</dd>
-<dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Whether the current user may change the role of this user.</dd>
-<dt><strong><code>otherRoles</code></strong> :&ensp;<code>frozenset</code></dt>
-<dd>The other roles that the user may get from the current user.</dd>
-<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Dictionary keyed by the possible roles and valued by the description
-of that role.</dd>
-<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>Either None or <code>project</code> or <code>edition</code>, indicates what users we
-are listing: site-wide users or users related to a project or to an edition.</dd>
-<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
-<dd>Either None or the id of a project or edition, corresponding to the
-<code>table</code> parameter.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L721-L763" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapUser(
-    self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId
-):
-    &#34;&#34;&#34;Generate HTML for a single user and his role.
-
-    Parameters
-    ----------
-    u: string
-        The eppn of the user.
-    uRecord: AttrDict
-        The user record.
-    role: string | void
-        The actual role of the user, or None if the user has no role.
-    editable: boolean
-        Whether the current user may change the role of this user.
-    otherRoles: frozenset
-        The other roles that the user may get from the current user.
-    itemRoles: dict
-        Dictionary keyed by the possible roles and valued by the description
-        of that role.
-    table: string
-        Either None or `project` or `edition`, indicates what users we
-        are listing: site-wide users or users related to a project or to an edition.
-    recordId: ObjectId or None
-        Either None or the id of a project or edition, corresponding to the
-        `table` parameter.
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    H = self.H
-
-    return H.div(
-        [
-            H.div(uRecord.nickname, cls=&#34;user&#34;),
-            *self.wrapRole(
-                u, itemRoles, role, editable, otherRoles, table, recordId
-            ),
-        ],
-        cls=&#34;userroles&#34;,
-    )</code></pre>
-</details>
-</dd>
-<dt id="control.admin.Admin.wrapUsers"><code class="name flex">
-<span>def <span class="ident">wrapUsers</span></span>(<span>self, itemRoles, table=None, record=None, theseUsers=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate HTML for a list of users.</p>
-<p>It is dependent on the value of table/record whether it is about the users
-of a specific project/edition or the site-wide users.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Dictionary keyed by the possible roles and valued by the description
-of that role.</dd>
-<dt><strong><code>table</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>Either <code>project</code> or <code>edition</code>, indicates what users we are listing:
-related to a project or to an edition.</dd>
-<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code>, optional <code>None</code></dt>
-<dd>If <code>table</code> is passed and not None, here is the specific project or edition
-whose users should be listed.</dd>
-<dt><strong><code>theseUsers</code></strong> :&ensp;<code>dict</code>, optional <code>None</code></dt>
-<dd>If table/record is not specified, you can specify users here.
-If this parameter is also None, then all users in the system are taken.
-Otherwise you have to specify a dict, keyed by user eppns and valued by
-tuples consisting of a user record and a role.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>string</code></dt>
-<dd>The HTML</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/admin.py#L601-L671" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapUsers(self, itemRoles, table=None, record=None, theseUsers=None):
-    &#34;&#34;&#34;Generate HTML for a list of users.
-
-    It is dependent on the value of table/record whether it is about the users
-    of a specific project/edition or the site-wide users.
-
-    Parameters
-    ----------
-    itemRoles: dict
-        Dictionary keyed by the possible roles and valued by the description
-        of that role.
-    table: string, optional None
-        Either `project` or `edition`, indicates what users we are listing:
-        related to a project or to an edition.
-    record: AttrDict, optional None
-        If `table` is passed and not None, here is the specific project or edition
-        whose users should be listed.
-    theseUsers: dict, optional None
-        If table/record is not specified, you can specify users here.
-        If this parameter is also None, then all users in the system are taken.
-        Otherwise you have to specify a dict, keyed by user eppns and valued by
-        tuples consisting of a user record and a role.
-
-    Returns
-    -------
-    string
-        The HTML
-    &#34;&#34;&#34;
-    users = self.users
-
-    if record is None:
-        if theseUsers is None:
-            theseUsers = {
-                u: (uRecord, uRecord.role) for (u, uRecord) in users.items()
-            }
-    else:
-        theseUsers = record.users
-
-    recordId = record._id if record else None
-    wrapped = []
-
-    if theseUsers is None:
-        rolesRep = &#34;, &#34;.join(f&#34;{itemRoles[r]}s&#34; for r in itemRoles if r)
-        tableRep = table if table else &#34;site&#34;
-        wrapped.append(f&#34;No {rolesRep} for this {tableRep}&#34;)
-
-    else:
-        for (u, (uRecord, role)) in sorted(
-            theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
-        ):
-            (editable, otherRoles) = self.authUser(u, table=table, record=record)
-            wrapped.append(
-                self.wrapUser(
-                    u,
-                    uRecord,
-                    role,
-                    editable,
-                    otherRoles,
-                    itemRoles,
-                    table,
-                    recordId,
-                )
-            )
-
-    (editable, otherRoles) = self.authUser(None, table=table, record=record)
-    if editable:
-        wrapped.append(
-            self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
-        )
-
-    return &#34;&#34;.join(wrapped)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3425,16 +3631,12 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.admin.Admin" href="#control.admin.Admin">Admin</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.admin.Admin.authUser" href="#control.admin.Admin.authUser">authUser</a></code></li>
+<li><code><a title="control.admin.Admin.createUser" href="#control.admin.Admin.createUser">createUser</a></code></li>
+<li><code><a title="control.admin.Admin.deleteUser" href="#control.admin.Admin.deleteUser">deleteUser</a></code></li>
 <li><code><a title="control.admin.Admin.linkUser" href="#control.admin.Admin.linkUser">linkUser</a></code></li>
 <li><code><a title="control.admin.Admin.saveRole" href="#control.admin.Admin.saveRole">saveRole</a></code></li>
 <li><code><a title="control.admin.Admin.update" href="#control.admin.Admin.update">update</a></code></li>
 <li><code><a title="control.admin.Admin.wrap" href="#control.admin.Admin.wrap">wrap</a></code></li>
-<li><code><a title="control.admin.Admin.wrapEdition" href="#control.admin.Admin.wrapEdition">wrapEdition</a></code></li>
-<li><code><a title="control.admin.Admin.wrapLinkUser" href="#control.admin.Admin.wrapLinkUser">wrapLinkUser</a></code></li>
-<li><code><a title="control.admin.Admin.wrapProject" href="#control.admin.Admin.wrapProject">wrapProject</a></code></li>
-<li><code><a title="control.admin.Admin.wrapRole" href="#control.admin.Admin.wrapRole">wrapRole</a></code></li>
-<li><code><a title="control.admin.Admin.wrapUser" href="#control.admin.Admin.wrapUser">wrapUser</a></code></li>
-<li><code><a title="control.admin.Admin.wrapUsers" href="#control.admin.Admin.wrapUsers">wrapUsers</a></code></li>
 </ul>
 </li>
 </ul>

@@ -26,10 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L1-L223" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L1-L721" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import yaml
+import json
 import re
 from shutil import rmtree, copytree, copy
 
@@ -40,7 +41,481 @@ THREE_EXT = {&#34;glb&#34;, &#34;gltf&#34;}
 THREE_EXT_PAT = &#34;|&#34;.join(THREE_EXT)
 
 IMAGE_RE = re.compile(r&#34;&#34;&#34;^.*\.(png|jpg|jpeg)$&#34;&#34;&#34;, re.I)
-THREED_RE = re.compile(fr&#34;&#34;&#34;^.*\.({THREE_EXT_PAT})$&#34;&#34;&#34;, re.I)
+THREED_RE = re.compile(rf&#34;&#34;&#34;^.*\.({THREE_EXT_PAT})$&#34;&#34;&#34;, re.I)
+
+
+def str_presenter(dumper, data):
+    &#34;&#34;&#34;configures yaml for dumping multiline strings
+    Ref: https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data
+    &#34;&#34;&#34;
+    if data.count(&#34;\n&#34;) &gt; 0:  # check for multiline string
+        return dumper.represent_scalar(&#34;tag:yaml.org,2002:str&#34;, data, style=&#34;|&#34;)
+
+    return dumper.represent_scalar(&#34;tag:yaml.org,2002:str&#34;, data)
+
+
+yaml.add_representer(str, str_presenter)
+yaml.representer.SafeRepresenter.add_representer(str, str_presenter)
+
+
+def normpath(path):
+    if path is None:
+        return None
+    norm = os.path.normpath(path)
+    return &#34;/&#34;.join(norm.split(os.path.sep))
+
+
+_tildeDir = normpath(os.path.expanduser(&#34;~&#34;))
+_homeDir = _tildeDir
+
+
+scanDir = os.scandir
+walkDir = os.walk
+splitExt = os.path.splitext
+mTime = os.path.getmtime
+
+
+def abspath(path):
+    return normpath(os.path.abspath(path))
+
+
+def expanduser(path):
+    nPath = normpath(path)
+    if nPath.startswith(&#34;~&#34;):
+        return f&#34;{_homeDir}{nPath[1:]}&#34;
+
+    return nPath
+
+
+def unexpanduser(path):
+    nPath = normpath(path)
+
+    return nPath.replace(_homeDir, &#34;~&#34;)
+
+
+def prefixSlash(path):
+    &#34;&#34;&#34;Prefix a / before a path if it is non-empty and not already starts with it.&#34;&#34;&#34;
+    return f&#34;/{path}&#34; if path and not path.startswith(&#34;/&#34;) else path
+
+
+def dirEmpty(target):
+    target = normpath(target)
+    return not os.path.exists(target) or not os.listdir(target)
+
+
+def clearTree(path):
+    &#34;&#34;&#34;Remove all files from a directory, recursively, but leave subdirectories.
+
+    Reason: we want to inspect output in an editor.
+    But if we remove the directories, the editor looses its current directory
+    all the time.
+
+    Parameters
+    ----------
+    path:
+        The directory in question. A leading `~` will be expanded to the user&#39;s
+        home directory.
+    &#34;&#34;&#34;
+
+    subdirs = []
+    path = expanduser(path)
+
+    with os.scandir(path) as dh:
+        for i, entry in enumerate(dh):
+            name = entry.name
+            if name.startswith(&#34;.&#34;):
+                continue
+            if entry.is_file():
+                os.remove(f&#34;{path}/{name}&#34;)
+            elif entry.is_dir():
+                subdirs.append(name)
+
+    for subdir in subdirs:
+        clearTree(f&#34;{path}/{subdir}&#34;)
+
+
+def initTree(path, fresh=False, gentle=False):
+    &#34;&#34;&#34;Make sure a directory exists, optionally clean it.
+
+    Parameters
+    ----------
+    path:
+        The directory in question. A leading `~` will be expanded to the user&#39;s
+        home directory.
+
+        If the directory does not exist, it will be created.
+
+    fresh: boolean, optional False
+        If True, existing contents will be removed, more or less gently.
+
+    gentle: boolean, optional False
+        When existing content is removed, only files are recursively removed, not
+        subdirectories.
+    &#34;&#34;&#34;
+
+    path = expanduser(path)
+    exists = os.path.exists(path)
+    if fresh:
+        if exists:
+            if gentle:
+                clearTree(path)
+            else:
+                rmtree(path)
+
+    if not exists or fresh:
+        os.makedirs(path, exist_ok=True)
+
+
+def dirNm(path, up=1):
+    &#34;&#34;&#34;Get the directory part of a file name.
+
+    Parameters
+    ----------
+    up: int, optional 1
+        The number of levels to go up. Should be 1 or higher.
+        If not passed, the parent directory is returned.
+        If it is 0 or lower, the `path` itself is returned.
+    &#34;&#34;&#34;
+    return path if up &lt; 1 else os.path.dirname(dirNm(path, up - 1))
+
+
+def fileNm(path):
+    &#34;&#34;&#34;Get the file part of a file name.&#34;&#34;&#34;
+    return os.path.basename(path)
+
+
+def stripExt(path):
+    &#34;&#34;&#34;Strip the extension of a file name, if there is one.&#34;&#34;&#34;
+    (d, f) = (dirNm(path), fileNm(path))
+    sep = &#34;/&#34; if d else &#34;&#34;
+    return f&#34;{d}{sep}{f.rsplit(&#39;.&#39;, 1)[0]}&#34;
+
+
+def splitPath(path):
+    &#34;&#34;&#34;Split a file name in a directory part and a file part.&#34;&#34;&#34;
+    return os.path.split(path)
+
+
+def isFile(path):
+    &#34;&#34;&#34;Whether path exists and is a file.&#34;&#34;&#34;
+    return os.path.isfile(path)
+
+
+def isDir(path):
+    &#34;&#34;&#34;Whether path exists and is a directory.&#34;&#34;&#34;
+    return os.path.isdir(path)
+
+
+def fileExists(path):
+    &#34;&#34;&#34;Whether a path exists as file on the file system.&#34;&#34;&#34;
+    return os.path.isfile(path)
+
+
+def fileRemove(path):
+    &#34;&#34;&#34;Removes a file if it exists as file.&#34;&#34;&#34;
+    if fileExists(path):
+        os.remove(path)
+
+
+def fileCopy(pathSrc, pathDst):
+    &#34;&#34;&#34;Copies a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    &#34;&#34;&#34;
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+        copy(pathSrc, pathDst)
+
+
+def fileMove(pathSrc, pathDst):
+    &#34;&#34;&#34;Moves a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    &#34;&#34;&#34;
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+    os.rename(pathSrc, pathDst)
+
+
+def dirExists(path):
+    &#34;&#34;&#34;Whether a path exists as directory on the file system.&#34;&#34;&#34;
+    return (
+        False
+        if path is None
+        else True
+        if path == &#34;&#34;
+        else os.path.isdir(path)
+        if path
+        else True
+    )
+
+
+def dirRemove(path):
+    &#34;&#34;&#34;Removes a directory if it exists as directory.&#34;&#34;&#34;
+    if dirExists(path):
+        rmtree(path)
+
+
+def dirMove(pathSrc, pathDst):
+    &#34;&#34;&#34;Moves a directory if it exists as directory.
+
+    Refuses the operation in the target exists.
+    &#34;&#34;&#34;
+    if not dirExists(pathSrc) or dirExists(pathDst):
+        return False
+    os.rename(pathSrc, pathDst)
+    return True
+
+
+def dirCopy(pathSrc, pathDst, noclobber=False):
+    &#34;&#34;&#34;Copies a directory if it exists as directory.
+
+    Wipes the destination directory, if it exists.
+    &#34;&#34;&#34;
+    if dirExists(pathSrc):
+        if dirExists(pathDst):
+            if noclobber:
+                return False
+        dirRemove(pathDst)
+        copytree(pathSrc, pathDst)
+        return True
+    else:
+        return False
+
+
+def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
+    &#34;&#34;&#34;Makes a destination dir equal to a source dir by copying newer files only.
+
+    Files of the source dir that are missing or older in the destination dir are
+    copied from the source to the destination.
+    Files and directories in the destination dir that do not exist in the source
+    dir are deleted, but this can be prevented.
+
+    Parameters
+    ----------
+    pathSrc: string
+        The source directory. It does not matter whether the directory ends with
+        a slash or not, unless the directory is the root.
+    pathDst: string
+        The destination directory. It does not matter whether the directory ends with
+        a slash or not, unless the directory is the root.
+    force: boolean, optional False
+        If True, files that are older in the source than in the destination will also
+        be copied.
+    delete: boolean, optional False
+        Whether to delete items from the destination that do not exist in the source.
+    level: integer, optional -1
+        Whether to merge recursively and to what level. At level 0 we do not merge,
+        but copy each item from source to destination.
+
+        If we start with a negative level, we never reach level 0, so we apply merging
+        always.
+
+        If we start with level 0, we merge the files, but we copy the subdirectories.
+
+        If we start with a positive level, we merge that many levels deep, after which
+        we switch to copying.
+
+    Returns
+    -------
+    tuple
+        *   boolean: whether the action was successful;
+        *   integer: the amount of copy actions to destination directory
+        *   integer: the amount of delete actions in the destination directory
+
+    &#34;&#34;&#34;
+
+    if not dirExists(pathSrc):
+        return (False, 0, 0)
+
+    srcPath = pathSrc.rstrip(&#34;/&#34;)
+    dstPath = pathDst.rstrip(&#34;/&#34;)
+
+    if not dirExists(pathDst):
+        if fileExists(pathDst):
+            if not delete:
+                return (False, 0, 0)
+
+            fileRemove(pathDst)
+
+        return (dirCopy(pathSrc, pathDst), 1, 0)
+
+    (good, cActions, dActions) = (True, 0, 0)
+    (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
+    (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
+
+    for file in srcFiles:
+        src = f&#34;{srcPath}/{file}&#34;
+        dst = f&#34;{dstPath}/{file}&#34;
+
+        if file in dstDirs:
+            if delete:
+                dirRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
+
+        if file not in dstFiles or force or level == 0 or mTime(src) &gt; mTime(dst):
+            fileCopy(src, dst)
+            cActions += 1
+
+    for file in dstFiles:
+        src = f&#34;{srcPath}/{file}&#34;
+        dst = f&#34;{dstPath}/{file}&#34;
+
+        if delete and file not in srcFiles:
+            fileRemove(dst)
+            dActions += 1
+
+    if level == 0:
+        return (good, cActions, dActions)
+
+    for dr in srcDrs:
+        src = f&#34;{srcPath}/{dr}&#34;
+        dst = f&#34;{dstPath}/{dr}&#34;
+
+        if dr in dstFiles:
+            if delete:
+                fileRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
+
+        if level == 0:
+            dirCopy(src, dst)
+            cActions += 1
+        else:
+            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
+
+        if not thisGood:
+            good = False
+
+        cActions += thisC
+        dActions += thisD
+
+    for dr in dstDirs:
+        src = f&#34;{srcPath}/{dr}&#34;
+        dst = f&#34;{dstPath}/{dr}&#34;
+
+        if delete and dr not in srcDrs:
+            dirRemove(dst)
+            dActions += 1
+
+    return (good, cActions, dActions)
+
+
+def dirMake(path):
+    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.&#34;&#34;&#34;
+    if not dirExists(path):
+        os.makedirs(path, exist_ok=True)
+
+
+def dirContents(path, asSet=False):
+    &#34;&#34;&#34;Gets the contents of a directory.
+
+    Only the direct entries in the directory (not recursively), and only real files
+    and folders.
+
+    The list of files and folders will be returned separately.
+    There is no attempt to sort the files.
+
+    Parameters
+    ----------
+    path: string
+        The path to the directory on the file system.
+    asSet: boolean, optional False
+        If True, the files and directories will be delivered as sets, otherwise
+        as tuples.
+
+    Returns
+    -------
+    tuple of tuple
+        The files and the subdirectories.
+        These are given as names relative to the directory `path`,
+        so `path` is not prepended to these names.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return (set(), set()) if asSet else ((), ())
+
+    files = []
+    dirs = []
+
+    for entry in os.listdir(path):
+        if os.path.isfile(f&#34;{path}/{entry}&#34;):
+            files.append(entry)
+        elif os.path.isdir(f&#34;{path}/{entry}&#34;):
+            dirs.append(entry)
+
+    return (set(files), set(dirs)) if asSet else (tuple(files), tuple(dirs))
+
+
+def dirAllFiles(path, ignore=None):
+    &#34;&#34;&#34;Gets all the files found by `path`.
+
+    The result is just `[path]` if `path` is a file, otherwise the list of files under
+    `path`, recursively.
+
+    The files are sorted alphabetically by path name.
+
+    Parameters
+    ----------
+    path: string
+        The path to the file or directory on the file system.
+    ignore: set
+        Names of directories that must be skipped
+
+    Returns
+    -------
+    tuple of string
+        The names of the files under `path`, starting with `path`, followed
+        by the bit relative to `path`.
+    &#34;&#34;&#34;
+    if fileExists(path):
+        return [path]
+
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    if not ignore:
+        ignore = set()
+
+    for entry in os.listdir(path):
+        name = f&#34;{path}/{entry}&#34;
+
+        if os.path.isfile(name):
+            files.append(name)
+        elif os.path.isdir(name):
+            if entry in ignore:
+                continue
+            files.extend(dirAllFiles(name, ignore=ignore))
+
+    return tuple(sorted(files))
+
+
+def getCwd():
+    &#34;&#34;&#34;Get current directory.
+
+    Returns
+    -------
+    string
+        The current directory.
+    &#34;&#34;&#34;
+    return os.getcwd()
+
+
+def chDir(directory):
+    &#34;&#34;&#34;Change to other directory.
+
+    Parameters
+    ----------
+    directory: string
+        The directory to change to.
+    &#34;&#34;&#34;
+    return os.chdir(directory)
 
 
 def readPath(filePath):
@@ -69,81 +544,104 @@ def readPath(filePath):
     return &#34;&#34;
 
 
-def readYaml(path, defaultEmpty=False):
+def readJson(text=None, plain=False, asFile=None, preferTuples=False):
+    if asFile is None:
+        cfg = json.loads(text)
+    else:
+        if fileExists(asFile):
+            with open(asFile, encoding=&#34;utf8&#34;) as fh:
+                cfg = json.load(fh)
+        else:
+            cfg = {}
+
+    return cfg if plain else deepAttrDict(cfg, preferTuples=preferTuples)
+
+
+def writeJson(data, asFile=None):
+    if asFile is None:
+        return json.dumps(data, ensure_ascii=False)
+
+    with open(asFile, &#34;w&#34;, encoding=&#34;utf8&#34;) as fh:
+        json.dump(data, fh, ensure_ascii=False)
+
+
+def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
     &#34;&#34;&#34;Reads a yaml file.
 
     Parameters
     ----------
-    filePath: string
-        The path of the file on the file system.
-    defaultEmpty: boolean, optional False
-        What to do if the file does not exist.
-        If True, it returns an empty AttrDict
-        otherwise False.
+    text: string, optional None
+        The input text, should be valid YAML, but see `ignore`.
+        If not given, the text is read from the file whose path is
+        given in `asFile`
+    asFile: string, optional None
+        The path of the file on the file system from which the YAML is read.
+        If not given, `text` is used. See also `ignore`.
+    plain: boolean, optional False
+        If True, the result is (recursively) converted to an AttrDict
+    preferTuples: optional True
+        When converting to an AttrDict, values of type lists are replaced by
+        tuples.
+        Has only effect if `plain` is False.
+    defaultEmpty: boolean, False
+        If True, when the yaml text is None or the file named by `asFile` does
+        not exist, it returns an empty dict or AttrDict.
+        If False, `None` is returned in such cases.
+    ignore: boolean, False
+        If the text is not valid YAML, do not raise an exception, but
+        return the text itself.
 
     Returns
     -------
-    AttrDict | void
+    AttrDict | void | string
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
-    if not os.path.isfile(path):
-        return None
-    with open(path) as fh:
-        data = yaml.load(fh, Loader=yaml.FullLoader)
-    return deepAttrDict(data)
+    if asFile is None:
+        yamlText = text
+    else:
+        if fileExists(asFile):
+            with open(asFile, encoding=&#34;utf8&#34;) as fh:
+                yamlText = fh.read()
+        else:
+            yamlText = None
+
+    if yamlText is None:
+        cfg = {} if defaultEmpty else None
+    else:
+        try:
+            cfg = yaml.load(yamlText, Loader=yaml.FullLoader)
+        except Exception as e:
+            if ignore:
+                cfg = text
+            else:
+                cfg = None
+                raise e
+
+    return (
+        cfg
+        if plain
+        else None
+        if cfg is None
+        else deepAttrDict(cfg, preferTuples=preferTuples)
+    )
 
 
-def fileExists(path):
-    &#34;&#34;&#34;Whether a path exists as file on the file system.
+def writeYaml(data, asFile=None):
+    if asFile is None:
+        return yaml.dump(data, allow_unicode=True)
+
+    with open(asFile, &#34;w&#34;, encoding=&#34;utf8&#34;) as fh:
+        yaml.dump(data, fh, allow_unicode=True, line_break=None)
+
+
+def extNm(path):
+    &#34;&#34;&#34;Get the extension part of a file name.
+
+    The dot is not included.
+    If there is no extension, the empty string is returned.
     &#34;&#34;&#34;
-    return os.path.isfile(path)
-
-
-def fileRemove(path):
-    &#34;&#34;&#34;Removes a file if it exists as file.
-    &#34;&#34;&#34;
-    if fileExists(path):
-        os.remove(path)
-
-
-def fileCopy(pathSrc, pathDst):
-    &#34;&#34;&#34;Copies a file if it exists as file.
-
-    Wipes the destination file, if it exists.
-    &#34;&#34;&#34;
-    if fileExists(pathSrc):
-        fileRemove(pathDst)
-        copy(pathSrc, pathDst)
-
-
-def dirExists(path):
-    &#34;&#34;&#34;Whether a path exists as directory on the file system.
-    &#34;&#34;&#34;
-    return os.path.isdir(path)
-
-
-def dirRemove(path):
-    &#34;&#34;&#34;Removes a directory if it exists as directory.
-    &#34;&#34;&#34;
-    if dirExists(path):
-        rmtree(path)
-
-
-def dirCopy(pathSrc, pathDst):
-    &#34;&#34;&#34;Copies a directory if it exists as directory.
-
-    Wipes the destination directory, if it exists.
-    &#34;&#34;&#34;
-    if dirExists(pathSrc):
-        dirRemove(pathDst)
-        copytree(pathSrc, pathDst)
-
-
-def dirMake(path):
-    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.
-    &#34;&#34;&#34;
-    if not dirExists(path):
-        os.makedirs(path, exist_ok=True)
+    parts = fileNm(path).rsplit(&#34;.&#34;, 1)
+    return &#34;&#34; if len(parts) == 0 else parts[-1]
 
 
 def listDirs(path):
@@ -260,8 +758,235 @@ def list3d(path):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="control.files.abspath"><code class="name flex">
+<span>def <span class="ident">abspath</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L48-L49" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def abspath(path):
+    return normpath(os.path.abspath(path))</code></pre>
+</details>
+</dd>
+<dt id="control.files.chDir"><code class="name flex">
+<span>def <span class="ident">chDir</span></span>(<span>directory)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Change to other directory.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>directory</code></strong> :&ensp;<code>string</code></dt>
+<dd>The directory to change to.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L480-L488" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def chDir(directory):
+    &#34;&#34;&#34;Change to other directory.
+
+    Parameters
+    ----------
+    directory: string
+        The directory to change to.
+    &#34;&#34;&#34;
+    return os.chdir(directory)</code></pre>
+</details>
+</dd>
+<dt id="control.files.clearTree"><code class="name flex">
+<span>def <span class="ident">clearTree</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Remove all files from a directory, recursively, but leave subdirectories.</p>
+<p>Reason: we want to inspect output in an editor.
+But if we remove the directories, the editor looses its current directory
+all the time.</p>
+<h2 id="parameters">Parameters</h2>
+<p>path:
+The directory in question. A leading <code>~</code> will be expanded to the user's
+home directory.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L76-L104" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def clearTree(path):
+    &#34;&#34;&#34;Remove all files from a directory, recursively, but leave subdirectories.
+
+    Reason: we want to inspect output in an editor.
+    But if we remove the directories, the editor looses its current directory
+    all the time.
+
+    Parameters
+    ----------
+    path:
+        The directory in question. A leading `~` will be expanded to the user&#39;s
+        home directory.
+    &#34;&#34;&#34;
+
+    subdirs = []
+    path = expanduser(path)
+
+    with os.scandir(path) as dh:
+        for i, entry in enumerate(dh):
+            name = entry.name
+            if name.startswith(&#34;.&#34;):
+                continue
+            if entry.is_file():
+                os.remove(f&#34;{path}/{name}&#34;)
+            elif entry.is_dir():
+                subdirs.append(name)
+
+    for subdir in subdirs:
+        clearTree(f&#34;{path}/{subdir}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirAllFiles"><code class="name flex">
+<span>def <span class="ident">dirAllFiles</span></span>(<span>path, ignore=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gets all the files found by <code>path</code>.</p>
+<p>The result is just <code>[path]</code> if <code>path</code> is a file, otherwise the list of files under
+<code>path</code>, recursively.</p>
+<p>The files are sorted alphabetically by path name.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The path to the file or directory on the file system.</dd>
+<dt><strong><code>ignore</code></strong> :&ensp;<code>set</code></dt>
+<dd>Names of directories that must be skipped</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> of <code>string</code></dt>
+<dd>The names of the files under <code>path</code>, starting with <code>path</code>, followed
+by the bit relative to <code>path</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L424-L466" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirAllFiles(path, ignore=None):
+    &#34;&#34;&#34;Gets all the files found by `path`.
+
+    The result is just `[path]` if `path` is a file, otherwise the list of files under
+    `path`, recursively.
+
+    The files are sorted alphabetically by path name.
+
+    Parameters
+    ----------
+    path: string
+        The path to the file or directory on the file system.
+    ignore: set
+        Names of directories that must be skipped
+
+    Returns
+    -------
+    tuple of string
+        The names of the files under `path`, starting with `path`, followed
+        by the bit relative to `path`.
+    &#34;&#34;&#34;
+    if fileExists(path):
+        return [path]
+
+    if not dirExists(path):
+        return []
+
+    files = []
+
+    if not ignore:
+        ignore = set()
+
+    for entry in os.listdir(path):
+        name = f&#34;{path}/{entry}&#34;
+
+        if os.path.isfile(name):
+            files.append(name)
+        elif os.path.isdir(name):
+            if entry in ignore:
+                continue
+            files.extend(dirAllFiles(name, ignore=ignore))
+
+    return tuple(sorted(files))</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirContents"><code class="name flex">
+<span>def <span class="ident">dirContents</span></span>(<span>path, asSet=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gets the contents of a directory.</p>
+<p>Only the direct entries in the directory (not recursively), and only real files
+and folders.</p>
+<p>The list of files and folders will be returned separately.
+There is no attempt to sort the files.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
+<dd>The path to the directory on the file system.</dd>
+<dt><strong><code>asSet</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, the files and directories will be delivered as sets, otherwise
+as tuples.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> of <code>tuple</code></dt>
+<dd>The files and the subdirectories.
+These are given as names relative to the directory <code>path</code>,
+so <code>path</code> is not prepended to these names.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L385-L421" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirContents(path, asSet=False):
+    &#34;&#34;&#34;Gets the contents of a directory.
+
+    Only the direct entries in the directory (not recursively), and only real files
+    and folders.
+
+    The list of files and folders will be returned separately.
+    There is no attempt to sort the files.
+
+    Parameters
+    ----------
+    path: string
+        The path to the directory on the file system.
+    asSet: boolean, optional False
+        If True, the files and directories will be delivered as sets, otherwise
+        as tuples.
+
+    Returns
+    -------
+    tuple of tuple
+        The files and the subdirectories.
+        These are given as names relative to the directory `path`,
+        so `path` is not prepended to these names.
+    &#34;&#34;&#34;
+    if not dirExists(path):
+        return (set(), set()) if asSet else ((), ())
+
+    files = []
+    dirs = []
+
+    for entry in os.listdir(path):
+        if os.path.isfile(f&#34;{path}/{entry}&#34;):
+            files.append(entry)
+        elif os.path.isdir(f&#34;{path}/{entry}&#34;):
+            dirs.append(entry)
+
+    return (set(files), set(dirs)) if asSet else (tuple(files), tuple(dirs))</code></pre>
+</details>
+</dd>
 <dt id="control.files.dirCopy"><code class="name flex">
-<span>def <span class="ident">dirCopy</span></span>(<span>pathSrc, pathDst)</span>
+<span>def <span class="ident">dirCopy</span></span>(<span>pathSrc, pathDst, noclobber=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Copies a directory if it exists as directory.</p>
@@ -269,16 +994,37 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L102-L109" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L240-L253" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def dirCopy(pathSrc, pathDst):
+<pre><code class="python">def dirCopy(pathSrc, pathDst, noclobber=False):
     &#34;&#34;&#34;Copies a directory if it exists as directory.
 
     Wipes the destination directory, if it exists.
     &#34;&#34;&#34;
     if dirExists(pathSrc):
+        if dirExists(pathDst):
+            if noclobber:
+                return False
         dirRemove(pathDst)
-        copytree(pathSrc, pathDst)</code></pre>
+        copytree(pathSrc, pathDst)
+        return True
+    else:
+        return False</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirEmpty"><code class="name flex">
+<span>def <span class="ident">dirEmpty</span></span>(<span>target)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L71-L73" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirEmpty(target):
+    target = normpath(target)
+    return not os.path.exists(target) or not os.listdir(target)</code></pre>
 </details>
 </dd>
 <dt id="control.files.dirExists"><code class="name flex">
@@ -289,12 +1035,19 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L89-L92" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L210-L220" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirExists(path):
-    &#34;&#34;&#34;Whether a path exists as directory on the file system.
-    &#34;&#34;&#34;
-    return os.path.isdir(path)</code></pre>
+    &#34;&#34;&#34;Whether a path exists as directory on the file system.&#34;&#34;&#34;
+    return (
+        False
+        if path is None
+        else True
+        if path == &#34;&#34;
+        else os.path.isdir(path)
+        if path
+        else True
+    )</code></pre>
 </details>
 </dd>
 <dt id="control.files.dirMake"><code class="name flex">
@@ -305,13 +1058,64 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L112-L116" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L379-L382" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirMake(path):
-    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Creates a directory if it does not already exist as directory.&#34;&#34;&#34;
     if not dirExists(path):
         os.makedirs(path, exist_ok=True)</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirMove"><code class="name flex">
+<span>def <span class="ident">dirMove</span></span>(<span>pathSrc, pathDst)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Moves a directory if it exists as directory.</p>
+<p>Refuses the operation in the target exists.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L229-L237" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirMove(pathSrc, pathDst):
+    &#34;&#34;&#34;Moves a directory if it exists as directory.
+
+    Refuses the operation in the target exists.
+    &#34;&#34;&#34;
+    if not dirExists(pathSrc) or dirExists(pathDst):
+        return False
+    os.rename(pathSrc, pathDst)
+    return True</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirNm"><code class="name flex">
+<span>def <span class="ident">dirNm</span></span>(<span>path, up=1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the directory part of a file name.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>up</code></strong> :&ensp;<code>int</code>, optional <code>1</code></dt>
+<dd>The number of levels to go up. Should be 1 or higher.
+If not passed, the parent directory is returned.
+If it is 0 or lower, the <code>path</code> itself is returned.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L139-L149" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirNm(path, up=1):
+    &#34;&#34;&#34;Get the directory part of a file name.
+
+    Parameters
+    ----------
+    up: int, optional 1
+        The number of levels to go up. Should be 1 or higher.
+        If not passed, the parent directory is returned.
+        If it is 0 or lower, the `path` itself is returned.
+    &#34;&#34;&#34;
+    return path if up &lt; 1 else os.path.dirname(dirNm(path, up - 1))</code></pre>
 </details>
 </dd>
 <dt id="control.files.dirRemove"><code class="name flex">
@@ -322,13 +1126,224 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L95-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L223-L226" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirRemove(path):
-    &#34;&#34;&#34;Removes a directory if it exists as directory.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Removes a directory if it exists as directory.&#34;&#34;&#34;
     if dirExists(path):
         rmtree(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.dirUpdate"><code class="name flex">
+<span>def <span class="ident">dirUpdate</span></span>(<span>pathSrc, pathDst, force=False, delete=True, level=-1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Makes a destination dir equal to a source dir by copying newer files only.</p>
+<p>Files of the source dir that are missing or older in the destination dir are
+copied from the source to the destination.
+Files and directories in the destination dir that do not exist in the source
+dir are deleted, but this can be prevented.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>pathSrc</code></strong> :&ensp;<code>string</code></dt>
+<dd>The source directory. It does not matter whether the directory ends with
+a slash or not, unless the directory is the root.</dd>
+<dt><strong><code>pathDst</code></strong> :&ensp;<code>string</code></dt>
+<dd>The destination directory. It does not matter whether the directory ends with
+a slash or not, unless the directory is the root.</dd>
+<dt><strong><code>force</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, files that are older in the source than in the destination will also
+be copied.</dd>
+<dt><strong><code>delete</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether to delete items from the destination that do not exist in the source.</dd>
+<dt><strong><code>level</code></strong> :&ensp;<code>integer</code>, optional <code>-1</code></dt>
+<dd>
+<p>Whether to merge recursively and to what level. At level 0 we do not merge,
+but copy each item from source to destination.</p>
+<p>If we start with a negative level, we never reach level 0, so we apply merging
+always.</p>
+<p>If we start with level 0, we merge the files, but we copy the subdirectories.</p>
+<p>If we start with a positive level, we merge that many levels deep, after which
+we switch to copying.</p>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code></dt>
+<dd>
+<ul>
+<li>boolean: whether the action was successful;</li>
+<li>integer: the amount of copy actions to destination directory</li>
+<li>integer: the amount of delete actions in the destination directory</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L256-L376" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
+    &#34;&#34;&#34;Makes a destination dir equal to a source dir by copying newer files only.
+
+    Files of the source dir that are missing or older in the destination dir are
+    copied from the source to the destination.
+    Files and directories in the destination dir that do not exist in the source
+    dir are deleted, but this can be prevented.
+
+    Parameters
+    ----------
+    pathSrc: string
+        The source directory. It does not matter whether the directory ends with
+        a slash or not, unless the directory is the root.
+    pathDst: string
+        The destination directory. It does not matter whether the directory ends with
+        a slash or not, unless the directory is the root.
+    force: boolean, optional False
+        If True, files that are older in the source than in the destination will also
+        be copied.
+    delete: boolean, optional False
+        Whether to delete items from the destination that do not exist in the source.
+    level: integer, optional -1
+        Whether to merge recursively and to what level. At level 0 we do not merge,
+        but copy each item from source to destination.
+
+        If we start with a negative level, we never reach level 0, so we apply merging
+        always.
+
+        If we start with level 0, we merge the files, but we copy the subdirectories.
+
+        If we start with a positive level, we merge that many levels deep, after which
+        we switch to copying.
+
+    Returns
+    -------
+    tuple
+        *   boolean: whether the action was successful;
+        *   integer: the amount of copy actions to destination directory
+        *   integer: the amount of delete actions in the destination directory
+
+    &#34;&#34;&#34;
+
+    if not dirExists(pathSrc):
+        return (False, 0, 0)
+
+    srcPath = pathSrc.rstrip(&#34;/&#34;)
+    dstPath = pathDst.rstrip(&#34;/&#34;)
+
+    if not dirExists(pathDst):
+        if fileExists(pathDst):
+            if not delete:
+                return (False, 0, 0)
+
+            fileRemove(pathDst)
+
+        return (dirCopy(pathSrc, pathDst), 1, 0)
+
+    (good, cActions, dActions) = (True, 0, 0)
+    (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
+    (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
+
+    for file in srcFiles:
+        src = f&#34;{srcPath}/{file}&#34;
+        dst = f&#34;{dstPath}/{file}&#34;
+
+        if file in dstDirs:
+            if delete:
+                dirRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
+
+        if file not in dstFiles or force or level == 0 or mTime(src) &gt; mTime(dst):
+            fileCopy(src, dst)
+            cActions += 1
+
+    for file in dstFiles:
+        src = f&#34;{srcPath}/{file}&#34;
+        dst = f&#34;{dstPath}/{file}&#34;
+
+        if delete and file not in srcFiles:
+            fileRemove(dst)
+            dActions += 1
+
+    if level == 0:
+        return (good, cActions, dActions)
+
+    for dr in srcDrs:
+        src = f&#34;{srcPath}/{dr}&#34;
+        dst = f&#34;{dstPath}/{dr}&#34;
+
+        if dr in dstFiles:
+            if delete:
+                fileRemove(dst)
+                dActions += 1
+            else:
+                good = False
+                continue
+
+        if level == 0:
+            dirCopy(src, dst)
+            cActions += 1
+        else:
+            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
+
+        if not thisGood:
+            good = False
+
+        cActions += thisC
+        dActions += thisD
+
+    for dr in dstDirs:
+        src = f&#34;{srcPath}/{dr}&#34;
+        dst = f&#34;{dstPath}/{dr}&#34;
+
+        if delete and dr not in srcDrs:
+            dirRemove(dst)
+            dActions += 1
+
+    return (good, cActions, dActions)</code></pre>
+</details>
+</dd>
+<dt id="control.files.expanduser"><code class="name flex">
+<span>def <span class="ident">expanduser</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L52-L57" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def expanduser(path):
+    nPath = normpath(path)
+    if nPath.startswith(&#34;~&#34;):
+        return f&#34;{_homeDir}{nPath[1:]}&#34;
+
+    return nPath</code></pre>
+</details>
+</dd>
+<dt id="control.files.extNm"><code class="name flex">
+<span>def <span class="ident">extNm</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the extension part of a file name.</p>
+<p>The dot is not included.
+If there is no extension, the empty string is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L607-L614" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def extNm(path):
+    &#34;&#34;&#34;Get the extension part of a file name.
+
+    The dot is not included.
+    If there is no extension, the empty string is returned.
+    &#34;&#34;&#34;
+    parts = fileNm(path).rsplit(&#34;.&#34;, 1)
+    return &#34;&#34; if len(parts) == 0 else parts[-1]</code></pre>
 </details>
 </dd>
 <dt id="control.files.fileCopy"><code class="name flex">
@@ -340,7 +1355,7 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L79-L86" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L190-L197" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileCopy(pathSrc, pathDst):
     &#34;&#34;&#34;Copies a file if it exists as file.
@@ -360,12 +1375,47 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L66-L69" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L179-L181" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileExists(path):
-    &#34;&#34;&#34;Whether a path exists as file on the file system.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Whether a path exists as file on the file system.&#34;&#34;&#34;
     return os.path.isfile(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.fileMove"><code class="name flex">
+<span>def <span class="ident">fileMove</span></span>(<span>pathSrc, pathDst)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Moves a file if it exists as file.</p>
+<p>Wipes the destination file, if it exists.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L200-L207" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fileMove(pathSrc, pathDst):
+    &#34;&#34;&#34;Moves a file if it exists as file.
+
+    Wipes the destination file, if it exists.
+    &#34;&#34;&#34;
+    if fileExists(pathSrc):
+        fileRemove(pathDst)
+    os.rename(pathSrc, pathDst)</code></pre>
+</details>
+</dd>
+<dt id="control.files.fileNm"><code class="name flex">
+<span>def <span class="ident">fileNm</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the file part of a file name.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L152-L154" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def fileNm(path):
+    &#34;&#34;&#34;Get the file part of a file name.&#34;&#34;&#34;
+    return os.path.basename(path)</code></pre>
 </details>
 </dd>
 <dt id="control.files.fileRemove"><code class="name flex">
@@ -376,13 +1426,123 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L72-L76" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L184-L187" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileRemove(path):
-    &#34;&#34;&#34;Removes a file if it exists as file.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Removes a file if it exists as file.&#34;&#34;&#34;
     if fileExists(path):
         os.remove(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.getCwd"><code class="name flex">
+<span>def <span class="ident">getCwd</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get current directory.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The current directory.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L469-L477" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getCwd():
+    &#34;&#34;&#34;Get current directory.
+
+    Returns
+    -------
+    string
+        The current directory.
+    &#34;&#34;&#34;
+    return os.getcwd()</code></pre>
+</details>
+</dd>
+<dt id="control.files.initTree"><code class="name flex">
+<span>def <span class="ident">initTree</span></span>(<span>path, fresh=False, gentle=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Make sure a directory exists, optionally clean it.</p>
+<h2 id="parameters">Parameters</h2>
+<p>path:
+The directory in question. A leading <code>~</code> will be expanded to the user's
+home directory.</p>
+<pre><code>If the directory does not exist, it will be created.
+</code></pre>
+<dl>
+<dt><strong><code>fresh</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, existing contents will be removed, more or less gently.</dd>
+<dt><strong><code>gentle</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>When existing content is removed, only files are recursively removed, not
+subdirectories.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L107-L136" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def initTree(path, fresh=False, gentle=False):
+    &#34;&#34;&#34;Make sure a directory exists, optionally clean it.
+
+    Parameters
+    ----------
+    path:
+        The directory in question. A leading `~` will be expanded to the user&#39;s
+        home directory.
+
+        If the directory does not exist, it will be created.
+
+    fresh: boolean, optional False
+        If True, existing contents will be removed, more or less gently.
+
+    gentle: boolean, optional False
+        When existing content is removed, only files are recursively removed, not
+        subdirectories.
+    &#34;&#34;&#34;
+
+    path = expanduser(path)
+    exists = os.path.exists(path)
+    if fresh:
+        if exists:
+            if gentle:
+                clearTree(path)
+            else:
+                rmtree(path)
+
+    if not exists or fresh:
+        os.makedirs(path, exist_ok=True)</code></pre>
+</details>
+</dd>
+<dt id="control.files.isDir"><code class="name flex">
+<span>def <span class="ident">isDir</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether path exists and is a directory.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L174-L176" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def isDir(path):
+    &#34;&#34;&#34;Whether path exists and is a directory.&#34;&#34;&#34;
+    return os.path.isdir(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.isFile"><code class="name flex">
+<span>def <span class="ident">isFile</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether path exists and is a file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L169-L171" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def isFile(path):
+    &#34;&#34;&#34;Whether path exists and is a file.&#34;&#34;&#34;
+    return os.path.isfile(path)</code></pre>
 </details>
 </dd>
 <dt id="control.files.list3d"><code class="name flex">
@@ -396,7 +1556,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L204-L223" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L702-L721" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def list3d(path):
     &#34;&#34;&#34;The list of all 3D files in a directory.
@@ -429,7 +1589,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L119-L135" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L617-L633" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listDirs(path):
     &#34;&#34;&#34;The list of all subdirectories in a directory.
@@ -459,7 +1619,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L138-L155" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L636-L653" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFiles(path, ext):
     &#34;&#34;&#34;The list of all files in a directory with a certain extension.
@@ -490,7 +1650,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L158-L179" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L656-L677" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFilesAccepted(path, accept, withExt=True):
     &#34;&#34;&#34;The list of all files in a directory that match a certain accepted header.
@@ -527,7 +1687,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L182-L201" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L680-L699" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listImages(path):
     &#34;&#34;&#34;The list of all image files in a directory.
@@ -549,6 +1709,61 @@ case variants.</p></div>
                 files.append(name)
 
     return files</code></pre>
+</details>
+</dd>
+<dt id="control.files.normpath"><code class="name flex">
+<span>def <span class="ident">normpath</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L31-L35" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def normpath(path):
+    if path is None:
+        return None
+    norm = os.path.normpath(path)
+    return &#34;/&#34;.join(norm.split(os.path.sep))</code></pre>
+</details>
+</dd>
+<dt id="control.files.prefixSlash"><code class="name flex">
+<span>def <span class="ident">prefixSlash</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Prefix a / before a path if it is non-empty and not already starts with it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L66-L68" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def prefixSlash(path):
+    &#34;&#34;&#34;Prefix a / before a path if it is non-empty and not already starts with it.&#34;&#34;&#34;
+    return f&#34;/{path}&#34; if path and not path.startswith(&#34;/&#34;) else path</code></pre>
+</details>
+</dd>
+<dt id="control.files.readJson"><code class="name flex">
+<span>def <span class="ident">readJson</span></span>(<span>text=None, plain=False, asFile=None, preferTuples=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L517-L527" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def readJson(text=None, plain=False, asFile=None, preferTuples=False):
+    if asFile is None:
+        cfg = json.loads(text)
+    else:
+        if fileExists(asFile):
+            with open(asFile, encoding=&#34;utf8&#34;) as fh:
+                cfg = json.load(fh)
+        else:
+            cfg = {}
+
+    return cfg if plain else deepAttrDict(cfg, preferTuples=preferTuples)</code></pre>
 </details>
 </dd>
 <dt id="control.files.readPath"><code class="name flex">
@@ -575,7 +1790,7 @@ If the file does not exist, the empty string is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L16-L39" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L491-L514" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readPath(filePath):
     &#34;&#34;&#34;Reads the (textual) contents of a file.
@@ -604,51 +1819,207 @@ If the file does not exist, the empty string is returned.</dd>
 </details>
 </dd>
 <dt id="control.files.readYaml"><code class="name flex">
-<span>def <span class="ident">readYaml</span></span>(<span>path, defaultEmpty=False)</span>
+<span>def <span class="ident">readYaml</span></span>(<span>text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Reads a yaml file.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>filePath</code></strong> :&ensp;<code>string</code></dt>
-<dd>The path of the file on the file system.</dd>
-<dt><strong><code>defaultEmpty</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>What to do if the file does not exist.
-If True, it returns an empty AttrDict
-otherwise False.</dd>
+<dt><strong><code>text</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>The input text, should be valid YAML, but see <code>ignore</code>.
+If not given, the text is read from the file whose path is
+given in <code>asFile</code></dd>
+<dt><strong><code>asFile</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>The path of the file on the file system from which the YAML is read.
+If not given, <code>text</code> is used. See also <code>ignore</code>.</dd>
+<dt><strong><code>plain</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, the result is (recursively) converted to an AttrDict</dd>
+<dt><strong><code>preferTuples</code></strong> :&ensp;<code>optional True</code></dt>
+<dd>When converting to an AttrDict, values of type lists are replaced by
+tuples.
+Has only effect if <code>plain</code> is False.</dd>
+<dt><strong><code>defaultEmpty</code></strong> :&ensp;<code>boolean, False</code></dt>
+<dd>If True, when the yaml text is None or the file named by <code>asFile</code> does
+not exist, it returns an empty dict or AttrDict.
+If False, <code>None</code> is returned in such cases.</dd>
+<dt><strong><code>ignore</code></strong> :&ensp;<code>boolean, False</code></dt>
+<dd>If the text is not valid YAML, do not raise an exception, but
+return the text itself.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>AttrDict | void</code></dt>
+<dt><code>AttrDict | void | string</code></dt>
 <dd>The data content of the yaml file if it exists.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/files.py#L42-L63" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L538-L596" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def readYaml(path, defaultEmpty=False):
+<pre><code class="python">def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
     &#34;&#34;&#34;Reads a yaml file.
 
     Parameters
     ----------
-    filePath: string
-        The path of the file on the file system.
-    defaultEmpty: boolean, optional False
-        What to do if the file does not exist.
-        If True, it returns an empty AttrDict
-        otherwise False.
+    text: string, optional None
+        The input text, should be valid YAML, but see `ignore`.
+        If not given, the text is read from the file whose path is
+        given in `asFile`
+    asFile: string, optional None
+        The path of the file on the file system from which the YAML is read.
+        If not given, `text` is used. See also `ignore`.
+    plain: boolean, optional False
+        If True, the result is (recursively) converted to an AttrDict
+    preferTuples: optional True
+        When converting to an AttrDict, values of type lists are replaced by
+        tuples.
+        Has only effect if `plain` is False.
+    defaultEmpty: boolean, False
+        If True, when the yaml text is None or the file named by `asFile` does
+        not exist, it returns an empty dict or AttrDict.
+        If False, `None` is returned in such cases.
+    ignore: boolean, False
+        If the text is not valid YAML, do not raise an exception, but
+        return the text itself.
 
     Returns
     -------
-    AttrDict | void
+    AttrDict | void | string
         The data content of the yaml file if it exists.
     &#34;&#34;&#34;
-    if not os.path.isfile(path):
-        return None
-    with open(path) as fh:
-        data = yaml.load(fh, Loader=yaml.FullLoader)
-    return deepAttrDict(data)</code></pre>
+    if asFile is None:
+        yamlText = text
+    else:
+        if fileExists(asFile):
+            with open(asFile, encoding=&#34;utf8&#34;) as fh:
+                yamlText = fh.read()
+        else:
+            yamlText = None
+
+    if yamlText is None:
+        cfg = {} if defaultEmpty else None
+    else:
+        try:
+            cfg = yaml.load(yamlText, Loader=yaml.FullLoader)
+        except Exception as e:
+            if ignore:
+                cfg = text
+            else:
+                cfg = None
+                raise e
+
+    return (
+        cfg
+        if plain
+        else None
+        if cfg is None
+        else deepAttrDict(cfg, preferTuples=preferTuples)
+    )</code></pre>
+</details>
+</dd>
+<dt id="control.files.splitPath"><code class="name flex">
+<span>def <span class="ident">splitPath</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Split a file name in a directory part and a file part.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L164-L166" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def splitPath(path):
+    &#34;&#34;&#34;Split a file name in a directory part and a file part.&#34;&#34;&#34;
+    return os.path.split(path)</code></pre>
+</details>
+</dd>
+<dt id="control.files.str_presenter"><code class="name flex">
+<span>def <span class="ident">str_presenter</span></span>(<span>dumper, data)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>configures yaml for dumping multiline strings
+Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data">https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data</a></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L17-L24" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def str_presenter(dumper, data):
+    &#34;&#34;&#34;configures yaml for dumping multiline strings
+    Ref: https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data
+    &#34;&#34;&#34;
+    if data.count(&#34;\n&#34;) &gt; 0:  # check for multiline string
+        return dumper.represent_scalar(&#34;tag:yaml.org,2002:str&#34;, data, style=&#34;|&#34;)
+
+    return dumper.represent_scalar(&#34;tag:yaml.org,2002:str&#34;, data)</code></pre>
+</details>
+</dd>
+<dt id="control.files.stripExt"><code class="name flex">
+<span>def <span class="ident">stripExt</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Strip the extension of a file name, if there is one.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L157-L161" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def stripExt(path):
+    &#34;&#34;&#34;Strip the extension of a file name, if there is one.&#34;&#34;&#34;
+    (d, f) = (dirNm(path), fileNm(path))
+    sep = &#34;/&#34; if d else &#34;&#34;
+    return f&#34;{d}{sep}{f.rsplit(&#39;.&#39;, 1)[0]}&#34;</code></pre>
+</details>
+</dd>
+<dt id="control.files.unexpanduser"><code class="name flex">
+<span>def <span class="ident">unexpanduser</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L60-L63" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def unexpanduser(path):
+    nPath = normpath(path)
+
+    return nPath.replace(_homeDir, &#34;~&#34;)</code></pre>
+</details>
+</dd>
+<dt id="control.files.writeJson"><code class="name flex">
+<span>def <span class="ident">writeJson</span></span>(<span>data, asFile=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L530-L535" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def writeJson(data, asFile=None):
+    if asFile is None:
+        return json.dumps(data, ensure_ascii=False)
+
+    with open(asFile, &#34;w&#34;, encoding=&#34;utf8&#34;) as fh:
+        json.dump(data, fh, ensure_ascii=False)</code></pre>
+</details>
+</dd>
+<dt id="control.files.writeYaml"><code class="name flex">
+<span>def <span class="ident">writeYaml</span></span>(<span>data, asFile=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/files.py#L599-L604" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def writeYaml(data, asFile=None):
+    if asFile is None:
+        return yaml.dump(data, allow_unicode=True)
+
+    with open(asFile, &#34;w&#34;, encoding=&#34;utf8&#34;) as fh:
+        yaml.dump(data, fh, allow_unicode=True, line_break=None)</code></pre>
 </details>
 </dd>
 </dl>
@@ -717,20 +2088,46 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
+<li><code><a title="control.files.abspath" href="#control.files.abspath">abspath</a></code></li>
+<li><code><a title="control.files.chDir" href="#control.files.chDir">chDir</a></code></li>
+<li><code><a title="control.files.clearTree" href="#control.files.clearTree">clearTree</a></code></li>
+<li><code><a title="control.files.dirAllFiles" href="#control.files.dirAllFiles">dirAllFiles</a></code></li>
+<li><code><a title="control.files.dirContents" href="#control.files.dirContents">dirContents</a></code></li>
 <li><code><a title="control.files.dirCopy" href="#control.files.dirCopy">dirCopy</a></code></li>
+<li><code><a title="control.files.dirEmpty" href="#control.files.dirEmpty">dirEmpty</a></code></li>
 <li><code><a title="control.files.dirExists" href="#control.files.dirExists">dirExists</a></code></li>
 <li><code><a title="control.files.dirMake" href="#control.files.dirMake">dirMake</a></code></li>
+<li><code><a title="control.files.dirMove" href="#control.files.dirMove">dirMove</a></code></li>
+<li><code><a title="control.files.dirNm" href="#control.files.dirNm">dirNm</a></code></li>
 <li><code><a title="control.files.dirRemove" href="#control.files.dirRemove">dirRemove</a></code></li>
+<li><code><a title="control.files.dirUpdate" href="#control.files.dirUpdate">dirUpdate</a></code></li>
+<li><code><a title="control.files.expanduser" href="#control.files.expanduser">expanduser</a></code></li>
+<li><code><a title="control.files.extNm" href="#control.files.extNm">extNm</a></code></li>
 <li><code><a title="control.files.fileCopy" href="#control.files.fileCopy">fileCopy</a></code></li>
 <li><code><a title="control.files.fileExists" href="#control.files.fileExists">fileExists</a></code></li>
+<li><code><a title="control.files.fileMove" href="#control.files.fileMove">fileMove</a></code></li>
+<li><code><a title="control.files.fileNm" href="#control.files.fileNm">fileNm</a></code></li>
 <li><code><a title="control.files.fileRemove" href="#control.files.fileRemove">fileRemove</a></code></li>
+<li><code><a title="control.files.getCwd" href="#control.files.getCwd">getCwd</a></code></li>
+<li><code><a title="control.files.initTree" href="#control.files.initTree">initTree</a></code></li>
+<li><code><a title="control.files.isDir" href="#control.files.isDir">isDir</a></code></li>
+<li><code><a title="control.files.isFile" href="#control.files.isFile">isFile</a></code></li>
 <li><code><a title="control.files.list3d" href="#control.files.list3d">list3d</a></code></li>
 <li><code><a title="control.files.listDirs" href="#control.files.listDirs">listDirs</a></code></li>
 <li><code><a title="control.files.listFiles" href="#control.files.listFiles">listFiles</a></code></li>
 <li><code><a title="control.files.listFilesAccepted" href="#control.files.listFilesAccepted">listFilesAccepted</a></code></li>
 <li><code><a title="control.files.listImages" href="#control.files.listImages">listImages</a></code></li>
+<li><code><a title="control.files.normpath" href="#control.files.normpath">normpath</a></code></li>
+<li><code><a title="control.files.prefixSlash" href="#control.files.prefixSlash">prefixSlash</a></code></li>
+<li><code><a title="control.files.readJson" href="#control.files.readJson">readJson</a></code></li>
 <li><code><a title="control.files.readPath" href="#control.files.readPath">readPath</a></code></li>
 <li><code><a title="control.files.readYaml" href="#control.files.readYaml">readYaml</a></code></li>
+<li><code><a title="control.files.splitPath" href="#control.files.splitPath">splitPath</a></code></li>
+<li><code><a title="control.files.str_presenter" href="#control.files.str_presenter">str_presenter</a></code></li>
+<li><code><a title="control.files.stripExt" href="#control.files.stripExt">stripExt</a></code></li>
+<li><code><a title="control.files.unexpanduser" href="#control.files.unexpanduser">unexpanduser</a></code></li>
+<li><code><a title="control.files.writeJson" href="#control.files.writeJson">writeJson</a></code></li>
+<li><code><a title="control.files.writeYaml" href="#control.files.writeYaml">writeYaml</a></code></li>
 </ul>
 </li>
 </ul>

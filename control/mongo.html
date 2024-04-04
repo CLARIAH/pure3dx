@@ -26,12 +26,17 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L1-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L1-L768" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from pymongo import MongoClient
-from bson.objectid import ObjectId
+<pre><code class="python">import os
 
-from control.generic import deepAttrDict
+from bson import ObjectId, BSON, decode_all
+from bson.json_util import dumps as dumpjs
+from pymongo import MongoClient
+
+from control.flask import appStop
+from control.generic import AttrDict, deepAttrDict
+from control.files import dirMake, dirExists
 
 
 class Mongo:
@@ -105,11 +110,12 @@ class Mongo:
             Singleton instance of `control.messages.Messages`.
         &#34;&#34;&#34;
         self.Settings = Settings
+        runMode = Settings.runMode
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
         self.db = None
-        self.database = Settings.database
+        self.database = f&#34;{Settings.database}_{runMode}&#34;
 
     def connect(self):
         &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
@@ -154,30 +160,30 @@ class Mongo:
         self.client = None
         self.db = None
 
-    def collections(self):
-        &#34;&#34;&#34;List the existent collections in the database.
+    def tables(self):
+        &#34;&#34;&#34;List the existent tables in the database.
 
         Returns
         -------
         list
-            The names of the collections.
+            The names of the tables.
         &#34;&#34;&#34;
         self.connect()
         db = self.db
 
         return list(db.list_collection_names())
 
-    def clearCollection(self, table, delete=False):
-        &#34;&#34;&#34;Make sure that a collection exists and that it is empty.
+    def clearTable(self, table, delete=False):
+        &#34;&#34;&#34;Make sure that a table exists and that it is empty.
 
         Parameters
         ----------
         table: string
-            The name of the collection.
-            If no such collection exists, it will be created.
+            The name of the table.
+            If no such table exists, it will be created.
         delete: boolean, optional False
-            If True, and the collection existed before, it will be deleted.
-            If False, the collection will be cleared, i.e. all its documents
+            If True, and the table existed before, it will be deleted.
+            If False, the table will be cleared, i.e. all its records
             get deleted, but the table remains.
         &#34;&#34;&#34;
         Messages = self.Messages
@@ -190,13 +196,13 @@ class Mongo:
                 try:
                     db.drop_collection(table)
                     Messages.plain(
-                        msg=f&#34;dropped collection `{table}`&#34;,
-                        logmsg=f&#34;dropped collection `{table}`&#34;,
+                        msg=f&#34;dropped table `{table}`&#34;,
+                        logmsg=f&#34;dropped table `{table}`&#34;,
                     )
                 except Exception as e:
                     Messages.error(
                         msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot delete collection: `{table}`: {e}&#34;,
+                        logmsg=f&#34;Cannot delete table: `{table}`: {e}&#34;,
                     )
         else:
             if db[table] is None:
@@ -205,19 +211,14 @@ class Mongo:
                 except Exception as e:
                     Messages.error(
                         msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot create collection: `{table}`: {e}&#34;,
+                        logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
                     )
             else:
-                try:
-                    self.execute(table, &#34;delete_many&#34;, {})
+                (good, count) = self.deleteRecords(table, {})
+                if good:
                     Messages.plain(
-                        msg=f&#34;cleared collection `{table}`&#34;,
-                        logmsg=f&#34;cleared collection `{table}`&#34;,
-                    )
-                except Exception as e:
-                    Messages.error(
-                        msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot clear collection: `{table}`: {e}&#34;,
+                        msg=f&#34;cleared table `{table} of {count} records`&#34;,
+                        logmsg=f&#34;cleared table `{table} of {count} records`&#34;,
                     )
 
     def get(self, table, record):
@@ -253,12 +254,12 @@ class Mongo:
         return (recordId, record)
 
     def getRecord(self, table, warn=True, stop=True, **criteria):
-        &#34;&#34;&#34;Get a single document from a collection.
+        &#34;&#34;&#34;Get a single record from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection from which we want to retrieve a single record.
+            The name of the table from which we want to retrieve a single record.
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
         stop: boolean, optional True
@@ -266,7 +267,7 @@ class Mongo:
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the search.
-            Usually they will be such that there will be just one document
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `findOne`.
@@ -274,55 +275,86 @@ class Mongo:
         Returns
         -------
         AttrDict
-            The single document found,
-            or an empty AttrDict if no document
+            The single record found,
+            or an empty AttrDict if no record
             satisfies the criteria.
         &#34;&#34;&#34;
         Messages = self.Messages
 
-        result = self.execute(table, &#34;find_one&#34;, criteria, {}, stop=stop)
-        if result is None:
+        (good, result) = self.execute(
+            table, &#34;find_one&#34;, criteria, {}, warn=False, stop=stop
+        )
+        if not good or result is None:
             if warn:
-                Messages.warning(msg=f&#34;Could not find that {table}&#34;, logmsg=f&#34;No record in {table} with {criteria}&#34;)
+                Messages.warning(
+                    msg=f&#34;Could not find that {table}&#34;,
+                    logmsg=f&#34;No record in {table} with {criteria}&#34;,
+                )
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, stop=True, **criteria):
-        &#34;&#34;&#34;Get a list of documents from a collection.
+    def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
+        &#34;&#34;&#34;Get a list of records from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection from which we want to retrieve records.
+            The name of the table from which we want to retrieve records.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
+        sort: string | function, optional None
+            Sort key. If `None`, the results will not be sorted.
+            If a string, it is the name of a field by which the results
+            will be sorted in ascending order.
+            If a function, the function should take a record as input and return a
+            value. The records will be sorted by this value.
+        asDict: boolean or string, optional False
+            If False, returns a list of records as result. If True or a string, returns
+            the same records, but now as dict, keyed by the `_id` field if
+            asDict is True, else keyed by the field in dicated by asDict.
         criteria: dict
             A set of criteria to narrow down the search.
 
         Returns
         -------
         list of AttrDict
-            The list of documents found, empty if no documents are found.
-            Each document is cast to an AttrDict.
+            The list of records found, empty if no records are found.
+            Each record is cast to an AttrDict.
         &#34;&#34;&#34;
+        (good, result) = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
+        if not good:
+            return []
 
-        result = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
-        return [deepAttrDict(record) for record in result]
+        unsorted = [deepAttrDict(record) for record in result]
+
+        if sort is None:
+            result = unsorted
+        else:
+            sortFunc = (lambda r: r[sort] or &#34;&#34;) if type(sort) is str else sort
+            result = sorted(unsorted, key=sortFunc)
+
+        return (
+            {r[asDict]: r for r in result}
+            if type(asDict) is str
+            else {r._id: r for r in result}
+            if asDict
+            else result
+        )
 
     def deleteRecord(self, table, stop=True, **criteria):
-        &#34;&#34;&#34;Updates a single document from a collection.
+        &#34;&#34;&#34;Deletes a single record from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection in which we want to update a single record.
+            The name of the table from which we want to delete a single record.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
-            Usually they will be such that there will be just one document
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
@@ -332,25 +364,49 @@ class Mongo:
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
-        n = result.deleted_count
-        return n &gt; 0
+        (good, result) = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
+        return result.deleted_count &gt; 0 if good else False
 
-    def updateRecord(self, table, updates, stop=True, **criteria):
-        &#34;&#34;&#34;Updates a single document from a collection.
+    def deleteRecords(self, table, stop=True, **criteria):
+        &#34;&#34;&#34;Delete multiple records from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection in which we want to update a single record.
-        updates: dict
-            The fields that must be updated with the values they must get
+            The name of the table from which we want to delete a records.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
-            Usually they will be such that there will be just one document
+
+        Returns
+        -------
+        boolean, integer
+            Whether the command completed successfully and
+            how many records have been deleted
+        &#34;&#34;&#34;
+        (good, result) = self.execute(table, &#34;delete_many&#34;, criteria, stop=stop)
+        count = result.deleted_count if good else 0
+        return (good, count)
+
+    def updateRecord(self, table, updates, stop=True, **criteria):
+        &#34;&#34;&#34;Updates a single record from a table.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table in which we want to update a single record.
+        updates: dict
+            The fields that must be updated with the values they must get.
+            If the value `None` is specified for a field, that field will be set to
+            null.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
+        criteria: dict
+            A set of criteria to narrow down the selection.
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
@@ -360,9 +416,10 @@ class Mongo:
         boolean
             Whether the update was successful
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop)
-        n = result.modified_count
-        return n &gt; 0
+        (good, result) = self.execute(
+            table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop
+        )
+        return result.modified_count &gt; 0 if good else False
 
     def insertRecord(self, table, stop=True, **fields):
         &#34;&#34;&#34;Inserts a new record in a table.
@@ -383,16 +440,16 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
-        return result.inserted_id if result else None
+        (good, result) = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
+        return result.inserted_id if good else None
 
-    def execute(self, table, command, *args, stop=True, **kwargs):
+    def execute(self, table, command, *args, warn=True, stop=True, **kwargs):
         &#34;&#34;&#34;Executes a MongoDb command and returns the result.
 
         Parameters
         ----------
         table: string
-            The collection on which to perform the command.
+            The table on which to perform the command.
         command: string
             The built-in MongoDb command.
             Note that the Python interface requires you to write camelCase commands
@@ -400,6 +457,8 @@ class Mongo:
             So the Mongo command `findOne` should be passed as `find_one`.
         args: list
             Any number of additional arguments that the command requires.
+        warn: boolean, optional True
+            If True, warn if there is an error.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
@@ -408,10 +467,12 @@ class Mongo:
 
         Returns
         -------
-        any
-            Whatever the MongoDb command returns.
+        boolean, any
+            The `boolean` is whether an error occurred.
+
+            The `any` is whatever the MongoDb command returns.
             If the command fails, an error message is issued and
-            None is returned.
+            `any=None` is returned.
         &#34;&#34;&#34;
         Messages = self.Messages
 
@@ -420,22 +481,321 @@ class Mongo:
 
         method = getattr(db[table], command, None)
         result = None
+        good = True
 
         if method is None:
-            Messages.error(
-                msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
-            )
+            if warn:
+                Messages.error(
+                    msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
+                )
+            good = False
         try:
             result = method(*args, **kwargs)
         except Exception as e:
-            Messages.error(
-                msg=&#34;Database action&#34;,
-                logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
-                stop=False,
-            )
+            if warn:
+                Messages.error(
+                    msg=&#34;Database action&#34;,
+                    logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
+                    stop=stop,
+                )
+            else:
+                if stop:
+                    appStop()
+            good = False
             result = None
 
-        return result</code></pre>
+        return (good, result)
+
+    def consolidate(self, record):
+        &#34;&#34;&#34;Resolves all links in a record to title values of linked records.
+
+        The `_id` field of the record will be removed.
+        Values of fields with names like `xxxId` will be looked up in table `xxx`,
+        and will be replaced by the value of the `title` field of the found record.
+
+        Parameters
+        ----------
+        record: dict or AttrDict
+            The record data to consolidate.
+
+        Returns
+        -------
+        dict
+            All AttrDict values will be recursively transformed in ordinary dict values.
+        &#34;&#34;&#34;
+        newRecord = AttrDict()
+
+        for k, v in record.items():
+            if k == &#34;_id&#34;:
+                continue
+            if k.endswith(&#34;Id&#34;):
+                table = k.removesuffix(&#34;Id&#34;)
+                linkedRecord = self.getRecord(table, _id=v, warn=False, stop=False)
+                v = linkedRecord.title
+                if v is not None:
+                    newRecord[table] = v
+            else:
+                newRecord[k] = v
+
+        return newRecord.deepdict()
+
+    def mkBackup(self, dstBase, project=None, asJson=False):
+        &#34;&#34;&#34;Backs up data as record files in table folders.
+
+        We do site-wide backups and project-specific backups.
+
+        See also `control.content.Content.mkBackup`
+
+        This function backs up database data in
+        [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
+
+        Inspired by this
+        [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+        Parameters
+        ----------
+        dstBase: string
+            Destination folder.
+            This folder will get subfolders `bson` and/or `json` in which
+            the backups are stored.
+        project: string, optional None
+            If given, only backs up the given project.
+        asJson: boolean, optional False
+            Whether to create a backup in `json` format
+        asBson: boolean, optional True
+            Whether to create a backup in `bson` format
+
+        Returns
+        -------
+        boolean
+            Whether the operation was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        self.connect()
+        db = self.db
+        tables = db.list_collection_names()
+
+        dstb = f&#34;{dstBase}/bson&#34;
+        dirMake(dstb)
+        dstj = None
+        jOpts = {}
+
+        if asJson:
+            dstj = f&#34;{dstBase}/json&#34;
+            dirMake(dstj)
+            jOpts = dict(ensure_ascii=False, indent=2, sort_keys=True)
+
+        if project is None:
+            for table in tables:
+                records = db[table].find()
+                n = self.writeRecords(table, records, dstb, dstj=dstj, jOpts=jOpts)
+                plural = &#34;&#34; if n == 1 else &#34;&#34;
+                Messages.info(msg=f&#34;table {table} {n} record{plural}&#34;)
+            return True
+
+        (projectId, project) = self.get(&#34;project&#34;, project)
+        records = db.project.find(dict(_id=projectId))
+        n = self.writeRecords(&#34;project&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+        records = db.edition.find(dict(projectId=projectId))
+        n = self.writeRecords(&#34;edition&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+        return True
+
+    def writeRecords(self, table, records, dstb, dstj=None, jOpts={}):
+        &#34;&#34;&#34;Writes records to bson and possibly json file.
+
+        If the destination file already exists, it will be wiped.
+
+        Parameters
+        ----------
+        table: string
+            Table that contains the record. Will be used as file name
+            for the record to be written to.
+        record: dict
+            The record as it is retrieved from MongoDb
+        dstb: string
+            Destination folder for the bson file.
+        dstj: string, optional None
+            Destination folder for the json file.
+            If `None`, no json file will be written.
+        jOpts: dict, optional {}
+            Format options for writing the json file.
+        first
+
+        Returns
+        -------
+        integer
+            The number of records written
+        &#34;&#34;&#34;
+        asJson = dstj is not None
+
+        n = 0
+        with open(f&#34;{dstb}/{table}.bson&#34;, &#34;wb&#34;) as bh:
+            if asJson:
+                jh = open(f&#34;{dstj}/{table}.json&#34;, &#34;w&#34;)
+                jh.write(&#34;[\n&#34;)
+
+            sep = &#34;&#34;
+            for record in records:
+                bh.write(BSON.encode(record))
+                n += 1
+                if asJson:
+                    jh.write(sep)
+                    jh.write(dumpjs(record, **jOpts))
+                sep = &#34;,\n&#34;
+
+            if asJson:
+                jh.write(&#34;\n]\n&#34;)
+                jh.close()
+
+        return n
+
+    def restore(self, src, project=None, clean=True):
+        &#34;&#34;&#34;Restores the database from record files in table folders.
+
+        We do site-wide restores or project-specific restores.
+
+        See also `control.content.Content.restore`
+
+        This function restores database data given in
+        [`bson`](https://www.mongodb.com/basics/bson).
+
+        Inspired by this
+        [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+        Parameters
+        ----------
+        src: string
+            Source folder.
+        project: string, optional None
+            If given, only restores the given project.
+        clean: boolean, optional True
+            Whether to delete records from a table before
+            restoring records to it.
+            If `clean=True` then, in case of site-wide restores, all records
+            will be cleaned. In case of project restores, only the relevant
+            project/edition records will be cleaned.
+
+        Returns
+        -------
+        boolean
+            Whether the operation was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        self.connect()
+        db = self.db
+
+        if not dirExists(src):
+            Messages.warning(
+                msg=&#34;Source directory not found&#34;,
+                logmsg=f&#34;Source directory {src} not found&#34;,
+            )
+            return False
+
+        good = True
+
+        if project is None:
+            with os.scandir(src) as dh:
+                for entry in dh:
+                    name = entry.name
+                    if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                        continue
+
+                    table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                    with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                        records = decode_all(f.read())
+
+                    Messages.info(msg=f&#34;table {table} {len(records)} record(s)&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(table, {})
+                        if not thisGood:
+                            good = False
+
+                    db[table].insert_many(records)
+            return good
+
+        (projectId, project) = self.get(&#34;project&#34;, project)
+
+        with os.scandir(src) as dh:
+            for entry in dh:
+                name = entry.name
+                if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                    continue
+
+                table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                if table not in {&#34;project&#34;, &#34;edition&#34;}:
+                    continue
+
+                with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                    records = decode_all(f.read())
+
+                thisGood = True
+
+                if table == &#34;project&#34;:
+                    records = [r for r in records if r._id == projectId]
+                    nRecords = len(records)
+                    if nRecords == 0:
+                        Messages.warning(
+                            msg=f&#34;No {table} records found! Restore skipped.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;No {table} records found! Skipped.&#34;
+                            ),
+                        )
+                        continue
+                    elif nRecords &gt; 1:
+                        Messages.warning(
+                            msg=f&#34;Multiple {table} records found. Will restore first.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;Multiple ({nRecords}) {table} records found.&#34;
+                            ),
+                        )
+
+                    record = records[0]
+
+                    Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(
+                            table, {&#34;_id&#34;: projectId}
+                        )
+                    if thisGood:
+                        db[table].insert_one(record)
+                    else:
+                        good = False
+
+                elif table == &#34;edition&#34;:
+                    records = [r for r in records if r.projectId == projectId]
+                    nRecords = len(records)
+                    if nRecords == 0:
+                        Messages.info(
+                            msg=f&#34;No {table} records found.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;No {table} records found.&#34;
+                            ),
+                        )
+                        continue
+
+                    Messages.info(msg=f&#34;Restoring {table} records ...&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(
+                            table, {&#34;_id&#34;: projectId}
+                        )
+                    if thisGood:
+                        db[table].insert_many(records)
+                    else:
+                        good = False
+                else:
+                    Messages.warning(
+                        msg=f&#34;Skipping {name} as it is not legal in a project backup&#34;,
+                        logmsg=(
+                            f&#34;Skipping {name} as it is not legal in a project backup&#34;
+                        ),
+                    )
+
+        return good</code></pre>
 </details>
 </section>
 <section>
@@ -477,7 +837,7 @@ provided they are recognizable as values in a field whose name is
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L7-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L12-L768" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
     @staticmethod
@@ -550,11 +910,12 @@ provided they are recognizable as values in a field whose name is
             Singleton instance of `control.messages.Messages`.
         &#34;&#34;&#34;
         self.Settings = Settings
+        runMode = Settings.runMode
         self.Messages = Messages
         Messages.debugAdd(self)
         self.client = None
         self.db = None
-        self.database = Settings.database
+        self.database = f&#34;{Settings.database}_{runMode}&#34;
 
     def connect(self):
         &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
@@ -599,30 +960,30 @@ provided they are recognizable as values in a field whose name is
         self.client = None
         self.db = None
 
-    def collections(self):
-        &#34;&#34;&#34;List the existent collections in the database.
+    def tables(self):
+        &#34;&#34;&#34;List the existent tables in the database.
 
         Returns
         -------
         list
-            The names of the collections.
+            The names of the tables.
         &#34;&#34;&#34;
         self.connect()
         db = self.db
 
         return list(db.list_collection_names())
 
-    def clearCollection(self, table, delete=False):
-        &#34;&#34;&#34;Make sure that a collection exists and that it is empty.
+    def clearTable(self, table, delete=False):
+        &#34;&#34;&#34;Make sure that a table exists and that it is empty.
 
         Parameters
         ----------
         table: string
-            The name of the collection.
-            If no such collection exists, it will be created.
+            The name of the table.
+            If no such table exists, it will be created.
         delete: boolean, optional False
-            If True, and the collection existed before, it will be deleted.
-            If False, the collection will be cleared, i.e. all its documents
+            If True, and the table existed before, it will be deleted.
+            If False, the table will be cleared, i.e. all its records
             get deleted, but the table remains.
         &#34;&#34;&#34;
         Messages = self.Messages
@@ -635,13 +996,13 @@ provided they are recognizable as values in a field whose name is
                 try:
                     db.drop_collection(table)
                     Messages.plain(
-                        msg=f&#34;dropped collection `{table}`&#34;,
-                        logmsg=f&#34;dropped collection `{table}`&#34;,
+                        msg=f&#34;dropped table `{table}`&#34;,
+                        logmsg=f&#34;dropped table `{table}`&#34;,
                     )
                 except Exception as e:
                     Messages.error(
                         msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot delete collection: `{table}`: {e}&#34;,
+                        logmsg=f&#34;Cannot delete table: `{table}`: {e}&#34;,
                     )
         else:
             if db[table] is None:
@@ -650,19 +1011,14 @@ provided they are recognizable as values in a field whose name is
                 except Exception as e:
                     Messages.error(
                         msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot create collection: `{table}`: {e}&#34;,
+                        logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
                     )
             else:
-                try:
-                    self.execute(table, &#34;delete_many&#34;, {})
+                (good, count) = self.deleteRecords(table, {})
+                if good:
                     Messages.plain(
-                        msg=f&#34;cleared collection `{table}`&#34;,
-                        logmsg=f&#34;cleared collection `{table}`&#34;,
-                    )
-                except Exception as e:
-                    Messages.error(
-                        msg=&#34;Database action&#34;,
-                        logmsg=f&#34;Cannot clear collection: `{table}`: {e}&#34;,
+                        msg=f&#34;cleared table `{table} of {count} records`&#34;,
+                        logmsg=f&#34;cleared table `{table} of {count} records`&#34;,
                     )
 
     def get(self, table, record):
@@ -698,12 +1054,12 @@ provided they are recognizable as values in a field whose name is
         return (recordId, record)
 
     def getRecord(self, table, warn=True, stop=True, **criteria):
-        &#34;&#34;&#34;Get a single document from a collection.
+        &#34;&#34;&#34;Get a single record from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection from which we want to retrieve a single record.
+            The name of the table from which we want to retrieve a single record.
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
         stop: boolean, optional True
@@ -711,7 +1067,7 @@ provided they are recognizable as values in a field whose name is
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the search.
-            Usually they will be such that there will be just one document
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `findOne`.
@@ -719,55 +1075,86 @@ provided they are recognizable as values in a field whose name is
         Returns
         -------
         AttrDict
-            The single document found,
-            or an empty AttrDict if no document
+            The single record found,
+            or an empty AttrDict if no record
             satisfies the criteria.
         &#34;&#34;&#34;
         Messages = self.Messages
 
-        result = self.execute(table, &#34;find_one&#34;, criteria, {}, stop=stop)
-        if result is None:
+        (good, result) = self.execute(
+            table, &#34;find_one&#34;, criteria, {}, warn=False, stop=stop
+        )
+        if not good or result is None:
             if warn:
-                Messages.warning(msg=f&#34;Could not find that {table}&#34;, logmsg=f&#34;No record in {table} with {criteria}&#34;)
+                Messages.warning(
+                    msg=f&#34;Could not find that {table}&#34;,
+                    logmsg=f&#34;No record in {table} with {criteria}&#34;,
+                )
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, stop=True, **criteria):
-        &#34;&#34;&#34;Get a list of documents from a collection.
+    def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
+        &#34;&#34;&#34;Get a list of records from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection from which we want to retrieve records.
+            The name of the table from which we want to retrieve records.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
+        sort: string | function, optional None
+            Sort key. If `None`, the results will not be sorted.
+            If a string, it is the name of a field by which the results
+            will be sorted in ascending order.
+            If a function, the function should take a record as input and return a
+            value. The records will be sorted by this value.
+        asDict: boolean or string, optional False
+            If False, returns a list of records as result. If True or a string, returns
+            the same records, but now as dict, keyed by the `_id` field if
+            asDict is True, else keyed by the field in dicated by asDict.
         criteria: dict
             A set of criteria to narrow down the search.
 
         Returns
         -------
         list of AttrDict
-            The list of documents found, empty if no documents are found.
-            Each document is cast to an AttrDict.
+            The list of records found, empty if no records are found.
+            Each record is cast to an AttrDict.
         &#34;&#34;&#34;
+        (good, result) = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
+        if not good:
+            return []
 
-        result = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
-        return [deepAttrDict(record) for record in result]
+        unsorted = [deepAttrDict(record) for record in result]
+
+        if sort is None:
+            result = unsorted
+        else:
+            sortFunc = (lambda r: r[sort] or &#34;&#34;) if type(sort) is str else sort
+            result = sorted(unsorted, key=sortFunc)
+
+        return (
+            {r[asDict]: r for r in result}
+            if type(asDict) is str
+            else {r._id: r for r in result}
+            if asDict
+            else result
+        )
 
     def deleteRecord(self, table, stop=True, **criteria):
-        &#34;&#34;&#34;Updates a single document from a collection.
+        &#34;&#34;&#34;Deletes a single record from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection in which we want to update a single record.
+            The name of the table from which we want to delete a single record.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
-            Usually they will be such that there will be just one document
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
@@ -777,25 +1164,49 @@ provided they are recognizable as values in a field whose name is
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
-        n = result.deleted_count
-        return n &gt; 0
+        (good, result) = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
+        return result.deleted_count &gt; 0 if good else False
 
-    def updateRecord(self, table, updates, stop=True, **criteria):
-        &#34;&#34;&#34;Updates a single document from a collection.
+    def deleteRecords(self, table, stop=True, **criteria):
+        &#34;&#34;&#34;Delete multiple records from a table.
 
         Parameters
         ----------
         table: string
-            The name of the collection in which we want to update a single record.
-        updates: dict
-            The fields that must be updated with the values they must get
+            The name of the table from which we want to delete a records.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
-            Usually they will be such that there will be just one document
+
+        Returns
+        -------
+        boolean, integer
+            Whether the command completed successfully and
+            how many records have been deleted
+        &#34;&#34;&#34;
+        (good, result) = self.execute(table, &#34;delete_many&#34;, criteria, stop=stop)
+        count = result.deleted_count if good else 0
+        return (good, count)
+
+    def updateRecord(self, table, updates, stop=True, **criteria):
+        &#34;&#34;&#34;Updates a single record from a table.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table in which we want to update a single record.
+        updates: dict
+            The fields that must be updated with the values they must get.
+            If the value `None` is specified for a field, that field will be set to
+            null.
+        stop: boolean, optional True
+            If the command is not successful, stop after issuing the
+            error, do not return control.
+        criteria: dict
+            A set of criteria to narrow down the selection.
+            Usually they will be such that there will be just one record
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
@@ -805,9 +1216,10 @@ provided they are recognizable as values in a field whose name is
         boolean
             Whether the update was successful
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop)
-        n = result.modified_count
-        return n &gt; 0
+        (good, result) = self.execute(
+            table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop
+        )
+        return result.modified_count &gt; 0 if good else False
 
     def insertRecord(self, table, stop=True, **fields):
         &#34;&#34;&#34;Inserts a new record in a table.
@@ -828,16 +1240,16 @@ provided they are recognizable as values in a field whose name is
             The id of the newly inserted record, or None if the record could not be
             inserted.
         &#34;&#34;&#34;
-        result = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
-        return result.inserted_id if result else None
+        (good, result) = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
+        return result.inserted_id if good else None
 
-    def execute(self, table, command, *args, stop=True, **kwargs):
+    def execute(self, table, command, *args, warn=True, stop=True, **kwargs):
         &#34;&#34;&#34;Executes a MongoDb command and returns the result.
 
         Parameters
         ----------
         table: string
-            The collection on which to perform the command.
+            The table on which to perform the command.
         command: string
             The built-in MongoDb command.
             Note that the Python interface requires you to write camelCase commands
@@ -845,6 +1257,8 @@ provided they are recognizable as values in a field whose name is
             So the Mongo command `findOne` should be passed as `find_one`.
         args: list
             Any number of additional arguments that the command requires.
+        warn: boolean, optional True
+            If True, warn if there is an error.
         stop: boolean, optional True
             If the command is not successful, stop after issuing the
             error, do not return control.
@@ -853,10 +1267,12 @@ provided they are recognizable as values in a field whose name is
 
         Returns
         -------
-        any
-            Whatever the MongoDb command returns.
+        boolean, any
+            The `boolean` is whether an error occurred.
+
+            The `any` is whatever the MongoDb command returns.
             If the command fails, an error message is issued and
-            None is returned.
+            `any=None` is returned.
         &#34;&#34;&#34;
         Messages = self.Messages
 
@@ -865,22 +1281,321 @@ provided they are recognizable as values in a field whose name is
 
         method = getattr(db[table], command, None)
         result = None
+        good = True
 
         if method is None:
-            Messages.error(
-                msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
-            )
+            if warn:
+                Messages.error(
+                    msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
+                )
+            good = False
         try:
             result = method(*args, **kwargs)
         except Exception as e:
-            Messages.error(
-                msg=&#34;Database action&#34;,
-                logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
-                stop=False,
-            )
+            if warn:
+                Messages.error(
+                    msg=&#34;Database action&#34;,
+                    logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
+                    stop=stop,
+                )
+            else:
+                if stop:
+                    appStop()
+            good = False
             result = None
 
-        return result</code></pre>
+        return (good, result)
+
+    def consolidate(self, record):
+        &#34;&#34;&#34;Resolves all links in a record to title values of linked records.
+
+        The `_id` field of the record will be removed.
+        Values of fields with names like `xxxId` will be looked up in table `xxx`,
+        and will be replaced by the value of the `title` field of the found record.
+
+        Parameters
+        ----------
+        record: dict or AttrDict
+            The record data to consolidate.
+
+        Returns
+        -------
+        dict
+            All AttrDict values will be recursively transformed in ordinary dict values.
+        &#34;&#34;&#34;
+        newRecord = AttrDict()
+
+        for k, v in record.items():
+            if k == &#34;_id&#34;:
+                continue
+            if k.endswith(&#34;Id&#34;):
+                table = k.removesuffix(&#34;Id&#34;)
+                linkedRecord = self.getRecord(table, _id=v, warn=False, stop=False)
+                v = linkedRecord.title
+                if v is not None:
+                    newRecord[table] = v
+            else:
+                newRecord[k] = v
+
+        return newRecord.deepdict()
+
+    def mkBackup(self, dstBase, project=None, asJson=False):
+        &#34;&#34;&#34;Backs up data as record files in table folders.
+
+        We do site-wide backups and project-specific backups.
+
+        See also `control.content.Content.mkBackup`
+
+        This function backs up database data in
+        [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
+
+        Inspired by this
+        [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+        Parameters
+        ----------
+        dstBase: string
+            Destination folder.
+            This folder will get subfolders `bson` and/or `json` in which
+            the backups are stored.
+        project: string, optional None
+            If given, only backs up the given project.
+        asJson: boolean, optional False
+            Whether to create a backup in `json` format
+        asBson: boolean, optional True
+            Whether to create a backup in `bson` format
+
+        Returns
+        -------
+        boolean
+            Whether the operation was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        self.connect()
+        db = self.db
+        tables = db.list_collection_names()
+
+        dstb = f&#34;{dstBase}/bson&#34;
+        dirMake(dstb)
+        dstj = None
+        jOpts = {}
+
+        if asJson:
+            dstj = f&#34;{dstBase}/json&#34;
+            dirMake(dstj)
+            jOpts = dict(ensure_ascii=False, indent=2, sort_keys=True)
+
+        if project is None:
+            for table in tables:
+                records = db[table].find()
+                n = self.writeRecords(table, records, dstb, dstj=dstj, jOpts=jOpts)
+                plural = &#34;&#34; if n == 1 else &#34;&#34;
+                Messages.info(msg=f&#34;table {table} {n} record{plural}&#34;)
+            return True
+
+        (projectId, project) = self.get(&#34;project&#34;, project)
+        records = db.project.find(dict(_id=projectId))
+        n = self.writeRecords(&#34;project&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+        records = db.edition.find(dict(projectId=projectId))
+        n = self.writeRecords(&#34;edition&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+        return True
+
+    def writeRecords(self, table, records, dstb, dstj=None, jOpts={}):
+        &#34;&#34;&#34;Writes records to bson and possibly json file.
+
+        If the destination file already exists, it will be wiped.
+
+        Parameters
+        ----------
+        table: string
+            Table that contains the record. Will be used as file name
+            for the record to be written to.
+        record: dict
+            The record as it is retrieved from MongoDb
+        dstb: string
+            Destination folder for the bson file.
+        dstj: string, optional None
+            Destination folder for the json file.
+            If `None`, no json file will be written.
+        jOpts: dict, optional {}
+            Format options for writing the json file.
+        first
+
+        Returns
+        -------
+        integer
+            The number of records written
+        &#34;&#34;&#34;
+        asJson = dstj is not None
+
+        n = 0
+        with open(f&#34;{dstb}/{table}.bson&#34;, &#34;wb&#34;) as bh:
+            if asJson:
+                jh = open(f&#34;{dstj}/{table}.json&#34;, &#34;w&#34;)
+                jh.write(&#34;[\n&#34;)
+
+            sep = &#34;&#34;
+            for record in records:
+                bh.write(BSON.encode(record))
+                n += 1
+                if asJson:
+                    jh.write(sep)
+                    jh.write(dumpjs(record, **jOpts))
+                sep = &#34;,\n&#34;
+
+            if asJson:
+                jh.write(&#34;\n]\n&#34;)
+                jh.close()
+
+        return n
+
+    def restore(self, src, project=None, clean=True):
+        &#34;&#34;&#34;Restores the database from record files in table folders.
+
+        We do site-wide restores or project-specific restores.
+
+        See also `control.content.Content.restore`
+
+        This function restores database data given in
+        [`bson`](https://www.mongodb.com/basics/bson).
+
+        Inspired by this
+        [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+        Parameters
+        ----------
+        src: string
+            Source folder.
+        project: string, optional None
+            If given, only restores the given project.
+        clean: boolean, optional True
+            Whether to delete records from a table before
+            restoring records to it.
+            If `clean=True` then, in case of site-wide restores, all records
+            will be cleaned. In case of project restores, only the relevant
+            project/edition records will be cleaned.
+
+        Returns
+        -------
+        boolean
+            Whether the operation was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        self.connect()
+        db = self.db
+
+        if not dirExists(src):
+            Messages.warning(
+                msg=&#34;Source directory not found&#34;,
+                logmsg=f&#34;Source directory {src} not found&#34;,
+            )
+            return False
+
+        good = True
+
+        if project is None:
+            with os.scandir(src) as dh:
+                for entry in dh:
+                    name = entry.name
+                    if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                        continue
+
+                    table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                    with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                        records = decode_all(f.read())
+
+                    Messages.info(msg=f&#34;table {table} {len(records)} record(s)&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(table, {})
+                        if not thisGood:
+                            good = False
+
+                    db[table].insert_many(records)
+            return good
+
+        (projectId, project) = self.get(&#34;project&#34;, project)
+
+        with os.scandir(src) as dh:
+            for entry in dh:
+                name = entry.name
+                if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                    continue
+
+                table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                if table not in {&#34;project&#34;, &#34;edition&#34;}:
+                    continue
+
+                with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                    records = decode_all(f.read())
+
+                thisGood = True
+
+                if table == &#34;project&#34;:
+                    records = [r for r in records if r._id == projectId]
+                    nRecords = len(records)
+                    if nRecords == 0:
+                        Messages.warning(
+                            msg=f&#34;No {table} records found! Restore skipped.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;No {table} records found! Skipped.&#34;
+                            ),
+                        )
+                        continue
+                    elif nRecords &gt; 1:
+                        Messages.warning(
+                            msg=f&#34;Multiple {table} records found. Will restore first.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;Multiple ({nRecords}) {table} records found.&#34;
+                            ),
+                        )
+
+                    record = records[0]
+
+                    Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(
+                            table, {&#34;_id&#34;: projectId}
+                        )
+                    if thisGood:
+                        db[table].insert_one(record)
+                    else:
+                        good = False
+
+                elif table == &#34;edition&#34;:
+                    records = [r for r in records if r.projectId == projectId]
+                    nRecords = len(records)
+                    if nRecords == 0:
+                        Messages.info(
+                            msg=f&#34;No {table} records found.&#34;,
+                            logmsg=(
+                                f&#34;Project restore {projectId}: &#34;
+                                f&#34;No {table} records found.&#34;
+                            ),
+                        )
+                        continue
+
+                    Messages.info(msg=f&#34;Restoring {table} records ...&#34;)
+                    if db[table] is not None and clean:
+                        (thisGood, count) = self.deleteRecords(
+                            table, {&#34;_id&#34;: projectId}
+                        )
+                    if thisGood:
+                        db[table].insert_many(records)
+                    else:
+                        good = False
+                else:
+                    Messages.warning(
+                        msg=f&#34;Skipping {name} as it is not legal in a project backup&#34;,
+                        logmsg=(
+                            f&#34;Skipping {name} as it is not legal in a project backup&#34;
+                        ),
+                    )
+
+        return good</code></pre>
 </details>
 <h3>Static methods</h3>
 <dl>
@@ -902,7 +1617,7 @@ such an id, otherwise <code>None</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L8-L33" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L13-L38" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def cast(value):
@@ -951,7 +1666,7 @@ def cast(value):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L35-L49" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L40-L54" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def isId(value):
@@ -973,37 +1688,37 @@ def isId(value):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="control.mongo.Mongo.clearCollection"><code class="name flex">
-<span>def <span class="ident">clearCollection</span></span>(<span>self, table, delete=False)</span>
+<dt id="control.mongo.Mongo.clearTable"><code class="name flex">
+<span>def <span class="ident">clearTable</span></span>(<span>self, table, delete=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Make sure that a collection exists and that it is empty.</p>
+<div class="desc"><p>Make sure that a table exists and that it is empty.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the collection.
-If no such collection exists, it will be created.</dd>
+<dd>The name of the table.
+If no such table exists, it will be created.</dd>
 <dt><strong><code>delete</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>If True, and the collection existed before, it will be deleted.
-If False, the collection will be cleared, i.e. all its documents
+<dd>If True, and the table existed before, it will be deleted.
+If False, the table will be cleared, i.e. all its records
 get deleted, but the table remains.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L140-L191" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L146-L192" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def clearCollection(self, table, delete=False):
-    &#34;&#34;&#34;Make sure that a collection exists and that it is empty.
+<pre><code class="python">def clearTable(self, table, delete=False):
+    &#34;&#34;&#34;Make sure that a table exists and that it is empty.
 
     Parameters
     ----------
     table: string
-        The name of the collection.
-        If no such collection exists, it will be created.
+        The name of the table.
+        If no such table exists, it will be created.
     delete: boolean, optional False
-        If True, and the collection existed before, it will be deleted.
-        If False, the collection will be cleared, i.e. all its documents
+        If True, and the table existed before, it will be deleted.
+        If False, the table will be cleared, i.e. all its records
         get deleted, but the table remains.
     &#34;&#34;&#34;
     Messages = self.Messages
@@ -1016,13 +1731,13 @@ get deleted, but the table remains.</dd>
             try:
                 db.drop_collection(table)
                 Messages.plain(
-                    msg=f&#34;dropped collection `{table}`&#34;,
-                    logmsg=f&#34;dropped collection `{table}`&#34;,
+                    msg=f&#34;dropped table `{table}`&#34;,
+                    logmsg=f&#34;dropped table `{table}`&#34;,
                 )
             except Exception as e:
                 Messages.error(
                     msg=&#34;Database action&#34;,
-                    logmsg=f&#34;Cannot delete collection: `{table}`: {e}&#34;,
+                    logmsg=f&#34;Cannot delete table: `{table}`: {e}&#34;,
                 )
     else:
         if db[table] is None:
@@ -1031,49 +1746,15 @@ get deleted, but the table remains.</dd>
             except Exception as e:
                 Messages.error(
                     msg=&#34;Database action&#34;,
-                    logmsg=f&#34;Cannot create collection: `{table}`: {e}&#34;,
+                    logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
                 )
         else:
-            try:
-                self.execute(table, &#34;delete_many&#34;, {})
+            (good, count) = self.deleteRecords(table, {})
+            if good:
                 Messages.plain(
-                    msg=f&#34;cleared collection `{table}`&#34;,
-                    logmsg=f&#34;cleared collection `{table}`&#34;,
-                )
-            except Exception as e:
-                Messages.error(
-                    msg=&#34;Database action&#34;,
-                    logmsg=f&#34;Cannot clear collection: `{table}`: {e}&#34;,
+                    msg=f&#34;cleared table `{table} of {count} records`&#34;,
+                    logmsg=f&#34;cleared table `{table} of {count} records`&#34;,
                 )</code></pre>
-</details>
-</dd>
-<dt id="control.mongo.Mongo.collections"><code class="name flex">
-<span>def <span class="ident">collections</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>List the existent collections in the database.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>list</code></dt>
-<dd>The names of the collections.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L127-L138" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def collections(self):
-    &#34;&#34;&#34;List the existent collections in the database.
-
-    Returns
-    -------
-    list
-        The names of the collections.
-    &#34;&#34;&#34;
-    self.connect()
-    db = self.db
-
-    return list(db.list_collection_names())</code></pre>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.connect"><code class="name flex">
@@ -1088,7 +1769,7 @@ is stored in the <code>client</code> and <code>db</code> members of the Mongo ob
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L84-L115" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L90-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def connect(self):
     &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
@@ -1124,21 +1805,78 @@ is stored in the <code>client</code> and <code>db</code> members of the Mongo ob
         self.db = db</code></pre>
 </details>
 </dd>
+<dt id="control.mongo.Mongo.consolidate"><code class="name flex">
+<span>def <span class="ident">consolidate</span></span>(<span>self, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Resolves all links in a record to title values of linked records.</p>
+<p>The <code>_id</code> field of the record will be removed.
+Values of fields with names like <code>xxxId</code> will be looked up in table <code>xxx</code>,
+and will be replaced by the value of the <code>title</code> field of the found record.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>record</code></strong> :&ensp;<code>dict</code> or <code>AttrDict</code></dt>
+<dd>The record data to consolidate.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>All AttrDict values will be recursively transformed in ordinary dict values.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L479-L510" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def consolidate(self, record):
+    &#34;&#34;&#34;Resolves all links in a record to title values of linked records.
+
+    The `_id` field of the record will be removed.
+    Values of fields with names like `xxxId` will be looked up in table `xxx`,
+    and will be replaced by the value of the `title` field of the found record.
+
+    Parameters
+    ----------
+    record: dict or AttrDict
+        The record data to consolidate.
+
+    Returns
+    -------
+    dict
+        All AttrDict values will be recursively transformed in ordinary dict values.
+    &#34;&#34;&#34;
+    newRecord = AttrDict()
+
+    for k, v in record.items():
+        if k == &#34;_id&#34;:
+            continue
+        if k.endswith(&#34;Id&#34;):
+            table = k.removesuffix(&#34;Id&#34;)
+            linkedRecord = self.getRecord(table, _id=v, warn=False, stop=False)
+            v = linkedRecord.title
+            if v is not None:
+                newRecord[table] = v
+        else:
+            newRecord[k] = v
+
+    return newRecord.deepdict()</code></pre>
+</details>
+</dd>
 <dt id="control.mongo.Mongo.deleteRecord"><code class="name flex">
 <span>def <span class="ident">deleteRecord</span></span>(<span>self, table, stop=True, **criteria)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Updates a single document from a collection.</p>
+<div class="desc"><p>Deletes a single record from a table.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the collection in which we want to update a single record.</dd>
+<dd>The name of the table from which we want to delete a single record.</dd>
 <dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
 <dd>If the command is not successful, stop after issuing the
 error, do not return control.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the selection.
-Usually they will be such that there will be just one document
+Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
@@ -1151,21 +1889,21 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L283-L307" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L315-L338" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteRecord(self, table, stop=True, **criteria):
-    &#34;&#34;&#34;Updates a single document from a collection.
+    &#34;&#34;&#34;Deletes a single record from a table.
 
     Parameters
     ----------
     table: string
-        The name of the collection in which we want to update a single record.
+        The name of the table from which we want to delete a single record.
     stop: boolean, optional True
         If the command is not successful, stop after issuing the
         error, do not return control.
     criteria: dict
         A set of criteria to narrow down the selection.
-        Usually they will be such that there will be just one document
+        Usually they will be such that there will be just one record
         that satisfies them.
         But if there are more, a single one is chosen,
         by the mechanics of the built-in MongoDb command `updateOne`.
@@ -1175,9 +1913,58 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
     boolean
         Whether the delete was successful
     &#34;&#34;&#34;
-    result = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
-    n = result.deleted_count
-    return n &gt; 0</code></pre>
+    (good, result) = self.execute(table, &#34;delete_one&#34;, criteria, stop=stop)
+    return result.deleted_count &gt; 0 if good else False</code></pre>
+</details>
+</dd>
+<dt id="control.mongo.Mongo.deleteRecords"><code class="name flex">
+<span>def <span class="ident">deleteRecords</span></span>(<span>self, table, stop=True, **criteria)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Delete multiple records from a table.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the table from which we want to delete a records.</dd>
+<dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>If the command is not successful, stop after issuing the
+error, do not return control.</dd>
+<dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
+<dd>A set of criteria to narrow down the selection.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean, integer</code></dt>
+<dd>Whether the command completed successfully and
+how many records have been deleted</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L340-L361" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteRecords(self, table, stop=True, **criteria):
+    &#34;&#34;&#34;Delete multiple records from a table.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to delete a records.
+    stop: boolean, optional True
+        If the command is not successful, stop after issuing the
+        error, do not return control.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+
+    Returns
+    -------
+    boolean, integer
+        Whether the command completed successfully and
+        how many records have been deleted
+    &#34;&#34;&#34;
+    (good, result) = self.execute(table, &#34;delete_many&#34;, criteria, stop=stop)
+    count = result.deleted_count if good else 0
+    return (good, count)</code></pre>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.disconnect"><code class="name flex">
@@ -1188,7 +1975,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L117-L125" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L123-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def disconnect(self):
     &#34;&#34;&#34;Disconnect from the MongoDB.&#34;&#34;&#34;
@@ -1202,14 +1989,14 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.execute"><code class="name flex">
-<span>def <span class="ident">execute</span></span>(<span>self, table, command, *args, stop=True, **kwargs)</span>
+<span>def <span class="ident">execute</span></span>(<span>self, table, command, *args, warn=True, stop=True, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Executes a MongoDb command and returns the result.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The collection on which to perform the command.</dd>
+<dd>The table on which to perform the command.</dd>
 <dt><strong><code>command</code></strong> :&ensp;<code>string</code></dt>
 <dd>The built-in MongoDb command.
 Note that the Python interface requires you to write camelCase commands
@@ -1217,6 +2004,8 @@ with underscores.
 So the Mongo command <code>findOne</code> should be passed as <code>find_one</code>.</dd>
 <dt><strong><code>args</code></strong> :&ensp;<code>list</code></dt>
 <dd>Any number of additional arguments that the command requires.</dd>
+<dt><strong><code>warn</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>If True, warn if there is an error.</dd>
 <dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
 <dd>If the command is not successful, stop after issuing the
 error, do not return control.</dd>
@@ -1225,23 +2014,26 @@ error, do not return control.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>any</code></dt>
-<dd>Whatever the MongoDb command returns.
+<dt><code>boolean, any</code></dt>
+<dd>
+<p>The <code>boolean</code> is whether an error occurred.</p>
+<p>The <code>any</code> is whatever the MongoDb command returns.
 If the command fails, an error message is issued and
-None is returned.</dd>
+<code>any=None</code> is returned.</p>
+</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L359-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L416-L477" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def execute(self, table, command, *args, stop=True, **kwargs):
+<pre><code class="python">def execute(self, table, command, *args, warn=True, stop=True, **kwargs):
     &#34;&#34;&#34;Executes a MongoDb command and returns the result.
 
     Parameters
     ----------
     table: string
-        The collection on which to perform the command.
+        The table on which to perform the command.
     command: string
         The built-in MongoDb command.
         Note that the Python interface requires you to write camelCase commands
@@ -1249,6 +2041,8 @@ None is returned.</dd>
         So the Mongo command `findOne` should be passed as `find_one`.
     args: list
         Any number of additional arguments that the command requires.
+    warn: boolean, optional True
+        If True, warn if there is an error.
     stop: boolean, optional True
         If the command is not successful, stop after issuing the
         error, do not return control.
@@ -1257,10 +2051,12 @@ None is returned.</dd>
 
     Returns
     -------
-    any
-        Whatever the MongoDb command returns.
+    boolean, any
+        The `boolean` is whether an error occurred.
+
+        The `any` is whatever the MongoDb command returns.
         If the command fails, an error message is issued and
-        None is returned.
+        `any=None` is returned.
     &#34;&#34;&#34;
     Messages = self.Messages
 
@@ -1269,22 +2065,30 @@ None is returned.</dd>
 
     method = getattr(db[table], command, None)
     result = None
+    good = True
 
     if method is None:
-        Messages.error(
-            msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
-        )
+        if warn:
+            Messages.error(
+                msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
+            )
+        good = False
     try:
         result = method(*args, **kwargs)
     except Exception as e:
-        Messages.error(
-            msg=&#34;Database action&#34;,
-            logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
-            stop=False,
-        )
+        if warn:
+            Messages.error(
+                msg=&#34;Database action&#34;,
+                logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
+                stop=stop,
+            )
+        else:
+            if stop:
+                appStop()
+        good = False
         result = None
 
-    return result</code></pre>
+    return (good, result)</code></pre>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.get"><code class="name flex">
@@ -1315,7 +2119,7 @@ which will then be cast to an ObjectId.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L193-L223" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L194-L224" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, table, record):
     &#34;&#34;&#34;Get the record and recordId if only one of them is specified.
@@ -1351,64 +2155,100 @@ which will then be cast to an ObjectId.</p>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.getList"><code class="name flex">
-<span>def <span class="ident">getList</span></span>(<span>self, table, stop=True, **criteria)</span>
+<span>def <span class="ident">getList</span></span>(<span>self, table, stop=True, sort=None, asDict=False, **criteria)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a list of documents from a collection.</p>
+<div class="desc"><p>Get a list of records from a table.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the collection from which we want to retrieve records.</dd>
+<dd>The name of the table from which we want to retrieve records.</dd>
 <dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
 <dd>If the command is not successful, stop after issuing the
 error, do not return control.</dd>
+<dt><strong><code>sort</code></strong> :&ensp;<code>string | function</code>, optional <code>None</code></dt>
+<dd>Sort key. If <code>None</code>, the results will not be sorted.
+If a string, it is the name of a field by which the results
+will be sorted in ascending order.
+If a function, the function should take a record as input and return a
+value. The records will be sorted by this value.</dd>
+<dt><strong><code>asDict</code></strong> :&ensp;<code>boolean</code> or <code>string</code>, optional <code>False</code></dt>
+<dd>If False, returns a list of records as result. If True or a string, returns
+the same records, but now as dict, keyed by the <code>_id</code> field if
+asDict is True, else keyed by the field in dicated by asDict.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the search.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>list</code> of <code>AttrDict</code></dt>
-<dd>The list of documents found, empty if no documents are found.
-Each document is cast to an AttrDict.</dd>
+<dd>The list of records found, empty if no records are found.
+Each record is cast to an AttrDict.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L260-L281" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L266-L313" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getList(self, table, stop=True, **criteria):
-    &#34;&#34;&#34;Get a list of documents from a collection.
+<pre><code class="python">def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
+    &#34;&#34;&#34;Get a list of records from a table.
 
     Parameters
     ----------
     table: string
-        The name of the collection from which we want to retrieve records.
+        The name of the table from which we want to retrieve records.
     stop: boolean, optional True
         If the command is not successful, stop after issuing the
         error, do not return control.
+    sort: string | function, optional None
+        Sort key. If `None`, the results will not be sorted.
+        If a string, it is the name of a field by which the results
+        will be sorted in ascending order.
+        If a function, the function should take a record as input and return a
+        value. The records will be sorted by this value.
+    asDict: boolean or string, optional False
+        If False, returns a list of records as result. If True or a string, returns
+        the same records, but now as dict, keyed by the `_id` field if
+        asDict is True, else keyed by the field in dicated by asDict.
     criteria: dict
         A set of criteria to narrow down the search.
 
     Returns
     -------
     list of AttrDict
-        The list of documents found, empty if no documents are found.
-        Each document is cast to an AttrDict.
+        The list of records found, empty if no records are found.
+        Each record is cast to an AttrDict.
     &#34;&#34;&#34;
+    (good, result) = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
+    if not good:
+        return []
 
-    result = self.execute(table, &#34;find&#34;, criteria, {}, stop=stop)
-    return [deepAttrDict(record) for record in result]</code></pre>
+    unsorted = [deepAttrDict(record) for record in result]
+
+    if sort is None:
+        result = unsorted
+    else:
+        sortFunc = (lambda r: r[sort] or &#34;&#34;) if type(sort) is str else sort
+        result = sorted(unsorted, key=sortFunc)
+
+    return (
+        {r[asDict]: r for r in result}
+        if type(asDict) is str
+        else {r._id: r for r in result}
+        if asDict
+        else result
+    )</code></pre>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.getRecord"><code class="name flex">
 <span>def <span class="ident">getRecord</span></span>(<span>self, table, warn=True, stop=True, **criteria)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a single document from a collection.</p>
+<div class="desc"><p>Get a single record from a table.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the collection from which we want to retrieve a single record.</dd>
+<dd>The name of the table from which we want to retrieve a single record.</dd>
 <dt><strong><code>warn</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
 <dd>If True, warn if there is no record satisfying the criteria.</dd>
 <dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
@@ -1416,7 +2256,7 @@ Each document is cast to an AttrDict.</dd>
 error, do not return control.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the search.
-Usually they will be such that there will be just one document
+Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>findOne</code>.</dd>
@@ -1424,22 +2264,22 @@ by the mechanics of the built-in MongoDb command <code>findOne</code>.</dd>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>AttrDict</code></dt>
-<dd>The single document found,
-or an empty AttrDict if no document
+<dd>The single record found,
+or an empty AttrDict if no record
 satisfies the criteria.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L225-L258" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L226-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRecord(self, table, warn=True, stop=True, **criteria):
-    &#34;&#34;&#34;Get a single document from a collection.
+    &#34;&#34;&#34;Get a single record from a table.
 
     Parameters
     ----------
     table: string
-        The name of the collection from which we want to retrieve a single record.
+        The name of the table from which we want to retrieve a single record.
     warn: boolean, optional True
         If True, warn if there is no record satisfying the criteria.
     stop: boolean, optional True
@@ -1447,7 +2287,7 @@ satisfies the criteria.</dd>
         error, do not return control.
     criteria: dict
         A set of criteria to narrow down the search.
-        Usually they will be such that there will be just one document
+        Usually they will be such that there will be just one record
         that satisfies them.
         But if there are more, a single one is chosen,
         by the mechanics of the built-in MongoDb command `findOne`.
@@ -1455,16 +2295,21 @@ satisfies the criteria.</dd>
     Returns
     -------
     AttrDict
-        The single document found,
-        or an empty AttrDict if no document
+        The single record found,
+        or an empty AttrDict if no record
         satisfies the criteria.
     &#34;&#34;&#34;
     Messages = self.Messages
 
-    result = self.execute(table, &#34;find_one&#34;, criteria, {}, stop=stop)
-    if result is None:
+    (good, result) = self.execute(
+        table, &#34;find_one&#34;, criteria, {}, warn=False, stop=stop
+    )
+    if not good or result is None:
         if warn:
-            Messages.warning(msg=f&#34;Could not find that {table}&#34;, logmsg=f&#34;No record in {table} with {criteria}&#34;)
+            Messages.warning(
+                msg=f&#34;Could not find that {table}&#34;,
+                logmsg=f&#34;No record in {table} with {criteria}&#34;,
+            )
         result = {}
     return deepAttrDict(result)</code></pre>
 </details>
@@ -1493,7 +2338,7 @@ inserted.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L337-L357" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L394-L414" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def insertRecord(self, table, stop=True, **fields):
     &#34;&#34;&#34;Inserts a new record in a table.
@@ -1514,27 +2359,337 @@ inserted.</dd>
         The id of the newly inserted record, or None if the record could not be
         inserted.
     &#34;&#34;&#34;
-    result = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
-    return result.inserted_id if result else None</code></pre>
+    (good, result) = self.execute(table, &#34;insert_one&#34;, dict(**fields), stop=stop)
+    return result.inserted_id if good else None</code></pre>
+</details>
+</dd>
+<dt id="control.mongo.Mongo.mkBackup"><code class="name flex">
+<span>def <span class="ident">mkBackup</span></span>(<span>self, dstBase, project=None, asJson=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Backs up data as record files in table folders.</p>
+<p>We do site-wide backups and project-specific backups.</p>
+<p>See also <code><a title="control.content.Content.mkBackup" href="content.html#control.content.Content.mkBackup">Content.mkBackup()</a></code></p>
+<p>This function backs up database data in
+<a href="https://www.mongodb.com/basics/bson"><code>bson</code></a> and/or <code>json</code> format.</p>
+<p>Inspired by this
+<a href="https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d">gist</a>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>dstBase</code></strong> :&ensp;<code>string</code></dt>
+<dd>Destination folder.
+This folder will get subfolders <code>bson</code> and/or <code>json</code> in which
+the backups are stored.</dd>
+<dt><strong><code>project</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If given, only backs up the given project.</dd>
+<dt><strong><code>asJson</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether to create a backup in <code>json</code> format</dd>
+<dt><strong><code>asBson</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>Whether to create a backup in <code>bson</code> format</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the operation was successful.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L512-L571" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def mkBackup(self, dstBase, project=None, asJson=False):
+    &#34;&#34;&#34;Backs up data as record files in table folders.
+
+    We do site-wide backups and project-specific backups.
+
+    See also `control.content.Content.mkBackup`
+
+    This function backs up database data in
+    [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
+
+    Inspired by this
+    [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+    Parameters
+    ----------
+    dstBase: string
+        Destination folder.
+        This folder will get subfolders `bson` and/or `json` in which
+        the backups are stored.
+    project: string, optional None
+        If given, only backs up the given project.
+    asJson: boolean, optional False
+        Whether to create a backup in `json` format
+    asBson: boolean, optional True
+        Whether to create a backup in `bson` format
+
+    Returns
+    -------
+    boolean
+        Whether the operation was successful.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    self.connect()
+    db = self.db
+    tables = db.list_collection_names()
+
+    dstb = f&#34;{dstBase}/bson&#34;
+    dirMake(dstb)
+    dstj = None
+    jOpts = {}
+
+    if asJson:
+        dstj = f&#34;{dstBase}/json&#34;
+        dirMake(dstj)
+        jOpts = dict(ensure_ascii=False, indent=2, sort_keys=True)
+
+    if project is None:
+        for table in tables:
+            records = db[table].find()
+            n = self.writeRecords(table, records, dstb, dstj=dstj, jOpts=jOpts)
+            plural = &#34;&#34; if n == 1 else &#34;&#34;
+            Messages.info(msg=f&#34;table {table} {n} record{plural}&#34;)
+        return True
+
+    (projectId, project) = self.get(&#34;project&#34;, project)
+    records = db.project.find(dict(_id=projectId))
+    n = self.writeRecords(&#34;project&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+    records = db.edition.find(dict(projectId=projectId))
+    n = self.writeRecords(&#34;edition&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+    return True</code></pre>
+</details>
+</dd>
+<dt id="control.mongo.Mongo.restore"><code class="name flex">
+<span>def <span class="ident">restore</span></span>(<span>self, src, project=None, clean=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Restores the database from record files in table folders.</p>
+<p>We do site-wide restores or project-specific restores.</p>
+<p>See also <code><a title="control.content.Content.restore" href="content.html#control.content.Content.restore">Content.restore()</a></code></p>
+<p>This function restores database data given in
+<a href="https://www.mongodb.com/basics/bson"><code>bson</code></a>.</p>
+<p>Inspired by this
+<a href="https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d">gist</a>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>src</code></strong> :&ensp;<code>string</code></dt>
+<dd>Source folder.</dd>
+<dt><strong><code>project</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>If given, only restores the given project.</dd>
+<dt><strong><code>clean</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
+<dd>Whether to delete records from a table before
+restoring records to it.
+If <code>clean=True</code> then, in case of site-wide restores, all records
+will be cleaned. In case of project restores, only the relevant
+project/edition records will be cleaned.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the operation was successful.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L622-L768" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def restore(self, src, project=None, clean=True):
+    &#34;&#34;&#34;Restores the database from record files in table folders.
+
+    We do site-wide restores or project-specific restores.
+
+    See also `control.content.Content.restore`
+
+    This function restores database data given in
+    [`bson`](https://www.mongodb.com/basics/bson).
+
+    Inspired by this
+    [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+    Parameters
+    ----------
+    src: string
+        Source folder.
+    project: string, optional None
+        If given, only restores the given project.
+    clean: boolean, optional True
+        Whether to delete records from a table before
+        restoring records to it.
+        If `clean=True` then, in case of site-wide restores, all records
+        will be cleaned. In case of project restores, only the relevant
+        project/edition records will be cleaned.
+
+    Returns
+    -------
+    boolean
+        Whether the operation was successful.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    self.connect()
+    db = self.db
+
+    if not dirExists(src):
+        Messages.warning(
+            msg=&#34;Source directory not found&#34;,
+            logmsg=f&#34;Source directory {src} not found&#34;,
+        )
+        return False
+
+    good = True
+
+    if project is None:
+        with os.scandir(src) as dh:
+            for entry in dh:
+                name = entry.name
+                if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                    continue
+
+                table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                    records = decode_all(f.read())
+
+                Messages.info(msg=f&#34;table {table} {len(records)} record(s)&#34;)
+                if db[table] is not None and clean:
+                    (thisGood, count) = self.deleteRecords(table, {})
+                    if not thisGood:
+                        good = False
+
+                db[table].insert_many(records)
+        return good
+
+    (projectId, project) = self.get(&#34;project&#34;, project)
+
+    with os.scandir(src) as dh:
+        for entry in dh:
+            name = entry.name
+            if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                continue
+
+            table = name.rsplit(&#34;.&#34;, 1)[0]
+
+            if table not in {&#34;project&#34;, &#34;edition&#34;}:
+                continue
+
+            with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                records = decode_all(f.read())
+
+            thisGood = True
+
+            if table == &#34;project&#34;:
+                records = [r for r in records if r._id == projectId]
+                nRecords = len(records)
+                if nRecords == 0:
+                    Messages.warning(
+                        msg=f&#34;No {table} records found! Restore skipped.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;No {table} records found! Skipped.&#34;
+                        ),
+                    )
+                    continue
+                elif nRecords &gt; 1:
+                    Messages.warning(
+                        msg=f&#34;Multiple {table} records found. Will restore first.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;Multiple ({nRecords}) {table} records found.&#34;
+                        ),
+                    )
+
+                record = records[0]
+
+                Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
+                if db[table] is not None and clean:
+                    (thisGood, count) = self.deleteRecords(
+                        table, {&#34;_id&#34;: projectId}
+                    )
+                if thisGood:
+                    db[table].insert_one(record)
+                else:
+                    good = False
+
+            elif table == &#34;edition&#34;:
+                records = [r for r in records if r.projectId == projectId]
+                nRecords = len(records)
+                if nRecords == 0:
+                    Messages.info(
+                        msg=f&#34;No {table} records found.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;No {table} records found.&#34;
+                        ),
+                    )
+                    continue
+
+                Messages.info(msg=f&#34;Restoring {table} records ...&#34;)
+                if db[table] is not None and clean:
+                    (thisGood, count) = self.deleteRecords(
+                        table, {&#34;_id&#34;: projectId}
+                    )
+                if thisGood:
+                    db[table].insert_many(records)
+                else:
+                    good = False
+            else:
+                Messages.warning(
+                    msg=f&#34;Skipping {name} as it is not legal in a project backup&#34;,
+                    logmsg=(
+                        f&#34;Skipping {name} as it is not legal in a project backup&#34;
+                    ),
+                )
+
+    return good</code></pre>
+</details>
+</dd>
+<dt id="control.mongo.Mongo.tables"><code class="name flex">
+<span>def <span class="ident">tables</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>List the existent tables in the database.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>The names of the tables.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L133-L144" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def tables(self):
+    &#34;&#34;&#34;List the existent tables in the database.
+
+    Returns
+    -------
+    list
+        The names of the tables.
+    &#34;&#34;&#34;
+    self.connect()
+    db = self.db
+
+    return list(db.list_collection_names())</code></pre>
 </details>
 </dd>
 <dt id="control.mongo.Mongo.updateRecord"><code class="name flex">
 <span>def <span class="ident">updateRecord</span></span>(<span>self, table, updates, stop=True, **criteria)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Updates a single document from a collection.</p>
+<div class="desc"><p>Updates a single record from a table.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
-<dd>The name of the collection in which we want to update a single record.</dd>
+<dd>The name of the table in which we want to update a single record.</dd>
 <dt><strong><code>updates</code></strong> :&ensp;<code>dict</code></dt>
-<dd>The fields that must be updated with the values they must get</dd>
+<dd>The fields that must be updated with the values they must get.
+If the value <code>None</code> is specified for a field, that field will be set to
+null.</dd>
 <dt><strong><code>stop</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
 <dd>If the command is not successful, stop after issuing the
 error, do not return control.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the selection.
-Usually they will be such that there will be just one document
+Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
@@ -1547,23 +2702,25 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/mongo.py#L309-L335" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L363-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def updateRecord(self, table, updates, stop=True, **criteria):
-    &#34;&#34;&#34;Updates a single document from a collection.
+    &#34;&#34;&#34;Updates a single record from a table.
 
     Parameters
     ----------
     table: string
-        The name of the collection in which we want to update a single record.
+        The name of the table in which we want to update a single record.
     updates: dict
-        The fields that must be updated with the values they must get
+        The fields that must be updated with the values they must get.
+        If the value `None` is specified for a field, that field will be set to
+        null.
     stop: boolean, optional True
         If the command is not successful, stop after issuing the
         error, do not return control.
     criteria: dict
         A set of criteria to narrow down the selection.
-        Usually they will be such that there will be just one document
+        Usually they will be such that there will be just one record
         that satisfies them.
         But if there are more, a single one is chosen,
         by the mechanics of the built-in MongoDb command `updateOne`.
@@ -1573,9 +2730,93 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
     boolean
         Whether the update was successful
     &#34;&#34;&#34;
-    result = self.execute(table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop)
-    n = result.modified_count
-    return n &gt; 0</code></pre>
+    (good, result) = self.execute(
+        table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}, stop=stop
+    )
+    return result.modified_count &gt; 0 if good else False</code></pre>
+</details>
+</dd>
+<dt id="control.mongo.Mongo.writeRecords"><code class="name flex">
+<span>def <span class="ident">writeRecords</span></span>(<span>self, table, records, dstb, dstj=None, jOpts={})</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Writes records to bson and possibly json file.</p>
+<p>If the destination file already exists, it will be wiped.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Table that contains the record. Will be used as file name
+for the record to be written to.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>dict</code></dt>
+<dd>The record as it is retrieved from MongoDb</dd>
+<dt><strong><code>dstb</code></strong> :&ensp;<code>string</code></dt>
+<dd>Destination folder for the bson file.</dd>
+<dt><strong><code>dstj</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>Destination folder for the json file.
+If <code>None</code>, no json file will be written.</dd>
+<dt><strong><code>jOpts</code></strong> :&ensp;<code>dict</code>, optional <code>{}</code></dt>
+<dd>Format options for writing the json file.</dd>
+<dt><strong><code>first</code></strong></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>integer</code></dt>
+<dd>The number of records written</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L573-L620" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def writeRecords(self, table, records, dstb, dstj=None, jOpts={}):
+    &#34;&#34;&#34;Writes records to bson and possibly json file.
+
+    If the destination file already exists, it will be wiped.
+
+    Parameters
+    ----------
+    table: string
+        Table that contains the record. Will be used as file name
+        for the record to be written to.
+    record: dict
+        The record as it is retrieved from MongoDb
+    dstb: string
+        Destination folder for the bson file.
+    dstj: string, optional None
+        Destination folder for the json file.
+        If `None`, no json file will be written.
+    jOpts: dict, optional {}
+        Format options for writing the json file.
+    first
+
+    Returns
+    -------
+    integer
+        The number of records written
+    &#34;&#34;&#34;
+    asJson = dstj is not None
+
+    n = 0
+    with open(f&#34;{dstb}/{table}.bson&#34;, &#34;wb&#34;) as bh:
+        if asJson:
+            jh = open(f&#34;{dstj}/{table}.json&#34;, &#34;w&#34;)
+            jh.write(&#34;[\n&#34;)
+
+        sep = &#34;&#34;
+        for record in records:
+            bh.write(BSON.encode(record))
+            n += 1
+            if asJson:
+                jh.write(sep)
+                jh.write(dumpjs(record, **jOpts))
+            sep = &#34;,\n&#34;
+
+        if asJson:
+            jh.write(&#34;\n]\n&#34;)
+            jh.close()
+
+    return n</code></pre>
 </details>
 </dd>
 </dl>
@@ -1648,10 +2889,11 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="control.mongo.Mongo" href="#control.mongo.Mongo">Mongo</a></code></h4>
 <ul class="two-column">
 <li><code><a title="control.mongo.Mongo.cast" href="#control.mongo.Mongo.cast">cast</a></code></li>
-<li><code><a title="control.mongo.Mongo.clearCollection" href="#control.mongo.Mongo.clearCollection">clearCollection</a></code></li>
-<li><code><a title="control.mongo.Mongo.collections" href="#control.mongo.Mongo.collections">collections</a></code></li>
+<li><code><a title="control.mongo.Mongo.clearTable" href="#control.mongo.Mongo.clearTable">clearTable</a></code></li>
 <li><code><a title="control.mongo.Mongo.connect" href="#control.mongo.Mongo.connect">connect</a></code></li>
+<li><code><a title="control.mongo.Mongo.consolidate" href="#control.mongo.Mongo.consolidate">consolidate</a></code></li>
 <li><code><a title="control.mongo.Mongo.deleteRecord" href="#control.mongo.Mongo.deleteRecord">deleteRecord</a></code></li>
+<li><code><a title="control.mongo.Mongo.deleteRecords" href="#control.mongo.Mongo.deleteRecords">deleteRecords</a></code></li>
 <li><code><a title="control.mongo.Mongo.disconnect" href="#control.mongo.Mongo.disconnect">disconnect</a></code></li>
 <li><code><a title="control.mongo.Mongo.execute" href="#control.mongo.Mongo.execute">execute</a></code></li>
 <li><code><a title="control.mongo.Mongo.get" href="#control.mongo.Mongo.get">get</a></code></li>
@@ -1659,7 +2901,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.mongo.Mongo.getRecord" href="#control.mongo.Mongo.getRecord">getRecord</a></code></li>
 <li><code><a title="control.mongo.Mongo.insertRecord" href="#control.mongo.Mongo.insertRecord">insertRecord</a></code></li>
 <li><code><a title="control.mongo.Mongo.isId" href="#control.mongo.Mongo.isId">isId</a></code></li>
+<li><code><a title="control.mongo.Mongo.mkBackup" href="#control.mongo.Mongo.mkBackup">mkBackup</a></code></li>
+<li><code><a title="control.mongo.Mongo.restore" href="#control.mongo.Mongo.restore">restore</a></code></li>
+<li><code><a title="control.mongo.Mongo.tables" href="#control.mongo.Mongo.tables">tables</a></code></li>
 <li><code><a title="control.mongo.Mongo.updateRecord" href="#control.mongo.Mongo.updateRecord">updateRecord</a></code></li>
+<li><code><a title="control.mongo.Mongo.writeRecords" href="#control.mongo.Mongo.writeRecords">writeRecords</a></code></li>
 </ul>
 </li>
 </ul>

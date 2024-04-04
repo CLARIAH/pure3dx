@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/webdavapp.py#L1-L133" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/webdavapp.py#L1-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from wsgidav.wsgidav_app import WsgiDAVApp
 
@@ -133,6 +133,8 @@ def appFactoryMaster():
     &#34;&#34;&#34;Factory function for the master flask app.
     &#34;&#34;&#34;
     app = appMake(__name__)
+    # At the setting below does not seem to have any effect
+    # app.config[&#34;MAX_CONTENT_LENGTH&#34;] = 16 * 1024 * 1024
     return app
 
 
@@ -151,14 +153,30 @@ def appFactory():
     !!! note &#34;Authorisation&#34;
         Authorisation of WebDAV requests happens in the main app.
         See `dispatchWebdav()`.
+
+    !!! caution &#34;Requirements for the server&#34;
+        When this Flask app runs and the Voyager software is run in edit mode,
+        the client will fire a sequence  of webdav requests to the server.
+
+        When the app is served by the default Flask development server, these
+        requests will almost surely block the whole application.
+
+        The solution is to run the app through a task runner like Gunicorn.
+        However, the app does not run in debug mode then, so tracing errors becomes
+        more difficult then.
     &#34;&#34;&#34;
 
-    objects = prepare()
+    trivial = False
 
-    origApp = appFactoryMain(objects)
-    app = appFactoryMaster()
+    objects = prepare(trivial=trivial)
 
-    app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
+    if trivial:
+        app = appFactoryMain(objects)
+    else:
+        origApp = appFactoryMain(objects)
+        app = appFactoryMaster()
+
+        app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
 
     return app</code></pre>
 </details>
@@ -187,11 +205,22 @@ WebDAV app at a deep level, before requests are fed to either app.</p>
 <p class="admonition-title">Authorisation</p>
 <p>Authorisation of WebDAV requests happens in the main app.
 See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code>.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Requirements for the server</p>
+<p>When this Flask app runs and the Voyager software is run in edit mode,
+the client will fire a sequence
+of webdav requests to the server.</p>
+<p>When the app is served by the default Flask development server, these
+requests will almost surely block the whole application.</p>
+<p>The solution is to run the app through a task runner like Gunicorn.
+However, the app does not run in debug mode then, so tracing errors becomes
+more difficult then.</p>
 </div></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/webdavapp.py#L109-L133" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/webdavapp.py#L111-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory():
     &#34;&#34;&#34;Make a WebDAV enabled app.
@@ -208,14 +237,30 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
     !!! note &#34;Authorisation&#34;
         Authorisation of WebDAV requests happens in the main app.
         See `dispatchWebdav()`.
+
+    !!! caution &#34;Requirements for the server&#34;
+        When this Flask app runs and the Voyager software is run in edit mode,
+        the client will fire a sequence  of webdav requests to the server.
+
+        When the app is served by the default Flask development server, these
+        requests will almost surely block the whole application.
+
+        The solution is to run the app through a task runner like Gunicorn.
+        However, the app does not run in debug mode then, so tracing errors becomes
+        more difficult then.
     &#34;&#34;&#34;
 
-    objects = prepare()
+    trivial = False
 
-    origApp = appFactoryMain(objects)
-    app = appFactoryMaster()
+    objects = prepare(trivial=trivial)
 
-    app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
+    if trivial:
+        app = appFactoryMain(objects)
+    else:
+        origApp = appFactoryMain(objects)
+        app = appFactoryMaster()
+
+        app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
 
     return app</code></pre>
 </details>
@@ -228,12 +273,14 @@ See <code><a title="control.webdavapp.dispatchWebdav" href="#control.webdavapp.d
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/webdavapp.py#L102-L106" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/webdavapp.py#L102-L108" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactoryMaster():
     &#34;&#34;&#34;Factory function for the master flask app.
     &#34;&#34;&#34;
     app = appMake(__name__)
+    # At the setting below does not seem to have any effect
+    # app.config[&#34;MAX_CONTENT_LENGTH&#34;] = 16 * 1024 * 1024
     return app</code></pre>
 </details>
 </dd>
@@ -280,7 +327,7 @@ A WEBDav server.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/webdavapp.py#L31-L99" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/webdavapp.py#L31-L99" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
     &#34;&#34;&#34;Combines the main app with the webdavapp.
@@ -364,7 +411,7 @@ and configure it here.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getWebdavApp(objects):
     &#34;&#34;&#34;Configure a webapp that provides WebDAV.

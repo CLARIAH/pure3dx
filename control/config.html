@@ -26,19 +26,19 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L1-L444" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L1-L664" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
 
-from control.generic import AttrDict
-from control.files import dirExists, fileExists, readYaml, readPath, listDirs
+from control.generic import AttrDict, getVersionKeyFunc
+from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
 from control.environment import var
 from control.html import HtmlElements
 
 
 class Config:
-    def __init__(self, Messages):
+    def __init__(self, Messages, design=False, migrate=False):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -57,10 +57,21 @@ class Config:
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
+        design: boolean, optional False
+            If True only settings are collected that are needed for
+            static page generation in the `Published` directory,
+            assuming that the project/edition files have already been
+            exported.
+        migrate: boolean, optional False
+            If True only settings are collected that are needed for
+            migration of data.
         &#34;&#34;&#34;
         self.Messages = Messages
         Messages.debugAdd(self)
         Messages.info(logmsg=&#34;CONFIG INIT&#34;)
+        self.design = design
+        self.migrate = migrate
+
         self.good = True
         Settings = AttrDict()
         Settings.H = HtmlElements(Settings, Messages)
@@ -71,7 +82,7 @@ class Config:
         self.checkEnv()
 
         if not self.good:
-            Messages.error(logmsg=&#34;Check environment&#34;)
+            Messages.error(logmsg=&#34;Check environment failed&#34;)
             quit()
 
     def checkEnv(self):
@@ -86,14 +97,15 @@ class Config:
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
-            self.checkData,
             self.checkModes,
+            self.checkData,
             self.checkMongo,
             self.checkSettings,
             self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkDesign,
         ):
             if self.good:
                 method()
@@ -104,6 +116,7 @@ class Config:
         Settings = self.Settings
 
         repoDir = var(&#34;repodir&#34;)
+
         if repoDir is None:
             Messages.error(
                 logmsg=dedent(
@@ -124,7 +137,9 @@ class Config:
             return
 
         Settings.repoDir = repoDir
-        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+        srcDir = f&#34;{repoDir}/src&#34;
+        Settings.srcDir = srcDir
+        yamlDir = f&#34;{srcDir}/yaml&#34;
         Settings.yamlDir = yamlDir
 
     def checkWebdav(self):
@@ -133,10 +148,13 @@ class Config:
         The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         yamlDir = Settings.yamlDir
         webdavFile = &#34;webdav.yml&#34;
-        webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+        webdavInfo = readYaml(asFile=f&#34;{yamlDir}/{webdavFile}&#34;)
         Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
@@ -145,23 +163,58 @@ class Config:
         We represent the version as the short hash of the current commit
         of the git repo that the running code is in.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         H = Settings.H
         repoDir = Settings.repoDir
+        versionFile = f&#34;{repoDir}/VERSION.txt&#34;
 
-        (long, short) = tuple(
-            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
-            .decode(&#34;ascii&#34;)
-            .strip()
-            for args in ([], [&#34;--short&#34;])
-        )
+        try:
+            actual = True
+            (long, short) = tuple(
+                check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+                .decode(&#34;ascii&#34;)
+                .strip()
+                for args in ([], [&#34;--short&#34;])
+            )
+            with open(versionFile, &#34;w&#34;) as fh:
+                fh.write(f&#34;{long}\t{short}\n&#34;)
+        except Exception as e:
+            print(e.stderr)
+            print(f&#34;Could not get version from git, reading it from file {versionFile}&#34;)
+            actual = False
+            if not fileExists(versionFile):
+                known = False
+                (long, short) = (&#34;&#34;, &#34;&#34;)
+            else:
+                known = True
+                with open(versionFile) as fh:
+                    try:
+                        (long, short) = fh.read().strip().split(&#34;\t&#34;)
+                    except Exception:
+                        known = False
+                        (long, short) = (&#34;&#34;, &#34;&#34;)
+
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        title = &#34;visit the running code on GitHub&#34;
+        if actual:
+            label1 = &#34;this version&#34;
+            text = f&#34;this version is {short}&#34;
+        else:
+            if known:
+                label1 = &#34;previous version&#34;
+                text = f&#34;previous version was {short}&#34;
+            else:
+                label1 = &#34;latest version&#34;
+                text = &#34;unknown version, go to latest version&#34;
+
+        title = f&#34;visit {label1} of the code on GitHub&#34;
         gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
-        href = f&#34;{gitLocation}/tree/{long}&#34;
-        Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)
+        href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
+        Settings.versionInfo = H.a(text, href, target=&#34;_blank&#34;, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -169,37 +222,91 @@ class Config:
         This is secret information used for encrypting sessions.
         It resides somewhere on the file system, outside the pure3d repository.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = var(&#34;SECRET_FILE&#34;)
+        CLIENT_SECRET_FILE = &#34;/app/secret/secfile&#34;
+        secret = readPath(CLIENT_SECRET_FILE)
 
-        if secretFileLoc is None:
-            Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
-            self.good = False
-            return
-
-        if not fileExists(secretFileLoc):
+        if not secret:
             Messages.error(
-                logmsg=dedent(
-                    f&#34;&#34;&#34;
-                    Missing secret file for sessions: {secretFileLoc}
-                    Create that file with contents a random string like this:
-                    fjOL901Mc3XZy8dcbBnOxNwZsOIBlul&#34;)
-                    But do not choose this one.&#34;)
-                    Use your password manager to create a random one.
-                    &#34;&#34;&#34;
+                logmsg=(
+                    &#34;No secret given for flask: &#34;
+                    f&#34;file {CLIENT_SECRET_FILE} does not exist&#34;
                 )
             )
             self.good = False
             return
 
-        Settings.secret_key = readPath(secretFileLoc)
+        Settings.secret_key = secret
+
+    def checkModes(self):
+        &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+
+        if self.migrate:
+            Settings.runMode = &#34;&#34;
+            return
+
+        runMode = var(&#34;runmode&#34;)
+
+        if runMode is None:
+            Messages.error(logmsg=&#34;Environment variable `runmode` not defined&#34;)
+            self.good = False
+            return
+
+        if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
+            runMode = runMode
+        else:
+            runMode = &#34;prod&#34;
+
+        Settings.runMode = runMode
+        Settings.runProd = runMode == &#34;prod&#34;
+        &#34;&#34;&#34;In which mode the app runs.
+
+        Values are:
+
+        *   `test`:
+            The app works with the example data.
+            There is a row of test users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `pilot`:
+            The app works with the pilot data.
+            There is a row of pilot users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `custom`
+            The app works with custom data.
+            Initially, there is only one admin user, you can log in with a single click.
+        *   All other run modes count as production mode, `prod`.
+        &#34;&#34;&#34;
+
+        if self.design:
+            return
+
+        debugMode = var(&#34;flaskdebug&#34;)
+        if debugMode is None:
+            Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.debugMode = debugMode == &#34;v&#34;
+        &#34;&#34;&#34;With debug mode enabled.
+
+        This means that the unminified, development versions of the javascript libraries
+        of the 3D viewers are loaded, instead of the production versions.
+        &#34;&#34;&#34;
 
     def checkData(self):
         &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        runMode = Settings.runMode
 
         dataDir = var(&#34;DATA_DIR&#34;)
 
@@ -209,8 +316,6 @@ class Config:
             return
 
         dataDir = dataDir.rstrip(&#34;/&#34;)
-        sep = &#34;/&#34; if dataDir else &#34;&#34;
-        workingDir = f&#34;{dataDir}{sep}working&#34;
 
         if not dirExists(dataDir):
             Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
@@ -218,41 +323,71 @@ class Config:
             return
 
         Settings.dataDir = dataDir
+
+        sep = &#34;/&#34; if dataDir else &#34;&#34;
+        workingParent = f&#34;{dataDir}{sep}working&#34;
+        dirMake(workingParent)
+        Settings.workingParent = workingParent
+
+        if self.migrate:
+            return
+
+        workingDir = f&#34;{workingParent}/{runMode}&#34;
+        dirMake(workingDir)
         Settings.workingDir = workingDir
 
-        # are we in test mode?
+        pubDir = var(&#34;PUB_DIR&#34;)
 
-    def checkModes(self):
-        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
-        Messages = self.Messages
-        Settings = self.Settings
-
-        testMode = var(&#34;flasktest&#34;)
-        if testMode is None:
-            Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
+        if pubDir is None:
+            Messages.error(logmsg=&#34;Environment variable `PUB_DIR` not defined&#34;)
             self.good = False
             return
 
-        Settings.testMode = testMode == &#34;test&#34;
-        &#34;&#34;&#34;With test mode enabled.
-
-        This means that there is a row of test users on the interface,
-        and that you can log in as one of these users with a single click,
-        without any kind of authentication.
-        &#34;&#34;&#34;
-
-        debugMode = var(&#34;flaskdebug&#34;)
-        if debugMode is None:
-            Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
+        if not dirExists(pubDir):
+            Messages.error(logmsg=f&#34;Pub directory does not exist: {pubDir}&#34;)
             self.good = False
             return
 
-        Settings.debugMode = debugMode == &#34;--debug&#34;
-        &#34;&#34;&#34;With debug mode enabled.
+        pubDir = pubDir.rstrip(&#34;/&#34;)
 
-        This means that the unminified, development versions of the javascript libraries
-        of the 3D viewers are loaded, instead of the production versions.
-        &#34;&#34;&#34;
+        sep = &#34;/&#34; if pubDir else &#34;&#34;
+        pubModeDir = f&#34;{pubDir}{sep}{runMode}&#34;
+
+        dirMake(pubModeDir)
+        Settings.pubDir = pubDir
+        Settings.pubModeDir = pubModeDir
+
+        pubUrl = var(&#34;PUB_URL&#34;)
+
+        if pubUrl is None:
+            Messages.error(logmsg=&#34;Environment variable `PUB_URL` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.pubUrl = pubUrl
+
+        authorUrl = var(&#34;AUTHOR_URL&#34;)
+
+        if authorUrl is None:
+            Messages.error(logmsg=&#34;Environment variable `AUTHOR_URL` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.authorUrl = authorUrl
+
+        if self.design:
+            return
+
+        importSubdir = (
+            &#34;exampledata&#34;
+            if runMode == &#34;test&#34;
+            else &#34;pilotdata&#34;
+            if runMode == &#34;pilot&#34;
+            else &#34;customdata&#34;
+            if runMode == &#34;custom&#34;
+            else &#34;proddata&#34;
+        )
+        Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;
 
     def checkMongo(self):
         &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -260,9 +395,15 @@ class Config:
         It is not checked whether connection with MongoDb actually works
         with these credentials.
         &#34;&#34;&#34;
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
+        mongoHost = var(&#34;mongohost&#34;)
+        mongoPort = var(&#34;mongoport&#34;)
+        mongoPortOuter = var(&#34;mongoportouter&#34;)
         mongoUser = var(&#34;mongouser&#34;)
         mongoPassword = var(&#34;mongopassword&#34;)
 
@@ -274,6 +415,9 @@ class Config:
             Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
             self.good = False
 
+        Settings.mongoHost = mongoHost
+        Settings.mongoPort = int(mongoPort)
+        Settings.mongoPortOuter = int(mongoPortOuter)
         Settings.mongoUser = mongoUser
         Settings.mongoPassword = mongoPassword
 
@@ -284,13 +428,13 @@ class Config:
         yamlDir = Settings.yamlDir
 
         settingsFile = &#34;settings.yml&#34;
-        settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
+        settings = readYaml(asFile=f&#34;{yamlDir}/{settingsFile}&#34;)
         if settings is None:
             Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
             self.good = False
             return
 
-        for (k, v) in settings.items():
+        for k, v in settings.items():
             Settings[k] = v
 
     def checkDatamodel(self):
@@ -311,58 +455,71 @@ class Config:
         When a user deletes a record that is linked to another record by means
         of a coupling record, the coupling record must be deleted automatically.
 
-        Fields are bits of data that are stored in parts of documents
-        in MongoDb collections.
+        Fields are bits of data that are stored in parts of records
+        in MongoDb tables.
 
         Fields have several properties which we summarize under a key.
         So if we know the key of a field, we have access to all of its
         properties.
 
         The properties `nameSpave` and `fieldPath` determine how to drill
-        down in a document in order to find the value of that field.
+        down in a record in order to find the value of that field.
 
         The property `tp` is the data type of the field, default `string`.
 
         The property `caption` is a label that may accompany a field value
         on the interface.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
         datamodelFile = &#34;datamodel.yml&#34;
-        datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;)
         if datamodel is None:
             Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         masterDetail = AttrDict()
-        for (detail, master) in datamodel.detailMaster.items():
+        for detail, master in datamodel.detailMaster.items():
             masterDetail[master] = detail
         datamodel.masterDetail = masterDetail
+
+        mainLink = AttrDict()
+        for link, mains in datamodel.linkMain.items():
+            for main in mains:
+                mainLink.setdefault(main, []).append(link)
+        datamodel.mainLink = mainLink
 
         Settings.datamodel = datamodel
 
     def checkAuth(self):
         &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
         authFile = &#34;authorise.yml&#34;
-        authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
+        authData = readYaml(asFile=f&#34;{yamlDir}/{authFile}&#34;)
         if authData is None:
-            Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {authFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         Settings.auth = authData
 
         tableFromRole = AttrDict()
-        for (table, roles) in authData.roles.items():
+
+        for table, roles in authData.roles.items():
             for role in roles:
                 tableFromRole[role] = table
 
@@ -373,6 +530,9 @@ class Config:
 
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
+        if self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -384,11 +544,15 @@ class Config:
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
+        versionKey = getVersionKeyFunc()
+        Settings.versionKey = versionKey
+
         viewersFile = &#34;viewers.yml&#34;
         viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
-        viewerSettings = readYaml(viewerSettingsFile)
+        viewerSettings = readYaml(asFile=viewerSettingsFile)
+
         if viewerSettings is None:
-            Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -403,21 +567,31 @@ class Config:
             if viewerName not in viewerSettings.viewers:
                 Messages.warning(
                     logmsg=(
-                        f&#34;Skipping viewer {viewerName}&#34;
-                        &#34;because not defined in {viewersFile}&#34;
+                        f&#34;Skipping viewer {viewerName} &#34;
+                        f&#34;because it is not defined in {viewersFile}&#34;
                     )
                 )
                 continue
             viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-            versions = []
 
-            versionNames = listDirs(viewerPath)
+            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
 
-            for versionName in versionNames:
-                versions.append(versionName)
+            if len(versions) == 0:
+                self.good = False
+                Messages.error(
+                    logmsg=(
+                        f&#34;Skipping viewer {viewerName} &#34;
+                        f&#34;because there are no versions of it on the system&#34;
+                    ),
+                    stop=False
+                )
+                continue
+
+            defaultVersion = versions[0]
 
             viewerConfig.versions = versions
+            viewerConfig.defaultVersion = defaultVersion
 
         Settings.viewers = viewerSettings.viewers
         Settings.viewerActions = viewerSettings.actions
@@ -435,10 +609,13 @@ class Config:
             The banner is stored in the `banner` member of the
             `Settings` object.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         H = Settings.H
-        Messages = self.Messages
         wip = var(&#34;devstatus&#34;)
+        runMode = Settings.runMode
 
         banner = &#34;&#34;
 
@@ -446,22 +623,34 @@ class Config:
             content = H.span(
                 dedent(
                     &#34;&#34;&#34;
+                    This site runs in Test Mode.
+                    Data you enter can be erased without warning.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;test&#34;
+                else dedent(
+                    &#34;&#34;&#34;
+                    This site runs in Pilot Mode.
+                    Data you enter will be saved, but might be inaccessible during
+                    periods of further development.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;pilot&#34;
+                else dedent(
+                    &#34;&#34;&#34;
+                    This site runs in Custom Mode.
+                    Modifications may be overwritten if other custom data is imported.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;custom&#34;
+                else dedent(
+                    &#34;&#34;&#34;
                     This site is Work in Progress.
-                    Use it only for testing.
-                    All work you commit to this site can be erased
-                    without warning.
                     &#34;&#34;&#34;
                 )
             )
-            resetDataLink = H.a(
-                &#34;reset data&#34;,
-                &#34;/collect&#34;,
-                title=&#34;reset data to initial state&#34;,
-                cls=&#34;small&#34;,
-                **Messages.client(
-                    &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
-                ),
-            )
+            dataLink = &#34;«backups»&#34; + H.br()
+
             issueLink = H.a(
                 &#34;issues&#34;,
                 &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
@@ -469,9 +658,40 @@ class Config:
                 cls=&#34;large&#34;,
                 target=&#34;_blank&#34;,
             )
-            banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
+            banner = H.div(
+                [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
+            )
 
-        Settings.banner = banner</code></pre>
+        Settings.banner = banner
+
+    def checkDesign(self):
+        &#34;&#34;&#34;Checks the design resources.
+
+        Returns
+        -------
+        void
+            Some values are stored in the `Settings` object.
+        &#34;&#34;&#34;
+        if self.migrate:
+            return
+
+        Settings = self.Settings
+
+        srcDir = Settings.srcDir
+        designDir = f&#34;{srcDir}/design&#34;
+
+        Settings.partialsIn = f&#34;{designDir}/components&#34;
+        Settings.templateDir = f&#34;{designDir}/templates&#34;
+        Settings.textDir = f&#34;{designDir}/texts&#34;
+        Settings.imageDir = f&#34;{designDir}/images&#34;
+        Settings.jsDir = f&#34;{designDir}/js&#34;
+        Settings.cssIn = f&#34;{designDir}/css/input.css&#34;
+
+        pubModeDir = Settings.pubModeDir
+        Settings.cssOut = f&#34;{pubModeDir}/css/style.css&#34;
+
+        dataDir = Settings.dataDir
+        Settings.binDir = f&#34;{dataDir}/bin&#34;</code></pre>
 </details>
 </section>
 <section>
@@ -485,7 +705,7 @@ class Config:
 <dl>
 <dt id="control.config.Config"><code class="flex name class">
 <span>class <span class="ident">Config</span></span>
-<span>(</span><span>Messages)</span>
+<span>(</span><span>Messages, design=False, migrate=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All configuration details of the app.</p>
@@ -505,14 +725,22 @@ and no webserving will take place.</p>
 <dl>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
+<dt><strong><code>design</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True only settings are collected that are needed for
+static page generation in the <code>Published</code> directory,
+assuming that the project/edition files have already been
+exported.</dd>
+<dt><strong><code>migrate</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True only settings are collected that are needed for
+migration of data.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L10-L444" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L10-L664" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
-    def __init__(self, Messages):
+    def __init__(self, Messages, design=False, migrate=False):
         &#34;&#34;&#34;All configuration details of the app.
 
         It is instantiated by a singleton object.
@@ -531,10 +759,21 @@ and no webserving will take place.</p>
         ----------
         Messages: object
             Singleton instance of `control.messages.Messages`.
+        design: boolean, optional False
+            If True only settings are collected that are needed for
+            static page generation in the `Published` directory,
+            assuming that the project/edition files have already been
+            exported.
+        migrate: boolean, optional False
+            If True only settings are collected that are needed for
+            migration of data.
         &#34;&#34;&#34;
         self.Messages = Messages
         Messages.debugAdd(self)
         Messages.info(logmsg=&#34;CONFIG INIT&#34;)
+        self.design = design
+        self.migrate = migrate
+
         self.good = True
         Settings = AttrDict()
         Settings.H = HtmlElements(Settings, Messages)
@@ -545,7 +784,7 @@ and no webserving will take place.</p>
         self.checkEnv()
 
         if not self.good:
-            Messages.error(logmsg=&#34;Check environment&#34;)
+            Messages.error(logmsg=&#34;Check environment failed&#34;)
             quit()
 
     def checkEnv(self):
@@ -560,14 +799,15 @@ and no webserving will take place.</p>
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
-            self.checkData,
             self.checkModes,
+            self.checkData,
             self.checkMongo,
             self.checkSettings,
             self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkDesign,
         ):
             if self.good:
                 method()
@@ -578,6 +818,7 @@ and no webserving will take place.</p>
         Settings = self.Settings
 
         repoDir = var(&#34;repodir&#34;)
+
         if repoDir is None:
             Messages.error(
                 logmsg=dedent(
@@ -598,7 +839,9 @@ and no webserving will take place.</p>
             return
 
         Settings.repoDir = repoDir
-        yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+        srcDir = f&#34;{repoDir}/src&#34;
+        Settings.srcDir = srcDir
+        yamlDir = f&#34;{srcDir}/yaml&#34;
         Settings.yamlDir = yamlDir
 
     def checkWebdav(self):
@@ -607,10 +850,13 @@ and no webserving will take place.</p>
         The methods are associated with the `read` or `update` keyword,
         depending on whether they are `GET` like or `PUT` like.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         yamlDir = Settings.yamlDir
         webdavFile = &#34;webdav.yml&#34;
-        webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+        webdavInfo = readYaml(asFile=f&#34;{yamlDir}/{webdavFile}&#34;)
         Settings.webdavMethods = webdavInfo.methods
 
     def checkVersion(self):
@@ -619,23 +865,58 @@ and no webserving will take place.</p>
         We represent the version as the short hash of the current commit
         of the git repo that the running code is in.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         H = Settings.H
         repoDir = Settings.repoDir
+        versionFile = f&#34;{repoDir}/VERSION.txt&#34;
 
-        (long, short) = tuple(
-            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
-            .decode(&#34;ascii&#34;)
-            .strip()
-            for args in ([], [&#34;--short&#34;])
-        )
+        try:
+            actual = True
+            (long, short) = tuple(
+                check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+                .decode(&#34;ascii&#34;)
+                .strip()
+                for args in ([], [&#34;--short&#34;])
+            )
+            with open(versionFile, &#34;w&#34;) as fh:
+                fh.write(f&#34;{long}\t{short}\n&#34;)
+        except Exception as e:
+            print(e.stderr)
+            print(f&#34;Could not get version from git, reading it from file {versionFile}&#34;)
+            actual = False
+            if not fileExists(versionFile):
+                known = False
+                (long, short) = (&#34;&#34;, &#34;&#34;)
+            else:
+                known = True
+                with open(versionFile) as fh:
+                    try:
+                        (long, short) = fh.read().strip().split(&#34;\t&#34;)
+                    except Exception:
+                        known = False
+                        (long, short) = (&#34;&#34;, &#34;&#34;)
+
         Settings = self.Settings
         repoDir = Settings.repoDir
 
-        title = &#34;visit the running code on GitHub&#34;
+        if actual:
+            label1 = &#34;this version&#34;
+            text = f&#34;this version is {short}&#34;
+        else:
+            if known:
+                label1 = &#34;previous version&#34;
+                text = f&#34;previous version was {short}&#34;
+            else:
+                label1 = &#34;latest version&#34;
+                text = &#34;unknown version, go to latest version&#34;
+
+        title = f&#34;visit {label1} of the code on GitHub&#34;
         gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
-        href = f&#34;{gitLocation}/tree/{long}&#34;
-        Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)
+        href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
+        Settings.versionInfo = H.a(text, href, target=&#34;_blank&#34;, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -643,37 +924,91 @@ and no webserving will take place.</p>
         This is secret information used for encrypting sessions.
         It resides somewhere on the file system, outside the pure3d repository.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
-        secretFileLoc = var(&#34;SECRET_FILE&#34;)
+        CLIENT_SECRET_FILE = &#34;/app/secret/secfile&#34;
+        secret = readPath(CLIENT_SECRET_FILE)
 
-        if secretFileLoc is None:
-            Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
-            self.good = False
-            return
-
-        if not fileExists(secretFileLoc):
+        if not secret:
             Messages.error(
-                logmsg=dedent(
-                    f&#34;&#34;&#34;
-                    Missing secret file for sessions: {secretFileLoc}
-                    Create that file with contents a random string like this:
-                    fjOL901Mc3XZy8dcbBnOxNwZsOIBlul&#34;)
-                    But do not choose this one.&#34;)
-                    Use your password manager to create a random one.
-                    &#34;&#34;&#34;
+                logmsg=(
+                    &#34;No secret given for flask: &#34;
+                    f&#34;file {CLIENT_SECRET_FILE} does not exist&#34;
                 )
             )
             self.good = False
             return
 
-        Settings.secret_key = readPath(secretFileLoc)
+        Settings.secret_key = secret
+
+    def checkModes(self):
+        &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+
+        if self.migrate:
+            Settings.runMode = &#34;&#34;
+            return
+
+        runMode = var(&#34;runmode&#34;)
+
+        if runMode is None:
+            Messages.error(logmsg=&#34;Environment variable `runmode` not defined&#34;)
+            self.good = False
+            return
+
+        if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
+            runMode = runMode
+        else:
+            runMode = &#34;prod&#34;
+
+        Settings.runMode = runMode
+        Settings.runProd = runMode == &#34;prod&#34;
+        &#34;&#34;&#34;In which mode the app runs.
+
+        Values are:
+
+        *   `test`:
+            The app works with the example data.
+            There is a row of test users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `pilot`:
+            The app works with the pilot data.
+            There is a row of pilot users on the interface,
+            and that you can log in as one of these users with a single click,
+            without any kind of authentication.
+        *   `custom`
+            The app works with custom data.
+            Initially, there is only one admin user, you can log in with a single click.
+        *   All other run modes count as production mode, `prod`.
+        &#34;&#34;&#34;
+
+        if self.design:
+            return
+
+        debugMode = var(&#34;flaskdebug&#34;)
+        if debugMode is None:
+            Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.debugMode = debugMode == &#34;v&#34;
+        &#34;&#34;&#34;With debug mode enabled.
+
+        This means that the unminified, development versions of the javascript libraries
+        of the 3D viewers are loaded, instead of the production versions.
+        &#34;&#34;&#34;
 
     def checkData(self):
         &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        runMode = Settings.runMode
 
         dataDir = var(&#34;DATA_DIR&#34;)
 
@@ -683,8 +1018,6 @@ and no webserving will take place.</p>
             return
 
         dataDir = dataDir.rstrip(&#34;/&#34;)
-        sep = &#34;/&#34; if dataDir else &#34;&#34;
-        workingDir = f&#34;{dataDir}{sep}working&#34;
 
         if not dirExists(dataDir):
             Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
@@ -692,41 +1025,71 @@ and no webserving will take place.</p>
             return
 
         Settings.dataDir = dataDir
+
+        sep = &#34;/&#34; if dataDir else &#34;&#34;
+        workingParent = f&#34;{dataDir}{sep}working&#34;
+        dirMake(workingParent)
+        Settings.workingParent = workingParent
+
+        if self.migrate:
+            return
+
+        workingDir = f&#34;{workingParent}/{runMode}&#34;
+        dirMake(workingDir)
         Settings.workingDir = workingDir
 
-        # are we in test mode?
+        pubDir = var(&#34;PUB_DIR&#34;)
 
-    def checkModes(self):
-        &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
-        Messages = self.Messages
-        Settings = self.Settings
-
-        testMode = var(&#34;flasktest&#34;)
-        if testMode is None:
-            Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
+        if pubDir is None:
+            Messages.error(logmsg=&#34;Environment variable `PUB_DIR` not defined&#34;)
             self.good = False
             return
 
-        Settings.testMode = testMode == &#34;test&#34;
-        &#34;&#34;&#34;With test mode enabled.
-
-        This means that there is a row of test users on the interface,
-        and that you can log in as one of these users with a single click,
-        without any kind of authentication.
-        &#34;&#34;&#34;
-
-        debugMode = var(&#34;flaskdebug&#34;)
-        if debugMode is None:
-            Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
+        if not dirExists(pubDir):
+            Messages.error(logmsg=f&#34;Pub directory does not exist: {pubDir}&#34;)
             self.good = False
             return
 
-        Settings.debugMode = debugMode == &#34;--debug&#34;
-        &#34;&#34;&#34;With debug mode enabled.
+        pubDir = pubDir.rstrip(&#34;/&#34;)
 
-        This means that the unminified, development versions of the javascript libraries
-        of the 3D viewers are loaded, instead of the production versions.
-        &#34;&#34;&#34;
+        sep = &#34;/&#34; if pubDir else &#34;&#34;
+        pubModeDir = f&#34;{pubDir}{sep}{runMode}&#34;
+
+        dirMake(pubModeDir)
+        Settings.pubDir = pubDir
+        Settings.pubModeDir = pubModeDir
+
+        pubUrl = var(&#34;PUB_URL&#34;)
+
+        if pubUrl is None:
+            Messages.error(logmsg=&#34;Environment variable `PUB_URL` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.pubUrl = pubUrl
+
+        authorUrl = var(&#34;AUTHOR_URL&#34;)
+
+        if authorUrl is None:
+            Messages.error(logmsg=&#34;Environment variable `AUTHOR_URL` not defined&#34;)
+            self.good = False
+            return
+
+        Settings.authorUrl = authorUrl
+
+        if self.design:
+            return
+
+        importSubdir = (
+            &#34;exampledata&#34;
+            if runMode == &#34;test&#34;
+            else &#34;pilotdata&#34;
+            if runMode == &#34;pilot&#34;
+            else &#34;customdata&#34;
+            if runMode == &#34;custom&#34;
+            else &#34;proddata&#34;
+        )
+        Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;
 
     def checkMongo(self):
         &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -734,9 +1097,15 @@ and no webserving will take place.</p>
         It is not checked whether connection with MongoDb actually works
         with these credentials.
         &#34;&#34;&#34;
+        if self.design:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
+        mongoHost = var(&#34;mongohost&#34;)
+        mongoPort = var(&#34;mongoport&#34;)
+        mongoPortOuter = var(&#34;mongoportouter&#34;)
         mongoUser = var(&#34;mongouser&#34;)
         mongoPassword = var(&#34;mongopassword&#34;)
 
@@ -748,6 +1117,9 @@ and no webserving will take place.</p>
             Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
             self.good = False
 
+        Settings.mongoHost = mongoHost
+        Settings.mongoPort = int(mongoPort)
+        Settings.mongoPortOuter = int(mongoPortOuter)
         Settings.mongoUser = mongoUser
         Settings.mongoPassword = mongoPassword
 
@@ -758,13 +1130,13 @@ and no webserving will take place.</p>
         yamlDir = Settings.yamlDir
 
         settingsFile = &#34;settings.yml&#34;
-        settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
+        settings = readYaml(asFile=f&#34;{yamlDir}/{settingsFile}&#34;)
         if settings is None:
             Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
             self.good = False
             return
 
-        for (k, v) in settings.items():
+        for k, v in settings.items():
             Settings[k] = v
 
     def checkDatamodel(self):
@@ -785,58 +1157,71 @@ and no webserving will take place.</p>
         When a user deletes a record that is linked to another record by means
         of a coupling record, the coupling record must be deleted automatically.
 
-        Fields are bits of data that are stored in parts of documents
-        in MongoDb collections.
+        Fields are bits of data that are stored in parts of records
+        in MongoDb tables.
 
         Fields have several properties which we summarize under a key.
         So if we know the key of a field, we have access to all of its
         properties.
 
         The properties `nameSpave` and `fieldPath` determine how to drill
-        down in a document in order to find the value of that field.
+        down in a record in order to find the value of that field.
 
         The property `tp` is the data type of the field, default `string`.
 
         The property `caption` is a label that may accompany a field value
         on the interface.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
         datamodelFile = &#34;datamodel.yml&#34;
-        datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;)
         if datamodel is None:
             Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         masterDetail = AttrDict()
-        for (detail, master) in datamodel.detailMaster.items():
+        for detail, master in datamodel.detailMaster.items():
             masterDetail[master] = detail
         datamodel.masterDetail = masterDetail
+
+        mainLink = AttrDict()
+        for link, mains in datamodel.linkMain.items():
+            for main in mains:
+                mainLink.setdefault(main, []).append(link)
+        datamodel.mainLink = mainLink
 
         Settings.datamodel = datamodel
 
     def checkAuth(self):
         &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
         yamlDir = Settings.yamlDir
 
         authFile = &#34;authorise.yml&#34;
-        authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
+        authData = readYaml(asFile=f&#34;{yamlDir}/{authFile}&#34;)
         if authData is None:
-            Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {authFile} in {yamlDir}&#34;)
             self.good = False
             return
 
         Settings.auth = authData
 
         tableFromRole = AttrDict()
-        for (table, roles) in authData.roles.items():
+
+        for table, roles in authData.roles.items():
             for role in roles:
                 tableFromRole[role] = table
 
@@ -847,6 +1232,9 @@ and no webserving will take place.</p>
 
     def checkViewers(self):
         &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
+        if self.migrate:
+            return
+
         Messages = self.Messages
         Settings = self.Settings
 
@@ -858,11 +1246,15 @@ and no webserving will take place.</p>
         Settings.viewerDir = viewerDir
         Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
+        versionKey = getVersionKeyFunc()
+        Settings.versionKey = versionKey
+
         viewersFile = &#34;viewers.yml&#34;
         viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
-        viewerSettings = readYaml(viewerSettingsFile)
+        viewerSettings = readYaml(asFile=viewerSettingsFile)
+
         if viewerSettings is None:
-            Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
+            Messages.error(logmsg=f&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
             self.good = False
             return
 
@@ -877,21 +1269,31 @@ and no webserving will take place.</p>
             if viewerName not in viewerSettings.viewers:
                 Messages.warning(
                     logmsg=(
-                        f&#34;Skipping viewer {viewerName}&#34;
-                        &#34;because not defined in {viewersFile}&#34;
+                        f&#34;Skipping viewer {viewerName} &#34;
+                        f&#34;because it is not defined in {viewersFile}&#34;
                     )
                 )
                 continue
             viewerConfig = viewerSettings.viewers[viewerName]
             viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-            versions = []
 
-            versionNames = listDirs(viewerPath)
+            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
 
-            for versionName in versionNames:
-                versions.append(versionName)
+            if len(versions) == 0:
+                self.good = False
+                Messages.error(
+                    logmsg=(
+                        f&#34;Skipping viewer {viewerName} &#34;
+                        f&#34;because there are no versions of it on the system&#34;
+                    ),
+                    stop=False
+                )
+                continue
+
+            defaultVersion = versions[0]
 
             viewerConfig.versions = versions
+            viewerConfig.defaultVersion = defaultVersion
 
         Settings.viewers = viewerSettings.viewers
         Settings.viewerActions = viewerSettings.actions
@@ -909,10 +1311,13 @@ and no webserving will take place.</p>
             The banner is stored in the `banner` member of the
             `Settings` object.
         &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
         Settings = self.Settings
         H = Settings.H
-        Messages = self.Messages
         wip = var(&#34;devstatus&#34;)
+        runMode = Settings.runMode
 
         banner = &#34;&#34;
 
@@ -920,22 +1325,34 @@ and no webserving will take place.</p>
             content = H.span(
                 dedent(
                     &#34;&#34;&#34;
+                    This site runs in Test Mode.
+                    Data you enter can be erased without warning.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;test&#34;
+                else dedent(
+                    &#34;&#34;&#34;
+                    This site runs in Pilot Mode.
+                    Data you enter will be saved, but might be inaccessible during
+                    periods of further development.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;pilot&#34;
+                else dedent(
+                    &#34;&#34;&#34;
+                    This site runs in Custom Mode.
+                    Modifications may be overwritten if other custom data is imported.
+                    &#34;&#34;&#34;
+                )
+                if runMode == &#34;custom&#34;
+                else dedent(
+                    &#34;&#34;&#34;
                     This site is Work in Progress.
-                    Use it only for testing.
-                    All work you commit to this site can be erased
-                    without warning.
                     &#34;&#34;&#34;
                 )
             )
-            resetDataLink = H.a(
-                &#34;reset data&#34;,
-                &#34;/collect&#34;,
-                title=&#34;reset data to initial state&#34;,
-                cls=&#34;small&#34;,
-                **Messages.client(
-                    &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
-                ),
-            )
+            dataLink = &#34;«backups»&#34; + H.br()
+
             issueLink = H.a(
                 &#34;issues&#34;,
                 &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
@@ -943,9 +1360,40 @@ and no webserving will take place.</p>
                 cls=&#34;large&#34;,
                 target=&#34;_blank&#34;,
             )
-            banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
+            banner = H.div(
+                [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
+            )
 
-        Settings.banner = banner</code></pre>
+        Settings.banner = banner
+
+    def checkDesign(self):
+        &#34;&#34;&#34;Checks the design resources.
+
+        Returns
+        -------
+        void
+            Some values are stored in the `Settings` object.
+        &#34;&#34;&#34;
+        if self.migrate:
+            return
+
+        Settings = self.Settings
+
+        srcDir = Settings.srcDir
+        designDir = f&#34;{srcDir}/design&#34;
+
+        Settings.partialsIn = f&#34;{designDir}/components&#34;
+        Settings.templateDir = f&#34;{designDir}/templates&#34;
+        Settings.textDir = f&#34;{designDir}/texts&#34;
+        Settings.imageDir = f&#34;{designDir}/images&#34;
+        Settings.jsDir = f&#34;{designDir}/js&#34;
+        Settings.cssIn = f&#34;{designDir}/css/input.css&#34;
+
+        pubModeDir = Settings.pubModeDir
+        Settings.cssOut = f&#34;{pubModeDir}/css/style.css&#34;
+
+        dataDir = Settings.dataDir
+        Settings.binDir = f&#34;{dataDir}/bin&#34;</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -964,26 +1412,30 @@ and no webserving will take place.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L318-L342" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L471-L499" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
     &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Messages = self.Messages
     Settings = self.Settings
 
     yamlDir = Settings.yamlDir
 
     authFile = &#34;authorise.yml&#34;
-    authData = readYaml(f&#34;{yamlDir}/{authFile}&#34;)
+    authData = readYaml(asFile=f&#34;{yamlDir}/{authFile}&#34;)
     if authData is None:
-        Messages.error(logmsg=&#34;Cannot read {authFile} in {yamlDir}&#34;)
+        Messages.error(logmsg=f&#34;Cannot read {authFile} in {yamlDir}&#34;)
         self.good = False
         return
 
     Settings.auth = authData
 
     tableFromRole = AttrDict()
-    for (table, roles) in authData.roles.items():
+
+    for table, roles in authData.roles.items():
         for role in roles:
             tableFromRole[role] = table
 
@@ -1009,7 +1461,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L396-L444" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L570-L635" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkBanner(self):
     &#34;&#34;&#34;Sets a banner for all pages.
@@ -1023,10 +1475,13 @@ in progress.</p>
         The banner is stored in the `banner` member of the
         `Settings` object.
     &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Settings = self.Settings
     H = Settings.H
-    Messages = self.Messages
     wip = var(&#34;devstatus&#34;)
+    runMode = Settings.runMode
 
     banner = &#34;&#34;
 
@@ -1034,22 +1489,34 @@ in progress.</p>
         content = H.span(
             dedent(
                 &#34;&#34;&#34;
+                This site runs in Test Mode.
+                Data you enter can be erased without warning.
+                &#34;&#34;&#34;
+            )
+            if runMode == &#34;test&#34;
+            else dedent(
+                &#34;&#34;&#34;
+                This site runs in Pilot Mode.
+                Data you enter will be saved, but might be inaccessible during
+                periods of further development.
+                &#34;&#34;&#34;
+            )
+            if runMode == &#34;pilot&#34;
+            else dedent(
+                &#34;&#34;&#34;
+                This site runs in Custom Mode.
+                Modifications may be overwritten if other custom data is imported.
+                &#34;&#34;&#34;
+            )
+            if runMode == &#34;custom&#34;
+            else dedent(
+                &#34;&#34;&#34;
                 This site is Work in Progress.
-                Use it only for testing.
-                All work you commit to this site can be erased
-                without warning.
                 &#34;&#34;&#34;
             )
         )
-        resetDataLink = H.a(
-            &#34;reset data&#34;,
-            &#34;/collect&#34;,
-            title=&#34;reset data to initial state&#34;,
-            cls=&#34;small&#34;,
-            **Messages.client(
-                &#34;info&#34;, &#34;wait for data reset to complete ...&#34;, replace=True
-            ),
-        )
+        dataLink = &#34;«backups»&#34; + H.br()
+
         issueLink = H.a(
             &#34;issues&#34;,
             &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
@@ -1057,7 +1524,9 @@ in progress.</p>
             cls=&#34;large&#34;,
             target=&#34;_blank&#34;,
         )
-        banner = H.div([content, issueLink, resetDataLink], id=&#34;statusbanner&#34;)
+        banner = H.div(
+            [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
+        )
 
     Settings.banner = banner</code></pre>
 </details>
@@ -1070,12 +1539,13 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L169-L193" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L275-L360" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
     &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
+    runMode = Settings.runMode
 
     dataDir = var(&#34;DATA_DIR&#34;)
 
@@ -1085,8 +1555,6 @@ in progress.</p>
         return
 
     dataDir = dataDir.rstrip(&#34;/&#34;)
-    sep = &#34;/&#34; if dataDir else &#34;&#34;
-    workingDir = f&#34;{dataDir}{sep}working&#34;
 
     if not dirExists(dataDir):
         Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
@@ -1094,9 +1562,71 @@ in progress.</p>
         return
 
     Settings.dataDir = dataDir
+
+    sep = &#34;/&#34; if dataDir else &#34;&#34;
+    workingParent = f&#34;{dataDir}{sep}working&#34;
+    dirMake(workingParent)
+    Settings.workingParent = workingParent
+
+    if self.migrate:
+        return
+
+    workingDir = f&#34;{workingParent}/{runMode}&#34;
+    dirMake(workingDir)
     Settings.workingDir = workingDir
 
-    # are we in test mode?</code></pre>
+    pubDir = var(&#34;PUB_DIR&#34;)
+
+    if pubDir is None:
+        Messages.error(logmsg=&#34;Environment variable `PUB_DIR` not defined&#34;)
+        self.good = False
+        return
+
+    if not dirExists(pubDir):
+        Messages.error(logmsg=f&#34;Pub directory does not exist: {pubDir}&#34;)
+        self.good = False
+        return
+
+    pubDir = pubDir.rstrip(&#34;/&#34;)
+
+    sep = &#34;/&#34; if pubDir else &#34;&#34;
+    pubModeDir = f&#34;{pubDir}{sep}{runMode}&#34;
+
+    dirMake(pubModeDir)
+    Settings.pubDir = pubDir
+    Settings.pubModeDir = pubModeDir
+
+    pubUrl = var(&#34;PUB_URL&#34;)
+
+    if pubUrl is None:
+        Messages.error(logmsg=&#34;Environment variable `PUB_URL` not defined&#34;)
+        self.good = False
+        return
+
+    Settings.pubUrl = pubUrl
+
+    authorUrl = var(&#34;AUTHOR_URL&#34;)
+
+    if authorUrl is None:
+        Messages.error(logmsg=&#34;Environment variable `AUTHOR_URL` not defined&#34;)
+        self.good = False
+        return
+
+    Settings.authorUrl = authorUrl
+
+    if self.design:
+        return
+
+    importSubdir = (
+        &#34;exampledata&#34;
+        if runMode == &#34;test&#34;
+        else &#34;pilotdata&#34;
+        if runMode == &#34;pilot&#34;
+        else &#34;customdata&#34;
+        if runMode == &#34;custom&#34;
+        else &#34;proddata&#34;
+    )
+    Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkDatamodel"><code class="name flex">
@@ -1114,20 +1644,20 @@ So either we must enforce that the user deletes the details first,
 or the system must delete those records automatically.</p>
 <p>When a user deletes a record that is linked to another record by means
 of a coupling record, the coupling record must be deleted automatically.</p>
-<p>Fields are bits of data that are stored in parts of documents
-in MongoDb collections.</p>
+<p>Fields are bits of data that are stored in parts of records
+in MongoDb tables.</p>
 <p>Fields have several properties which we summarize under a key.
 So if we know the key of a field, we have access to all of its
 properties.</p>
 <p>The properties <code>nameSpave</code> and <code>fieldPath</code> determine how to drill
-down in a document in order to find the value of that field.</p>
+down in a record in order to find the value of that field.</p>
 <p>The property <code>tp</code> is the data type of the field, default <code>string</code>.</p>
 <p>The property <code>caption</code> is a label that may accompany a field value
 on the interface.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L266-L316" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L410-L469" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkDatamodel(self):
     &#34;&#34;&#34;Read the yaml file with table and field settings.
@@ -1147,39 +1677,93 @@ on the interface.</p></div>
     When a user deletes a record that is linked to another record by means
     of a coupling record, the coupling record must be deleted automatically.
 
-    Fields are bits of data that are stored in parts of documents
-    in MongoDb collections.
+    Fields are bits of data that are stored in parts of records
+    in MongoDb tables.
 
     Fields have several properties which we summarize under a key.
     So if we know the key of a field, we have access to all of its
     properties.
 
     The properties `nameSpave` and `fieldPath` determine how to drill
-    down in a document in order to find the value of that field.
+    down in a record in order to find the value of that field.
 
     The property `tp` is the data type of the field, default `string`.
 
     The property `caption` is a label that may accompany a field value
     on the interface.
     &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Messages = self.Messages
     Settings = self.Settings
 
     yamlDir = Settings.yamlDir
 
     datamodelFile = &#34;datamodel.yml&#34;
-    datamodel = readYaml(f&#34;{yamlDir}/{datamodelFile}&#34;)
+    datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;)
     if datamodel is None:
         Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
         self.good = False
         return
 
     masterDetail = AttrDict()
-    for (detail, master) in datamodel.detailMaster.items():
+    for detail, master in datamodel.detailMaster.items():
         masterDetail[master] = detail
     datamodel.masterDetail = masterDetail
 
+    mainLink = AttrDict()
+    for link, mains in datamodel.linkMain.items():
+        for main in mains:
+            mainLink.setdefault(main, []).append(link)
+    datamodel.mainLink = mainLink
+
     Settings.datamodel = datamodel</code></pre>
+</details>
+</dd>
+<dt id="control.config.Config.checkDesign"><code class="name flex">
+<span>def <span class="ident">checkDesign</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Checks the design resources.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>void</code></dt>
+<dd>Some values are stored in the <code>Settings</code> object.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L637-L664" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkDesign(self):
+    &#34;&#34;&#34;Checks the design resources.
+
+    Returns
+    -------
+    void
+        Some values are stored in the `Settings` object.
+    &#34;&#34;&#34;
+    if self.migrate:
+        return
+
+    Settings = self.Settings
+
+    srcDir = Settings.srcDir
+    designDir = f&#34;{srcDir}/design&#34;
+
+    Settings.partialsIn = f&#34;{designDir}/components&#34;
+    Settings.templateDir = f&#34;{designDir}/templates&#34;
+    Settings.textDir = f&#34;{designDir}/texts&#34;
+    Settings.imageDir = f&#34;{designDir}/images&#34;
+    Settings.jsDir = f&#34;{designDir}/js&#34;
+    Settings.cssIn = f&#34;{designDir}/css/input.css&#34;
+
+    pubModeDir = Settings.pubModeDir
+    Settings.cssOut = f&#34;{pubModeDir}/css/style.css&#34;
+
+    dataDir = Settings.dataDir
+    Settings.binDir = f&#34;{dataDir}/bin&#34;</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkEnv"><code class="name flex">
@@ -1192,7 +1776,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L47-L69" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L58-L81" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkEnv(self):
     &#34;&#34;&#34;Collect the relevant information.
@@ -1206,14 +1790,15 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
         self.checkWebdav,
         self.checkVersion,
         self.checkSecret,
-        self.checkData,
         self.checkModes,
+        self.checkData,
         self.checkMongo,
         self.checkSettings,
         self.checkDatamodel,
         self.checkAuth,
         self.checkViewers,
         self.checkBanner,
+        self.checkDesign,
     ):
         if self.good:
             method()</code></pre>
@@ -1223,30 +1808,57 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <span>def <span class="ident">checkModes</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Determine whether flask is running in test/debug or production mode.</p></div>
+<div class="desc"><p>Determine whether flask is running in test/pilot/custom/prod mode.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L195-L225" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L216-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
-    &#34;&#34;&#34;Determine whether flask is running in test/debug or production mode.&#34;&#34;&#34;
+    &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
 
-    testMode = var(&#34;flasktest&#34;)
-    if testMode is None:
-        Messages.error(logmsg=&#34;Environment variable `flasktest` not defined&#34;)
+    if self.migrate:
+        Settings.runMode = &#34;&#34;
+        return
+
+    runMode = var(&#34;runmode&#34;)
+
+    if runMode is None:
+        Messages.error(logmsg=&#34;Environment variable `runmode` not defined&#34;)
         self.good = False
         return
 
-    Settings.testMode = testMode == &#34;test&#34;
-    &#34;&#34;&#34;With test mode enabled.
+    if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
+        runMode = runMode
+    else:
+        runMode = &#34;prod&#34;
 
-    This means that there is a row of test users on the interface,
-    and that you can log in as one of these users with a single click,
-    without any kind of authentication.
+    Settings.runMode = runMode
+    Settings.runProd = runMode == &#34;prod&#34;
+    &#34;&#34;&#34;In which mode the app runs.
+
+    Values are:
+
+    *   `test`:
+        The app works with the example data.
+        There is a row of test users on the interface,
+        and that you can log in as one of these users with a single click,
+        without any kind of authentication.
+    *   `pilot`:
+        The app works with the pilot data.
+        There is a row of pilot users on the interface,
+        and that you can log in as one of these users with a single click,
+        without any kind of authentication.
+    *   `custom`
+        The app works with custom data.
+        Initially, there is only one admin user, you can log in with a single click.
+    *   All other run modes count as production mode, `prod`.
     &#34;&#34;&#34;
+
+    if self.design:
+        return
 
     debugMode = var(&#34;flaskdebug&#34;)
     if debugMode is None:
@@ -1254,7 +1866,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
         self.good = False
         return
 
-    Settings.debugMode = debugMode == &#34;--debug&#34;
+    Settings.debugMode = debugMode == &#34;v&#34;
     &#34;&#34;&#34;With debug mode enabled.
 
     This means that the unminified, development versions of the javascript libraries
@@ -1272,7 +1884,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L227-L248" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L362-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -1280,9 +1892,15 @@ with these credentials.</p></div>
     It is not checked whether connection with MongoDb actually works
     with these credentials.
     &#34;&#34;&#34;
+    if self.design:
+        return
+
     Messages = self.Messages
     Settings = self.Settings
 
+    mongoHost = var(&#34;mongohost&#34;)
+    mongoPort = var(&#34;mongoport&#34;)
+    mongoPortOuter = var(&#34;mongoportouter&#34;)
     mongoUser = var(&#34;mongouser&#34;)
     mongoPassword = var(&#34;mongopassword&#34;)
 
@@ -1294,6 +1912,9 @@ with these credentials.</p></div>
         Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
         self.good = False
 
+    Settings.mongoHost = mongoHost
+    Settings.mongoPort = int(mongoPort)
+    Settings.mongoPortOuter = int(mongoPortOuter)
     Settings.mongoUser = mongoUser
     Settings.mongoPassword = mongoPassword</code></pre>
 </details>
@@ -1306,7 +1927,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L71-L98" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L83-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
     &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
@@ -1314,6 +1935,7 @@ with these credentials.</p></div>
     Settings = self.Settings
 
     repoDir = var(&#34;repodir&#34;)
+
     if repoDir is None:
         Messages.error(
             logmsg=dedent(
@@ -1334,7 +1956,9 @@ with these credentials.</p></div>
         return
 
     Settings.repoDir = repoDir
-    yamlDir = f&#34;{repoDir}/src/pure3d/control/yaml&#34;
+    srcDir = f&#34;{repoDir}/src&#34;
+    Settings.srcDir = srcDir
+    yamlDir = f&#34;{srcDir}/yaml&#34;
     Settings.yamlDir = yamlDir</code></pre>
 </details>
 </dd>
@@ -1348,7 +1972,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L136-L167" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L189-L214" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     &#34;&#34;&#34;Obtain a secret.
@@ -1356,32 +1980,26 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
     This is secret information used for encrypting sessions.
     It resides somewhere on the file system, outside the pure3d repository.
     &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Messages = self.Messages
     Settings = self.Settings
 
-    secretFileLoc = var(&#34;SECRET_FILE&#34;)
+    CLIENT_SECRET_FILE = &#34;/app/secret/secfile&#34;
+    secret = readPath(CLIENT_SECRET_FILE)
 
-    if secretFileLoc is None:
-        Messages.error(logmsg=&#34;Environment variable `SECRET_FILE` not defined&#34;)
-        self.good = False
-        return
-
-    if not fileExists(secretFileLoc):
+    if not secret:
         Messages.error(
-            logmsg=dedent(
-                f&#34;&#34;&#34;
-                Missing secret file for sessions: {secretFileLoc}
-                Create that file with contents a random string like this:
-                fjOL901Mc3XZy8dcbBnOxNwZsOIBlul&#34;)
-                But do not choose this one.&#34;)
-                Use your password manager to create a random one.
-                &#34;&#34;&#34;
+            logmsg=(
+                &#34;No secret given for flask: &#34;
+                f&#34;file {CLIENT_SECRET_FILE} does not exist&#34;
             )
         )
         self.good = False
         return
 
-    Settings.secret_key = readPath(secretFileLoc)</code></pre>
+    Settings.secret_key = secret</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkSettings"><code class="name flex">
@@ -1392,7 +2010,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L250-L264" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L394-L408" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
     &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
@@ -1401,13 +2019,13 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
     yamlDir = Settings.yamlDir
 
     settingsFile = &#34;settings.yml&#34;
-    settings = readYaml(f&#34;{yamlDir}/{settingsFile}&#34;)
+    settings = readYaml(asFile=f&#34;{yamlDir}/{settingsFile}&#34;)
     if settings is None:
         Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
         self.good = False
         return
 
-    for (k, v) in settings.items():
+    for k, v in settings.items():
         Settings[k] = v</code></pre>
 </details>
 </dd>
@@ -1421,7 +2039,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L112-L134" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L130-L187" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     &#34;&#34;&#34;Get the current version of the pure3d app.
@@ -1429,23 +2047,58 @@ of the git repo that the running code is in.</p></div>
     We represent the version as the short hash of the current commit
     of the git repo that the running code is in.
     &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Settings = self.Settings
     H = Settings.H
     repoDir = Settings.repoDir
+    versionFile = f&#34;{repoDir}/VERSION.txt&#34;
 
-    (long, short) = tuple(
-        check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
-        .decode(&#34;ascii&#34;)
-        .strip()
-        for args in ([], [&#34;--short&#34;])
-    )
+    try:
+        actual = True
+        (long, short) = tuple(
+            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+            .decode(&#34;ascii&#34;)
+            .strip()
+            for args in ([], [&#34;--short&#34;])
+        )
+        with open(versionFile, &#34;w&#34;) as fh:
+            fh.write(f&#34;{long}\t{short}\n&#34;)
+    except Exception as e:
+        print(e.stderr)
+        print(f&#34;Could not get version from git, reading it from file {versionFile}&#34;)
+        actual = False
+        if not fileExists(versionFile):
+            known = False
+            (long, short) = (&#34;&#34;, &#34;&#34;)
+        else:
+            known = True
+            with open(versionFile) as fh:
+                try:
+                    (long, short) = fh.read().strip().split(&#34;\t&#34;)
+                except Exception:
+                    known = False
+                    (long, short) = (&#34;&#34;, &#34;&#34;)
+
     Settings = self.Settings
     repoDir = Settings.repoDir
 
-    title = &#34;visit the running code on GitHub&#34;
+    if actual:
+        label1 = &#34;this version&#34;
+        text = f&#34;this version is {short}&#34;
+    else:
+        if known:
+            label1 = &#34;previous version&#34;
+            text = f&#34;previous version was {short}&#34;
+        else:
+            label1 = &#34;latest version&#34;
+            text = &#34;unknown version, go to latest version&#34;
+
+    title = f&#34;visit {label1} of the code on GitHub&#34;
     gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
-    href = f&#34;{gitLocation}/tree/{long}&#34;
-    Settings.versionInfo = H.a(short, href, target=&#34;_blank&#34;, title=title)</code></pre>
+    href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
+    Settings.versionInfo = H.a(text, href, target=&#34;_blank&#34;, title=title)</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkViewers"><code class="name flex">
@@ -1456,10 +2109,13 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L344-L394" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L501-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
     &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
+    if self.migrate:
+        return
+
     Messages = self.Messages
     Settings = self.Settings
 
@@ -1471,11 +2127,15 @@ of the git repo that the running code is in.</p></div>
     Settings.viewerDir = viewerDir
     Settings.viewerUrlBase = &#34;/data/viewers&#34;
 
+    versionKey = getVersionKeyFunc()
+    Settings.versionKey = versionKey
+
     viewersFile = &#34;viewers.yml&#34;
     viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
-    viewerSettings = readYaml(viewerSettingsFile)
+    viewerSettings = readYaml(asFile=viewerSettingsFile)
+
     if viewerSettings is None:
-        Messages.error(logmsg=&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
+        Messages.error(logmsg=f&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
         self.good = False
         return
 
@@ -1490,21 +2150,31 @@ of the git repo that the running code is in.</p></div>
         if viewerName not in viewerSettings.viewers:
             Messages.warning(
                 logmsg=(
-                    f&#34;Skipping viewer {viewerName}&#34;
-                    &#34;because not defined in {viewersFile}&#34;
+                    f&#34;Skipping viewer {viewerName} &#34;
+                    f&#34;because it is not defined in {viewersFile}&#34;
                 )
             )
             continue
         viewerConfig = viewerSettings.viewers[viewerName]
         viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-        versions = []
 
-        versionNames = listDirs(viewerPath)
+        versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
 
-        for versionName in versionNames:
-            versions.append(versionName)
+        if len(versions) == 0:
+            self.good = False
+            Messages.error(
+                logmsg=(
+                    f&#34;Skipping viewer {viewerName} &#34;
+                    f&#34;because there are no versions of it on the system&#34;
+                ),
+                stop=False
+            )
+            continue
+
+        defaultVersion = versions[0]
 
         viewerConfig.versions = versions
+        viewerConfig.defaultVersion = defaultVersion
 
     Settings.viewers = viewerSettings.viewers
     Settings.viewerActions = viewerSettings.actions
@@ -1521,7 +2191,7 @@ depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/config.py#L100-L110" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L115-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkWebdav(self):
     &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
@@ -1529,10 +2199,13 @@ depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p
     The methods are associated with the `read` or `update` keyword,
     depending on whether they are `GET` like or `PUT` like.
     &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
     Settings = self.Settings
     yamlDir = Settings.yamlDir
     webdavFile = &#34;webdav.yml&#34;
-    webdavInfo = readYaml(f&#34;{yamlDir}/{webdavFile}&#34;)
+    webdavInfo = readYaml(asFile=f&#34;{yamlDir}/{webdavFile}&#34;)
     Settings.webdavMethods = webdavInfo.methods</code></pre>
 </details>
 </dd>
@@ -1610,6 +2283,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.config.Config.checkBanner" href="#control.config.Config.checkBanner">checkBanner</a></code></li>
 <li><code><a title="control.config.Config.checkData" href="#control.config.Config.checkData">checkData</a></code></li>
 <li><code><a title="control.config.Config.checkDatamodel" href="#control.config.Config.checkDatamodel">checkDatamodel</a></code></li>
+<li><code><a title="control.config.Config.checkDesign" href="#control.config.Config.checkDesign">checkDesign</a></code></li>
 <li><code><a title="control.config.Config.checkEnv" href="#control.config.Config.checkEnv">checkEnv</a></code></li>
 <li><code><a title="control.config.Config.checkModes" href="#control.config.Config.checkModes">checkModes</a></code></li>
 <li><code><a title="control.config.Config.checkMongo" href="#control.config.Config.checkMongo">checkMongo</a></code></li>

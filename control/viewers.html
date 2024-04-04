@@ -26,15 +26,15 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L1-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L1-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 
-from control.generic import AttrDict
+from control.generic import AttrDict, attResolve
 
 
 class Viewers:
-    def __init__(self, Settings, Messages, Mongo):
+    def __init__(self, Settings, Messages):
         &#34;&#34;&#34;Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -49,13 +49,10 @@ class Viewers:
             `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        Mongo: object
-            Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.Mongo = Mongo
         self.viewers = Settings.viewers
         self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
@@ -101,15 +98,47 @@ class Viewers:
         versions = viewerInfo.versions
         defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
-            version = defaultVersion if defaultVersion in versions else versions[-1]
+            version = defaultVersion
         return version
 
-    def getFrame(self, edition, actions, viewer, versionActive, actionActive):
-        &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
+    def getViewInfo(self, edition):
+        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
 
         Parameters
         ----------
-        edition: string | ObjectId | AttrDict
+        edition: AttrDict
+            The edition record.
+
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
+
+        &#34;&#34;&#34;
+        viewerDefault = self.viewerDefault
+
+        editionId = edition._id
+        if editionId is None:
+            return (viewerDefault, None)
+
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
+
+        return (viewer, sceneFile)
+
+    def getFrame(
+        self, edition, actions, viewer, versionActive, actionActive, sceneExists
+    ):
+        &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
+
+        Make sure that if there is no scene file present, no viewer will be opened.
+
+        Parameters
+        ----------
+        edition: AttrDict
             The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
@@ -125,6 +154,8 @@ class Viewers:
             The mode in which the scene is currently loaded in the viewer
             (`read` or `update`),
             if any, otherwise None
+        sceneExists: boolean
+            Whether the scene file exists.
 
         Returns
         -------
@@ -133,21 +164,24 @@ class Viewers:
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
-        Mongo = self.Mongo
         actionInfo = self.viewerActions
         viewers = self.viewers
 
-        filteredActions = {a for a in actions if a in actionInfo}
+        filteredActions = {a for a in actions if a in actionInfo and a != &#34;create&#34;}
         versionActive = self.check(viewer, versionActive)
 
-        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+        editionId = edition._id
+        if editionId is None:
+            return (&#34;&#34;, &#34;&#34;)
 
-        src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}&#34;
+        create = &#34;/update&#34; if sceneExists else &#34;/create&#34;
+
+        src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}{create}&#34;
         frame = H.div(
             H.div(H.iframe(src, cls=&#34;previewer&#34;), cls=&#34;surround&#34;), cls=&#34;model&#34;
         )
 
-        def getViewerButtons():
+        def getViewerButtons(vw):
             &#34;&#34;&#34;Internal function.
 
             Returns
@@ -155,22 +189,63 @@ class Viewers:
             string
                 HTML for the buttons to launch a viewer.
             &#34;&#34;&#34;
-            activeCls = &#34;active&#34;
-            return H.span(
-                [
-                    H.span(viewer, cls=f&#34;vwl {activeCls}&#34;),
-                    H.span(
-                        [
-                            getVersionButtons(version, version == versionActive)
-                            for version in viewers[viewer].versions
-                        ],
-                        cls=&#34;vwv&#34;,
-                    ),
-                ],
+            openAtt = vw == viewer
+
+            versions = viewers[vw].versions
+            if len(versions) == 1:
+                version = versions[0]
+                return H.table(
+                    [
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=True,
+                            withVersion=True,
+                            # withViewer=not pilotMode,
+                            # withVersion=not pilotMode,
+                        )
+                    ],
+                    [],
+                    cls=&#34;vwv&#34;,
+                )
+
+            (latest, previous) = (versions[0:1], versions[1:])
+
+            openAtt = vw == viewer and len(previous) and versionActive in previous
+
+            return H.details(
+                H.table(
+                    [
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=True,
+                        )
+                        for version in latest
+                    ],
+                    [],
+                    cls=&#34;vwv&#34;,
+                ),
+                H.table(
+                    [],
+                    [
+                        getVersionButtons(
+                            version, version == versionActive, withViewer=False
+                        )
+                        for version in previous
+                    ],
+                    cls=&#34;vwv&#34;,
+                ),
+                f&#34;vwbuttons-{editionId}&#34;,
                 cls=&#34;vw&#34;,
+                open=openAtt,
             )
 
-        def getVersionButtons(version, active):
+        def getVersionButtons(
+            version, active, versionAmount=None, withViewer=False, withVersion=True
+        ):
             &#34;&#34;&#34;Internal function.
 
             Parameters
@@ -179,30 +254,45 @@ class Viewers:
                 The version of the viewer.
             active: boolean
                 Whether that version of that viewer is currently active.
+            versionAmount: int, optional None
+                If passed, contains the number of versions and displays it.
+            withViewer: boolean, optional False
+                Whether to show the viewer name in the first column.
+            withVersion: boolean, optional True
+                Whether to show the version in the second column.
 
             Returns
             -------
             string
                 HTML for the buttons to launch a specific version of a viewer.
             &#34;&#34;&#34;
-            nonlocal activeButtons
+            activeRowCls = &#34;activer&#34; if active else &#34;&#34;
 
-            activeCls = &#34;active&#34; if active else &#34;&#34;
-
-            versionButtons = H.span(
-                [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
-                + [
-                    getActionButton(version, action, active and action == actionActive)
-                    for action in filteredActions
-                ],
-                cls=&#34;vv&#34;,
+            plural = &#34;&#34; if versionAmount == 2 else &#34;s&#34;
+            title = (
+                f&#34;click to show previous {versionAmount - 1} {viewer} version{plural}&#34;
+                if versionAmount and versionAmount &gt; 1
+                else f&#34;no previous {viewer} versions&#34;
             )
 
-            if active:
-                activeButtons = versionButtons
-            return versionButtons
+            return (
+                [
+                    (viewer if withViewer else H.nbsp, dict(cls=&#34;vwc&#34;, title=title)),
+                    (
+                        version if withVersion else H.nbsp,
+                        dict(cls=&#34;vvl vwc&#34;, title=title),
+                    ),
+                ]
+                + [
+                    getActionButton(
+                        version, action, disabled=active and action == actionActive
+                    )
+                    for action in sorted(filteredActions)
+                ],
+                dict(cls=activeRowCls),
+            )
 
-        def getActionButton(version, action, active):
+        def getActionButton(version, action, disabled=False):
             &#34;&#34;&#34;Internal function.
 
             Parameters
@@ -211,8 +301,8 @@ class Viewers:
                 The version of the viewer.
             action: string
                 Whether to launch the viewer for `read` or for `update`.
-            active: boolean
-                Whether that version of that viewer is currently active.
+            disabled: boolean, optional Fasle
+                Whether to show the button as disabled
 
             Returns
             -------
@@ -220,53 +310,46 @@ class Viewers:
                 HTML for the buttons to launch a specific version of a viewer
                 for a specific action.
             &#34;&#34;&#34;
-            activeCls = &#34;active&#34; if active else &#34;&#34;
-            thisActionInfo = actionInfo.get(action, AttrDict())
-            name = thisActionInfo.name
-
             atts = {}
 
-            if active:
-                href = None
-            else:
-                href = f&#34;/edition/{editionId}/{version}/{action}&#34;
+            href = None if disabled else f&#34;/edition/{editionId}/{version}/{action}&#34;
 
-                if action == &#34;update&#34;:
-                    viewerHref = f&#34;/viewer/{version}/{action}/{editionId}&#34;
-                    atts[&#34;onclick&#34;] = dedent(
-                        f&#34;&#34;&#34;
-                        window.open(
-                            &#39;{viewerHref}&#39;,
-                            &#39;newwindow&#39;,
-                            width=window.innerWidth,
-                            height=window.innerHeight
-                        );
-                        return false;
-                        &#34;&#34;&#34;
-                    )
+            if action == &#34;update&#34;:
+                viewerHref = f&#34;/viewer/{version}/{action}/{editionId}{create}&#34;
+                atts[&#34;onclick&#34;] = dedent(
+                    f&#34;&#34;&#34;
+                    window.open(
+                        &#39;{viewerHref}&#39;,
+                        &#39;newwindow&#39;,
+                        width=window.innerWidth,
+                        height=window.innerHeight
+                    );
+                    return false;
+                    &#34;&#34;&#34;
+                )
 
             titleFragment = &#34;a new window&#34; if action == &#34;update&#34; else &#34;place&#34;
-            atts[&#34;title&#34;] = f&#34;{name} this scene in {titleFragment}&#34;
 
-            cls = f&#34;button {activeCls} vwb&#34;
+            createMode = action == &#34;update&#34; and not sceneExists
+            action = &#34;create&#34; if createMode else action
+            thisActionInfo = actionInfo.get(action, AttrDict())
+            name = thisActionInfo.name
+            atts[&#34;title&#34;] = f&#34;{name} scene in {titleFragment}&#34;
 
-            return H.iconx(action, href=href, cls=cls, **atts)
+            disabledCls = &#34;disabled&#34; if disabled else &#34;&#34;
+            activeCellCls = &#34;activec&#34; if disabled else &#34;&#34;
+            cls = f&#34;button vwb {disabledCls}&#34;
 
-        allButtons = getViewerButtons()
+            return (
+                H.iconx(action, text=name, href=href, cls=cls, **atts),
+                dict(cls=f&#34;vwc {activeCellCls}&#34;),
+            )
 
-        activeButtons = [
-            H.span(viewer, cls=&#34;vwla&#34;),
-            H.span(versionActive, cls=&#34;vvla&#34;),
-        ] + [
-            getActionButton(versionActive, action, action == actionActive)
-            for action in filteredActions
-        ]
+        allButtons = H.div([getViewerButtons(vw) for vw in viewers])
 
-        buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
+        return (frame if sceneExists else &#34;&#34;, allButtons)
 
-        return (frame, buttons)
-
-    def genHtml(self, urlBase, sceneFile, viewer, version, action):
+    def genHtml(self, urlBase, sceneFile, viewer, version, action, subMode):
         &#34;&#34;&#34;Generates the HTML for the viewer page that is loaded in an iframe.
 
         When a scene is loaded in a viewer, it happens in an iframe.
@@ -286,6 +369,8 @@ class Viewers:
             The chosen version of the viewer.
         action: string
             The chosen mode in which the viewer is launched (`read` or `update`).
+        subMode: string | None
+            The sub mode in which the viewer is to be used (`update` or `create`).
 
         Returns
         -------
@@ -306,8 +391,14 @@ class Viewers:
 
         if viewer == &#34;voyager&#34;:
             modes = viewers[viewer].modes
-            element = modes[action].element
-            fileBase = modes[action].fileBase
+            modeProps = modes[action]
+            element = modeProps.element
+            fileBase = modeProps.fileBase
+            subModes = modeProps.subModes or AttrDict()
+            atts = attResolve(subModes[subMode] or AttrDict(), version)
+            if subMode != &#34;create&#34;:
+                atts[&#34;document&#34;] = sceneFile
+
             return H.content(
                 H.head(
                     [
@@ -333,8 +424,8 @@ class Viewers:
                         element,
                         &#34;&#34;,
                         root=viewerRoot,
-                        document=sceneFile,
                         resourceroot=f&#34;{viewerStaticRoot}/&#34;,
+                        **atts,
                     )
                 ),
             )
@@ -432,7 +523,7 @@ class Viewers:
 <dl>
 <dt id="control.viewers.Viewers"><code class="flex name class">
 <span>class <span class="ident">Viewers</span></span>
-<span>(</span><span>Settings, Messages, Mongo)</span>
+<span>(</span><span>Settings, Messages)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Knowledge of the installed 3D viewers.</p>
@@ -446,16 +537,14 @@ and has the methods to invoke them.</p>
 <code><a title="control.config.Config.Settings" href="config.html#control.config.Config.Settings">Config.Settings</a></code>.</dd>
 <dt><strong><code>Messages</code></strong> :&ensp;<code>object</code></dt>
 <dd>Singleton instance of <code><a title="control.messages.Messages" href="messages.html#control.messages.Messages">Messages</a></code>.</dd>
-<dt><strong><code>Mongo</code></strong> :&ensp;<code>object</code></dt>
-<dd>Singleton instance of <code><a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a></code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L6-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L6-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Viewers:
-    def __init__(self, Settings, Messages, Mongo):
+    def __init__(self, Settings, Messages):
         &#34;&#34;&#34;Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -470,13 +559,10 @@ and has the methods to invoke them.</p>
             `control.config.Config.Settings`.
         Messages: object
             Singleton instance of `control.messages.Messages`.
-        Mongo: object
-            Singleton instance of `control.mongo.Mongo`.
         &#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
         Messages.debugAdd(self)
-        self.Mongo = Mongo
         self.viewers = Settings.viewers
         self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
@@ -522,15 +608,47 @@ and has the methods to invoke them.</p>
         versions = viewerInfo.versions
         defaultVersion = viewerInfo.defaultVersion
         if version not in versions:
-            version = defaultVersion if defaultVersion in versions else versions[-1]
+            version = defaultVersion
         return version
 
-    def getFrame(self, edition, actions, viewer, versionActive, actionActive):
-        &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
+    def getViewInfo(self, edition):
+        &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
 
         Parameters
         ----------
-        edition: string | ObjectId | AttrDict
+        edition: AttrDict
+            The edition record.
+
+        Returns
+        -------
+        tuple of string
+            * The name of the viewer
+            * The name of the scene
+
+        &#34;&#34;&#34;
+        viewerDefault = self.viewerDefault
+
+        editionId = edition._id
+        if editionId is None:
+            return (viewerDefault, None)
+
+        editionSettings = edition.settings or AttrDict()
+        authorTool = editionSettings.authorTool or AttrDict()
+        viewer = authorTool.name or viewerDefault
+        sceneFile = authorTool.sceneFile
+
+        return (viewer, sceneFile)
+
+    def getFrame(
+        self, edition, actions, viewer, versionActive, actionActive, sceneExists
+    ):
+        &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
+
+        Make sure that if there is no scene file present, no viewer will be opened.
+
+        Parameters
+        ----------
+        edition: AttrDict
             The edition in question.
         actions: iterable of string
             The actions for which we have to create buttons.
@@ -546,6 +664,8 @@ and has the methods to invoke them.</p>
             The mode in which the scene is currently loaded in the viewer
             (`read` or `update`),
             if any, otherwise None
+        sceneExists: boolean
+            Whether the scene file exists.
 
         Returns
         -------
@@ -554,21 +674,24 @@ and has the methods to invoke them.</p>
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
-        Mongo = self.Mongo
         actionInfo = self.viewerActions
         viewers = self.viewers
 
-        filteredActions = {a for a in actions if a in actionInfo}
+        filteredActions = {a for a in actions if a in actionInfo and a != &#34;create&#34;}
         versionActive = self.check(viewer, versionActive)
 
-        (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+        editionId = edition._id
+        if editionId is None:
+            return (&#34;&#34;, &#34;&#34;)
 
-        src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}&#34;
+        create = &#34;/update&#34; if sceneExists else &#34;/create&#34;
+
+        src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}{create}&#34;
         frame = H.div(
             H.div(H.iframe(src, cls=&#34;previewer&#34;), cls=&#34;surround&#34;), cls=&#34;model&#34;
         )
 
-        def getViewerButtons():
+        def getViewerButtons(vw):
             &#34;&#34;&#34;Internal function.
 
             Returns
@@ -576,22 +699,63 @@ and has the methods to invoke them.</p>
             string
                 HTML for the buttons to launch a viewer.
             &#34;&#34;&#34;
-            activeCls = &#34;active&#34;
-            return H.span(
-                [
-                    H.span(viewer, cls=f&#34;vwl {activeCls}&#34;),
-                    H.span(
-                        [
-                            getVersionButtons(version, version == versionActive)
-                            for version in viewers[viewer].versions
-                        ],
-                        cls=&#34;vwv&#34;,
-                    ),
-                ],
+            openAtt = vw == viewer
+
+            versions = viewers[vw].versions
+            if len(versions) == 1:
+                version = versions[0]
+                return H.table(
+                    [
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=True,
+                            withVersion=True,
+                            # withViewer=not pilotMode,
+                            # withVersion=not pilotMode,
+                        )
+                    ],
+                    [],
+                    cls=&#34;vwv&#34;,
+                )
+
+            (latest, previous) = (versions[0:1], versions[1:])
+
+            openAtt = vw == viewer and len(previous) and versionActive in previous
+
+            return H.details(
+                H.table(
+                    [
+                        getVersionButtons(
+                            version,
+                            version == versionActive,
+                            versionAmount=len(versions),
+                            withViewer=True,
+                        )
+                        for version in latest
+                    ],
+                    [],
+                    cls=&#34;vwv&#34;,
+                ),
+                H.table(
+                    [],
+                    [
+                        getVersionButtons(
+                            version, version == versionActive, withViewer=False
+                        )
+                        for version in previous
+                    ],
+                    cls=&#34;vwv&#34;,
+                ),
+                f&#34;vwbuttons-{editionId}&#34;,
                 cls=&#34;vw&#34;,
+                open=openAtt,
             )
 
-        def getVersionButtons(version, active):
+        def getVersionButtons(
+            version, active, versionAmount=None, withViewer=False, withVersion=True
+        ):
             &#34;&#34;&#34;Internal function.
 
             Parameters
@@ -600,30 +764,45 @@ and has the methods to invoke them.</p>
                 The version of the viewer.
             active: boolean
                 Whether that version of that viewer is currently active.
+            versionAmount: int, optional None
+                If passed, contains the number of versions and displays it.
+            withViewer: boolean, optional False
+                Whether to show the viewer name in the first column.
+            withVersion: boolean, optional True
+                Whether to show the version in the second column.
 
             Returns
             -------
             string
                 HTML for the buttons to launch a specific version of a viewer.
             &#34;&#34;&#34;
-            nonlocal activeButtons
+            activeRowCls = &#34;activer&#34; if active else &#34;&#34;
 
-            activeCls = &#34;active&#34; if active else &#34;&#34;
-
-            versionButtons = H.span(
-                [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
-                + [
-                    getActionButton(version, action, active and action == actionActive)
-                    for action in filteredActions
-                ],
-                cls=&#34;vv&#34;,
+            plural = &#34;&#34; if versionAmount == 2 else &#34;s&#34;
+            title = (
+                f&#34;click to show previous {versionAmount - 1} {viewer} version{plural}&#34;
+                if versionAmount and versionAmount &gt; 1
+                else f&#34;no previous {viewer} versions&#34;
             )
 
-            if active:
-                activeButtons = versionButtons
-            return versionButtons
+            return (
+                [
+                    (viewer if withViewer else H.nbsp, dict(cls=&#34;vwc&#34;, title=title)),
+                    (
+                        version if withVersion else H.nbsp,
+                        dict(cls=&#34;vvl vwc&#34;, title=title),
+                    ),
+                ]
+                + [
+                    getActionButton(
+                        version, action, disabled=active and action == actionActive
+                    )
+                    for action in sorted(filteredActions)
+                ],
+                dict(cls=activeRowCls),
+            )
 
-        def getActionButton(version, action, active):
+        def getActionButton(version, action, disabled=False):
             &#34;&#34;&#34;Internal function.
 
             Parameters
@@ -632,8 +811,8 @@ and has the methods to invoke them.</p>
                 The version of the viewer.
             action: string
                 Whether to launch the viewer for `read` or for `update`.
-            active: boolean
-                Whether that version of that viewer is currently active.
+            disabled: boolean, optional Fasle
+                Whether to show the button as disabled
 
             Returns
             -------
@@ -641,53 +820,46 @@ and has the methods to invoke them.</p>
                 HTML for the buttons to launch a specific version of a viewer
                 for a specific action.
             &#34;&#34;&#34;
-            activeCls = &#34;active&#34; if active else &#34;&#34;
-            thisActionInfo = actionInfo.get(action, AttrDict())
-            name = thisActionInfo.name
-
             atts = {}
 
-            if active:
-                href = None
-            else:
-                href = f&#34;/edition/{editionId}/{version}/{action}&#34;
+            href = None if disabled else f&#34;/edition/{editionId}/{version}/{action}&#34;
 
-                if action == &#34;update&#34;:
-                    viewerHref = f&#34;/viewer/{version}/{action}/{editionId}&#34;
-                    atts[&#34;onclick&#34;] = dedent(
-                        f&#34;&#34;&#34;
-                        window.open(
-                            &#39;{viewerHref}&#39;,
-                            &#39;newwindow&#39;,
-                            width=window.innerWidth,
-                            height=window.innerHeight
-                        );
-                        return false;
-                        &#34;&#34;&#34;
-                    )
+            if action == &#34;update&#34;:
+                viewerHref = f&#34;/viewer/{version}/{action}/{editionId}{create}&#34;
+                atts[&#34;onclick&#34;] = dedent(
+                    f&#34;&#34;&#34;
+                    window.open(
+                        &#39;{viewerHref}&#39;,
+                        &#39;newwindow&#39;,
+                        width=window.innerWidth,
+                        height=window.innerHeight
+                    );
+                    return false;
+                    &#34;&#34;&#34;
+                )
 
             titleFragment = &#34;a new window&#34; if action == &#34;update&#34; else &#34;place&#34;
-            atts[&#34;title&#34;] = f&#34;{name} this scene in {titleFragment}&#34;
 
-            cls = f&#34;button {activeCls} vwb&#34;
+            createMode = action == &#34;update&#34; and not sceneExists
+            action = &#34;create&#34; if createMode else action
+            thisActionInfo = actionInfo.get(action, AttrDict())
+            name = thisActionInfo.name
+            atts[&#34;title&#34;] = f&#34;{name} scene in {titleFragment}&#34;
 
-            return H.iconx(action, href=href, cls=cls, **atts)
+            disabledCls = &#34;disabled&#34; if disabled else &#34;&#34;
+            activeCellCls = &#34;activec&#34; if disabled else &#34;&#34;
+            cls = f&#34;button vwb {disabledCls}&#34;
 
-        allButtons = getViewerButtons()
+            return (
+                H.iconx(action, text=name, href=href, cls=cls, **atts),
+                dict(cls=f&#34;vwc {activeCellCls}&#34;),
+            )
 
-        activeButtons = [
-            H.span(viewer, cls=&#34;vwla&#34;),
-            H.span(versionActive, cls=&#34;vvla&#34;),
-        ] + [
-            getActionButton(versionActive, action, action == actionActive)
-            for action in filteredActions
-        ]
+        allButtons = H.div([getViewerButtons(vw) for vw in viewers])
 
-        buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
+        return (frame if sceneExists else &#34;&#34;, allButtons)
 
-        return (frame, buttons)
-
-    def genHtml(self, urlBase, sceneFile, viewer, version, action):
+    def genHtml(self, urlBase, sceneFile, viewer, version, action, subMode):
         &#34;&#34;&#34;Generates the HTML for the viewer page that is loaded in an iframe.
 
         When a scene is loaded in a viewer, it happens in an iframe.
@@ -707,6 +879,8 @@ and has the methods to invoke them.</p>
             The chosen version of the viewer.
         action: string
             The chosen mode in which the viewer is launched (`read` or `update`).
+        subMode: string | None
+            The sub mode in which the viewer is to be used (`update` or `create`).
 
         Returns
         -------
@@ -727,8 +901,14 @@ and has the methods to invoke them.</p>
 
         if viewer == &#34;voyager&#34;:
             modes = viewers[viewer].modes
-            element = modes[action].element
-            fileBase = modes[action].fileBase
+            modeProps = modes[action]
+            element = modeProps.element
+            fileBase = modeProps.fileBase
+            subModes = modeProps.subModes or AttrDict()
+            atts = attResolve(subModes[subMode] or AttrDict(), version)
+            if subMode != &#34;create&#34;:
+                atts[&#34;document&#34;] = sceneFile
+
             return H.content(
                 H.head(
                     [
@@ -754,8 +934,8 @@ and has the methods to invoke them.</p>
                         element,
                         &#34;&#34;,
                         root=viewerRoot,
-                        document=sceneFile,
                         resourceroot=f&#34;{viewerStaticRoot}/&#34;,
+                        **atts,
                     )
                 ),
             )
@@ -853,7 +1033,7 @@ be given the handle to the other after initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L33-L39" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L30-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuth(self, Auth):
     &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -892,7 +1072,7 @@ If the viewer is not supported, None is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L41-L75" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L38-L72" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self, viewer, version):
     &#34;&#34;&#34;Checks whether a viewer version exists.
@@ -927,12 +1107,12 @@ If the viewer is not supported, None is returned.</dd>
     versions = viewerInfo.versions
     defaultVersion = viewerInfo.defaultVersion
     if version not in versions:
-        version = defaultVersion if defaultVersion in versions else versions[-1]
+        version = defaultVersion
     return version</code></pre>
 </details>
 </dd>
 <dt id="control.viewers.Viewers.genHtml"><code class="name flex">
-<span>def <span class="ident">genHtml</span></span>(<span>self, urlBase, sceneFile, viewer, version, action)</span>
+<span>def <span class="ident">genHtml</span></span>(<span>self, urlBase, sceneFile, viewer, version, action, subMode)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates the HTML for the viewer page that is loaded in an iframe.</p>
@@ -952,6 +1132,8 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 <dd>The chosen version of the viewer.</dd>
 <dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
 <dd>The chosen mode in which the viewer is launched (<code>read</code> or <code>update</code>).</dd>
+<dt><strong><code>subMode</code></strong> :&ensp;<code>string | None</code></dt>
+<dd>The sub mode in which the viewer is to be used (<code>update</code> or <code>create</code>).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -961,9 +1143,9 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L239-L315" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L322-L406" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def genHtml(self, urlBase, sceneFile, viewer, version, action):
+<pre><code class="python">def genHtml(self, urlBase, sceneFile, viewer, version, action, subMode):
     &#34;&#34;&#34;Generates the HTML for the viewer page that is loaded in an iframe.
 
     When a scene is loaded in a viewer, it happens in an iframe.
@@ -983,6 +1165,8 @@ The root url will be completed with the <code>action</code> and the <code>viewer
         The chosen version of the viewer.
     action: string
         The chosen mode in which the viewer is launched (`read` or `update`).
+    subMode: string | None
+        The sub mode in which the viewer is to be used (`update` or `create`).
 
     Returns
     -------
@@ -1003,8 +1187,14 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 
     if viewer == &#34;voyager&#34;:
         modes = viewers[viewer].modes
-        element = modes[action].element
-        fileBase = modes[action].fileBase
+        modeProps = modes[action]
+        element = modeProps.element
+        fileBase = modeProps.fileBase
+        subModes = modeProps.subModes or AttrDict()
+        atts = attResolve(subModes[subMode] or AttrDict(), version)
+        if subMode != &#34;create&#34;:
+            atts[&#34;document&#34;] = sceneFile
+
         return H.content(
             H.head(
                 [
@@ -1030,8 +1220,8 @@ The root url will be completed with the <code>action</code> and the <code>viewer
                     element,
                     &#34;&#34;,
                     root=viewerRoot,
-                    document=sceneFile,
                     resourceroot=f&#34;{viewerStaticRoot}/&#34;,
+                    **atts,
                 )
             ),
         )
@@ -1043,13 +1233,14 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 </details>
 </dd>
 <dt id="control.viewers.Viewers.getFrame"><code class="name flex">
-<span>def <span class="ident">getFrame</span></span>(<span>self, edition, actions, viewer, versionActive, actionActive)</span>
+<span>def <span class="ident">getFrame</span></span>(<span>self, edition, actions, viewer, versionActive, actionActive, sceneExists)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Produces a set of buttons to launch 3D viewers for a scene.</p>
+<p>Make sure that if there is no scene file present, no viewer will be opened.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dt><strong><code>edition</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>The edition in question.</dd>
 <dt><strong><code>actions</code></strong> :&ensp;<code>iterable</code> of <code>string</code></dt>
 <dd>The actions for which we have to create buttons.
@@ -1065,6 +1256,8 @@ if any, otherwise None</dd>
 <dd>The mode in which the scene is currently loaded in the viewer
 (<code>read</code> or <code>update</code>),
 if any, otherwise None</dd>
+<dt><strong><code>sceneExists</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Whether the scene file exists.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1074,14 +1267,18 @@ if any, otherwise None</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L77-L237" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L102-L320" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def getFrame(self, edition, actions, viewer, versionActive, actionActive):
+<pre><code class="python">def getFrame(
+    self, edition, actions, viewer, versionActive, actionActive, sceneExists
+):
     &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
+
+    Make sure that if there is no scene file present, no viewer will be opened.
 
     Parameters
     ----------
-    edition: string | ObjectId | AttrDict
+    edition: AttrDict
         The edition in question.
     actions: iterable of string
         The actions for which we have to create buttons.
@@ -1097,6 +1294,8 @@ if any, otherwise None</dd>
         The mode in which the scene is currently loaded in the viewer
         (`read` or `update`),
         if any, otherwise None
+    sceneExists: boolean
+        Whether the scene file exists.
 
     Returns
     -------
@@ -1105,21 +1304,24 @@ if any, otherwise None</dd>
     &#34;&#34;&#34;
     Settings = self.Settings
     H = Settings.H
-    Mongo = self.Mongo
     actionInfo = self.viewerActions
     viewers = self.viewers
 
-    filteredActions = {a for a in actions if a in actionInfo}
+    filteredActions = {a for a in actions if a in actionInfo and a != &#34;create&#34;}
     versionActive = self.check(viewer, versionActive)
 
-    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
+    editionId = edition._id
+    if editionId is None:
+        return (&#34;&#34;, &#34;&#34;)
 
-    src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}&#34;
+    create = &#34;/update&#34; if sceneExists else &#34;/create&#34;
+
+    src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}{create}&#34;
     frame = H.div(
         H.div(H.iframe(src, cls=&#34;previewer&#34;), cls=&#34;surround&#34;), cls=&#34;model&#34;
     )
 
-    def getViewerButtons():
+    def getViewerButtons(vw):
         &#34;&#34;&#34;Internal function.
 
         Returns
@@ -1127,22 +1329,63 @@ if any, otherwise None</dd>
         string
             HTML for the buttons to launch a viewer.
         &#34;&#34;&#34;
-        activeCls = &#34;active&#34;
-        return H.span(
-            [
-                H.span(viewer, cls=f&#34;vwl {activeCls}&#34;),
-                H.span(
-                    [
-                        getVersionButtons(version, version == versionActive)
-                        for version in viewers[viewer].versions
-                    ],
-                    cls=&#34;vwv&#34;,
-                ),
-            ],
+        openAtt = vw == viewer
+
+        versions = viewers[vw].versions
+        if len(versions) == 1:
+            version = versions[0]
+            return H.table(
+                [
+                    getVersionButtons(
+                        version,
+                        version == versionActive,
+                        versionAmount=len(versions),
+                        withViewer=True,
+                        withVersion=True,
+                        # withViewer=not pilotMode,
+                        # withVersion=not pilotMode,
+                    )
+                ],
+                [],
+                cls=&#34;vwv&#34;,
+            )
+
+        (latest, previous) = (versions[0:1], versions[1:])
+
+        openAtt = vw == viewer and len(previous) and versionActive in previous
+
+        return H.details(
+            H.table(
+                [
+                    getVersionButtons(
+                        version,
+                        version == versionActive,
+                        versionAmount=len(versions),
+                        withViewer=True,
+                    )
+                    for version in latest
+                ],
+                [],
+                cls=&#34;vwv&#34;,
+            ),
+            H.table(
+                [],
+                [
+                    getVersionButtons(
+                        version, version == versionActive, withViewer=False
+                    )
+                    for version in previous
+                ],
+                cls=&#34;vwv&#34;,
+            ),
+            f&#34;vwbuttons-{editionId}&#34;,
             cls=&#34;vw&#34;,
+            open=openAtt,
         )
 
-    def getVersionButtons(version, active):
+    def getVersionButtons(
+        version, active, versionAmount=None, withViewer=False, withVersion=True
+    ):
         &#34;&#34;&#34;Internal function.
 
         Parameters
@@ -1151,30 +1394,45 @@ if any, otherwise None</dd>
             The version of the viewer.
         active: boolean
             Whether that version of that viewer is currently active.
+        versionAmount: int, optional None
+            If passed, contains the number of versions and displays it.
+        withViewer: boolean, optional False
+            Whether to show the viewer name in the first column.
+        withVersion: boolean, optional True
+            Whether to show the version in the second column.
 
         Returns
         -------
         string
             HTML for the buttons to launch a specific version of a viewer.
         &#34;&#34;&#34;
-        nonlocal activeButtons
+        activeRowCls = &#34;activer&#34; if active else &#34;&#34;
 
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-
-        versionButtons = H.span(
-            [H.span(version, cls=f&#34;vvl {activeCls}&#34;)]
-            + [
-                getActionButton(version, action, active and action == actionActive)
-                for action in filteredActions
-            ],
-            cls=&#34;vv&#34;,
+        plural = &#34;&#34; if versionAmount == 2 else &#34;s&#34;
+        title = (
+            f&#34;click to show previous {versionAmount - 1} {viewer} version{plural}&#34;
+            if versionAmount and versionAmount &gt; 1
+            else f&#34;no previous {viewer} versions&#34;
         )
 
-        if active:
-            activeButtons = versionButtons
-        return versionButtons
+        return (
+            [
+                (viewer if withViewer else H.nbsp, dict(cls=&#34;vwc&#34;, title=title)),
+                (
+                    version if withVersion else H.nbsp,
+                    dict(cls=&#34;vvl vwc&#34;, title=title),
+                ),
+            ]
+            + [
+                getActionButton(
+                    version, action, disabled=active and action == actionActive
+                )
+                for action in sorted(filteredActions)
+            ],
+            dict(cls=activeRowCls),
+        )
 
-    def getActionButton(version, action, active):
+    def getActionButton(version, action, disabled=False):
         &#34;&#34;&#34;Internal function.
 
         Parameters
@@ -1183,8 +1441,8 @@ if any, otherwise None</dd>
             The version of the viewer.
         action: string
             Whether to launch the viewer for `read` or for `update`.
-        active: boolean
-            Whether that version of that viewer is currently active.
+        disabled: boolean, optional Fasle
+            Whether to show the button as disabled
 
         Returns
         -------
@@ -1192,51 +1450,44 @@ if any, otherwise None</dd>
             HTML for the buttons to launch a specific version of a viewer
             for a specific action.
         &#34;&#34;&#34;
-        activeCls = &#34;active&#34; if active else &#34;&#34;
-        thisActionInfo = actionInfo.get(action, AttrDict())
-        name = thisActionInfo.name
-
         atts = {}
 
-        if active:
-            href = None
-        else:
-            href = f&#34;/edition/{editionId}/{version}/{action}&#34;
+        href = None if disabled else f&#34;/edition/{editionId}/{version}/{action}&#34;
 
-            if action == &#34;update&#34;:
-                viewerHref = f&#34;/viewer/{version}/{action}/{editionId}&#34;
-                atts[&#34;onclick&#34;] = dedent(
-                    f&#34;&#34;&#34;
-                    window.open(
-                        &#39;{viewerHref}&#39;,
-                        &#39;newwindow&#39;,
-                        width=window.innerWidth,
-                        height=window.innerHeight
-                    );
-                    return false;
-                    &#34;&#34;&#34;
-                )
+        if action == &#34;update&#34;:
+            viewerHref = f&#34;/viewer/{version}/{action}/{editionId}{create}&#34;
+            atts[&#34;onclick&#34;] = dedent(
+                f&#34;&#34;&#34;
+                window.open(
+                    &#39;{viewerHref}&#39;,
+                    &#39;newwindow&#39;,
+                    width=window.innerWidth,
+                    height=window.innerHeight
+                );
+                return false;
+                &#34;&#34;&#34;
+            )
 
         titleFragment = &#34;a new window&#34; if action == &#34;update&#34; else &#34;place&#34;
-        atts[&#34;title&#34;] = f&#34;{name} this scene in {titleFragment}&#34;
 
-        cls = f&#34;button {activeCls} vwb&#34;
+        createMode = action == &#34;update&#34; and not sceneExists
+        action = &#34;create&#34; if createMode else action
+        thisActionInfo = actionInfo.get(action, AttrDict())
+        name = thisActionInfo.name
+        atts[&#34;title&#34;] = f&#34;{name} scene in {titleFragment}&#34;
 
-        return H.iconx(action, href=href, cls=cls, **atts)
+        disabledCls = &#34;disabled&#34; if disabled else &#34;&#34;
+        activeCellCls = &#34;activec&#34; if disabled else &#34;&#34;
+        cls = f&#34;button vwb {disabledCls}&#34;
 
-    allButtons = getViewerButtons()
+        return (
+            H.iconx(action, text=name, href=href, cls=cls, **atts),
+            dict(cls=f&#34;vwc {activeCellCls}&#34;),
+        )
 
-    activeButtons = [
-        H.span(viewer, cls=&#34;vwla&#34;),
-        H.span(versionActive, cls=&#34;vvla&#34;),
-    ] + [
-        getActionButton(versionActive, action, action == actionActive)
-        for action in filteredActions
-    ]
+    allButtons = H.div([getViewerButtons(vw) for vw in viewers])
 
-    buttons = H.details(activeButtons, allButtons, f&#34;vwbuttons-{editionId}&#34;)
-
-    return (frame, buttons)</code></pre>
+    return (frame if sceneExists else &#34;&#34;, allButtons)</code></pre>
 </details>
 </dd>
 <dt id="control.viewers.Viewers.getRoot"><code class="name flex">
@@ -1272,7 +1523,7 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L317-L357" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L408-L448" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRoot(self, urlBase, action, viewer):
     &#34;&#34;&#34;Composes the root url for a viewer.
@@ -1349,7 +1600,7 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/viewers.py#L359-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L450-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getStaticRoot(self, viewerUrlBase, action, viewer, version):
     &#34;&#34;&#34;Composes the static root url for a viewer.
@@ -1384,6 +1635,60 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
         return None
 
     return f&#34;{viewerUrlBase}/{viewer}/{version}&#34;</code></pre>
+</details>
+</dd>
+<dt id="control.viewers.Viewers.getViewInfo"><code class="name flex">
+<span>def <span class="ident">getViewInfo</span></span>(<span>self, edition)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gets viewer-related info that an edition is made with.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>edition</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>The edition record.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> of <code>string</code></dt>
+<dd>
+<ul>
+<li>The name of the viewer</li>
+<li>The name of the scene</li>
+</ul>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/viewers.py#L74-L100" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getViewInfo(self, edition):
+    &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
+
+    Parameters
+    ----------
+    edition: AttrDict
+        The edition record.
+
+    Returns
+    -------
+    tuple of string
+        * The name of the viewer
+        * The name of the scene
+
+    &#34;&#34;&#34;
+    viewerDefault = self.viewerDefault
+
+    editionId = edition._id
+    if editionId is None:
+        return (viewerDefault, None)
+
+    editionSettings = edition.settings or AttrDict()
+    authorTool = editionSettings.authorTool or AttrDict()
+    viewer = authorTool.name or viewerDefault
+    sceneFile = authorTool.sceneFile
+
+    return (viewer, sceneFile)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1461,6 +1766,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.viewers.Viewers.getFrame" href="#control.viewers.Viewers.getFrame">getFrame</a></code></li>
 <li><code><a title="control.viewers.Viewers.getRoot" href="#control.viewers.Viewers.getRoot">getRoot</a></code></li>
 <li><code><a title="control.viewers.Viewers.getStaticRoot" href="#control.viewers.Viewers.getStaticRoot">getStaticRoot</a></code></li>
+<li><code><a title="control.viewers.Viewers.getViewInfo" href="#control.viewers.Viewers.getViewInfo">getViewInfo</a></code></li>
 </ul>
 </li>
 </ul>

@@ -26,10 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L1-L555" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L1-L673" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.generic import AttrDict
 from control.flask import (
+    acg,
     requestArg,
     sessionPop,
     sessionGet,
@@ -60,8 +61,15 @@ class Users:
 
         It is instantiated by a singleton object.
 
-        This object has a member `__User` that contains the data of the current
-        user if there is a current user.
+        !!! note &#34;User details are not stored here&#34;
+            The user details are not stored as members of this object, since
+            this object has been made before the flask app was initialized,
+            hence the object is global in the sefver process, meaning that all
+            workers can see its data.
+
+            Instead, the user details are stored in a so-called *global* in an
+            [Application Context](https://flask.palletsprojects.com/en/2.2.x/appcontext/),
+            where it is visible and modifiable by the current request only.
 
         Parameters
         ----------
@@ -78,18 +86,25 @@ class Users:
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
-        self.__User = AttrDict()
-        &#34;&#34;&#34;Data of the current user.
-
-        If there is no current user, it has no members.
-
-        Otherwise, it has member `user`, the &#34;sub&#34; of the current user.
-        It may also have additional members, such as `name` and `role`.
-        &#34;&#34;&#34;
-
         self.oidc = None
         &#34;&#34;&#34;The object that gives access to authentication methods.
         &#34;&#34;&#34;
+
+    @staticmethod
+    def initUser():
+        &#34;&#34;&#34;Initialize the storage that keeps the details of the currently
+        logged-in user.
+
+        It will put an empty AttrDict as *global* in the current application context.
+
+        As long as there is no current user, this AttrDict will remain empty.
+        If there is a current user, or a user logs in, it will get a member
+        `user`, which is the *sub* as it comes from the OIDC authenticator or from
+        a special login procedure.
+
+        It may then also have additional members, such as `name` and `role`.
+        &#34;&#34;&#34;
+        acg.User = AttrDict()
 
     def addAuthenticator(self, oidc):
         &#34;&#34;&#34;Adds the object that gives access to authentication methods.
@@ -116,20 +131,20 @@ class Users:
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test users, we can skip the first step, because
-        we already know everything about the test user on the basis of the
+        When we log in test/pilot users, we can skip the first step, because
+        we already know everything about the test/pilot user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test user or a user that must be
+        So, we find out if we have to log in a test/pilot user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
+        We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test mode, the redirect
+            A redirect. When logging in in test/pilot mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -137,13 +152,13 @@ class Users:
         &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
-        testMode = Settings.testMode
+        runProd = Settings.runProd
 
         referrer = getReferrer()
-        (testMode, isTestUser, user) = self.getUser(fromArg=True)
-        name = self.__User.nickname
+        (isSpecialUser, user) = self.getUser(fromArg=True)
+        name = acg.User.nickname
 
-        if user and not isTestUser and testMode:
+        if user and not isSpecialUser and not runProd:
             Messages.warning(
                 logmsg=(
                     &#34;LOGIN attempt while an user is already logged in: &#34;
@@ -154,8 +169,8 @@ class Users:
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         return (
-            self.__loginTest(referrer, requestArg(&#34;user&#34;))
-            if isTestUser
+            self.__loginSpecial(referrer, requestArg(&#34;user&#34;))
+            if isSpecialUser
             else self.__loginOidc(referrer)
         )
 
@@ -200,12 +215,12 @@ class Users:
 
         if user is None or not self.__findUser(user, update=True):
             Messages.warning(
-                logmsg=&#34;LOGIN failed for user {user}&#34;,
+                logmsg=f&#34;LOGIN failed for user {user}&#34;,
                 msg=&#34;failed to log in&#34;,
             )
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
             logmsg=f&#34;LOGIN successful: user {name} {user}&#34;,
             msg=f&#34;LOGIN successful: user {name}&#34;,
@@ -215,7 +230,7 @@ class Users:
     def logout(self):
         &#34;&#34;&#34;Logs off the current user.
 
-        First we find out whether we have to log out a test user or a normal
+        First we find out whether we have to log out a test/pilot user or a normal
         user.
         After logging out, we redirect to the home page.
 
@@ -225,26 +240,28 @@ class Users:
             A redirect to the home page.
         &#34;&#34;&#34;
         oidc = self.oidc
+        Settings = self.Settings
         Messages = self.Messages
-        name = self.__User.nickname
+        name = acg.User.nickname
+        runProd = Settings.runProd
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is None:
-            if testMode:
+            if not runProd:
                 sessionPop(&#34;user&#34;)
             else:
                 oidc.logout()
-            self.__User.clear()
+            acg.User.clear()
             Messages.plain(logmsg=&#34;LOGOUT but no user was logged in.&#34;)
             return redirectStatus(&#34;/&#34;, False)
 
-        if isTestUser:
+        if isSpecialUser:
             sessionPop(&#34;user&#34;)
         else:
             oidc.logout()
 
-        self.__User.clear()
+        acg.User.clear()
         Messages.plain(
             logmsg=f&#34;LOGOUT successful: user {name} {user}&#34;,
             msg=f&#34;{name} logged out&#34;,
@@ -255,7 +272,7 @@ class Users:
         &#34;&#34;&#34;Make sure who is the current user.
 
         Checks whether there is a current user and whether that user is fully known,
-        i.e. in the users collection of the mongoDb.
+        i.e. in the users table of the mongoDb.
 
         If there is a current user that is unknown to the database, the current user
         will be cleared.
@@ -271,71 +288,72 @@ class Users:
         &#34;&#34;&#34;
         oidc = self.oidc
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is not None:
-            if isTestUser:
-                if not self.__findTestUser(user):
-                    self.__User.clear()
+            if isSpecialUser:
+                if not self.__findSpecialUser(user):
+                    acg.User.clear()
                     sessionPop(&#34;user&#34;)
             else:
                 if not self.__findUser(user, update=False):
-                    self.__User.clear()
+                    acg.User.clear()
                     oidc.logout()
 
     def myDetails(self):
         &#34;&#34;&#34;Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain a field called `user`?
+        The appplication-context-global `User` is inspected:
+        does it contain a member called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
-            Otherwise a copy of the complete __User record is returned.
+            Otherwise a copy of the complete `User` record is returned.
             unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         &#34;&#34;&#34;
-        User = self.__User
+        User = acg.User
         return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})
 
     def getUser(self, fromArg=False):
         &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
-        It works for test users and normal users.
+        It works for test/pilot users and normal users.
 
         Parameters
         ----------
         fromArg: boolean, optional False
-            If True, the test user is not read from the session, but from a
+            If True, the test/pilot user is not read from the session, but from a
             request argument.
-            This is used during the login procedure of test users.
+            This is used during the login procedure of test/pilot users.
 
         Returns
         -------
-        boolean, boolean, string
-            Whether we are in test mode.
-            Whether the user is a test user.
-            The &#34;sub&#34; of the user
+        boolean, string
+            *   Whether the user is a test/pilot user or a normally authenticated user.
+                None if there is no authenticated user.
+            *   The &#34;sub&#34; of the user.
         &#34;&#34;&#34;
         oidc = self.oidc
         Settings = self.Settings
-        testMode = Settings.testMode
+        runProd = Settings.runProd
 
         user = None
-        isTestUser = None
+        isSpecialUser = None
 
-        if testMode:
+        if not runProd:
             user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
             if user:
-                isTestUser = True
+                isSpecialUser = True
 
         if user is None:
             user = oidc.user_getfield(&#34;sub&#34;) if oidc.user_loggedin else None
             if user:
-                isTestUser = False
+                isSpecialUser = False
 
-        return (testMode, isTestUser, user)
+        return (isSpecialUser, user)
 
     def wrapLogin(self):
         &#34;&#34;&#34;Generate HTML for the login widget.
@@ -347,27 +365,28 @@ class Users:
 
         If no user is logged in, a login button should be displayed.
 
-        If in test mode, a list of buttons for each test-user should be
+        If in test/pilot mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
         -------
         string
-            HTML of the list of buttons for test users, with the button
+            HTML of the list of buttons for test/pilot users, with the button
             for the current user styled as active.
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
+        runMode = Settings.runMode
+        runProd = Settings.runProd
         Mongo = self.Mongo
 
-        (testMode, isTestUser, userActive) = self.getUser()
+        (isSpecialUser, userActive) = self.getUser()
 
-        testContent = []
+        specialContent = []
         content = []
 
         def wrap(label, text, title, href, active, enabled):
-            &#34;&#34;&#34;Inner function to be called recursively.
-            &#34;&#34;&#34;
+            &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
             if label:
                 content.append(H.span(label, cls=&#34;label&#34;))
 
@@ -389,12 +408,13 @@ class Users:
 
             return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-        if testMode:
-            # row of test users
+        if not runProd:
+            # row of test/pilot users
 
-            enabled = not userActive or isTestUser
+            enabled = not userActive or isSpecialUser
+
             for record in sorted(
-                Mongo.getList(&#34;user&#34;, isTest=True),
+                Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, isSpecial=True),
                 key=lambda r: r.nickname,
             ):
                 user = record.user
@@ -402,8 +422,8 @@ class Users:
                 role = self.presentRole(record.role)
 
                 active = user == userActive
-                testContent.append(
-                    wrap(None, name, role, f&#34;/login?user={user}&#34;, active, enabled)
+                specialContent.append(
+                    wrap(None, name, role, f&#34;/alogin?user={user}&#34;, active, enabled)
                 )
 
         if userActive:
@@ -418,14 +438,15 @@ class Users:
 
             # logout button
             content.append(
-                wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/logout&#34;, False, True)
+                wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/alogout&#34;, False, True)
             )
 
         else:
             # login button
-            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/login&#34;, False, True))
+            if runMode != &#34;custom&#34;:
+                content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
-        return (H.content(*testContent), H.content(*content))
+        return (H.content(*specialContent), H.content(*content))
 
     def presentRole(self, role):
         &#34;&#34;&#34;Finds the interface representation of a role.
@@ -445,11 +466,104 @@ class Users:
         roles = Settings.auth.roles
         return roles.get(role, role)
 
-    def __loginTest(self, referrer, user):
-        &#34;&#34;&#34;Perform the steps to log in a test user.
+    def getInvolvedUsers(self, tableRecordRoles, asString=False):
+        &#34;&#34;&#34;Finds the users involved in a specific role with respect to something.
+
+        By this method you can find the organisers of a project, the editors of
+        an edition, the admins of the site, etc.
+
+        Parameters
+        ----------
+        table: string
+            Either `site`, `project` or `edition`.
+            This indicates the kind of thing that the users are related to.
+        tableRecordRoles: tuple
+            The tuple consists of tuples `(table, record, role)`
+            The users connected to that record in that table in that role
+            should be added to the list.
+            All roles are specified in the `yaml/authorise.yml` file.
+
+        Returns
+        -------
+        tuple or string
+            If `asString` is False, the result is a datastructure:
+
+            *   whether the information can be disclosed to the current users
+            *   the representation of that role on the interface.
+            *   a tuple:
+
+                Each item is a tuple, corresponding to a user.
+                For each user there are the follwoing fields:
+
+                *   user field in the user table
+                *   full name
+                *   table of the record to which the user is linked
+                *   role in which the user is linked to that record
+
+            If `asString` is True, this data structure will be wrapped in HTML.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        H = Settings.H
+        auth = Settings.auth
+
+        involvedUsers = []
+
+        for table, record, role in tableRecordRoles:
+            roles = auth.roles[table]
+            allowed = self.authorise(table, record, action=&#34;read&#34;)
+            users = None
+
+            if allowed and roles is not None and roles.get(role, None) is not None:
+                userInfo = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
+
+                if table == &#34;site&#34;:
+                    relatedUsers = [
+                        uInfo for uInfo in userInfo.values() if uInfo.role == role
+                    ]
+                else:
+                    criteria = {f&#34;{table}Id&#34;: record._id, &#34;role&#34;: role}
+                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, **criteria)
+                    relatedUsers = sorted(
+                        (userInfo[r.user] for r in relatedUserList),
+                        key=lambda x: x.nickname,
+                    )
+                users = tuple((u.user, u.nickname) for u in relatedUsers)
+
+                involvedUsers.append((table, role, users))
+
+        if not asString:
+            return tuple(involvedUsers)
+
+        html = []
+
+        seenUsers = set()
+
+        for table, role, users in sorted(involvedUsers, key=lambda x: -len(x[2])):
+            if len(users) == 0:
+                continue
+
+            userIds = {u[0] for u in users}
+
+            if len(userIds - seenUsers) == 0:
+                continue
+
+            seenUsers |= userIds
+
+            roles = auth.roles[table]
+            roleRep = roles[role]
+
+            label = H.i(f&#34;{table} {roleRep}&#34;)
+            userRep = &#34; or &#34;.join(H.span(name, uid=u) for (u, name) in users)
+            html.append(f&#34;{userRep}{H.nbsp}({label})&#34;)
+
+        return f&#34;ask: {&#39;; &#39;.join(html)}&#34;
+
+    def __loginSpecial(self, referrer, user):
+        &#34;&#34;&#34;Perform the steps to log in a test/pilot/custom user.
 
         This involves looking up the user in the user table,
-        copying its information in the `__User` member of this object,
+        copying its information in the application-context-global `User`,
         and storing the user in the session. After that the user is redirected
         to where he came from.
 
@@ -458,7 +572,7 @@ class Users:
         referrer: string
             url where we came from.
         user: string
-            The &#34;sub&#34; of the test user that we must log in as.
+            The &#34;sub&#34; of the test/pilot user that we must log in as.
 
         Returns
         -------
@@ -467,15 +581,17 @@ class Users:
             successful or 303 if not.
         &#34;&#34;&#34;
         Messages = self.Messages
+        Settings = self.Settings
+        runMode = Settings.runMode
 
-        if user is None or not self.__findTestUser(user):
+        if user is None or not self.__findSpecialUser(user):
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         sessionSet(&#34;user&#34;, user)
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
-            logmsg=f&#34;LOGIN successful: test user {name} {user}&#34;,
-            msg=f&#34;LOGIN successful: test user {name}&#34;,
+            logmsg=f&#34;LOGIN successful: {runMode} user {name} {user}&#34;,
+            msg=f&#34;LOGIN successful: {runMode} user {name}&#34;,
         )
         return redirectStatus(f&#34;/{referrer}&#34;, True)
 
@@ -498,8 +614,8 @@ class Users:
         &#34;&#34;&#34;
         return redirectStatus(f&#34;/afterlogin/referrer/{referrer}&#34;, True)
 
-    def __findTestUser(self, user):
-        &#34;&#34;&#34;Lookup data of a test user in the MongoDb users collection.
+    def __findSpecialUser(self, user):
+        &#34;&#34;&#34;Lookup data of a test/pilot user in the MongoDb user table.
 
         The user is looked up by the `user` field.
 
@@ -512,11 +628,12 @@ class Users:
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         &#34;&#34;&#34;
         Messages = self.Messages
         Mongo = self.Mongo
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord(&#34;user&#34;, user=user)
 
@@ -532,7 +649,7 @@ class Users:
         return True
 
     def __findUser(self, user, update=False):
-        &#34;&#34;&#34;Lookup user data in the MongoDb users collection.
+        &#34;&#34;&#34;Lookup user data in the MongoDb user table.
 
         The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from
@@ -550,11 +667,12 @@ class Users:
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         &#34;&#34;&#34;
         Mongo = self.Mongo
         oidc = self.oidc
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
         newUser = None
@@ -574,7 +692,7 @@ class Users:
 
         if update and not newUser:
             changes = {}
-            for (oidcAtt, att) in PROVIDER_ATTS.items():
+            for oidcAtt, att in PROVIDER_ATTS.items():
                 orig = User[att]
                 new = oidc.user_getfield(oidcAtt)
                 if new is not None and orig != new:
@@ -604,8 +722,16 @@ class Users:
 to retrieve the data of the currently logged in user,
 and to query the users table in MongoDb.</p>
 <p>It is instantiated by a singleton object.</p>
-<p>This object has a member <code>__User</code> that contains the data of the current
-user if there is a current user.</p>
+<div class="admonition note">
+<p class="admonition-title">User details are not stored here</p>
+<p>The user details are not stored as members of this object, since
+this object has been made before the flask app was initialized,
+hence the object is global in the sefver process, meaning that all
+workers can see its data.</p>
+<p>Instead, the user details are stored in a so-called <em>global</em> in an
+<a href="https://flask.palletsprojects.com/en/2.2.x/appcontext/">Application Context</a>,
+where it is visible and modifiable by the current request only.</p>
+</div>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>Settings</code></strong> :&ensp;<code>AttrDict</code></dt>
@@ -619,7 +745,7 @@ user if there is a current user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L23-L555" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L24-L673" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Users:
     def __init__(self, Settings, Messages, Mongo):
@@ -631,8 +757,15 @@ user if there is a current user.</p>
 
         It is instantiated by a singleton object.
 
-        This object has a member `__User` that contains the data of the current
-        user if there is a current user.
+        !!! note &#34;User details are not stored here&#34;
+            The user details are not stored as members of this object, since
+            this object has been made before the flask app was initialized,
+            hence the object is global in the sefver process, meaning that all
+            workers can see its data.
+
+            Instead, the user details are stored in a so-called *global* in an
+            [Application Context](https://flask.palletsprojects.com/en/2.2.x/appcontext/),
+            where it is visible and modifiable by the current request only.
 
         Parameters
         ----------
@@ -649,18 +782,25 @@ user if there is a current user.</p>
         Messages.debugAdd(self)
         self.Mongo = Mongo
 
-        self.__User = AttrDict()
-        &#34;&#34;&#34;Data of the current user.
-
-        If there is no current user, it has no members.
-
-        Otherwise, it has member `user`, the &#34;sub&#34; of the current user.
-        It may also have additional members, such as `name` and `role`.
-        &#34;&#34;&#34;
-
         self.oidc = None
         &#34;&#34;&#34;The object that gives access to authentication methods.
         &#34;&#34;&#34;
+
+    @staticmethod
+    def initUser():
+        &#34;&#34;&#34;Initialize the storage that keeps the details of the currently
+        logged-in user.
+
+        It will put an empty AttrDict as *global* in the current application context.
+
+        As long as there is no current user, this AttrDict will remain empty.
+        If there is a current user, or a user logs in, it will get a member
+        `user`, which is the *sub* as it comes from the OIDC authenticator or from
+        a special login procedure.
+
+        It may then also have additional members, such as `name` and `role`.
+        &#34;&#34;&#34;
+        acg.User = AttrDict()
 
     def addAuthenticator(self, oidc):
         &#34;&#34;&#34;Adds the object that gives access to authentication methods.
@@ -687,20 +827,20 @@ user if there is a current user.</p>
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test users, we can skip the first step, because
-        we already know everything about the test user on the basis of the
+        When we log in test/pilot users, we can skip the first step, because
+        we already know everything about the test/pilot user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test user or a user that must be
+        So, we find out if we have to log in a test/pilot user or a user that must be
         authenticated through oidc.
 
-        We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
+        We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test mode, the redirect
+            A redirect. When logging in in test/pilot mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -708,13 +848,13 @@ user if there is a current user.</p>
         &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
-        testMode = Settings.testMode
+        runProd = Settings.runProd
 
         referrer = getReferrer()
-        (testMode, isTestUser, user) = self.getUser(fromArg=True)
-        name = self.__User.nickname
+        (isSpecialUser, user) = self.getUser(fromArg=True)
+        name = acg.User.nickname
 
-        if user and not isTestUser and testMode:
+        if user and not isSpecialUser and not runProd:
             Messages.warning(
                 logmsg=(
                     &#34;LOGIN attempt while an user is already logged in: &#34;
@@ -725,8 +865,8 @@ user if there is a current user.</p>
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         return (
-            self.__loginTest(referrer, requestArg(&#34;user&#34;))
-            if isTestUser
+            self.__loginSpecial(referrer, requestArg(&#34;user&#34;))
+            if isSpecialUser
             else self.__loginOidc(referrer)
         )
 
@@ -771,12 +911,12 @@ user if there is a current user.</p>
 
         if user is None or not self.__findUser(user, update=True):
             Messages.warning(
-                logmsg=&#34;LOGIN failed for user {user}&#34;,
+                logmsg=f&#34;LOGIN failed for user {user}&#34;,
                 msg=&#34;failed to log in&#34;,
             )
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
             logmsg=f&#34;LOGIN successful: user {name} {user}&#34;,
             msg=f&#34;LOGIN successful: user {name}&#34;,
@@ -786,7 +926,7 @@ user if there is a current user.</p>
     def logout(self):
         &#34;&#34;&#34;Logs off the current user.
 
-        First we find out whether we have to log out a test user or a normal
+        First we find out whether we have to log out a test/pilot user or a normal
         user.
         After logging out, we redirect to the home page.
 
@@ -796,26 +936,28 @@ user if there is a current user.</p>
             A redirect to the home page.
         &#34;&#34;&#34;
         oidc = self.oidc
+        Settings = self.Settings
         Messages = self.Messages
-        name = self.__User.nickname
+        name = acg.User.nickname
+        runProd = Settings.runProd
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is None:
-            if testMode:
+            if not runProd:
                 sessionPop(&#34;user&#34;)
             else:
                 oidc.logout()
-            self.__User.clear()
+            acg.User.clear()
             Messages.plain(logmsg=&#34;LOGOUT but no user was logged in.&#34;)
             return redirectStatus(&#34;/&#34;, False)
 
-        if isTestUser:
+        if isSpecialUser:
             sessionPop(&#34;user&#34;)
         else:
             oidc.logout()
 
-        self.__User.clear()
+        acg.User.clear()
         Messages.plain(
             logmsg=f&#34;LOGOUT successful: user {name} {user}&#34;,
             msg=f&#34;{name} logged out&#34;,
@@ -826,7 +968,7 @@ user if there is a current user.</p>
         &#34;&#34;&#34;Make sure who is the current user.
 
         Checks whether there is a current user and whether that user is fully known,
-        i.e. in the users collection of the mongoDb.
+        i.e. in the users table of the mongoDb.
 
         If there is a current user that is unknown to the database, the current user
         will be cleared.
@@ -842,71 +984,72 @@ user if there is a current user.</p>
         &#34;&#34;&#34;
         oidc = self.oidc
 
-        (testMode, isTestUser, user) = self.getUser()
+        (isSpecialUser, user) = self.getUser()
 
         if user is not None:
-            if isTestUser:
-                if not self.__findTestUser(user):
-                    self.__User.clear()
+            if isSpecialUser:
+                if not self.__findSpecialUser(user):
+                    acg.User.clear()
                     sessionPop(&#34;user&#34;)
             else:
                 if not self.__findUser(user, update=False):
-                    self.__User.clear()
+                    acg.User.clear()
                     oidc.logout()
 
     def myDetails(self):
         &#34;&#34;&#34;Who is the currently authenticated user?
 
-        The `__User` member is inspected: does it contain a field called `user`?
+        The appplication-context-global `User` is inspected:
+        does it contain a member called `user`?
         If so, that is taken as proof that we have a valid user.
 
         Returns
         -------
         dict
-            Otherwise a copy of the complete __User record is returned.
+            Otherwise a copy of the complete `User` record is returned.
             unless there is no `user` member in the current user, then
             the empty dictionary is returned.
         &#34;&#34;&#34;
-        User = self.__User
+        User = acg.User
         return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})
 
     def getUser(self, fromArg=False):
         &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
-        It works for test users and normal users.
+        It works for test/pilot users and normal users.
 
         Parameters
         ----------
         fromArg: boolean, optional False
-            If True, the test user is not read from the session, but from a
+            If True, the test/pilot user is not read from the session, but from a
             request argument.
-            This is used during the login procedure of test users.
+            This is used during the login procedure of test/pilot users.
 
         Returns
         -------
-        boolean, boolean, string
-            Whether we are in test mode.
-            Whether the user is a test user.
-            The &#34;sub&#34; of the user
+        boolean, string
+            *   Whether the user is a test/pilot user or a normally authenticated user.
+                None if there is no authenticated user.
+            *   The &#34;sub&#34; of the user.
         &#34;&#34;&#34;
         oidc = self.oidc
         Settings = self.Settings
-        testMode = Settings.testMode
+        runProd = Settings.runProd
 
         user = None
-        isTestUser = None
+        isSpecialUser = None
 
-        if testMode:
+        if not runProd:
             user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
             if user:
-                isTestUser = True
+                isSpecialUser = True
 
         if user is None:
             user = oidc.user_getfield(&#34;sub&#34;) if oidc.user_loggedin else None
             if user:
-                isTestUser = False
+                isSpecialUser = False
 
-        return (testMode, isTestUser, user)
+        return (isSpecialUser, user)
 
     def wrapLogin(self):
         &#34;&#34;&#34;Generate HTML for the login widget.
@@ -918,27 +1061,28 @@ user if there is a current user.</p>
 
         If no user is logged in, a login button should be displayed.
 
-        If in test mode, a list of buttons for each test-user should be
+        If in test/pilot mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
         -------
         string
-            HTML of the list of buttons for test users, with the button
+            HTML of the list of buttons for test/pilot users, with the button
             for the current user styled as active.
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
+        runMode = Settings.runMode
+        runProd = Settings.runProd
         Mongo = self.Mongo
 
-        (testMode, isTestUser, userActive) = self.getUser()
+        (isSpecialUser, userActive) = self.getUser()
 
-        testContent = []
+        specialContent = []
         content = []
 
         def wrap(label, text, title, href, active, enabled):
-            &#34;&#34;&#34;Inner function to be called recursively.
-            &#34;&#34;&#34;
+            &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
             if label:
                 content.append(H.span(label, cls=&#34;label&#34;))
 
@@ -960,12 +1104,13 @@ user if there is a current user.</p>
 
             return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-        if testMode:
-            # row of test users
+        if not runProd:
+            # row of test/pilot users
 
-            enabled = not userActive or isTestUser
+            enabled = not userActive or isSpecialUser
+
             for record in sorted(
-                Mongo.getList(&#34;user&#34;, isTest=True),
+                Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, isSpecial=True),
                 key=lambda r: r.nickname,
             ):
                 user = record.user
@@ -973,8 +1118,8 @@ user if there is a current user.</p>
                 role = self.presentRole(record.role)
 
                 active = user == userActive
-                testContent.append(
-                    wrap(None, name, role, f&#34;/login?user={user}&#34;, active, enabled)
+                specialContent.append(
+                    wrap(None, name, role, f&#34;/alogin?user={user}&#34;, active, enabled)
                 )
 
         if userActive:
@@ -989,14 +1134,15 @@ user if there is a current user.</p>
 
             # logout button
             content.append(
-                wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/logout&#34;, False, True)
+                wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/alogout&#34;, False, True)
             )
 
         else:
             # login button
-            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/login&#34;, False, True))
+            if runMode != &#34;custom&#34;:
+                content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
-        return (H.content(*testContent), H.content(*content))
+        return (H.content(*specialContent), H.content(*content))
 
     def presentRole(self, role):
         &#34;&#34;&#34;Finds the interface representation of a role.
@@ -1016,11 +1162,104 @@ user if there is a current user.</p>
         roles = Settings.auth.roles
         return roles.get(role, role)
 
-    def __loginTest(self, referrer, user):
-        &#34;&#34;&#34;Perform the steps to log in a test user.
+    def getInvolvedUsers(self, tableRecordRoles, asString=False):
+        &#34;&#34;&#34;Finds the users involved in a specific role with respect to something.
+
+        By this method you can find the organisers of a project, the editors of
+        an edition, the admins of the site, etc.
+
+        Parameters
+        ----------
+        table: string
+            Either `site`, `project` or `edition`.
+            This indicates the kind of thing that the users are related to.
+        tableRecordRoles: tuple
+            The tuple consists of tuples `(table, record, role)`
+            The users connected to that record in that table in that role
+            should be added to the list.
+            All roles are specified in the `yaml/authorise.yml` file.
+
+        Returns
+        -------
+        tuple or string
+            If `asString` is False, the result is a datastructure:
+
+            *   whether the information can be disclosed to the current users
+            *   the representation of that role on the interface.
+            *   a tuple:
+
+                Each item is a tuple, corresponding to a user.
+                For each user there are the follwoing fields:
+
+                *   user field in the user table
+                *   full name
+                *   table of the record to which the user is linked
+                *   role in which the user is linked to that record
+
+            If `asString` is True, this data structure will be wrapped in HTML.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        H = Settings.H
+        auth = Settings.auth
+
+        involvedUsers = []
+
+        for table, record, role in tableRecordRoles:
+            roles = auth.roles[table]
+            allowed = self.authorise(table, record, action=&#34;read&#34;)
+            users = None
+
+            if allowed and roles is not None and roles.get(role, None) is not None:
+                userInfo = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
+
+                if table == &#34;site&#34;:
+                    relatedUsers = [
+                        uInfo for uInfo in userInfo.values() if uInfo.role == role
+                    ]
+                else:
+                    criteria = {f&#34;{table}Id&#34;: record._id, &#34;role&#34;: role}
+                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, **criteria)
+                    relatedUsers = sorted(
+                        (userInfo[r.user] for r in relatedUserList),
+                        key=lambda x: x.nickname,
+                    )
+                users = tuple((u.user, u.nickname) for u in relatedUsers)
+
+                involvedUsers.append((table, role, users))
+
+        if not asString:
+            return tuple(involvedUsers)
+
+        html = []
+
+        seenUsers = set()
+
+        for table, role, users in sorted(involvedUsers, key=lambda x: -len(x[2])):
+            if len(users) == 0:
+                continue
+
+            userIds = {u[0] for u in users}
+
+            if len(userIds - seenUsers) == 0:
+                continue
+
+            seenUsers |= userIds
+
+            roles = auth.roles[table]
+            roleRep = roles[role]
+
+            label = H.i(f&#34;{table} {roleRep}&#34;)
+            userRep = &#34; or &#34;.join(H.span(name, uid=u) for (u, name) in users)
+            html.append(f&#34;{userRep}{H.nbsp}({label})&#34;)
+
+        return f&#34;ask: {&#39;; &#39;.join(html)}&#34;
+
+    def __loginSpecial(self, referrer, user):
+        &#34;&#34;&#34;Perform the steps to log in a test/pilot/custom user.
 
         This involves looking up the user in the user table,
-        copying its information in the `__User` member of this object,
+        copying its information in the application-context-global `User`,
         and storing the user in the session. After that the user is redirected
         to where he came from.
 
@@ -1029,7 +1268,7 @@ user if there is a current user.</p>
         referrer: string
             url where we came from.
         user: string
-            The &#34;sub&#34; of the test user that we must log in as.
+            The &#34;sub&#34; of the test/pilot user that we must log in as.
 
         Returns
         -------
@@ -1038,15 +1277,17 @@ user if there is a current user.</p>
             successful or 303 if not.
         &#34;&#34;&#34;
         Messages = self.Messages
+        Settings = self.Settings
+        runMode = Settings.runMode
 
-        if user is None or not self.__findTestUser(user):
+        if user is None or not self.__findSpecialUser(user):
             return redirectStatus(f&#34;/{referrer}&#34;, False)
 
         sessionSet(&#34;user&#34;, user)
-        name = self.__User.nickname
+        name = acg.User.nickname
         Messages.plain(
-            logmsg=f&#34;LOGIN successful: test user {name} {user}&#34;,
-            msg=f&#34;LOGIN successful: test user {name}&#34;,
+            logmsg=f&#34;LOGIN successful: {runMode} user {name} {user}&#34;,
+            msg=f&#34;LOGIN successful: {runMode} user {name}&#34;,
         )
         return redirectStatus(f&#34;/{referrer}&#34;, True)
 
@@ -1069,8 +1310,8 @@ user if there is a current user.</p>
         &#34;&#34;&#34;
         return redirectStatus(f&#34;/afterlogin/referrer/{referrer}&#34;, True)
 
-    def __findTestUser(self, user):
-        &#34;&#34;&#34;Lookup data of a test user in the MongoDb users collection.
+    def __findSpecialUser(self, user):
+        &#34;&#34;&#34;Lookup data of a test/pilot user in the MongoDb user table.
 
         The user is looked up by the `user` field.
 
@@ -1083,11 +1324,12 @@ user if there is a current user.</p>
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         &#34;&#34;&#34;
         Messages = self.Messages
         Mongo = self.Mongo
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord(&#34;user&#34;, user=user)
 
@@ -1103,7 +1345,7 @@ user if there is a current user.</p>
         return True
 
     def __findUser(self, user, update=False):
-        &#34;&#34;&#34;Lookup user data in the MongoDb users collection.
+        &#34;&#34;&#34;Lookup user data in the MongoDb user table.
 
         The user is looked up by the `user` field.
         Optionally, the user record in MongoDb is updated with attributes from
@@ -1121,11 +1363,12 @@ user if there is a current user.</p>
         -------
         boolean
             Whether a user has been found/created.
-            If so, the data of that user record is stored in the `__User` member.
+            If so, the data of that user record is stored in the
+            application-context-global `User`.
         &#34;&#34;&#34;
         Mongo = self.Mongo
         oidc = self.oidc
-        User = self.__User
+        User = acg.User
 
         record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
         newUser = None
@@ -1145,7 +1388,7 @@ user if there is a current user.</p>
 
         if update and not newUser:
             changes = {}
-            for (oidcAtt, att) in PROVIDER_ATTS.items():
+            for oidcAtt, att in PROVIDER_ATTS.items():
                 orig = User[att]
                 new = oidc.user_getfield(oidcAtt)
                 if new is not None and orig != new:
@@ -1159,6 +1402,43 @@ user if there is a current user.</p>
 <ul class="hlist">
 <li><a title="control.auth.Auth" href="auth.html#control.auth.Auth">Auth</a></li>
 </ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="control.users.Users.initUser"><code class="name flex">
+<span>def <span class="ident">initUser</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Initialize the storage that keeps the details of the currently
+logged-in user.</p>
+<p>It will put an empty AttrDict as <em>global</em> in the current application context.</p>
+<p>As long as there is no current user, this AttrDict will remain empty.
+If there is a current user, or a user logs in, it will get a member
+<code>user</code>, which is the <em>sub</em> as it comes from the OIDC authenticator or from
+a special login procedure.</p>
+<p>It may then also have additional members, such as <code>name</code> and <code>role</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L63-L77" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def initUser():
+    &#34;&#34;&#34;Initialize the storage that keeps the details of the currently
+    logged-in user.
+
+    It will put an empty AttrDict as *global* in the current application context.
+
+    As long as there is no current user, this AttrDict will remain empty.
+    If there is a current user, or a user logs in, it will get a member
+    `user`, which is the *sub* as it comes from the OIDC authenticator or from
+    a special login procedure.
+
+    It may then also have additional members, such as `name` and `role`.
+    &#34;&#34;&#34;
+    acg.User = AttrDict()</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="control.users.Users.oidc"><code class="name">var <span class="ident">oidc</span></code></dt>
@@ -1187,7 +1467,7 @@ Flask-OIDC authenticator.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L64-L78" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L79-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuthenticator(self, oidc):
     &#34;&#34;&#34;Adds the object that gives access to authentication methods.
@@ -1236,7 +1516,7 @@ successful or 303 if not.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L132-L183" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L147-L198" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def afterLogin(self, referrer):
     &#34;&#34;&#34;Logs in a user.
@@ -1279,12 +1559,12 @@ successful or 303 if not.</dd>
 
     if user is None or not self.__findUser(user, update=True):
         Messages.warning(
-            logmsg=&#34;LOGIN failed for user {user}&#34;,
+            logmsg=f&#34;LOGIN failed for user {user}&#34;,
             msg=&#34;failed to log in&#34;,
         )
         return redirectStatus(f&#34;/{referrer}&#34;, False)
 
-    name = self.__User.nickname
+    name = acg.User.nickname
     Messages.plain(
         logmsg=f&#34;LOGIN successful: user {name} {user}&#34;,
         msg=f&#34;LOGIN successful: user {name}&#34;,
@@ -1292,68 +1572,212 @@ successful or 303 if not.</dd>
     return redirectStatus(f&#34;/{referrer}&#34;, True)</code></pre>
 </details>
 </dd>
+<dt id="control.users.Users.getInvolvedUsers"><code class="name flex">
+<span>def <span class="ident">getInvolvedUsers</span></span>(<span>self, tableRecordRoles, asString=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Finds the users involved in a specific role with respect to something.</p>
+<p>By this method you can find the organisers of a project, the editors of
+an edition, the admins of the site, etc.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either <code>site</code>, <code>project</code> or <code>edition</code>.
+This indicates the kind of thing that the users are related to.</dd>
+<dt><strong><code>tableRecordRoles</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>The tuple consists of tuples <code>(table, record, role)</code>
+The users connected to that record in that table in that role
+should be added to the list.
+All roles are specified in the <code>yaml/authorise.yml</code> file.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> or <code>string</code></dt>
+<dd>
+<p>If <code>asString</code> is False, the result is a datastructure:</p>
+<ul>
+<li>whether the information can be disclosed to the current users</li>
+<li>the representation of that role on the interface.</li>
+<li>
+<p>a tuple:</p>
+<p>Each item is a tuple, corresponding to a user.
+For each user there are the follwoing fields:</p>
+<ul>
+<li>user field in the user table</li>
+<li>full name</li>
+<li>table of the record to which the user is linked</li>
+<li>role in which the user is linked to that record</li>
+</ul>
+</li>
+</ul>
+<p>If <code>asString</code> is True, this data structure will be wrapped in HTML.</p>
+</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L439-L530" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getInvolvedUsers(self, tableRecordRoles, asString=False):
+    &#34;&#34;&#34;Finds the users involved in a specific role with respect to something.
+
+    By this method you can find the organisers of a project, the editors of
+    an edition, the admins of the site, etc.
+
+    Parameters
+    ----------
+    table: string
+        Either `site`, `project` or `edition`.
+        This indicates the kind of thing that the users are related to.
+    tableRecordRoles: tuple
+        The tuple consists of tuples `(table, record, role)`
+        The users connected to that record in that table in that role
+        should be added to the list.
+        All roles are specified in the `yaml/authorise.yml` file.
+
+    Returns
+    -------
+    tuple or string
+        If `asString` is False, the result is a datastructure:
+
+        *   whether the information can be disclosed to the current users
+        *   the representation of that role on the interface.
+        *   a tuple:
+
+            Each item is a tuple, corresponding to a user.
+            For each user there are the follwoing fields:
+
+            *   user field in the user table
+            *   full name
+            *   table of the record to which the user is linked
+            *   role in which the user is linked to that record
+
+        If `asString` is True, this data structure will be wrapped in HTML.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    Settings = self.Settings
+    H = Settings.H
+    auth = Settings.auth
+
+    involvedUsers = []
+
+    for table, record, role in tableRecordRoles:
+        roles = auth.roles[table]
+        allowed = self.authorise(table, record, action=&#34;read&#34;)
+        users = None
+
+        if allowed and roles is not None and roles.get(role, None) is not None:
+            userInfo = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
+
+            if table == &#34;site&#34;:
+                relatedUsers = [
+                    uInfo for uInfo in userInfo.values() if uInfo.role == role
+                ]
+            else:
+                criteria = {f&#34;{table}Id&#34;: record._id, &#34;role&#34;: role}
+                relatedUserList = Mongo.getList(f&#34;{table}User&#34;, **criteria)
+                relatedUsers = sorted(
+                    (userInfo[r.user] for r in relatedUserList),
+                    key=lambda x: x.nickname,
+                )
+            users = tuple((u.user, u.nickname) for u in relatedUsers)
+
+            involvedUsers.append((table, role, users))
+
+    if not asString:
+        return tuple(involvedUsers)
+
+    html = []
+
+    seenUsers = set()
+
+    for table, role, users in sorted(involvedUsers, key=lambda x: -len(x[2])):
+        if len(users) == 0:
+            continue
+
+        userIds = {u[0] for u in users}
+
+        if len(userIds - seenUsers) == 0:
+            continue
+
+        seenUsers |= userIds
+
+        roles = auth.roles[table]
+        roleRep = roles[role]
+
+        label = H.i(f&#34;{table} {roleRep}&#34;)
+        userRep = &#34; or &#34;.join(H.span(name, uid=u) for (u, name) in users)
+        html.append(f&#34;{userRep}{H.nbsp}({label})&#34;)
+
+    return f&#34;ask: {&#39;; &#39;.join(html)}&#34;</code></pre>
+</details>
+</dd>
 <dt id="control.users.Users.getUser"><code class="name flex">
 <span>def <span class="ident">getUser</span></span>(<span>self, fromArg=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Obtain the "sub" of the currently logged in user from the request info.</p>
-<p>It works for test users and normal users.</p>
+<p>It works for test/pilot users and normal users.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>fromArg</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
-<dd>If True, the test user is not read from the session, but from a
+<dd>If True, the test/pilot user is not read from the session, but from a
 request argument.
-This is used during the login procedure of test users.</dd>
+This is used during the login procedure of test/pilot users.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>boolean, boolean, string</code></dt>
-<dd>Whether we are in test mode.
-Whether the user is a test user.
-The "sub" of the user</dd>
+<dt><code>boolean, string</code></dt>
+<dd>
+<ul>
+<li>Whether the user is a test/pilot user or a normally authenticated user.
+None if there is no authenticated user.</li>
+<li>The "sub" of the user.</li>
+</ul>
+</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L272-L308" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L290-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUser(self, fromArg=False):
     &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
 
-    It works for test users and normal users.
+    It works for test/pilot users and normal users.
 
     Parameters
     ----------
     fromArg: boolean, optional False
-        If True, the test user is not read from the session, but from a
+        If True, the test/pilot user is not read from the session, but from a
         request argument.
-        This is used during the login procedure of test users.
+        This is used during the login procedure of test/pilot users.
 
     Returns
     -------
-    boolean, boolean, string
-        Whether we are in test mode.
-        Whether the user is a test user.
-        The &#34;sub&#34; of the user
+    boolean, string
+        *   Whether the user is a test/pilot user or a normally authenticated user.
+            None if there is no authenticated user.
+        *   The &#34;sub&#34; of the user.
     &#34;&#34;&#34;
     oidc = self.oidc
     Settings = self.Settings
-    testMode = Settings.testMode
+    runProd = Settings.runProd
 
     user = None
-    isTestUser = None
+    isSpecialUser = None
 
-    if testMode:
+    if not runProd:
         user = requestArg(&#34;user&#34;) if fromArg else sessionGet(&#34;user&#34;)
         if user:
-            isTestUser = True
+            isSpecialUser = True
 
     if user is None:
         user = oidc.user_getfield(&#34;sub&#34;) if oidc.user_loggedin else None
         if user:
-            isTestUser = False
+            isSpecialUser = False
 
-    return (testMode, isTestUser, user)</code></pre>
+    return (isSpecialUser, user)</code></pre>
 </details>
 </dd>
 <dt id="control.users.Users.identify"><code class="name flex">
@@ -1362,7 +1786,7 @@ The "sub" of the user</dd>
 <dd>
 <div class="desc"><p>Make sure who is the current user.</p>
 <p>Checks whether there is a current user and whether that user is fully known,
-i.e. in the users collection of the mongoDb.</p>
+i.e. in the users table of the mongoDb.</p>
 <p>If there is a current user that is unknown to the database, the current user
 will be cleared.</p>
 <p>Otherwise, we make sure that we retrieve the current user's attributes from
@@ -1376,13 +1800,13 @@ we only check who is the currently logged in user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L224-L254" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L241-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identify(self):
     &#34;&#34;&#34;Make sure who is the current user.
 
     Checks whether there is a current user and whether that user is fully known,
-    i.e. in the users collection of the mongoDb.
+    i.e. in the users table of the mongoDb.
 
     If there is a current user that is unknown to the database, the current user
     will be cleared.
@@ -1398,16 +1822,16 @@ we only check who is the currently logged in user.</p>
     &#34;&#34;&#34;
     oidc = self.oidc
 
-    (testMode, isTestUser, user) = self.getUser()
+    (isSpecialUser, user) = self.getUser()
 
     if user is not None:
-        if isTestUser:
-            if not self.__findTestUser(user):
-                self.__User.clear()
+        if isSpecialUser:
+            if not self.__findSpecialUser(user):
+                acg.User.clear()
                 sessionPop(&#34;user&#34;)
         else:
             if not self.__findUser(user, update=False):
-                self.__User.clear()
+                acg.User.clear()
                 oidc.logout()</code></pre>
 </details>
 </dd>
@@ -1422,17 +1846,17 @@ we only check who is the currently logged in user.</p>
 <li>obtaining the authentication results when the user visits that page</li>
 <li>storing the relevant user data</li>
 </ol>
-<p>When we log in test users, we can skip the first step, because
-we already know everything about the test user on the basis of the
+<p>When we log in test/pilot users, we can skip the first step, because
+we already know everything about the test/pilot user on the basis of the
 information in the request that brought us here.</p>
-<p>So, we find out if we have to log in a test user or a user that must be
+<p>So, we find out if we have to log in a test/pilot user or a user that must be
 authenticated through oidc.</p>
-<p>We only log in a test user if we are in test mode and the user's "sub"
+<p>We only log in a test/pilot user if we are in test/pilot mode and the user's "sub"
 is passed in the request.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>response</code></dt>
-<dd>A redirect. When logging in in test mode, the redirect
+<dd>A redirect. When logging in in test/pilot mode, the redirect
 is to <em>referrer</em> (the url we came from). Otherwise it is to a url
 that triggers an oidc login procedure. To that page we pass
 the referrer as part of the url, so that after login the user
@@ -1441,7 +1865,7 @@ can be redirected to the original referrer.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L80-L130" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L95-L145" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def login(self):
     &#34;&#34;&#34;Log in a user.
@@ -1452,20 +1876,20 @@ can be redirected to the original referrer.</dd>
     2. obtaining the authentication results when the user visits that page
     3. storing the relevant user data
 
-    When we log in test users, we can skip the first step, because
-    we already know everything about the test user on the basis of the
+    When we log in test/pilot users, we can skip the first step, because
+    we already know everything about the test/pilot user on the basis of the
     information in the request that brought us here.
 
-    So, we find out if we have to log in a test user or a user that must be
+    So, we find out if we have to log in a test/pilot user or a user that must be
     authenticated through oidc.
 
-    We only log in a test user if we are in test mode and the user&#39;s &#34;sub&#34;
+    We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
     is passed in the request.
 
     Returns
     -------
     response
-        A redirect. When logging in in test mode, the redirect
+        A redirect. When logging in in test/pilot mode, the redirect
         is to *referrer* (the url we came from). Otherwise it is to a url
         that triggers an oidc login procedure. To that page we pass
         the referrer as part of the url, so that after login the user
@@ -1473,13 +1897,13 @@ can be redirected to the original referrer.</dd>
     &#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
-    testMode = Settings.testMode
+    runProd = Settings.runProd
 
     referrer = getReferrer()
-    (testMode, isTestUser, user) = self.getUser(fromArg=True)
-    name = self.__User.nickname
+    (isSpecialUser, user) = self.getUser(fromArg=True)
+    name = acg.User.nickname
 
-    if user and not isTestUser and testMode:
+    if user and not isSpecialUser and not runProd:
         Messages.warning(
             logmsg=(
                 &#34;LOGIN attempt while an user is already logged in: &#34;
@@ -1490,8 +1914,8 @@ can be redirected to the original referrer.</dd>
         return redirectStatus(f&#34;/{referrer}&#34;, False)
 
     return (
-        self.__loginTest(referrer, requestArg(&#34;user&#34;))
-        if isTestUser
+        self.__loginSpecial(referrer, requestArg(&#34;user&#34;))
+        if isSpecialUser
         else self.__loginOidc(referrer)
     )</code></pre>
 </details>
@@ -1501,7 +1925,7 @@ can be redirected to the original referrer.</dd>
 </code></dt>
 <dd>
 <div class="desc"><p>Logs off the current user.</p>
-<p>First we find out whether we have to log out a test user or a normal
+<p>First we find out whether we have to log out a test/pilot user or a normal
 user.
 After logging out, we redirect to the home page.</p>
 <h2 id="returns">Returns</h2>
@@ -1512,12 +1936,12 @@ After logging out, we redirect to the home page.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L185-L222" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L200-L239" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logout(self):
     &#34;&#34;&#34;Logs off the current user.
 
-    First we find out whether we have to log out a test user or a normal
+    First we find out whether we have to log out a test/pilot user or a normal
     user.
     After logging out, we redirect to the home page.
 
@@ -1527,26 +1951,28 @@ After logging out, we redirect to the home page.</p>
         A redirect to the home page.
     &#34;&#34;&#34;
     oidc = self.oidc
+    Settings = self.Settings
     Messages = self.Messages
-    name = self.__User.nickname
+    name = acg.User.nickname
+    runProd = Settings.runProd
 
-    (testMode, isTestUser, user) = self.getUser()
+    (isSpecialUser, user) = self.getUser()
 
     if user is None:
-        if testMode:
+        if not runProd:
             sessionPop(&#34;user&#34;)
         else:
             oidc.logout()
-        self.__User.clear()
+        acg.User.clear()
         Messages.plain(logmsg=&#34;LOGOUT but no user was logged in.&#34;)
         return redirectStatus(&#34;/&#34;, False)
 
-    if isTestUser:
+    if isSpecialUser:
         sessionPop(&#34;user&#34;)
     else:
         oidc.logout()
 
-    self.__User.clear()
+    acg.User.clear()
     Messages.plain(
         logmsg=f&#34;LOGOUT successful: user {name} {user}&#34;,
         msg=f&#34;{name} logged out&#34;,
@@ -1559,34 +1985,36 @@ After logging out, we redirect to the home page.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Who is the currently authenticated user?</p>
-<p>The <code>__User</code> member is inspected: does it contain a field called <code>user</code>?
+<p>The appplication-context-global <code>User</code> is inspected:
+does it contain a member called <code>user</code>?
 If so, that is taken as proof that we have a valid user.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>dict</code></dt>
-<dd>Otherwise a copy of the complete __User record is returned.
+<dd>Otherwise a copy of the complete <code>User</code> record is returned.
 unless there is no <code>user</code> member in the current user, then
 the empty dictionary is returned.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L256-L270" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L273-L288" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def myDetails(self):
     &#34;&#34;&#34;Who is the currently authenticated user?
 
-    The `__User` member is inspected: does it contain a field called `user`?
+    The appplication-context-global `User` is inspected:
+    does it contain a member called `user`?
     If so, that is taken as proof that we have a valid user.
 
     Returns
     -------
     dict
-        Otherwise a copy of the complete __User record is returned.
+        Otherwise a copy of the complete `User` record is returned.
         unless there is no `user` member in the current user, then
         the empty dictionary is returned.
     &#34;&#34;&#34;
-    User = self.__User
+    User = acg.User
     return AttrDict(**User) if &#34;user&#34; in User else AttrDict({})</code></pre>
 </details>
 </dd>
@@ -1609,7 +2037,7 @@ If no representation can be found, the internal name is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L400-L416" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L421-L437" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def presentRole(self, role):
     &#34;&#34;&#34;Finds the interface representation of a role.
@@ -1639,18 +2067,18 @@ If no representation can be found, the internal name is returned.</dd>
 <p>If the user is logged in, his nickname should be displayed, together
 with a logout button.</p>
 <p>If no user is logged in, a login button should be displayed.</p>
-<p>If in test mode, a list of buttons for each test-user should be
+<p>If in test/pilot mode, a list of buttons for each test/pilot user should be
 displayed.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>string</code></dt>
-<dd>HTML of the list of buttons for test users, with the button
+<dd>HTML of the list of buttons for test/pilot users, with the button
 for the current user styled as active.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/users.py#L310-L398" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L328-L419" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrapLogin(self):
     &#34;&#34;&#34;Generate HTML for the login widget.
@@ -1662,27 +2090,28 @@ for the current user styled as active.</dd>
 
     If no user is logged in, a login button should be displayed.
 
-    If in test mode, a list of buttons for each test-user should be
+    If in test/pilot mode, a list of buttons for each test/pilot user should be
     displayed.
 
     Returns
     -------
     string
-        HTML of the list of buttons for test users, with the button
+        HTML of the list of buttons for test/pilot users, with the button
         for the current user styled as active.
     &#34;&#34;&#34;
     Settings = self.Settings
     H = Settings.H
+    runMode = Settings.runMode
+    runProd = Settings.runProd
     Mongo = self.Mongo
 
-    (testMode, isTestUser, userActive) = self.getUser()
+    (isSpecialUser, userActive) = self.getUser()
 
-    testContent = []
+    specialContent = []
     content = []
 
     def wrap(label, text, title, href, active, enabled):
-        &#34;&#34;&#34;Inner function to be called recursively.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
         if label:
             content.append(H.span(label, cls=&#34;label&#34;))
 
@@ -1704,12 +2133,13 @@ for the current user styled as active.</dd>
 
         return H.elem(elem, text, *href, cls=fullCls, title=title)
 
-    if testMode:
-        # row of test users
+    if not runProd:
+        # row of test/pilot users
 
-        enabled = not userActive or isTestUser
+        enabled = not userActive or isSpecialUser
+
         for record in sorted(
-            Mongo.getList(&#34;user&#34;, isTest=True),
+            Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, isSpecial=True),
             key=lambda r: r.nickname,
         ):
             user = record.user
@@ -1717,8 +2147,8 @@ for the current user styled as active.</dd>
             role = self.presentRole(record.role)
 
             active = user == userActive
-            testContent.append(
-                wrap(None, name, role, f&#34;/login?user={user}&#34;, active, enabled)
+            specialContent.append(
+                wrap(None, name, role, f&#34;/alogin?user={user}&#34;, active, enabled)
             )
 
     if userActive:
@@ -1733,14 +2163,15 @@ for the current user styled as active.</dd>
 
         # logout button
         content.append(
-            wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/logout&#34;, False, True)
+            wrap(None, &#34;log out&#34;, f&#34;log out {name}&#34;, &#34;/alogout&#34;, False, True)
         )
 
     else:
         # login button
-        content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/login&#34;, False, True))
+        if runMode != &#34;custom&#34;:
+            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
-    return (H.content(*testContent), H.content(*content))</code></pre>
+    return (H.content(*specialContent), H.content(*content))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1814,8 +2245,10 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.users.Users.addAuthenticator" href="#control.users.Users.addAuthenticator">addAuthenticator</a></code></li>
 <li><code><a title="control.users.Users.afterLogin" href="#control.users.Users.afterLogin">afterLogin</a></code></li>
+<li><code><a title="control.users.Users.getInvolvedUsers" href="#control.users.Users.getInvolvedUsers">getInvolvedUsers</a></code></li>
 <li><code><a title="control.users.Users.getUser" href="#control.users.Users.getUser">getUser</a></code></li>
 <li><code><a title="control.users.Users.identify" href="#control.users.Users.identify">identify</a></code></li>
+<li><code><a title="control.users.Users.initUser" href="#control.users.Users.initUser">initUser</a></code></li>
 <li><code><a title="control.users.Users.login" href="#control.users.Users.login">login</a></code></li>
 <li><code><a title="control.users.Users.logout" href="#control.users.Users.logout">logout</a></code></li>
 <li><code><a title="control.users.Users.myDetails" href="#control.users.Users.myDetails">myDetails</a></code></li>

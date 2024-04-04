@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>control.tailwind API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>control.tailwind</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/tailwind.py#L1-L164" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import re
+import platform
+import stat
+import os
+import ssl
+from urllib.request import urlopen
+from shutil import copyfileobj
+import certifi
+
+from control.helpers import console, run
+from control.files import fileExists, initTree
+
+
+TAILWIND_CFG = &#34;tailwind.config.js&#34;
+TAILWIND_VERSION = &#34;v3.3.5&#34;
+
+TARGETS = dict(
+    amd64=&#34;{}-x64&#34;,
+    x86_64=&#34;{}-x64&#34;,
+    arm64=&#34;{}-arm64&#34;,
+    aarch64=&#34;{}-arm64&#34;,
+)
+
+
+class Tailwind:
+    def __init__(self, Settings):
+        self.Settings = Settings
+        self.install()
+
+    def install(self):
+        Settings = self.Settings
+        srcDir = Settings.srcDir
+        binDir = Settings.binDir
+        initTree(binDir, fresh=False)
+        distDirs = [Settings.partialsIn, Settings.templateDir, Settings.jsDir]
+
+        configInPath = f&#34;{srcDir}/{TAILWIND_CFG}&#34;
+        configOutPath = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+
+        osName = platform.system().lower().replace(&#34;darwin&#34;, &#34;macos&#34;)
+        assert osName in [&#34;linux&#34;, &#34;macos&#34;]
+        arch = platform.machine().lower()
+        target = TARGETS[arch].format(osName)
+        binName = f&#34;tailwindcss-{target}&#34;
+        binPath = f&#34;{binDir}/{binName}&#34;
+
+        self.binPath = binPath
+        v = (
+            &#34;latest/download&#34;
+            if TAILWIND_VERSION == &#34;latest&#34;
+            else f&#34;download/{TAILWIND_VERSION}&#34;
+        )
+        url = f&#34;https://github.com/tailwindlabs/tailwindcss/releases/{v}/{binName}&#34;
+
+        if not fileExists(binPath):
+            console(f&#34;Downloading {binName} from {url} ...&#34;)
+            certifi_context = ssl.create_default_context(cafile=certifi.where())
+
+            with urlopen(url, context=certifi_context) as instream, open(
+                binPath, &#34;wb&#34;
+            ) as outfile:
+                copyfileobj(instream, outfile)
+
+            os.chmod(binPath, os.stat(binPath).st_mode | stat.S_IEXEC)
+            console(&#34;done&#34;)
+
+        if True or not fileExists(configOutPath):
+            with open(configInPath) as fh:
+                text = fh.read()
+
+            contentRe = re.compile(r&#34;&#34;&#34;\b(content:\s*\[).*?(\],)&#34;&#34;&#34;)
+
+            fileSpecs = [
+                (f&#34;{distDir}/**/*.&#34; + &#34;{html,js}&#34;) for distDir in distDirs
+            ]
+
+            fileSpecRep = &#34;, &#34;.join(f&#39;&#34;{fileSpec}&#34;&#39; for fileSpec in fileSpecs)
+
+            def contentRepl(match):
+                (pre, post) = match.group(1, 2)
+
+                return f&#34;&#34;&#34;{pre}{fileSpecRep}{post}&#34;&#34;&#34;
+
+            text = contentRe.sub(contentRepl, text)
+
+            with open(configOutPath, &#34;w&#34;) as fh:
+                fh.write(text)
+
+    def generate(self, verbose=False):
+        &#34;&#34;&#34;Generate the css file.
+
+        Issues:
+
+        The following CSS definitions are found in the content of `_dist`,
+        but not in the content of `components`, `js`, and `templates`.
+
+        We investigate these cases and explain what we do about it.
+
+        *   `.container` `@media`
+            The `container` class is triggered by the occurrence of the word
+            `container` in the HTML content in one of the article files.
+            This is a false positive, it was better if tailwind had not found this.
+            Luckily, we loose these false positives if we generate on the basis of
+            the templates.
+            The `@media` definitions accompany the `container` definition.
+
+        *   `.visible`, `fixed`, `table`, `ring`
+
+            Each of these are analogous to `container`: if the word `visible`
+            occurrs in HTML content, its CSS class definition is inserted in
+            the generated CSS.
+
+        *   `order-2,3,4,5,6,7`
+            This is a case of a generated class, one of the templates contains
+            `order-{{@index}}` where index varies.
+            We solve this by putting
+            [all possible `order-` classes](https://tailwindcss.com/docs/order)
+            in the
+            [safelist](https://tailwindcss.com/docs/content-configuration#safelisting-classes).
+
+        *   `.h-4` `.w-4` `.fill-blue-700`
+            This is also a case of generated classes, in many of the icon templates:
+
+            ```
+            class=&#34;
+            w-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+            h-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+            {{#if twColor}}fill-{{twColor}}{{/if}}`
+            &#34;
+            ```
+
+            The `p3d-project` and `p3d-edition` templates define the variables
+            `twSize` and `twColor` as follows:
+
+            ```
+            &lt;a
+                href=&#34;all-projects.html&#34;
+                class=&#34;flex flex-row items-center justify-start mb-2 md:mb-0&#34;
+            &gt;
+                {{&gt;icons/iconChevronLeft isFill=true twSize=&#34;4&#34; twColor=&#34;blue-700&#34;}}
+                All projects
+            &lt;/a&gt;
+            ```
+
+            So far, only these values (`4` resp `blue-700` are specified, to we
+            add `w-4` and `h-4` and `fill-blue-700` to the
+            safelist.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        binDir = Settings.binDir
+        binPath = self.binPath
+        cfgOut = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+        cssIn = Settings.cssIn
+        cssOut = Settings.cssOut
+        cmdLine = f&#34;&#34;&#34;{binPath}  -c {cfgOut} -i {cssIn} -o {cssOut}&#34;&#34;&#34;
+        good, stdOut, stdErr = run(cmdLine)
+
+        if verbose or not good:
+            console(stdOut)
+            console(stdErr)
+
+        console(f&#34;{&#39;tailwind&#39;:&lt;10} {&#39;css&#39;:&lt;12} {&#39;&#39;:&lt;24} to {cssOut}&#34;)
+
+        return good</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="control.tailwind.Tailwind"><code class="flex name class">
+<span>class <span class="ident">Tailwind</span></span>
+<span>(</span><span>Settings)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/tailwind.py#L25-L164" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Tailwind:
+    def __init__(self, Settings):
+        self.Settings = Settings
+        self.install()
+
+    def install(self):
+        Settings = self.Settings
+        srcDir = Settings.srcDir
+        binDir = Settings.binDir
+        initTree(binDir, fresh=False)
+        distDirs = [Settings.partialsIn, Settings.templateDir, Settings.jsDir]
+
+        configInPath = f&#34;{srcDir}/{TAILWIND_CFG}&#34;
+        configOutPath = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+
+        osName = platform.system().lower().replace(&#34;darwin&#34;, &#34;macos&#34;)
+        assert osName in [&#34;linux&#34;, &#34;macos&#34;]
+        arch = platform.machine().lower()
+        target = TARGETS[arch].format(osName)
+        binName = f&#34;tailwindcss-{target}&#34;
+        binPath = f&#34;{binDir}/{binName}&#34;
+
+        self.binPath = binPath
+        v = (
+            &#34;latest/download&#34;
+            if TAILWIND_VERSION == &#34;latest&#34;
+            else f&#34;download/{TAILWIND_VERSION}&#34;
+        )
+        url = f&#34;https://github.com/tailwindlabs/tailwindcss/releases/{v}/{binName}&#34;
+
+        if not fileExists(binPath):
+            console(f&#34;Downloading {binName} from {url} ...&#34;)
+            certifi_context = ssl.create_default_context(cafile=certifi.where())
+
+            with urlopen(url, context=certifi_context) as instream, open(
+                binPath, &#34;wb&#34;
+            ) as outfile:
+                copyfileobj(instream, outfile)
+
+            os.chmod(binPath, os.stat(binPath).st_mode | stat.S_IEXEC)
+            console(&#34;done&#34;)
+
+        if True or not fileExists(configOutPath):
+            with open(configInPath) as fh:
+                text = fh.read()
+
+            contentRe = re.compile(r&#34;&#34;&#34;\b(content:\s*\[).*?(\],)&#34;&#34;&#34;)
+
+            fileSpecs = [
+                (f&#34;{distDir}/**/*.&#34; + &#34;{html,js}&#34;) for distDir in distDirs
+            ]
+
+            fileSpecRep = &#34;, &#34;.join(f&#39;&#34;{fileSpec}&#34;&#39; for fileSpec in fileSpecs)
+
+            def contentRepl(match):
+                (pre, post) = match.group(1, 2)
+
+                return f&#34;&#34;&#34;{pre}{fileSpecRep}{post}&#34;&#34;&#34;
+
+            text = contentRe.sub(contentRepl, text)
+
+            with open(configOutPath, &#34;w&#34;) as fh:
+                fh.write(text)
+
+    def generate(self, verbose=False):
+        &#34;&#34;&#34;Generate the css file.
+
+        Issues:
+
+        The following CSS definitions are found in the content of `_dist`,
+        but not in the content of `components`, `js`, and `templates`.
+
+        We investigate these cases and explain what we do about it.
+
+        *   `.container` `@media`
+            The `container` class is triggered by the occurrence of the word
+            `container` in the HTML content in one of the article files.
+            This is a false positive, it was better if tailwind had not found this.
+            Luckily, we loose these false positives if we generate on the basis of
+            the templates.
+            The `@media` definitions accompany the `container` definition.
+
+        *   `.visible`, `fixed`, `table`, `ring`
+
+            Each of these are analogous to `container`: if the word `visible`
+            occurrs in HTML content, its CSS class definition is inserted in
+            the generated CSS.
+
+        *   `order-2,3,4,5,6,7`
+            This is a case of a generated class, one of the templates contains
+            `order-{{@index}}` where index varies.
+            We solve this by putting
+            [all possible `order-` classes](https://tailwindcss.com/docs/order)
+            in the
+            [safelist](https://tailwindcss.com/docs/content-configuration#safelisting-classes).
+
+        *   `.h-4` `.w-4` `.fill-blue-700`
+            This is also a case of generated classes, in many of the icon templates:
+
+            ```
+            class=&#34;
+            w-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+            h-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+            {{#if twColor}}fill-{{twColor}}{{/if}}`
+            &#34;
+            ```
+
+            The `p3d-project` and `p3d-edition` templates define the variables
+            `twSize` and `twColor` as follows:
+
+            ```
+            &lt;a
+                href=&#34;all-projects.html&#34;
+                class=&#34;flex flex-row items-center justify-start mb-2 md:mb-0&#34;
+            &gt;
+                {{&gt;icons/iconChevronLeft isFill=true twSize=&#34;4&#34; twColor=&#34;blue-700&#34;}}
+                All projects
+            &lt;/a&gt;
+            ```
+
+            So far, only these values (`4` resp `blue-700` are specified, to we
+            add `w-4` and `h-4` and `fill-blue-700` to the
+            safelist.
+        &#34;&#34;&#34;
+        Settings = self.Settings
+        binDir = Settings.binDir
+        binPath = self.binPath
+        cfgOut = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+        cssIn = Settings.cssIn
+        cssOut = Settings.cssOut
+        cmdLine = f&#34;&#34;&#34;{binPath}  -c {cfgOut} -i {cssIn} -o {cssOut}&#34;&#34;&#34;
+        good, stdOut, stdErr = run(cmdLine)
+
+        if verbose or not good:
+            console(stdOut)
+            console(stdErr)
+
+        console(f&#34;{&#39;tailwind&#39;:&lt;10} {&#39;css&#39;:&lt;12} {&#39;&#39;:&lt;24} to {cssOut}&#34;)
+
+        return good</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="control.tailwind.Tailwind.generate"><code class="name flex">
+<span>def <span class="ident">generate</span></span>(<span>self, verbose=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate the css file.</p>
+<p>Issues:</p>
+<p>The following CSS definitions are found in the content of <code>_dist</code>,
+but not in the content of <code>components</code>, <code>js</code>, and <code>templates</code>.</p>
+<p>We investigate these cases and explain what we do about it.</p>
+<ul>
+<li>
+<p><code>.container</code> <code>@media</code>
+The <code>container</code> class is triggered by the occurrence of the word
+<code>container</code> in the HTML content in one of the article files.
+This is a false positive, it was better if tailwind had not found this.
+Luckily, we loose these false positives if we generate on the basis of
+the templates.
+The <code>@media</code> definitions accompany the <code>container</code> definition.</p>
+</li>
+<li>
+<p><code>.visible</code>, <code>fixed</code>, <code>table</code>, <code>ring</code></p>
+<p>Each of these are analogous to <code>container</code>: if the word <code>visible</code>
+occurrs in HTML content, its CSS class definition is inserted in
+the generated CSS.</p>
+</li>
+<li>
+<p><code>order-2,3,4,5,6,7</code>
+This is a case of a generated class, one of the templates contains
+<code>order-{{@index}}</code> where index varies.
+We solve this by putting
+<a href="https://tailwindcss.com/docs/order">all possible <code>order-</code> classes</a>
+in the
+<a href="https://tailwindcss.com/docs/content-configuration#safelisting-classes">safelist</a>.</p>
+</li>
+<li>
+<p><code>.h-4</code> <code>.w-4</code> <code>.fill-blue-700</code>
+This is also a case of generated classes, in many of the icon templates:</p>
+<p><code>class="
+w-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+h-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+{{#if twColor}}fill-{{twColor}}{{/if}}`
+"</code></p>
+<p>The <code>p3d-project</code> and <code>p3d-edition</code> templates define the variables
+<code>twSize</code> and <code>twColor</code> as follows:</p>
+<p>```
+&lt;a
+href="all-projects.html"
+class="flex flex-row items-center justify-start mb-2 md:mb-0"</p>
+<blockquote>
+<pre><code>{{&gt;icons/iconChevronLeft isFill=true twSize="4" twColor="blue-700"}}
+All projects
+</code></pre>
+<p></a>
+```</p>
+</blockquote>
+<p>So far, only these values (<code>4</code> resp <code>blue-700</code> are specified, to we
+add <code>w-4</code> and <code>h-4</code> and <code>fill-blue-700</code> to the
+safelist.</p>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/tailwind.py#L89-L164" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def generate(self, verbose=False):
+    &#34;&#34;&#34;Generate the css file.
+
+    Issues:
+
+    The following CSS definitions are found in the content of `_dist`,
+    but not in the content of `components`, `js`, and `templates`.
+
+    We investigate these cases and explain what we do about it.
+
+    *   `.container` `@media`
+        The `container` class is triggered by the occurrence of the word
+        `container` in the HTML content in one of the article files.
+        This is a false positive, it was better if tailwind had not found this.
+        Luckily, we loose these false positives if we generate on the basis of
+        the templates.
+        The `@media` definitions accompany the `container` definition.
+
+    *   `.visible`, `fixed`, `table`, `ring`
+
+        Each of these are analogous to `container`: if the word `visible`
+        occurrs in HTML content, its CSS class definition is inserted in
+        the generated CSS.
+
+    *   `order-2,3,4,5,6,7`
+        This is a case of a generated class, one of the templates contains
+        `order-{{@index}}` where index varies.
+        We solve this by putting
+        [all possible `order-` classes](https://tailwindcss.com/docs/order)
+        in the
+        [safelist](https://tailwindcss.com/docs/content-configuration#safelisting-classes).
+
+    *   `.h-4` `.w-4` `.fill-blue-700`
+        This is also a case of generated classes, in many of the icon templates:
+
+        ```
+        class=&#34;
+        w-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+        h-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
+        {{#if twColor}}fill-{{twColor}}{{/if}}`
+        &#34;
+        ```
+
+        The `p3d-project` and `p3d-edition` templates define the variables
+        `twSize` and `twColor` as follows:
+
+        ```
+        &lt;a
+            href=&#34;all-projects.html&#34;
+            class=&#34;flex flex-row items-center justify-start mb-2 md:mb-0&#34;
+        &gt;
+            {{&gt;icons/iconChevronLeft isFill=true twSize=&#34;4&#34; twColor=&#34;blue-700&#34;}}
+            All projects
+        &lt;/a&gt;
+        ```
+
+        So far, only these values (`4` resp `blue-700` are specified, to we
+        add `w-4` and `h-4` and `fill-blue-700` to the
+        safelist.
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    binDir = Settings.binDir
+    binPath = self.binPath
+    cfgOut = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+    cssIn = Settings.cssIn
+    cssOut = Settings.cssOut
+    cmdLine = f&#34;&#34;&#34;{binPath}  -c {cfgOut} -i {cssIn} -o {cssOut}&#34;&#34;&#34;
+    good, stdOut, stdErr = run(cmdLine)
+
+    if verbose or not good:
+        console(stdOut)
+        console(stdErr)
+
+    console(f&#34;{&#39;tailwind&#39;:&lt;10} {&#39;css&#39;:&lt;12} {&#39;&#39;:&lt;24} to {cssOut}&#34;)
+
+    return good</code></pre>
+</details>
+</dd>
+<dt id="control.tailwind.Tailwind.install"><code class="name flex">
+<span>def <span class="ident">install</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/tailwind.py#L30-L87" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def install(self):
+    Settings = self.Settings
+    srcDir = Settings.srcDir
+    binDir = Settings.binDir
+    initTree(binDir, fresh=False)
+    distDirs = [Settings.partialsIn, Settings.templateDir, Settings.jsDir]
+
+    configInPath = f&#34;{srcDir}/{TAILWIND_CFG}&#34;
+    configOutPath = f&#34;{binDir}/{TAILWIND_CFG}&#34;
+
+    osName = platform.system().lower().replace(&#34;darwin&#34;, &#34;macos&#34;)
+    assert osName in [&#34;linux&#34;, &#34;macos&#34;]
+    arch = platform.machine().lower()
+    target = TARGETS[arch].format(osName)
+    binName = f&#34;tailwindcss-{target}&#34;
+    binPath = f&#34;{binDir}/{binName}&#34;
+
+    self.binPath = binPath
+    v = (
+        &#34;latest/download&#34;
+        if TAILWIND_VERSION == &#34;latest&#34;
+        else f&#34;download/{TAILWIND_VERSION}&#34;
+    )
+    url = f&#34;https://github.com/tailwindlabs/tailwindcss/releases/{v}/{binName}&#34;
+
+    if not fileExists(binPath):
+        console(f&#34;Downloading {binName} from {url} ...&#34;)
+        certifi_context = ssl.create_default_context(cafile=certifi.where())
+
+        with urlopen(url, context=certifi_context) as instream, open(
+            binPath, &#34;wb&#34;
+        ) as outfile:
+            copyfileobj(instream, outfile)
+
+        os.chmod(binPath, os.stat(binPath).st_mode | stat.S_IEXEC)
+        console(&#34;done&#34;)
+
+    if True or not fileExists(configOutPath):
+        with open(configInPath) as fh:
+            text = fh.read()
+
+        contentRe = re.compile(r&#34;&#34;&#34;\b(content:\s*\[).*?(\],)&#34;&#34;&#34;)
+
+        fileSpecs = [
+            (f&#34;{distDir}/**/*.&#34; + &#34;{html,js}&#34;) for distDir in distDirs
+        ]
+
+        fileSpecRep = &#34;, &#34;.join(f&#39;&#34;{fileSpec}&#34;&#39; for fileSpec in fileSpecs)
+
+        def contentRepl(match):
+            (pre, post) = match.group(1, 2)
+
+            return f&#34;&#34;&#34;{pre}{fileSpecRep}{post}&#34;&#34;&#34;
+
+        text = contentRe.sub(contentRepl, text)
+
+        with open(configOutPath, &#34;w&#34;) as fh:
+            fh.write(text)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<p><a href="https://github.com/CLARIAH/pure3dx/blob/main/stats.md" title="GitHub repo">code stats</a></p>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="control" href="index.html">control</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="control.tailwind.Tailwind" href="#control.tailwind.Tailwind">Tailwind</a></code></h4>
+<ul class="">
+<li><code><a title="control.tailwind.Tailwind.generate" href="#control.tailwind.Tailwind.generate">generate</a></code></li>
+<li><code><a title="control.tailwind.Tailwind.install" href="#control.tailwind.Tailwind.install">install</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

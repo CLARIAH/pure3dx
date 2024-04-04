@@ -26,12 +26,12 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L1-L792" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L1-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from markdown import markdown
 
 from control.generic import AttrDict, now
-from control.files import fileExists, listFilesAccepted
+from control.files import fileExists, listFilesAccepted, writeYaml
 
 
 class Datamodel:
@@ -70,7 +70,7 @@ class Datamodel:
         datamodel = Settings.datamodel
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
-        self.linkConfig = datamodel.link
+        self.mainLink = datamodel.mainLink
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
@@ -137,12 +137,13 @@ class Datamodel:
         Returns
         -------
         tuple of tuple
-            * (site, project, record)
-            where the members are either None, or a full record
+            (siteId, site, projectId, project, editionId, edition)
         &#34;&#34;&#34;
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return (None, None, None, None, None, None)
 
         if table == &#34;site&#34;:
             (editionId, edition) = (None, None)
@@ -163,7 +164,7 @@ class Datamodel:
         &#34;&#34;&#34;Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
-        given master record.
+        given master record. But not those in cross-link records.
 
         Details are not retrieved recursively, only the direct details
         of a master are fetched.
@@ -192,6 +193,9 @@ class Datamodel:
             return AttrDict()
 
         (masterId, master) = Mongo.get(masterTable, master)
+        if masterId is None:
+            return AttrDict()
+
         crit = {f&#34;{masterTable}Id&#34;: masterId}
 
         detailRecords = AttrDict()
@@ -201,6 +205,70 @@ class Datamodel:
             detailRecords[detailTable] = details
 
         return detailRecords
+
+    def getUserWork(self, user):
+        &#34;&#34;&#34;Gets the number of project and edition records of a user.
+
+        We will not delete users if the user is linked to a project or edition.
+        This function counts how many projects and editions a user is linked to.
+
+        Parameters
+        ----------
+        user: string
+            The name of the user (field `user` in the record)
+
+        Returns
+        -------
+        integer
+            The number of projects
+        integer
+            The number of editions
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
+        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
+        return (nProjects, nEditions)
+
+    def getLinkedCrit(self, table, record):
+        &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
+
+        It finds all cross-linked records containing an id of the
+        given record.
+
+        So no detail records.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table in which the record lives.
+        record: string | ObjectId | AttrDict
+            The record.
+
+        Returns
+        -------
+        AttrDict
+            Keys: tables in which linked records exist.
+            Values: the criteria to find those linked records in that table.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        mainLink = self.mainLink
+
+        linkTables = mainLink[table]
+        if linkTables is None:
+            return AttrDict()
+
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return AttrDict()
+
+        crit = {f&#34;{table}Id&#34;: recordId}
+
+        linkCriteria = AttrDict()
+
+        for linkTable in linkTables:
+            linkCriteria[linkTable] = crit
+
+        return linkCriteria
 
     def makeField(self, key):
         &#34;&#34;&#34;Make a field object and registers it.
@@ -356,7 +424,7 @@ class Field:
 
         A Field object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the value of the field from
         a specific record.
@@ -394,7 +462,7 @@ class Field:
         metadata, we expect that metadata to exist under key `dc` in that record.
 
         If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
-        going into a namespace subdocument first.
+        going into a namespace sub-record first.
         &#34;&#34;&#34;
 
         self.fieldPath = key
@@ -411,7 +479,7 @@ class Field:
         &#34;&#34;&#34;The value type of the field.
 
         Value types can be string, integer, but also date times, and values
-        from an other collection (value lists).
+        from an other table (value lists), or structured values.
         &#34;&#34;&#34;
 
         self.caption = key
@@ -535,19 +603,22 @@ class Field:
         H = Settings.H
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return &#34;&#34;
 
         tp = self.tp
         caption = self.caption
         key = self.key
 
         bare = self.bare(record)
-        bareRep = bare or f&#34;&lt;i&gt;no {key}&lt;/i&gt;&#34;
+        logical = self.logical(record)
+        bareRep = bare or H.i(f&#34;no {key}&#34;)
 
         if tp == &#34;text&#34;:
             readonlyContent = markdown(bareRep, tight=False)
         else:
             readonlyContent = H.wrapValue(
-                bareRep,
+                logical,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
@@ -560,9 +631,11 @@ class Field:
             cancelButton = H.actionButton(&#34;edit_cancel&#34;)
             saveButton = H.actionButton(&#34;edit_save&#34;)
             messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+            orig = bare if tp == &#34;text&#34; else writeYaml(logical)
             editableContent = H.textarea(
-                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
             )
+
             content = &#34;&#34;.join(
                 [
                     H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
@@ -613,7 +686,7 @@ class Upload:
 
         A Upload object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the file name of an upload from
         a specific record.
@@ -801,7 +874,7 @@ class Upload:
             buster = (
                 f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
             )
-            fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+            fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
             exists = fileExists(fullPath)
             content = (
                 fileName,
@@ -859,7 +932,7 @@ which deal with file uploads.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L7-L320" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L7-L388" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
@@ -897,7 +970,7 @@ which deal with file uploads.</p>
         datamodel = Settings.datamodel
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
-        self.linkConfig = datamodel.link
+        self.mainLink = datamodel.mainLink
         self.fieldsConfig = datamodel.fields
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
@@ -964,12 +1037,13 @@ which deal with file uploads.</p>
         Returns
         -------
         tuple of tuple
-            * (site, project, record)
-            where the members are either None, or a full record
+            (siteId, site, projectId, project, editionId, edition)
         &#34;&#34;&#34;
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return (None, None, None, None, None, None)
 
         if table == &#34;site&#34;:
             (editionId, edition) = (None, None)
@@ -990,7 +1064,7 @@ which deal with file uploads.</p>
         &#34;&#34;&#34;Retrieve the detail records of a master record.
 
         It finds all records that have a field containing an id of the
-        given master record.
+        given master record. But not those in cross-link records.
 
         Details are not retrieved recursively, only the direct details
         of a master are fetched.
@@ -1019,6 +1093,9 @@ which deal with file uploads.</p>
             return AttrDict()
 
         (masterId, master) = Mongo.get(masterTable, master)
+        if masterId is None:
+            return AttrDict()
+
         crit = {f&#34;{masterTable}Id&#34;: masterId}
 
         detailRecords = AttrDict()
@@ -1028,6 +1105,70 @@ which deal with file uploads.</p>
             detailRecords[detailTable] = details
 
         return detailRecords
+
+    def getUserWork(self, user):
+        &#34;&#34;&#34;Gets the number of project and edition records of a user.
+
+        We will not delete users if the user is linked to a project or edition.
+        This function counts how many projects and editions a user is linked to.
+
+        Parameters
+        ----------
+        user: string
+            The name of the user (field `user` in the record)
+
+        Returns
+        -------
+        integer
+            The number of projects
+        integer
+            The number of editions
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
+        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
+        return (nProjects, nEditions)
+
+    def getLinkedCrit(self, table, record):
+        &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
+
+        It finds all cross-linked records containing an id of the
+        given record.
+
+        So no detail records.
+
+        Parameters
+        ----------
+        table: string
+            The name of the table in which the record lives.
+        record: string | ObjectId | AttrDict
+            The record.
+
+        Returns
+        -------
+        AttrDict
+            Keys: tables in which linked records exist.
+            Values: the criteria to find those linked records in that table.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        mainLink = self.mainLink
+
+        linkTables = mainLink[table]
+        if linkTables is None:
+            return AttrDict()
+
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return AttrDict()
+
+        crit = {f&#34;{table}Id&#34;: recordId}
+
+        linkCriteria = AttrDict()
+
+        for linkTable in linkTables:
+            linkCriteria[linkTable] = crit
+
+        return linkCriteria
 
     def makeField(self, key):
         &#34;&#34;&#34;Make a field object and registers it.
@@ -1199,17 +1340,12 @@ which deal with file uploads.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>tuple</code> of <code>tuple</code></dt>
-<dd>
-<ul>
-<li>(site, project, record)
-where the members are either None, or a full record</li>
-</ul>
-</dd>
+<dd>(siteId, site, projectId, project, editionId, edition)</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L93-L130" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L93-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def context(self, table, record):
     &#34;&#34;&#34;Get the context of a record.
@@ -1228,12 +1364,13 @@ where the members are either None, or a full record</li>
     Returns
     -------
     tuple of tuple
-        * (site, project, record)
-        where the members are either None, or a full record
+        (siteId, site, projectId, project, editionId, edition)
     &#34;&#34;&#34;
     Mongo = self.Mongo
 
     (recordId, record) = Mongo.get(table, record)
+    if recordId is None:
+        return (None, None, None, None, None, None)
 
     if table == &#34;site&#34;:
         (editionId, edition) = (None, None)
@@ -1257,7 +1394,7 @@ where the members are either None, or a full record</li>
 <dd>
 <div class="desc"><p>Retrieve the detail records of a master record.</p>
 <p>It finds all records that have a field containing an id of the
-given master record.</p>
+given master record. But not those in cross-link records.</p>
 <p>Details are not retrieved recursively, only the direct details
 of a master are fetched.</p>
 <h2 id="parameters">Parameters</h2>
@@ -1279,13 +1416,13 @@ records, the empty dict is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L132-L173" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L133-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDetailRecords(self, masterTable, master):
     &#34;&#34;&#34;Retrieve the detail records of a master record.
 
     It finds all records that have a field containing an id of the
-    given master record.
+    given master record. But not those in cross-link records.
 
     Details are not retrieved recursively, only the direct details
     of a master are fetched.
@@ -1314,6 +1451,9 @@ records, the empty dict is returned.</dd>
         return AttrDict()
 
     (masterId, master) = Mongo.get(masterTable, master)
+    if masterId is None:
+        return AttrDict()
+
     crit = {f&#34;{masterTable}Id&#34;: masterId}
 
     detailRecords = AttrDict()
@@ -1343,7 +1483,7 @@ records, the empty dict is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L217-L230" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L285-L298" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getFieldObject(self, key):
     &#34;&#34;&#34;Get a field object.
@@ -1359,6 +1499,74 @@ records, the empty dict is returned.</dd>
         The field object found under the given key, if present, otherwise None
     &#34;&#34;&#34;
     return self.fieldObjects[key]</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getLinkedCrit"><code class="name flex">
+<span>def <span class="ident">getLinkedCrit</span></span>(<span>self, table, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Produce criteria to retrieve the linked records of a record.</p>
+<p>It finds all cross-linked records containing an id of the
+given record.</p>
+<p>So no detail records.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the table in which the record lives.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The record.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>AttrDict</code></dt>
+<dd>Keys: tables in which linked records exist.
+Values: the criteria to find those linked records in that table.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L202-L241" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getLinkedCrit(self, table, record):
+    &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
+
+    It finds all cross-linked records containing an id of the
+    given record.
+
+    So no detail records.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table in which the record lives.
+    record: string | ObjectId | AttrDict
+        The record.
+
+    Returns
+    -------
+    AttrDict
+        Keys: tables in which linked records exist.
+        Values: the criteria to find those linked records in that table.
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    mainLink = self.mainLink
+
+    linkTables = mainLink[table]
+    if linkTables is None:
+        return AttrDict()
+
+    (recordId, record) = Mongo.get(table, record)
+    if recordId is None:
+        return AttrDict()
+
+    crit = {f&#34;{table}Id&#34;: recordId}
+
+    linkCriteria = AttrDict()
+
+    for linkTable in linkTables:
+        linkCriteria[linkTable] = crit
+
+    return linkCriteria</code></pre>
 </details>
 </dd>
 <dt id="control.datamodel.Datamodel.getUploadConfig"><code class="name flex">
@@ -1380,7 +1588,7 @@ present, otherwise None</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L285-L299" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L353-L367" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUploadConfig(self, key):
     &#34;&#34;&#34;Get an upload config.
@@ -1421,7 +1629,7 @@ present, otherwise None</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L301-L320" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L369-L388" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUploadObject(self, key, fileName=None):
     &#34;&#34;&#34;Get an upload object.
@@ -1443,6 +1651,54 @@ present, otherwise None</dd>
     if fileName is None:
         fileName = self.uploadsConfig[key].fileName
     return self.uploadObjects[(key, fileName)]</code></pre>
+</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getUserWork"><code class="name flex">
+<span>def <span class="ident">getUserWork</span></span>(<span>self, user)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gets the number of project and edition records of a user.</p>
+<p>We will not delete users if the user is linked to a project or edition.
+This function counts how many projects and editions a user is linked to.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the user (field <code>user</code> in the record)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>integer</code></dt>
+<dd>The number of projects</dd>
+<dt><code>integer</code></dt>
+<dd>The number of editions</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L179-L200" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getUserWork(self, user):
+    &#34;&#34;&#34;Gets the number of project and edition records of a user.
+
+    We will not delete users if the user is linked to a project or edition.
+    This function counts how many projects and editions a user is linked to.
+
+    Parameters
+    ----------
+    user: string
+        The name of the user (field `user` in the record)
+
+    Returns
+    -------
+    integer
+        The number of projects
+    integer
+        The number of editions
+    &#34;&#34;&#34;
+    Mongo = self.Mongo
+    nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
+    nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
+    return (nProjects, nEditions)</code></pre>
 </details>
 </dd>
 <dt id="control.datamodel.Datamodel.makeField"><code class="name flex">
@@ -1472,7 +1728,7 @@ It is also added to the <code>fieldObjects</code> member.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L175-L215" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L243-L283" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeField(self, key):
     &#34;&#34;&#34;Make a field object and registers it.
@@ -1549,7 +1805,7 @@ It is also added to the <code>uploadObjects</code> member.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L232-L283" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L300-L351" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeUpload(self, key, fileName=None):
     &#34;&#34;&#34;Make a file upload object and registers it.
@@ -1635,7 +1891,7 @@ The edition whose record we need.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L49-L91" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L49-L91" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def relevant(self, project=None, edition=None):
     &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
@@ -1692,7 +1948,7 @@ The edition whose record we need.</p>
 <div class="desc"><p>Handle field business.</p>
 <p>A Field object does not correspond with an individual field in a record.
 It represents a <em>column</em>, i.e. a set of fields with the same name in all
-records of a collection.</p>
+records of a table.</p>
 <p>First of all there is a method to retrieve the value of the field from
 a specific record.</p>
 <p>Then there are methods to deliver those values, either bare or formatted,
@@ -1711,7 +1967,7 @@ are not present, defaults will be provided.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L323-L573" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L391-L646" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Field:
     def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
@@ -1719,7 +1975,7 @@ are not present, defaults will be provided.</dd>
 
         A Field object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the value of the field from
         a specific record.
@@ -1757,7 +2013,7 @@ are not present, defaults will be provided.</dd>
         metadata, we expect that metadata to exist under key `dc` in that record.
 
         If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
-        going into a namespace subdocument first.
+        going into a namespace sub-record first.
         &#34;&#34;&#34;
 
         self.fieldPath = key
@@ -1774,7 +2030,7 @@ are not present, defaults will be provided.</dd>
         &#34;&#34;&#34;The value type of the field.
 
         Value types can be string, integer, but also date times, and values
-        from an other collection (value lists).
+        from an other table (value lists), or structured values.
         &#34;&#34;&#34;
 
         self.caption = key
@@ -1898,19 +2154,22 @@ are not present, defaults will be provided.</dd>
         H = Settings.H
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return &#34;&#34;
 
         tp = self.tp
         caption = self.caption
         key = self.key
 
         bare = self.bare(record)
-        bareRep = bare or f&#34;&lt;i&gt;no {key}&lt;/i&gt;&#34;
+        logical = self.logical(record)
+        bareRep = bare or H.i(f&#34;no {key}&#34;)
 
         if tp == &#34;text&#34;:
             readonlyContent = markdown(bareRep, tight=False)
         else:
             readonlyContent = H.wrapValue(
-                bareRep,
+                logical,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
@@ -1923,9 +2182,11 @@ are not present, defaults will be provided.</dd>
             cancelButton = H.actionButton(&#34;edit_cancel&#34;)
             saveButton = H.actionButton(&#34;edit_save&#34;)
             messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+            orig = bare if tp == &#34;text&#34; else writeYaml(logical)
             editableContent = H.textarea(
-                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
             )
+
             content = &#34;&#34;.join(
                 [
                     H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
@@ -1994,13 +2255,13 @@ into a nested dict. At the end of the path we find the selected value.</p>
 <p>Example <code>dc</code> (Dublin Core). So if a record has Dublin Core
 metadata, we expect that metadata to exist under key <code>dc</code> in that record.</p>
 <p>If the namespace is <code>""</code>, it is assumed that we can dig up the values without
-going into a namespace subdocument first.</p></div>
+going into a namespace sub-record first.</p></div>
 </dd>
 <dt id="control.datamodel.Field.tp"><code class="name">var <span class="ident">tp</span></code></dt>
 <dd>
 <div class="desc"><p>The value type of the field.</p>
 <p>Value types can be string, integer, but also date times, and values
-from an other collection (value lists).</p></div>
+from an other table (value lists), or structured values.</p></div>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -2024,7 +2285,7 @@ If the field is not present, returns the empty string, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L433-L448" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L501-L516" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def bare(self, record):
     &#34;&#34;&#34;Give the bare string value of the field in a record.
@@ -2088,7 +2349,7 @@ If the field is not present, returns the empty string, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L450-L573" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L518-L646" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def formatted(
     self,
@@ -2148,19 +2409,22 @@ If the field is not present, returns the empty string, without warning.</dd>
     H = Settings.H
 
     (recordId, record) = Mongo.get(table, record)
+    if recordId is None:
+        return &#34;&#34;
 
     tp = self.tp
     caption = self.caption
     key = self.key
 
     bare = self.bare(record)
-    bareRep = bare or f&#34;&lt;i&gt;no {key}&lt;/i&gt;&#34;
+    logical = self.logical(record)
+    bareRep = bare or H.i(f&#34;no {key}&#34;)
 
     if tp == &#34;text&#34;:
         readonlyContent = markdown(bareRep, tight=False)
     else:
         readonlyContent = H.wrapValue(
-            bareRep,
+            logical,
             outerElem=&#34;span&#34;,
             outerAtts=dict(cls=outerCls),
             innerElem=&#34;span&#34;,
@@ -2173,9 +2437,11 @@ If the field is not present, returns the empty string, without warning.</dd>
         cancelButton = H.actionButton(&#34;edit_cancel&#34;)
         saveButton = H.actionButton(&#34;edit_save&#34;)
         messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+        orig = bare if tp == &#34;text&#34; else writeYaml(logical)
         editableContent = H.textarea(
-            &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=bare
+            &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
         )
+
         content = &#34;&#34;.join(
             [
                 H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
@@ -2236,7 +2502,7 @@ If the field is not present, returns None, without warning.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L403-L431" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L471-L499" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logical(self, record):
     &#34;&#34;&#34;Give the logical value of the field in a record.
@@ -2282,7 +2548,7 @@ The name of the uploaded file is stored in a record in MongoDb.
 The contents of the file is stored on the file system.</p>
 <p>A Upload object does not correspond with an individual field in a record.
 It represents a <em>column</em>, i.e. a set of fields with the same name in all
-records of a collection.</p>
+records of a table.</p>
 <p>First of all there is a method to retrieve the file name of an upload from
 a specific record.</p>
 <p>Then there are methods to deliver those values, either bare or formatted,
@@ -2301,7 +2567,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L576-L792" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L649-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Upload:
     def __init__(self, Settings, Messages, Mongo, key, **kwargs):
@@ -2313,7 +2579,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
 
         A Upload object does not correspond with an individual field in a record.
         It represents a *column*, i.e. a set of fields with the same name in all
-        records of a collection.
+        records of a table.
 
         First of all there is a method to retrieve the file name of an upload from
         a specific record.
@@ -2501,7 +2767,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
             buster = (
                 f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
             )
-            fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+            fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
             exists = fileExists(fullPath)
             content = (
                 fileName,
@@ -2599,7 +2865,7 @@ See <code><a title="control.html.HtmlElements.finput" href="html.html#control.ht
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L714-L792" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L787-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def formatted(self, record, mayChange=False, bust=None, wrapped=True):
     &#34;&#34;&#34;Give the formatted value of a file field in a record.
@@ -2661,7 +2927,7 @@ See <code><a title="control.html.HtmlElements.finput" href="html.html#control.ht
         buster = (
             f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
         )
-        fullPath = f&#34;{workingDir}/{path}{fileName}&#34;
+        fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
         exists = fileExists(fullPath)
         content = (
             fileName,
@@ -2698,7 +2964,7 @@ If the path is non-empty, a "/" will be appended.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/datamodel.py#L677-L712" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/datamodel.py#L750-L785" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDir(self, record):
     &#34;&#34;&#34;Give the path to the file in question.
@@ -2810,8 +3076,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.datamodel.Datamodel.context" href="#control.datamodel.Datamodel.context">context</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getDetailRecords" href="#control.datamodel.Datamodel.getDetailRecords">getDetailRecords</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getFieldObject" href="#control.datamodel.Datamodel.getFieldObject">getFieldObject</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getLinkedCrit" href="#control.datamodel.Datamodel.getLinkedCrit">getLinkedCrit</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getUploadConfig" href="#control.datamodel.Datamodel.getUploadConfig">getUploadConfig</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getUploadObject" href="#control.datamodel.Datamodel.getUploadObject">getUploadObject</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getUserWork" href="#control.datamodel.Datamodel.getUserWork">getUserWork</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeField" href="#control.datamodel.Datamodel.makeField">makeField</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeUpload" href="#control.datamodel.Datamodel.makeUpload">makeUpload</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.relevant" href="#control.datamodel.Datamodel.relevant">relevant</a></code></li>

@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/auth.py#L1-L349" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L1-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from itertools import chain
 from control.generic import AttrDict
@@ -69,7 +69,7 @@ class Auth(Users):
         master record, and `insertTable` should have the table that will
         contain the new record.
 
-        If the action is anything else, `tabale` and `record` refer to
+        If the action is anything else, `table` and `record` refer to
         the relevant record, and `insertTable` should not be passed.
 
         How do the authorisation rules work?
@@ -166,6 +166,8 @@ class Auth(Users):
         state = None
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return {} if action is None else False
 
         if stateInfo is not None:
             initState = stateInfo.init
@@ -173,7 +175,9 @@ class Auth(Users):
                 state = initState
             else:
                 stateField = stateInfo.field
-                state = record.get(stateField, initState)
+                state = record.get(stateField, None)
+                if state is None:
+                    state = initState
 
         # we select the rules for the given state, if any
 
@@ -332,6 +336,7 @@ class Auth(Users):
                 continue
 
             permission = False
+
             for presentRole in userRoles:
                 if requiredRoles.get(presentRole, False):
                     permission = True
@@ -347,6 +352,43 @@ class Auth(Users):
         # associated value (or provide a falsy default), and return that.
 
         return allowedActions if action is None else allowedActions.get(action, False)
+
+    def mayBackup(self, project=None):
+        &#34;&#34;&#34;Whether the current user is allowed to make backups.
+
+        *   Backups are only allowed in all modes.
+        *   Site-wide backups are only allowed for power users.
+        *   Project backups are only allowed for project organisers and (power users).
+
+        Parameters
+        ----------
+        project: AttrDict | ObjectId | string, optional None
+            If None, we deal with site-wide backup.
+            Otherwise we get the backups of this project.
+
+        Returns
+        -------
+        boolean
+            whether the relevant backup/restore actions are allowed.
+        &#34;&#34;&#34;
+        User = self.myDetails()
+
+        if User.role in {&#34;admin&#34;, &#34;root&#34;}:
+            return True
+
+        if project is None:
+            return False
+
+        Mongo = self.Mongo
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+        if projectId is None:
+            return False
+
+        user = User.user
+        projectUser = Mongo.getRecord(
+            &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
+        )
+        return projectUser.role == &#34;organiser&#34;
 
     def makeSafe(self, table, record, action):
         &#34;&#34;&#34;Changes an update action into a read action if needed.
@@ -415,7 +457,7 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/auth.py#L6-L349" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L6-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth(Users):
     def __init__(self, Settings, Messages, Mongo, Content):
@@ -453,7 +495,7 @@ actions on content in question.</p>
         master record, and `insertTable` should have the table that will
         contain the new record.
 
-        If the action is anything else, `tabale` and `record` refer to
+        If the action is anything else, `table` and `record` refer to
         the relevant record, and `insertTable` should not be passed.
 
         How do the authorisation rules work?
@@ -550,6 +592,8 @@ actions on content in question.</p>
         state = None
 
         (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return {} if action is None else False
 
         if stateInfo is not None:
             initState = stateInfo.init
@@ -557,7 +601,9 @@ actions on content in question.</p>
                 state = initState
             else:
                 stateField = stateInfo.field
-                state = record.get(stateField, initState)
+                state = record.get(stateField, None)
+                if state is None:
+                    state = initState
 
         # we select the rules for the given state, if any
 
@@ -716,6 +762,7 @@ actions on content in question.</p>
                 continue
 
             permission = False
+
             for presentRole in userRoles:
                 if requiredRoles.get(presentRole, False):
                     permission = True
@@ -731,6 +778,43 @@ actions on content in question.</p>
         # associated value (or provide a falsy default), and return that.
 
         return allowedActions if action is None else allowedActions.get(action, False)
+
+    def mayBackup(self, project=None):
+        &#34;&#34;&#34;Whether the current user is allowed to make backups.
+
+        *   Backups are only allowed in all modes.
+        *   Site-wide backups are only allowed for power users.
+        *   Project backups are only allowed for project organisers and (power users).
+
+        Parameters
+        ----------
+        project: AttrDict | ObjectId | string, optional None
+            If None, we deal with site-wide backup.
+            Otherwise we get the backups of this project.
+
+        Returns
+        -------
+        boolean
+            whether the relevant backup/restore actions are allowed.
+        &#34;&#34;&#34;
+        User = self.myDetails()
+
+        if User.role in {&#34;admin&#34;, &#34;root&#34;}:
+            return True
+
+        if project is None:
+            return False
+
+        Mongo = self.Mongo
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+        if projectId is None:
+            return False
+
+        user = User.user
+        projectUser = Mongo.getRecord(
+            &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
+        )
+        return projectUser.role == &#34;organiser&#34;
 
     def makeSafe(self, table, record, action):
         &#34;&#34;&#34;Changes an update action into a read action if needed.
@@ -777,7 +861,7 @@ actions on content in question.</p>
 to start with. In this case <code>table</code> and <code>record</code> should point to the
 master record, and <code>insertTable</code> should have the table that will
 contain the new record.</p>
-<p>If the action is anything else, <code>tabale</code> and <code>record</code> refer to
+<p>If the action is anything else, <code>table</code> and <code>record</code> refer to
 the relevant record, and <code>insertTable</code> should not be passed.</p>
 <p>How do the authorisation rules work?</p>
 <p>First we consider the site-wise role of the user: guest, user, admin, or root.
@@ -823,7 +907,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/auth.py#L34-L319" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L34-L324" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authorise(self, table, record, action=None, insertTable=None):
     &#34;&#34;&#34;Check whether an action is allowed on data.
@@ -833,7 +917,7 @@ So, to test whether any action is allowed, it suffices to test whether
     master record, and `insertTable` should have the table that will
     contain the new record.
 
-    If the action is anything else, `tabale` and `record` refer to
+    If the action is anything else, `table` and `record` refer to
     the relevant record, and `insertTable` should not be passed.
 
     How do the authorisation rules work?
@@ -930,6 +1014,8 @@ So, to test whether any action is allowed, it suffices to test whether
     state = None
 
     (recordId, record) = Mongo.get(table, record)
+    if recordId is None:
+        return {} if action is None else False
 
     if stateInfo is not None:
         initState = stateInfo.init
@@ -937,7 +1023,9 @@ So, to test whether any action is allowed, it suffices to test whether
             state = initState
         else:
             stateField = stateInfo.field
-            state = record.get(stateField, initState)
+            state = record.get(stateField, None)
+            if state is None:
+                state = initState
 
     # we select the rules for the given state, if any
 
@@ -1096,6 +1184,7 @@ So, to test whether any action is allowed, it suffices to test whether
             continue
 
         permission = False
+
         for presentRole in userRoles:
             if requiredRoles.get(presentRole, False):
                 permission = True
@@ -1139,7 +1228,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/6bd30b020f36e6baba0342b562388aef77d2c050/src/pure3d/control/auth.py#L321-L349" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L363-L391" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeSafe(self, table, record, action):
     &#34;&#34;&#34;Changes an update action into a read action if needed.
@@ -1172,6 +1261,70 @@ So, to test whether any action is allowed, it suffices to test whether
     return action if action in actions else &#34;read&#34; if &#34;read&#34; in actions else None</code></pre>
 </details>
 </dd>
+<dt id="control.auth.Auth.mayBackup"><code class="name flex">
+<span>def <span class="ident">mayBackup</span></span>(<span>self, project=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether the current user is allowed to make backups.</p>
+<ul>
+<li>Backups are only allowed in all modes.</li>
+<li>Site-wide backups are only allowed for power users.</li>
+<li>Project backups are only allowed for project organisers and (power users).</li>
+</ul>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict | ObjectId | string</code>, optional <code>None</code></dt>
+<dd>If None, we deal with site-wide backup.
+Otherwise we get the backups of this project.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>whether the relevant backup/restore actions are allowed.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L326-L361" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def mayBackup(self, project=None):
+    &#34;&#34;&#34;Whether the current user is allowed to make backups.
+
+    *   Backups are only allowed in all modes.
+    *   Site-wide backups are only allowed for power users.
+    *   Project backups are only allowed for project organisers and (power users).
+
+    Parameters
+    ----------
+    project: AttrDict | ObjectId | string, optional None
+        If None, we deal with site-wide backup.
+        Otherwise we get the backups of this project.
+
+    Returns
+    -------
+    boolean
+        whether the relevant backup/restore actions are allowed.
+    &#34;&#34;&#34;
+    User = self.myDetails()
+
+    if User.role in {&#34;admin&#34;, &#34;root&#34;}:
+        return True
+
+    if project is None:
+        return False
+
+    Mongo = self.Mongo
+    (projectId, project) = Mongo.get(&#34;project&#34;, project)
+    if projectId is None:
+        return False
+
+    user = User.user
+    projectUser = Mongo.getRecord(
+        &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
+    )
+    return projectUser.role == &#34;organiser&#34;</code></pre>
+</details>
+</dd>
 </dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
@@ -1179,8 +1332,10 @@ So, to test whether any action is allowed, it suffices to test whether
 <ul class="hlist">
 <li><code><a title="control.users.Users.addAuthenticator" href="users.html#control.users.Users.addAuthenticator">addAuthenticator</a></code></li>
 <li><code><a title="control.users.Users.afterLogin" href="users.html#control.users.Users.afterLogin">afterLogin</a></code></li>
+<li><code><a title="control.users.Users.getInvolvedUsers" href="users.html#control.users.Users.getInvolvedUsers">getInvolvedUsers</a></code></li>
 <li><code><a title="control.users.Users.getUser" href="users.html#control.users.Users.getUser">getUser</a></code></li>
 <li><code><a title="control.users.Users.identify" href="users.html#control.users.Users.identify">identify</a></code></li>
+<li><code><a title="control.users.Users.initUser" href="users.html#control.users.Users.initUser">initUser</a></code></li>
 <li><code><a title="control.users.Users.login" href="users.html#control.users.Users.login">login</a></code></li>
 <li><code><a title="control.users.Users.logout" href="users.html#control.users.Users.logout">logout</a></code></li>
 <li><code><a title="control.users.Users.myDetails" href="users.html#control.users.Users.myDetails">myDetails</a></code></li>
@@ -1260,6 +1415,7 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="control.auth.Auth.authorise" href="#control.auth.Auth.authorise">authorise</a></code></li>
 <li><code><a title="control.auth.Auth.makeSafe" href="#control.auth.Auth.makeSafe">makeSafe</a></code></li>
+<li><code><a title="control.auth.Auth.mayBackup" href="#control.auth.Auth.mayBackup">mayBackup</a></code></li>
 </ul>
 </li>
 </ul>
