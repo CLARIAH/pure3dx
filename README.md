@@ -54,16 +54,25 @@ great whishes have been expressed. It is still visible in a
 Not everything that we had in mind has been implemented so far. There is much room
 for improvements and further development:
 
-*   the layout of the authoring app is unpolished and primitive. It should look
-    more like the layout of the publishing app;
-*   the handling of metadata is not sophisticated: just a few Dublin Core fields with
-    unconstrained content;
-*   search has not been implemented, not in the authoring app and not in the publishing
-    app;
-*   pre-flight checks for publication are basic: checks for broken links and
-    unreferenced files. It should also check for completeness of metadata;
-*   no attempt for persistent identifiers has been made; we do have stable urls for
+*   The layout of the authoring app is unpolished and primitive. It should look
+    more like the layout of the publishing app.
+
+*   The handling of metadata is not sophisticated: just a few Dublin Core fields with
+    unconstrained content.
+
+*   Search has not been implemented, not in the authoring app and not in the publishing
+    app.
+
+*   Pre-flight checks for publication are basic: checks for broken links and
+    unreferenced files. It should also check for completeness of metadata.
+
+*   No attempt for persistent identifiers has been made; we do have stable urls for
     published editions: `https://editions.pure3d.eu/project/p/edition/e` where `p` and
-    `e` are the project and edition numbers, which start at `1`;
-*   a 3D dataset is more than a 3D model with annotations: there is also paradata or
+    `e` are the project and edition numbers, which start at `1`.
+
+*   A 3D dataset is more than a 3D model with annotations: there is also paradata or
     supplementary material; Pure3D does manage such data.
+
+*   Pure3D is currently tied to the Voyager 3D Viewer, but it is desirable to be able
+    to support more viewers. Even better would it be if editions made for one viewer,
+    could be consumed by another viewer.
