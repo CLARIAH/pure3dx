@@ -93,20 +93,27 @@ def connect(Settings):
 
 
 def copyDir(src, dst):
+    stop = False
+
     if not dirExists(src):
         print(f"\tSource directory {ux(src)} does not exist.")
+        stop = True
     elif src == dst or abspath(dst).startswith(abspath(src)):
         print(f"\tWill not copy {ux(src)} to (part of) itself: {ux(dst)}")
+        stop = True
     elif dirExists(dst):
-        print(f"\tWill not copy to an existing directory: {ux(dst)}")
-    else:
+        (files, dirs) = dirContents(dst)
+        stop = len(files) or len(dirs)
+        if stop:
+            print(f"\tWill not copy to an existing non-empty directory: {ux(dst)}")
+    if not stop:
         print(f"\tCopy files {ux(src)} => {ux(dst)}")
 
         if DRY_RUN:
             print(f"\t\t{DRY}")
             return True
 
-        return dirCopy(src, dst, noclobber=True)
+        return dirCopy(src, dst, noclobber=False)
 
     return False
 
@@ -130,7 +137,9 @@ def copyDb(Settings, srcMode, srcDb, dstMode, dstDb):
                 print(f"Destination db already exists: {dstDb}")
                 return False
 
-            if not DRY_RUN:
+            if DRY_RUN:
+                dstConn = None
+            else:
                 dstConn = client[dstDb]
 
     if srcMode and dstMode:

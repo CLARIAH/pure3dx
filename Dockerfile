@@ -11,6 +11,6 @@ RUN apt update && apt install -y \
     less \
     git
 
-ADD . /app
 WORKDIR ./app
+COPY requirements.txt .
 RUN pip install -r ./requirements.txt
