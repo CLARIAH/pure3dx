@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+from traceback import format_exception
 
 from markdown import markdown
 
@@ -16,7 +17,7 @@ from control.files import (
     writeJson,
 )
 from control.generic import AttrDict, deepAttrDict, deepdict
-from control.helpers import prettify, genViewerSelector
+from control.helpers import prettify, genViewerSelector, ucFirst
 from control.precheck import Precheck as PrecheckCls
 
 
@@ -284,7 +285,11 @@ class Static:
                     partials[partial] = Handlebars.compile(pContent)
                 except Exception as e:
                     Messages.error(
-                        f"Error in register partial {partial} : {str(e)}", stop=False
+                        logmsg=(
+                            f"Error in register partial {partial} : "
+                            f"{''.join(format_exception(e))}"
+                        ),
+                        stop=False,
                     )
                     good = False
 
@@ -315,7 +320,8 @@ class Static:
                     except Exception as e:
                         Messages.error(
                             logmsg=(
-                                f"Error compiling template {templateFile} : {str(e)}"
+                                f"Error compiling template {templateFile} : "
+                                f"{''.join(format_exception(e))}"
                             ),
                             stop=False,
                         )
@@ -332,7 +338,10 @@ class Static:
                     result = template(item, partials=partials)
                 except Exception as e:
                     Messages.error(
-                        logmsg=(f"Error filling template {item.template} : {str(e)}"),
+                        logmsg=(
+                            f"Error filling template {item.template} : "
+                            f"{''.join(format_exception(e))}"
+                        ),
                         stop=False,
                     )
                     failure += 1
@@ -560,7 +569,7 @@ class Static:
                 r.template = "text.html"
                 r.authorLink = authorRoot
                 r.name = prettify(textFile.removesuffix(".html"))
-                r["is" + r.name] = True
+                r["is" + ucFirst(r.name)] = True
                 r.fileName = textFile
                 r.links = getLinks(textFile)
 
@@ -603,7 +612,7 @@ class Static:
 
         def get_projects():
             r = AttrDict()
-            r.isProject = True
+            r.isProjects = True
             r.name = "All Projects"
             r.template = "projects.html"
             r.fileName = "projects.html"
@@ -614,7 +623,7 @@ class Static:
 
         def get_editions():
             r = AttrDict()
-            r.isEdition = True
+            r.isEditions = True
             r.name = "All Editions"
             r.template = "editions.html"
             r.fileName = "editions.html"
@@ -637,8 +646,8 @@ class Static:
                 r.name = item.title
                 r.num = num
                 r.fileName = f"project/{num}/index.html"
-                r.description = dc.description
-                r.abstract = dc.abstract
+                r.abstract = dc.abstract or ""
+                r.description = dc.description or ""
                 r.subjects = dc.subject
                 r.visible = item.isVisible or False
                 result.append(r)
@@ -662,8 +671,8 @@ class Static:
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f"project/{pNum}/edition/{eNum}/index.html"
-                    r.abstract = dc.abstract
-                    r.description = dc.description
+                    r.abstract = dc.abstract or ""
+                    r.description = dc.description or ""
                     r.subjects = dc.subject
                     r.published = item.isPublished or False
                     result.append(r)

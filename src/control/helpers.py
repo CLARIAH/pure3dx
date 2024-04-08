@@ -4,7 +4,7 @@ from subprocess import run as run_cmd, CalledProcessError
 from control.files import unexpanduser as ux
 
 
-def lcFirst(x):
+def ucFirst(x):
     if not x:
         return ""
 
@@ -12,7 +12,7 @@ def lcFirst(x):
 
 
 def prettify(x):
-    return " ".join(lcFirst(w) for w in x.split("_"))
+    return " ".join(ucFirst(w) for w in x.split("_"))
 
 
 def genViewerSelector(

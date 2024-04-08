@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PURE 3D {{name}}</title>
+  <link rel="icon" type="image/x-icon" href="/images/favicon.png">
+  <link rel="stylesheet" href="/viewers/{{viewer}}/{{version}}/fonts/fonts.css">
+  <link rel="stylesheet" href="/viewers/{{viewer}}/{{version}}/css/voyager-explorer.dev.css">
+  <link href="/css/style.css" rel="stylesheet">
+  <script defer="" src="/viewers/{{viewer}}/{{version}}/js/voyager-explorer.min.js"></script>
+</head>
+<body class="text-neutral-900">
+  {{> main-navigation}}
+  <main class="w-full max-w-[1500px] mx-auto px-6 mt-10 flex flex-col md:flex-row gap-4">
+    <!-- aside -->
+    <div class="w-full md:w-1/5 mb-4">
+      <a
+        href="/{{projectFileName}}"
+        class="flex flex-row items-center justify-start mb-2 md:mb-0"
+      >{{>icons/iconChevronLeft isFill=true twSize="4"
+      twColor="blue-700"}} {{projectName}}</a>
+      <div
+        class="
+          md:bg-neutral-50 md:p-4 rounded sticky top-6 md:mt-16 flex md:flex-col
+          gap-4 md:gap-2 flex-wrap
+        "
+        id="headerNavigation"
+      >sub</div>
+    </div>
+
+    <!-- main col -->
+    <div class="w-full md:w-4/5 flex flex-col gap-6 ">
+      <h1 class="text-3xl">{{name}}</h1>
+      <p class="-mt-4 italic">By {{contentdata.creatorComma}}</p>
+      <div class="max-w-[750px] prose md:mt-8 text-xl">
+        <strong class="">{{{contentdata.abstract}}}</strong>
+      </div>
+
+      <div class="w-full flex flex-col lg:flex-row  gap-10 xl:gap-20 pb-20 ">
+        <div class="w-full lg:w-1/2 prose">
+          <!-- col 1 -->
+          <div class="">
+            <{{element}}
+              root="/project/{{projectNum}}/edition/{{num}}/"
+              resourceroot="/viewers/{{viewer}}/{{version}}/"
+              document="{{sceneFile}}"
+              id="viewer3d"
+              class=""
+              style="display: block; position: relative; height: 450px"
+            ></{{element}}>
+            <div
+              class="
+                w-full text-sm  text-neutral-500 flex items-center justify-center gap-2
+              "
+            >
+            {{{viewerSelector}}}
+            </div>
+          </div>
+        </div>
+
+        <!-- col 2 -->
+        <div class="w-full lg:w-1/2 prose">
+          <h2 class="text-lg mt-4 mb-1">Creator(s)</h2>
+          <ul>
+            {{#each contentdata.creator}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
+
+          <h2 class="text-lg mt-4 mb-1">Rights</h2>
+
+          <dl class="flex flex-row flex-wrap">
+            <dt class="italic w-1/3">License</dt>
+            <dd class="w-2/3">{{contentdata.rights.license}}</dd>
+            <dt class="italic w-1/3">Rights holder</dt>
+            <dd class="w-2/3">{{contentdata.rights.holder}}</dd>
+          </dl>
+
+          <h2 class="text-lg mt-4 mb-1">Institution(s)</h2>
+          <ul>
+            {{#each contentdata.institution}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
+
+          <h2 class="text-lg mt-4 mb-1">Period</h2>
+          <ul>
+            {{#each contentdata.period}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
+
+          <h2 class="text-lg mt-4 mb-1">Place</h2>
+          <ul>
+            {{#each contentdata.place}}
+            <li class="">{{this}}</li>
+            {{/each}}
+          </ul>
+
+          <h2 class="text-lg mt-4 mb-1">Content</h2>
+          {{{toc}}}
+        </div>
+      </div>
+    </div>
+  </main>
+  {{>main-footer}}
+
+  <script src="/js/headers-to-nav.js"></script>
+  <script src="/js/version.js"></script>
+  <script>generateNavigationFromHeaders('h2', 'text-neutral-800')</script>
+</body>
+</html>

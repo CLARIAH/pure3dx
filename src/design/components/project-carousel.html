@@ -1,0 +1,29 @@
+<div class="w-full text-center my-8">
+    <h2>{{title}}</h2>
+</div>
+
+<div class="flex relative h-64" id="projectContainer">
+</div>
+<div class="flex justify-between mt-4 w-full absolute">
+    <button
+        id="rotback"
+        class="text-6xl font-bold p-6"
+    >&#8249;</button>
+    <button
+        id="rotnext"
+        class="text-6xl font-bold p-6"
+    >&#8250;</button>
+</div>
+
+<script type="module">
+import { Carousel } from "/js/carousel.js"
+
+const projects = [
+  {{#each projects}}{{>project-obj}}{{/each}}
+]
+  
+const car = new Carousel(projects, "projectContainer", "rotback", "rotnext")
+car.init()
+
+
+</script>
