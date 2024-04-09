@@ -20,11 +20,11 @@ export class Carousel {
     const curPn = this.nextI(this.curP, 1, this.data)
     const curPnn = this.nextI(this.curP, 2, this.data)
 
-    for (const { c, zIndex, width, transform, opacity, filter } of [
+    for (const { c, zIndex, height, transform, opacity, filter } of [
       {
         c: curPpp,
         zIndex: "30",
-        width: "325px",
+        height: "150px",
         transform: "translateX(-250px)",
         opacity: "0.5",
         filter: "blur(4px)",
@@ -32,7 +32,7 @@ export class Carousel {
       {
         c: curPp,
         zIndex: "40",
-        width: "350px",
+        height: "175px",
         transform: "translateX(-150px)",
         opacity: "0.7",
         filter: "blur(2px)",
@@ -40,7 +40,7 @@ export class Carousel {
       {
         c: this.curP,
         zIndex: "50",
-        width: "400px",
+        height: "200px",
         transform: "translateX(0px)",
         opacity: "1",
         filter: "blur(0px)",
@@ -48,7 +48,7 @@ export class Carousel {
       {
         c: curPn,
         zIndex: "40",
-        width: "350px",
+        height: "175px",
         transform: "translateX(150px)",
         opacity: "0.7",
         filter: "blur(2px)",
@@ -56,7 +56,7 @@ export class Carousel {
       {
         c: curPnn,
         zIndex: "30",
-        width: "325px",
+        height: "150px",
         transform: "translateX(250px)",
         opacity: "0.5",
         filter: "blur(4px)",
@@ -65,7 +65,7 @@ export class Carousel {
       const pc = document.getElementById(`pc${c}`)
       const pimg = document.getElementById(`pimg${c}`)
       pc.style.zIndex = zIndex
-      pc.style.width = width
+      pimg.style.height = height
       pc.style.transform = transform
       pc.style.filter = filter
       pimg.style.opacity = opacity

@@ -3,7 +3,8 @@
 @tailwind utilities;
 @layer base {
   h1 {
-    @apply font-semibold
+    @apply font-semibold;
+    @apply text-pureblue-600;
   }
 
   h2 {
@@ -12,9 +13,24 @@
 
   h3 {
     @apply font-semibold
+    }
+  a {
+      @apply text-blue-700;
   }
 
-  a {
-    @apply underline underline-offset-2 decoration-neutral-900/30 hover:decoration-neutral-900/60;
+
+}
+
+@layer components {
+  .inc-card {
+    position: relative
+  }
+  
+  .inc-card a::after {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
   }
 }

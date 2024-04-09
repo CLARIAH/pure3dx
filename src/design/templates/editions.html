@@ -1,4 +1,21 @@
-{{> general/html-header}}
+{{> general/html-header-preamble}}
+<script>
+  function showSum(elemId) {
+    console.log(elemId);
+    let elementList = document.querySelectorAll('.editSum')
+
+    elementList.forEach(elem => {
+        elem.classList.remove("flex");
+        elem.classList.add("hidden");
+    });
+    
+    document.getElementById('sum'+elemId).classList.remove("hidden");
+    document.getElementById('sum'+elemId).classList.add("flex");
+    
+}
+</script>
+</head>
+
 {{> responsive-header}}
 {{> bar-gradient-color}}
 {{> bar-info infoText="<strong>Did you know?</strong><br>A project is a collection of narratives in 3D and may entail multiple 3D scholary editions."}}
@@ -8,24 +25,22 @@
   </div>
 
   <div class="max-w-3xl mx-auto flex flex-wrap gap-8 mb-16">
+    {{#each editions}}
     {{> edition-card3}}
-    {{> edition-card3}}
-    {{> edition-card3}}
-    {{> edition-card3}}
-    {{> edition-card3}}
-    {{> edition-card3}}
-    {{> edition-card3}}
+    {{/each}}
   </div>
 
   {{> bar-gradient-grey}}
 
   <div class="w-full max-w-3xl mx-auto flex flex-col gap-16 mb-16">
-    {{>edition-summary image="project-img3.png" title="Contested Memories: the Battle of Mount Street Bridge" actor="Susan Schreibman, University Maastricht" text="Contested Memories is a long-term research project investigating the Battle of Mount Street Bridge through new technologies. The battle was the first confrontation on Wednesday 26 April 1916 between the Irish Volunteers and the British troops sent to quell the Irish Easter Rising. The 3D editions developed as part of the project each tell the story of the battle from a different perspective, focusing on key buildings and combatants."}}
+    {{#each editions}}
+      {{>edition-summary }}
+    {{/each}}
   </div>
 
    
 </main>
   {{> bar-gradient-color}}
-  {{> main-footer}}
+  {{> edition-footer}}
 
 {{> general/html-footer}}
