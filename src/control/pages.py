@@ -460,11 +460,13 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
         Backup = self.Backup
+        runProd = Settings.runProd
+
         (projectId, project) = Mongo.get("project", project)
         publishInfo = Content.getPublishInfo("project", project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("project", project)
-        backups = Backup.getBackups(project=project)
+        backups = "" if runProd else Backup.getBackups(project=project)
         editionHeading = H.h(3, "Editions")
         editions = Content.getEditions(project)
         left = (

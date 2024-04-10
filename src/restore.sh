@@ -19,6 +19,15 @@ export mongoportouter
 export mongouser
 export mongopassword
 
-python migrate.py prod -
+# Begin external restore action
+#
+# Later: Borg statements to backup $DATA_DIR/working/prod to a backup repository
+# Now: a simple copy action
 
-# Borg statements to backup $DATA_DIR/working/prod to a backup repository
+burepo=~/Downloads/pure3dbackup
+budata=~/github/CLARIAH/pure3dx/data/working/prod
+
+# End external restore action
+
+
+python migrate.py - prod

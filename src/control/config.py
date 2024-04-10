@@ -68,10 +68,10 @@ class Config:
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
+            self.checkSettings,
             self.checkModes,
             self.checkData,
             self.checkMongo,
-            self.checkSettings,
             self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
@@ -232,9 +232,7 @@ class Config:
             self.good = False
             return
 
-        if runMode in runModeSet:
-            runMode = runMode
-        else:
+        if runMode not in runModeSet:
             Messages.error(
                 logmsg="Environment variable `runmode` not in [{', '.join(runModes)}]"
             )

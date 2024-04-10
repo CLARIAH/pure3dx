@@ -73,6 +73,7 @@ from control.files import (
     abspath,
     dirExists,
     dirMake,
+    dirRemove,
     dirCopy,
     dirContents,
 )
@@ -152,97 +153,103 @@ def copyDir(src, dst):
     return False
 
 
-def dbExport(Settings, srcMode, srcDb, srcDbFiles):
-    if srcMode:
-        (client, allDatabases) = connect(Settings)
+def dbExport(Settings, srcMode, srcDb, srcDbFiles, isExportMode):
+    if not srcMode:
+        return True
 
-        if client is None:
-            return 1
+    (client, allDatabases) = connect(Settings)
 
-        good = True
+    if client is None:
+        return False
 
-        if srcDb not in allDatabases:
-            print(f"Source db does not exist: {srcDb}")
-            return False
+    good = True
 
-        srcConn = client[srcDb]
+    if srcDb not in allDatabases:
+        print(f"Source db does not exist: {srcDb}")
+        return False
+
+    srcConn = client[srcDb]
+
+    if not DRY_RUN:
+        print(f"\tDB export {srcDb} to {ux(srcDbFiles)}")
 
         if not DRY_RUN:
-            print(f"\tDB export {srcDb} to {ux(srcDbFiles)}")
+            if isExportMode:
+                dirRemove(srcDbFiles)
 
-            if not DRY_RUN:
-                dirMake(srcDbFiles)
+            dirMake(srcDbFiles)
 
-            for table in srcConn.list_collection_names():
-                records = srcConn[table].find()
+        for table in srcConn.list_collection_names():
+            records = srcConn[table].find()
 
-                try:
-                    n = 0
+            try:
+                n = 0
 
-                    bh = None if DRY_RUN else open(f"{srcDbFiles}/{table}.bson", "wb")
+                bh = None if DRY_RUN else open(f"{srcDbFiles}/{table}.bson", "wb")
 
-                    for record in records:
-                        if not DRY_RUN:
-                            bh.write(BSON.encode(record))
-                        n += 1
-
+                for record in records:
                     if not DRY_RUN:
-                        bh.close()
+                        bh.write(BSON.encode(record))
+                    n += 1
 
-                    plural = "" if n == 1 else "s"
-                    print(
-                        f"\t\t{DRY if DRY_RUN else ''} table {table} {n} record{plural}"
-                    )
-                except Exception as e:
-                    print(f"\tCould not export table {table}: {str(e)}")
-                    good = False
+                if not DRY_RUN:
+                    bh.close()
 
-    return 0 if good else 1
+                plural = "" if n == 1 else "s"
+                print(f"\t\t{DRY if DRY_RUN else ''} table {table} {n} record{plural}")
+            except Exception as e:
+                print(f"\tCould not export table {table}: {str(e)}")
+                good = False
+
+    return good
 
 
-def dbImport(Settings, dstMode, dstDbFiles, dstDb):
+def dbImport(Settings, dstMode, dstDbFiles, dstDb, isImportMode):
+    if not dstMode:
+        return True
+
+    (client, allDatabases) = connect(Settings)
+
+    if client is None:
+        return False
+
+    good = True
+
     if dstMode:
-        (client, allDatabases) = connect(Settings)
-
-        if client is None:
-            return 1
-
-        good = True
-
-        if dstMode:
-            if dstDb in allDatabases:
+        if dstDb in allDatabases:
+            if isImportMode:
+                client.drop_database(dstDb)
+            else:
                 print(f"Destination db already exists: {dstDb}")
                 return False
 
-            if DRY_RUN:
-                dstConn = None
-            else:
-                dstConn = client[dstDb]
+        if not DRY_RUN:
+            dstConn = client[dstDb]
 
-                print(f"\tDB import {ux(dstDbFiles)} into {dstDb}")
+            print(f"\tDB import {ux(dstDbFiles)} into {dstDb}")
 
-                tables = [
-                    x.removesuffix(".bson")
-                    for x in dirContents(dstDbFiles)[0]
-                    if x.endswith(".bson")
-                ]
+            tables = [
+                x.removesuffix(".bson")
+                for x in dirContents(dstDbFiles)[0]
+                if x.endswith(".bson")
+            ]
 
-                for table in tables:
-                    try:
-                        with open(f"{dstDbFiles}/{table}.bson", "rb") as f:
-                            records = decode_all(f.read())
+            for table in tables:
+                try:
+                    with open(f"{dstDbFiles}/{table}.bson", "rb") as f:
+                        records = decode_all(f.read())
 
-                        print(f"\t\ttable {table} {len(records)} record(s)")
+                    print(f"\t\ttable {table} {len(records)} record(s)")
 
-                        if DRY_RUN:
-                            print(f"\t\t{DRY}")
-                        else:
-                            dstConn[table].insert_many(records)
-                    except Exception as e:
-                        print(f"\tCould not import table {table}: {str(e)}")
-                        good = False
+                    if DRY_RUN:
+                        print(f"\t\t{DRY}")
+                    else:
+                        dstConn[table].insert_many(records)
+                except Exception as e:
+                    print(f"\tCould not import table {table}: {str(e)}")
+                    good = False
 
-    return 0 if good else 1
+    return good
 
 
 def getDir(Settings, mode):
@@ -277,6 +284,7 @@ def main(args):
 
     if src == "-":
         isImportMode = True
+        srcMode = None
     else:
         isImportMode = False
 
@@ -288,6 +296,7 @@ def main(args):
 
     if dst == "-":
         isExportMode = True
+        dstMode = None
     else:
         isExportMode = False
 
@@ -309,10 +318,10 @@ def main(args):
         print("if destination is - then source must be a run mode")
         return -1
 
-    if isImportMode or isExportMode and fileOnly:
+    if (isImportMode or isExportMode) and fileOnly:
         print(
             "source or destination is -, "
-            "but database operations are prevented by --dbonly: nothing to do"
+            "but database operations are prevented by --fileonly: nothing to do"
         )
         return 0
 
@@ -334,6 +343,7 @@ def main(args):
     else:
         srcFiles = src
         srcDbFiles = f"{src}/db"
+        srcDb = None
 
     if dstMode:
         dstFiles = getDir(Settings, dst)
@@ -342,9 +352,10 @@ def main(args):
     else:
         dstFiles = dst
         dstDbFiles = f"{dst}/db"
+        dstDb = None
 
     if not fileOnly:
-        if not dbExport(Settings, srcMode, srcDb, srcDbFiles):
+        if not dbExport(Settings, srcMode, srcDb, srcDbFiles, isExportMode):
             return 1
 
         if isExportMode:
@@ -359,7 +370,7 @@ def main(args):
                 return 1
 
     if not fileOnly:
-        if not dbImport(Settings, dstMode, dstDbFiles, dstDb):
+        if not dbImport(Settings, dstMode, dstDbFiles, dstDb, isImportMode):
             return 1
 
     return 0
