@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/app.py#L1-L659" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/app.py#L1-L659" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.flask import appMake, appStop, requestMethod, appInitializing
 
@@ -132,7 +132,7 @@ def appFactory(objects):
 
         It is possible to restrict the backup to a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can backup the whole shebang;
         *   project organisers can backup their own projects;
@@ -142,7 +142,7 @@ def appFactory(objects):
 
     @app.route(&#34;/restore/&lt;string:backup&gt;/&lt;string:project&gt;&#34;)
     @app.route(&#34;/restore/&lt;string:backup&gt;/&#34;, defaults={&#34;project&#34;: None})
-    def restore(backup, project=None):
+    def restoreBackup(backup, project=None):
         &#34;&#34;&#34;Restores a backup.
 
         The chosen backup should be stored on the data share of the server under a name
@@ -154,13 +154,13 @@ def appFactory(objects):
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can restore the whole shebang;
         *   project organisers can restore their own projects;
         *   power users can restore all projects.
         &#34;&#34;&#34;
-        return Pages.restore(backup, project=project)
+        return Pages.restoreBackup(backup, project=project)
 
     @app.route(&#34;/delbackup/&lt;string:backup&gt;/&lt;string:project&gt;&#34;)
     @app.route(&#34;/delbackup/&lt;string:backup&gt;/&#34;, defaults={&#34;project&#34;: None})
@@ -172,7 +172,7 @@ def appFactory(objects):
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can delete backups of the whole shebang;
         *   project organisers can delete backups of their own projects;
@@ -728,7 +728,7 @@ it over the web page.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/app.py#L4-L659" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/app.py#L4-L659" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def appFactory(objects):
     &#34;&#34;&#34;Sets up the main flask app.
@@ -831,7 +831,7 @@ it over the web page.</dd>
 
         It is possible to restrict the backup to a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can backup the whole shebang;
         *   project organisers can backup their own projects;
@@ -841,7 +841,7 @@ it over the web page.</dd>
 
     @app.route(&#34;/restore/&lt;string:backup&gt;/&lt;string:project&gt;&#34;)
     @app.route(&#34;/restore/&lt;string:backup&gt;/&#34;, defaults={&#34;project&#34;: None})
-    def restore(backup, project=None):
+    def restoreBackup(backup, project=None):
         &#34;&#34;&#34;Restores a backup.
 
         The chosen backup should be stored on the data share of the server under a name
@@ -853,13 +853,13 @@ it over the web page.</dd>
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can restore the whole shebang;
         *   project organisers can restore their own projects;
         *   power users can restore all projects.
         &#34;&#34;&#34;
-        return Pages.restore(backup, project=project)
+        return Pages.restoreBackup(backup, project=project)
 
     @app.route(&#34;/delbackup/&lt;string:backup&gt;/&lt;string:project&gt;&#34;)
     @app.route(&#34;/delbackup/&lt;string:backup&gt;/&#34;, defaults={&#34;project&#34;: None})
@@ -871,7 +871,7 @@ it over the web page.</dd>
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can delete backups of the whole shebang;
         *   project organisers can delete backups of their own projects;

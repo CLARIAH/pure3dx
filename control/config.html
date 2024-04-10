@@ -26,13 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L1-L664" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L1-L643" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
 
 from control.generic import AttrDict, getVersionKeyFunc
 from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
+from control.helpers import ucFirst
 from control.environment import var
 from control.html import HtmlElements
 
@@ -97,10 +98,10 @@ class Config:
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
+            self.checkSettings,
             self.checkModes,
             self.checkData,
             self.checkMongo,
-            self.checkSettings,
             self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
@@ -247,6 +248,8 @@ class Config:
         &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        runModes = Settings.runModes
+        runModeSet = set(runModes)
 
         if self.migrate:
             Settings.runMode = &#34;&#34;
@@ -259,13 +262,15 @@ class Config:
             self.good = False
             return
 
-        if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
-            runMode = runMode
-        else:
-            runMode = &#34;prod&#34;
+        if runMode not in runModeSet:
+            Messages.error(
+                logmsg=&#34;Environment variable `runmode` not in [{&#39;, &#39;.join(runModes)}]&#34;
+            )
+            self.good = False
+            return
 
         Settings.runMode = runMode
-        Settings.runProd = runMode == &#34;prod&#34;
+        Settings.runProd = runMode == runModes[0]
         &#34;&#34;&#34;In which mode the app runs.
 
         Values are:
@@ -377,17 +382,6 @@ class Config:
 
         if self.design:
             return
-
-        importSubdir = (
-            &#34;exampledata&#34;
-            if runMode == &#34;test&#34;
-            else &#34;pilotdata&#34;
-            if runMode == &#34;pilot&#34;
-            else &#34;customdata&#34;
-            if runMode == &#34;custom&#34;
-            else &#34;proddata&#34;
-        )
-        Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;
 
     def checkMongo(self):
         &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -584,7 +578,7 @@ class Config:
                         f&#34;Skipping viewer {viewerName} &#34;
                         f&#34;because there are no versions of it on the system&#34;
                     ),
-                    stop=False
+                    stop=False,
                 )
                 continue
 
@@ -615,41 +609,26 @@ class Config:
         Settings = self.Settings
         H = Settings.H
         wip = var(&#34;devstatus&#34;)
+        isWip = wip == &#34;wip&#34;
         runMode = Settings.runMode
+        runProd = Settings.runProd
 
         banner = &#34;&#34;
 
-        if wip == &#34;wip&#34;:
-            content = H.span(
-                dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Test Mode.
-                    Data you enter can be erased without warning.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;test&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Pilot Mode.
-                    Data you enter will be saved, but might be inaccessible during
-                    periods of further development.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;pilot&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Custom Mode.
-                    Modifications may be overwritten if other custom data is imported.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;custom&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site is Work in Progress.
-                    &#34;&#34;&#34;
-                )
-            )
-            dataLink = &#34;«backups»&#34; + H.br()
+        modeBanner = (
+            &#34;&#34;
+            if runProd and not isWip
+            else &#34;This site is Work in Progress&#34;
+            if runProd
+            else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+        )
+        dataWarning = (
+            &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
+        )
+
+        if modeBanner or dataWarning:
+            content = H.span(f&#34;&#34;&#34;{modeBanner}{dataWarning}&#34;&#34;&#34;)
+            dataLink = &#34;&#34; if runProd else (&#34;«backups»&#34; + H.br())
 
             issueLink = H.a(
                 &#34;issues&#34;,
@@ -662,7 +641,7 @@ class Config:
                 [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
             )
 
-        Settings.banner = banner
+            Settings.banner = banner
 
     def checkDesign(self):
         &#34;&#34;&#34;Checks the design resources.
@@ -737,7 +716,7 @@ migration of data.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L10-L664" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L11-L643" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     def __init__(self, Messages, design=False, migrate=False):
@@ -799,10 +778,10 @@ migration of data.</dd>
             self.checkWebdav,
             self.checkVersion,
             self.checkSecret,
+            self.checkSettings,
             self.checkModes,
             self.checkData,
             self.checkMongo,
-            self.checkSettings,
             self.checkDatamodel,
             self.checkAuth,
             self.checkViewers,
@@ -949,6 +928,8 @@ migration of data.</dd>
         &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
+        runModes = Settings.runModes
+        runModeSet = set(runModes)
 
         if self.migrate:
             Settings.runMode = &#34;&#34;
@@ -961,13 +942,15 @@ migration of data.</dd>
             self.good = False
             return
 
-        if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
-            runMode = runMode
-        else:
-            runMode = &#34;prod&#34;
+        if runMode not in runModeSet:
+            Messages.error(
+                logmsg=&#34;Environment variable `runmode` not in [{&#39;, &#39;.join(runModes)}]&#34;
+            )
+            self.good = False
+            return
 
         Settings.runMode = runMode
-        Settings.runProd = runMode == &#34;prod&#34;
+        Settings.runProd = runMode == runModes[0]
         &#34;&#34;&#34;In which mode the app runs.
 
         Values are:
@@ -1079,17 +1062,6 @@ migration of data.</dd>
 
         if self.design:
             return
-
-        importSubdir = (
-            &#34;exampledata&#34;
-            if runMode == &#34;test&#34;
-            else &#34;pilotdata&#34;
-            if runMode == &#34;pilot&#34;
-            else &#34;customdata&#34;
-            if runMode == &#34;custom&#34;
-            else &#34;proddata&#34;
-        )
-        Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;
 
     def checkMongo(self):
         &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -1286,7 +1258,7 @@ migration of data.</dd>
                         f&#34;Skipping viewer {viewerName} &#34;
                         f&#34;because there are no versions of it on the system&#34;
                     ),
-                    stop=False
+                    stop=False,
                 )
                 continue
 
@@ -1317,41 +1289,26 @@ migration of data.</dd>
         Settings = self.Settings
         H = Settings.H
         wip = var(&#34;devstatus&#34;)
+        isWip = wip == &#34;wip&#34;
         runMode = Settings.runMode
+        runProd = Settings.runProd
 
         banner = &#34;&#34;
 
-        if wip == &#34;wip&#34;:
-            content = H.span(
-                dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Test Mode.
-                    Data you enter can be erased without warning.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;test&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Pilot Mode.
-                    Data you enter will be saved, but might be inaccessible during
-                    periods of further development.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;pilot&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site runs in Custom Mode.
-                    Modifications may be overwritten if other custom data is imported.
-                    &#34;&#34;&#34;
-                )
-                if runMode == &#34;custom&#34;
-                else dedent(
-                    &#34;&#34;&#34;
-                    This site is Work in Progress.
-                    &#34;&#34;&#34;
-                )
-            )
-            dataLink = &#34;«backups»&#34; + H.br()
+        modeBanner = (
+            &#34;&#34;
+            if runProd and not isWip
+            else &#34;This site is Work in Progress&#34;
+            if runProd
+            else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+        )
+        dataWarning = (
+            &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
+        )
+
+        if modeBanner or dataWarning:
+            content = H.span(f&#34;&#34;&#34;{modeBanner}{dataWarning}&#34;&#34;&#34;)
+            dataLink = &#34;&#34; if runProd else (&#34;«backups»&#34; + H.br())
 
             issueLink = H.a(
                 &#34;issues&#34;,
@@ -1364,7 +1321,7 @@ migration of data.</dd>
                 [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
             )
 
-        Settings.banner = banner
+            Settings.banner = banner
 
     def checkDesign(self):
         &#34;&#34;&#34;Checks the design resources.
@@ -1412,7 +1369,7 @@ migration of data.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L471-L499" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L465-L493" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkAuth(self):
     &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
@@ -1461,7 +1418,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L570-L635" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L564-L614" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkBanner(self):
     &#34;&#34;&#34;Sets a banner for all pages.
@@ -1481,41 +1438,26 @@ in progress.</p>
     Settings = self.Settings
     H = Settings.H
     wip = var(&#34;devstatus&#34;)
+    isWip = wip == &#34;wip&#34;
     runMode = Settings.runMode
+    runProd = Settings.runProd
 
     banner = &#34;&#34;
 
-    if wip == &#34;wip&#34;:
-        content = H.span(
-            dedent(
-                &#34;&#34;&#34;
-                This site runs in Test Mode.
-                Data you enter can be erased without warning.
-                &#34;&#34;&#34;
-            )
-            if runMode == &#34;test&#34;
-            else dedent(
-                &#34;&#34;&#34;
-                This site runs in Pilot Mode.
-                Data you enter will be saved, but might be inaccessible during
-                periods of further development.
-                &#34;&#34;&#34;
-            )
-            if runMode == &#34;pilot&#34;
-            else dedent(
-                &#34;&#34;&#34;
-                This site runs in Custom Mode.
-                Modifications may be overwritten if other custom data is imported.
-                &#34;&#34;&#34;
-            )
-            if runMode == &#34;custom&#34;
-            else dedent(
-                &#34;&#34;&#34;
-                This site is Work in Progress.
-                &#34;&#34;&#34;
-            )
-        )
-        dataLink = &#34;«backups»&#34; + H.br()
+    modeBanner = (
+        &#34;&#34;
+        if runProd and not isWip
+        else &#34;This site is Work in Progress&#34;
+        if runProd
+        else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+    )
+    dataWarning = (
+        &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
+    )
+
+    if modeBanner or dataWarning:
+        content = H.span(f&#34;&#34;&#34;{modeBanner}{dataWarning}&#34;&#34;&#34;)
+        dataLink = &#34;&#34; if runProd else (&#34;«backups»&#34; + H.br())
 
         issueLink = H.a(
             &#34;issues&#34;,
@@ -1528,7 +1470,7 @@ in progress.</p>
             [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
         )
 
-    Settings.banner = banner</code></pre>
+        Settings.banner = banner</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkData"><code class="name flex">
@@ -1539,7 +1481,7 @@ in progress.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L275-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L280-L354" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkData(self):
     &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
@@ -1615,18 +1557,7 @@ in progress.</p>
     Settings.authorUrl = authorUrl
 
     if self.design:
-        return
-
-    importSubdir = (
-        &#34;exampledata&#34;
-        if runMode == &#34;test&#34;
-        else &#34;pilotdata&#34;
-        if runMode == &#34;pilot&#34;
-        else &#34;customdata&#34;
-        if runMode == &#34;custom&#34;
-        else &#34;proddata&#34;
-    )
-    Settings.importDir = f&#34;{dataDir}/{importSubdir}&#34;</code></pre>
+        return</code></pre>
 </details>
 </dd>
 <dt id="control.config.Config.checkDatamodel"><code class="name flex">
@@ -1657,7 +1588,7 @@ on the interface.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L410-L469" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L404-L463" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkDatamodel(self):
     &#34;&#34;&#34;Read the yaml file with table and field settings.
@@ -1734,7 +1665,7 @@ on the interface.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L637-L664" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L616-L643" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkDesign(self):
     &#34;&#34;&#34;Checks the design resources.
@@ -1776,7 +1707,7 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L58-L81" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L59-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkEnv(self):
     &#34;&#34;&#34;Collect the relevant information.
@@ -1790,10 +1721,10 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
         self.checkWebdav,
         self.checkVersion,
         self.checkSecret,
+        self.checkSettings,
         self.checkModes,
         self.checkData,
         self.checkMongo,
-        self.checkSettings,
         self.checkDatamodel,
         self.checkAuth,
         self.checkViewers,
@@ -1812,12 +1743,14 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L216-L273" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L217-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkModes(self):
     &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
     Messages = self.Messages
     Settings = self.Settings
+    runModes = Settings.runModes
+    runModeSet = set(runModes)
 
     if self.migrate:
         Settings.runMode = &#34;&#34;
@@ -1830,13 +1763,15 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
         self.good = False
         return
 
-    if runMode in {&#34;test&#34;, &#34;pilot&#34;, &#34;custom&#34;}:
-        runMode = runMode
-    else:
-        runMode = &#34;prod&#34;
+    if runMode not in runModeSet:
+        Messages.error(
+            logmsg=&#34;Environment variable `runmode` not in [{&#39;, &#39;.join(runModes)}]&#34;
+        )
+        self.good = False
+        return
 
     Settings.runMode = runMode
-    Settings.runProd = runMode == &#34;prod&#34;
+    Settings.runProd = runMode == runModes[0]
     &#34;&#34;&#34;In which mode the app runs.
 
     Values are:
@@ -1884,7 +1819,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L362-L392" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L356-L386" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkMongo(self):
     &#34;&#34;&#34;Obtain the connection details for MongDB.
@@ -1927,7 +1862,7 @@ with these credentials.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L83-L113" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L84-L114" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkRepo(self):
     &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
@@ -1972,7 +1907,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L189-L214" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L190-L215" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSecret(self):
     &#34;&#34;&#34;Obtain a secret.
@@ -2010,7 +1945,7 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L394-L408" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L388-L402" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkSettings(self):
     &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
@@ -2039,7 +1974,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L130-L187" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L131-L188" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkVersion(self):
     &#34;&#34;&#34;Get the current version of the pure3d app.
@@ -2109,7 +2044,7 @@ of the git repo that the running code is in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L501-L568" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L495-L562" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkViewers(self):
     &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
@@ -2167,7 +2102,7 @@ of the git repo that the running code is in.</p></div>
                     f&#34;Skipping viewer {viewerName} &#34;
                     f&#34;because there are no versions of it on the system&#34;
                 ),
-                stop=False
+                stop=False,
             )
             continue
 
@@ -2191,7 +2126,7 @@ depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/config.py#L115-L128" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/config.py#L116-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkWebdav(self):
     &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.

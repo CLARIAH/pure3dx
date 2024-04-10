@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L1-L768" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L1-L768" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 
@@ -544,7 +544,7 @@ class Mongo:
 
         We do site-wide backups and project-specific backups.
 
-        See also `control.content.Content.mkBackup`
+        See also `control.backup.Backup.mkBackup`
 
         This function backs up database data in
         [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
@@ -649,12 +649,12 @@ class Mongo:
 
         return n
 
-    def restore(self, src, project=None, clean=True):
+    def restoreBackup(self, src, project=None, clean=True):
         &#34;&#34;&#34;Restores the database from record files in table folders.
 
         We do site-wide restores or project-specific restores.
 
-        See also `control.content.Content.restore`
+        See also `control.backup.Backup.restoreBackup`
 
         This function restores database data given in
         [`bson`](https://www.mongodb.com/basics/bson).
@@ -837,7 +837,7 @@ provided they are recognizable as values in a field whose name is
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L12-L768" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L12-L768" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
     @staticmethod
@@ -1344,7 +1344,7 @@ provided they are recognizable as values in a field whose name is
 
         We do site-wide backups and project-specific backups.
 
-        See also `control.content.Content.mkBackup`
+        See also `control.backup.Backup.mkBackup`
 
         This function backs up database data in
         [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
@@ -1449,12 +1449,12 @@ provided they are recognizable as values in a field whose name is
 
         return n
 
-    def restore(self, src, project=None, clean=True):
+    def restoreBackup(self, src, project=None, clean=True):
         &#34;&#34;&#34;Restores the database from record files in table folders.
 
         We do site-wide restores or project-specific restores.
 
-        See also `control.content.Content.restore`
+        See also `control.backup.Backup.restoreBackup`
 
         This function restores database data given in
         [`bson`](https://www.mongodb.com/basics/bson).
@@ -1617,7 +1617,7 @@ such an id, otherwise <code>None</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L13-L38" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L13-L38" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def cast(value):
@@ -1666,7 +1666,7 @@ def cast(value):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L40-L54" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L40-L54" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def isId(value):
@@ -1706,7 +1706,7 @@ get deleted, but the table remains.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L146-L192" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L146-L192" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearTable(self, table, delete=False):
     &#34;&#34;&#34;Make sure that a table exists and that it is empty.
@@ -1769,7 +1769,7 @@ is stored in the <code>client</code> and <code>db</code> members of the Mongo ob
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L90-L121" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L90-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def connect(self):
     &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
@@ -1826,7 +1826,7 @@ and will be replaced by the value of the <code>title</code> field of the found r
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L479-L510" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L479-L510" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def consolidate(self, record):
     &#34;&#34;&#34;Resolves all links in a record to title values of linked records.
@@ -1889,7 +1889,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L315-L338" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L315-L338" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteRecord(self, table, stop=True, **criteria):
     &#34;&#34;&#34;Deletes a single record from a table.
@@ -1941,7 +1941,7 @@ how many records have been deleted</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L340-L361" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L340-L361" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteRecords(self, table, stop=True, **criteria):
     &#34;&#34;&#34;Delete multiple records from a table.
@@ -1975,7 +1975,7 @@ how many records have been deleted</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L123-L131" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L123-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def disconnect(self):
     &#34;&#34;&#34;Disconnect from the MongoDB.&#34;&#34;&#34;
@@ -2025,7 +2025,7 @@ If the command fails, an error message is issued and
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L416-L477" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L416-L477" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def execute(self, table, command, *args, warn=True, stop=True, **kwargs):
     &#34;&#34;&#34;Executes a MongoDb command and returns the result.
@@ -2119,7 +2119,7 @@ which will then be cast to an ObjectId.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L194-L224" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L194-L224" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, table, record):
     &#34;&#34;&#34;Get the record and recordId if only one of them is specified.
@@ -2188,7 +2188,7 @@ Each record is cast to an AttrDict.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L266-L313" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L266-L313" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
     &#34;&#34;&#34;Get a list of records from a table.
@@ -2271,7 +2271,7 @@ satisfies the criteria.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L226-L264" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L226-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getRecord(self, table, warn=True, stop=True, **criteria):
     &#34;&#34;&#34;Get a single record from a table.
@@ -2338,7 +2338,7 @@ inserted.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L394-L414" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L394-L414" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def insertRecord(self, table, stop=True, **fields):
     &#34;&#34;&#34;Inserts a new record in a table.
@@ -2369,7 +2369,7 @@ inserted.</dd>
 <dd>
 <div class="desc"><p>Backs up data as record files in table folders.</p>
 <p>We do site-wide backups and project-specific backups.</p>
-<p>See also <code><a title="control.content.Content.mkBackup" href="content.html#control.content.Content.mkBackup">Content.mkBackup()</a></code></p>
+<p>See also <code><a title="control.backup.Backup.mkBackup" href="backup.html#control.backup.Backup.mkBackup">Backup.mkBackup()</a></code></p>
 <p>This function backs up database data in
 <a href="https://www.mongodb.com/basics/bson"><code>bson</code></a> and/or <code>json</code> format.</p>
 <p>Inspired by this
@@ -2395,14 +2395,14 @@ the backups are stored.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L512-L571" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L512-L571" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mkBackup(self, dstBase, project=None, asJson=False):
     &#34;&#34;&#34;Backs up data as record files in table folders.
 
     We do site-wide backups and project-specific backups.
 
-    See also `control.content.Content.mkBackup`
+    See also `control.backup.Backup.mkBackup`
 
     This function backs up database data in
     [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
@@ -2459,13 +2459,13 @@ the backups are stored.</dd>
     return True</code></pre>
 </details>
 </dd>
-<dt id="control.mongo.Mongo.restore"><code class="name flex">
-<span>def <span class="ident">restore</span></span>(<span>self, src, project=None, clean=True)</span>
+<dt id="control.mongo.Mongo.restoreBackup"><code class="name flex">
+<span>def <span class="ident">restoreBackup</span></span>(<span>self, src, project=None, clean=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Restores the database from record files in table folders.</p>
 <p>We do site-wide restores or project-specific restores.</p>
-<p>See also <code><a title="control.content.Content.restore" href="content.html#control.content.Content.restore">Content.restore()</a></code></p>
+<p>See also <code><a title="control.backup.Backup.restoreBackup" href="backup.html#control.backup.Backup.restoreBackup">Backup.restoreBackup()</a></code></p>
 <p>This function restores database data given in
 <a href="https://www.mongodb.com/basics/bson"><code>bson</code></a>.</p>
 <p>Inspired by this
@@ -2491,14 +2491,14 @@ project/edition records will be cleaned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L622-L768" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L622-L768" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def restore(self, src, project=None, clean=True):
+<pre><code class="python">def restoreBackup(self, src, project=None, clean=True):
     &#34;&#34;&#34;Restores the database from record files in table folders.
 
     We do site-wide restores or project-specific restores.
 
-    See also `control.content.Content.restore`
+    See also `control.backup.Backup.restoreBackup`
 
     This function restores database data given in
     [`bson`](https://www.mongodb.com/basics/bson).
@@ -2655,7 +2655,7 @@ project/edition records will be cleaned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L133-L144" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L133-L144" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def tables(self):
     &#34;&#34;&#34;List the existent tables in the database.
@@ -2702,7 +2702,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L363-L392" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L363-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def updateRecord(self, table, updates, stop=True, **criteria):
     &#34;&#34;&#34;Updates a single record from a table.
@@ -2767,7 +2767,7 @@ If <code>None</code>, no json file will be written.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/mongo.py#L573-L620" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/mongo.py#L573-L620" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def writeRecords(self, table, records, dstb, dstj=None, jOpts={}):
     &#34;&#34;&#34;Writes records to bson and possibly json file.
@@ -2902,7 +2902,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.mongo.Mongo.insertRecord" href="#control.mongo.Mongo.insertRecord">insertRecord</a></code></li>
 <li><code><a title="control.mongo.Mongo.isId" href="#control.mongo.Mongo.isId">isId</a></code></li>
 <li><code><a title="control.mongo.Mongo.mkBackup" href="#control.mongo.Mongo.mkBackup">mkBackup</a></code></li>
-<li><code><a title="control.mongo.Mongo.restore" href="#control.mongo.Mongo.restore">restore</a></code></li>
+<li><code><a title="control.mongo.Mongo.restoreBackup" href="#control.mongo.Mongo.restoreBackup">restoreBackup</a></code></li>
 <li><code><a title="control.mongo.Mongo.tables" href="#control.mongo.Mongo.tables">tables</a></code></li>
 <li><code><a title="control.mongo.Mongo.updateRecord" href="#control.mongo.Mongo.updateRecord">updateRecord</a></code></li>
 <li><code><a title="control.mongo.Mongo.writeRecords" href="#control.mongo.Mongo.writeRecords">writeRecords</a></code></li>

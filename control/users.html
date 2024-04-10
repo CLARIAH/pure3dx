@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L1-L673" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L1-L672" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from control.generic import AttrDict
 from control.flask import (
@@ -131,20 +131,20 @@ class Users:
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test/pilot users, we can skip the first step, because
-        we already know everything about the test/pilot user on the basis of the
+        When we log in special users, we can skip the first step, because
+        we already know everything about the special user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test/pilot user or a user that must be
+        So, we find out if we have to log in a special user or a user that must be
         authenticated through oidc.
 
-        We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
+        We only log in a test/pilot user if we are in non-prod mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test/pilot mode, the redirect
+            A redirect. When logging in in non-prod mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -365,7 +365,7 @@ class Users:
 
         If no user is logged in, a login button should be displayed.
 
-        If in test/pilot mode, a list of buttons for each test/pilot user should be
+        If in non-prod mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
@@ -443,8 +443,7 @@ class Users:
 
         else:
             # login button
-            if runMode != &#34;custom&#34;:
-                content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
+            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
         return (H.content(*specialContent), H.content(*content))
 
@@ -745,7 +744,7 @@ where it is visible and modifiable by the current request only.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L24-L673" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L24-L672" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Users:
     def __init__(self, Settings, Messages, Mongo):
@@ -827,20 +826,20 @@ where it is visible and modifiable by the current request only.</p>
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test/pilot users, we can skip the first step, because
-        we already know everything about the test/pilot user on the basis of the
+        When we log in special users, we can skip the first step, because
+        we already know everything about the special user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test/pilot user or a user that must be
+        So, we find out if we have to log in a special user or a user that must be
         authenticated through oidc.
 
-        We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
+        We only log in a test/pilot user if we are in non-prod mode and the user&#39;s &#34;sub&#34;
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test/pilot mode, the redirect
+            A redirect. When logging in in non-prod mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -1061,7 +1060,7 @@ where it is visible and modifiable by the current request only.</p>
 
         If no user is logged in, a login button should be displayed.
 
-        If in test/pilot mode, a list of buttons for each test/pilot user should be
+        If in non-prod mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
@@ -1139,8 +1138,7 @@ where it is visible and modifiable by the current request only.</p>
 
         else:
             # login button
-            if runMode != &#34;custom&#34;:
-                content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
+            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
         return (H.content(*specialContent), H.content(*content))
 
@@ -1419,7 +1417,7 @@ a special login procedure.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L63-L77" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L63-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def initUser():
@@ -1467,7 +1465,7 @@ Flask-OIDC authenticator.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L79-L93" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L79-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuthenticator(self, oidc):
     &#34;&#34;&#34;Adds the object that gives access to authentication methods.
@@ -1516,7 +1514,7 @@ successful or 303 if not.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L147-L198" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L147-L198" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def afterLogin(self, referrer):
     &#34;&#34;&#34;Logs in a user.
@@ -1616,7 +1614,7 @@ For each user there are the follwoing fields:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L439-L530" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L438-L529" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getInvolvedUsers(self, tableRecordRoles, asString=False):
     &#34;&#34;&#34;Finds the users involved in a specific role with respect to something.
@@ -1739,7 +1737,7 @@ None if there is no authenticated user.</li>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L290-L326" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L290-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUser(self, fromArg=False):
     &#34;&#34;&#34;Obtain the &#34;sub&#34; of the currently logged in user from the request info.
@@ -1800,7 +1798,7 @@ we only check who is the currently logged in user.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L241-L271" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L241-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identify(self):
     &#34;&#34;&#34;Make sure who is the current user.
@@ -1846,17 +1844,17 @@ we only check who is the currently logged in user.</p>
 <li>obtaining the authentication results when the user visits that page</li>
 <li>storing the relevant user data</li>
 </ol>
-<p>When we log in test/pilot users, we can skip the first step, because
-we already know everything about the test/pilot user on the basis of the
+<p>When we log in special users, we can skip the first step, because
+we already know everything about the special user on the basis of the
 information in the request that brought us here.</p>
-<p>So, we find out if we have to log in a test/pilot user or a user that must be
+<p>So, we find out if we have to log in a special user or a user that must be
 authenticated through oidc.</p>
-<p>We only log in a test/pilot user if we are in test/pilot mode and the user's "sub"
+<p>We only log in a test/pilot user if we are in non-prod mode and the user's "sub"
 is passed in the request.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>response</code></dt>
-<dd>A redirect. When logging in in test/pilot mode, the redirect
+<dd>A redirect. When logging in in non-prod mode, the redirect
 is to <em>referrer</em> (the url we came from). Otherwise it is to a url
 that triggers an oidc login procedure. To that page we pass
 the referrer as part of the url, so that after login the user
@@ -1865,7 +1863,7 @@ can be redirected to the original referrer.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L95-L145" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L95-L145" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def login(self):
     &#34;&#34;&#34;Log in a user.
@@ -1876,20 +1874,20 @@ can be redirected to the original referrer.</dd>
     2. obtaining the authentication results when the user visits that page
     3. storing the relevant user data
 
-    When we log in test/pilot users, we can skip the first step, because
-    we already know everything about the test/pilot user on the basis of the
+    When we log in special users, we can skip the first step, because
+    we already know everything about the special user on the basis of the
     information in the request that brought us here.
 
-    So, we find out if we have to log in a test/pilot user or a user that must be
+    So, we find out if we have to log in a special user or a user that must be
     authenticated through oidc.
 
-    We only log in a test/pilot user if we are in test/pilot mode and the user&#39;s &#34;sub&#34;
+    We only log in a test/pilot user if we are in non-prod mode and the user&#39;s &#34;sub&#34;
     is passed in the request.
 
     Returns
     -------
     response
-        A redirect. When logging in in test/pilot mode, the redirect
+        A redirect. When logging in in non-prod mode, the redirect
         is to *referrer* (the url we came from). Otherwise it is to a url
         that triggers an oidc login procedure. To that page we pass
         the referrer as part of the url, so that after login the user
@@ -1936,7 +1934,7 @@ After logging out, we redirect to the home page.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L200-L239" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L200-L239" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logout(self):
     &#34;&#34;&#34;Logs off the current user.
@@ -1998,7 +1996,7 @@ the empty dictionary is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L273-L288" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L273-L288" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def myDetails(self):
     &#34;&#34;&#34;Who is the currently authenticated user?
@@ -2037,7 +2035,7 @@ If no representation can be found, the internal name is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L421-L437" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L420-L436" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def presentRole(self, role):
     &#34;&#34;&#34;Finds the interface representation of a role.
@@ -2067,7 +2065,7 @@ If no representation can be found, the internal name is returned.</dd>
 <p>If the user is logged in, his nickname should be displayed, together
 with a logout button.</p>
 <p>If no user is logged in, a login button should be displayed.</p>
-<p>If in test/pilot mode, a list of buttons for each test/pilot user should be
+<p>If in non-prod mode, a list of buttons for each test/pilot user should be
 displayed.</p>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2078,7 +2076,7 @@ for the current user styled as active.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/users.py#L328-L419" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/users.py#L328-L418" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def wrapLogin(self):
     &#34;&#34;&#34;Generate HTML for the login widget.
@@ -2090,7 +2088,7 @@ for the current user styled as active.</dd>
 
     If no user is logged in, a login button should be displayed.
 
-    If in test/pilot mode, a list of buttons for each test/pilot user should be
+    If in non-prod mode, a list of buttons for each test/pilot user should be
     displayed.
 
     Returns
@@ -2168,8 +2166,7 @@ for the current user styled as active.</dd>
 
     else:
         # login button
-        if runMode != &#34;custom&#34;:
-            content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
+        content.append(wrap(None, &#34;log in&#34;, &#34;log in&#34;, &#34;/alogin&#34;, False, True))
 
     return (H.content(*specialContent), H.content(*content))</code></pre>
 </details>

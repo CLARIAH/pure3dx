@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L1-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/auth.py#L1-L398" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from itertools import chain
 from control.generic import AttrDict
@@ -356,7 +356,8 @@ class Auth(Users):
     def mayBackup(self, project=None):
         &#34;&#34;&#34;Whether the current user is allowed to make backups.
 
-        *   Backups are only allowed in all modes.
+        *   Backups are not allowed in production mode, bacause the system and not the
+            users are responsible for backups.
         *   Site-wide backups are only allowed for power users.
         *   Project backups are only allowed for project organisers and (power users).
 
@@ -371,6 +372,12 @@ class Auth(Users):
         boolean
             whether the relevant backup/restore actions are allowed.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        runProd = Settings.runProd
+
+        if runProd:
+            return False
+
         User = self.myDetails()
 
         if User.role in {&#34;admin&#34;, &#34;root&#34;}:
@@ -457,7 +464,7 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L6-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/auth.py#L6-L398" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth(Users):
     def __init__(self, Settings, Messages, Mongo, Content):
@@ -782,7 +789,8 @@ actions on content in question.</p>
     def mayBackup(self, project=None):
         &#34;&#34;&#34;Whether the current user is allowed to make backups.
 
-        *   Backups are only allowed in all modes.
+        *   Backups are not allowed in production mode, bacause the system and not the
+            users are responsible for backups.
         *   Site-wide backups are only allowed for power users.
         *   Project backups are only allowed for project organisers and (power users).
 
@@ -797,6 +805,12 @@ actions on content in question.</p>
         boolean
             whether the relevant backup/restore actions are allowed.
         &#34;&#34;&#34;
+        Settings = self.Settings
+        runProd = Settings.runProd
+
+        if runProd:
+            return False
+
         User = self.myDetails()
 
         if User.role in {&#34;admin&#34;, &#34;root&#34;}:
@@ -907,7 +921,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L34-L324" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/auth.py#L34-L324" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def authorise(self, table, record, action=None, insertTable=None):
     &#34;&#34;&#34;Check whether an action is allowed on data.
@@ -1228,7 +1242,7 @@ So, to test whether any action is allowed, it suffices to test whether
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L363-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/auth.py#L370-L398" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def makeSafe(self, table, record, action):
     &#34;&#34;&#34;Changes an update action into a read action if needed.
@@ -1267,7 +1281,8 @@ So, to test whether any action is allowed, it suffices to test whether
 <dd>
 <div class="desc"><p>Whether the current user is allowed to make backups.</p>
 <ul>
-<li>Backups are only allowed in all modes.</li>
+<li>Backups are not allowed in production mode, bacause the system and not the
+users are responsible for backups.</li>
 <li>Site-wide backups are only allowed for power users.</li>
 <li>Project backups are only allowed for project organisers and (power users).</li>
 </ul>
@@ -1285,12 +1300,13 @@ Otherwise we get the backups of this project.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/auth.py#L326-L361" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/auth.py#L326-L368" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mayBackup(self, project=None):
     &#34;&#34;&#34;Whether the current user is allowed to make backups.
 
-    *   Backups are only allowed in all modes.
+    *   Backups are not allowed in production mode, bacause the system and not the
+        users are responsible for backups.
     *   Site-wide backups are only allowed for power users.
     *   Project backups are only allowed for project organisers and (power users).
 
@@ -1305,6 +1321,12 @@ Otherwise we get the backups of this project.</dd>
     boolean
         whether the relevant backup/restore actions are allowed.
     &#34;&#34;&#34;
+    Settings = self.Settings
+    runProd = Settings.runProd
+
+    if runProd:
+        return False
+
     User = self.myDetails()
 
     if User.role in {&#34;admin&#34;, &#34;root&#34;}:

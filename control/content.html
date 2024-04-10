@@ -26,11 +26,10 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1-L2218" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1-L1883" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from io import BytesIO
 import os
-from datetime import datetime as dt
 import json
 import yaml
 import magic
@@ -835,95 +834,6 @@ class Content(Datamodel):
 
         return F.formatted(record, &#34;update&#34; in actions, bust=bust, wrapped=wrapped)
 
-    def getBackups(self, project=None):
-        &#34;&#34;&#34;Produce a backup button and an overview of existing backups.
-
-        Only if it is relevant to the current user in the current run mode.
-
-        The existing backups will be presented as link: a click will trigger a restore
-        from that backup. There will also be delete buttons for each backup.
-
-        Parameters
-        ----------
-        project: AttrDict | ObjectId | string, optional None
-            If None, we deal with site-wide backup.
-            Otherwise we get the backups of this project.
-        &#34;&#34;&#34;
-        Auth = self.Auth
-        if not Auth.mayBackup(project=project):
-            return &#34;&#34;
-
-        Settings = self.Settings
-        Mongo = self.Mongo
-        H = Settings.H
-        Messages = self.Messages
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-        projectSlug = &#34;&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return &#34;&#34;
-            projectSlug = f&#34;/{projectId}&#34;
-            backupBase += f&#34;/project{projectSlug}&#34;
-
-        backups = []
-
-        if dirExists(backupBase):
-            with os.scandir(backupBase) as dh:
-                for entry in dh:
-                    if entry.is_dir():
-                        name = entry.name
-                        if name != &#34;project&#34;:
-                            backups.append(name)
-            backups = list(reversed(sorted(backups)))
-
-        title = &#34;restore this backup&#34;
-        msgs = Messages.client(&#34;info&#34;, &#34;wait for restore to complete ...&#34;, replace=True)
-        backups = (
-            H.small(H.i(&#34;No backups&#34;))
-            if len(backups) == 0
-            else H.div(
-                [
-                    [
-                        H.a(
-                            backup,
-                            f&#34;/restore/{backup}{projectSlug}&#34;,
-                            title=title,
-                            cls=&#34;small&#34;,
-                            **msgs,
-                        ),
-                        H.nbsp,
-                        H.iconx(&#34;delete&#34;, href=f&#34;/delbackup/{backup}{projectSlug}&#34;),
-                        H.br(),
-                    ]
-                    for backup in backups
-                ]
-            )
-        )
-
-        title = (
-            &#34;make a backup of &#34;
-            + (&#34;all&#34; if project is None else &#34;this project&#34;)
-            + &#34;data as stored in files and the database&#34;
-        )
-        return H.details(
-            H.a(
-                &#34;make backup&#34;,
-                f&#34;/backup{projectSlug}&#34;,
-                title=title,
-                cls=&#34;small&#34;,
-                **Messages.client(
-                    &#34;info&#34;, &#34;wait for backup to complete ...&#34;, replace=True
-                ),
-            ),
-            backups,
-            &#34;backups&#34;,
-        )
-
     def getDownload(self, table, record):
         &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
 
@@ -1281,251 +1191,6 @@ class Content(Datamodel):
                 ),
             ]
         )
-
-    def mkBackup(self, project=None):
-        &#34;&#34;&#34;Makes a backup of data as found in files and db.
-
-        We do site-wide backups and project-specific backups.
-
-        Site-wide backups take the complete working directory on the file system,
-        and the complete relevant database in MongoDb.
-
-        Project-specific backups take only the project directory on the file system,
-        and the relevant project record plus the relevant edition records in MongoDb.
-
-        !!! caution &#34;Site-wide backups affect user data&#34;
-            The set of users and their permissions may be different across backups.
-            After restoring a snaphot, the user that restored it may no longer exist,
-            or have different rights.
-
-        !!! caution &#34;Project backups do not affect user data&#34;
-            No user data nor any coupling between users and the project and its editions
-            are modified.
-
-            A consequence is that a backup may contain editions that do not
-            exist anymore and to which no users are coupled.
-            It may be needed to assign current users to editions after a restore.
-
-        Backups are stored in the data directory of the server under `backups` and then
-        the run mode (`pilot`, `test`, `prod`).
-        The site-wide backups are stores under `site`, the project backups
-        under `project/`*projectId*.
-
-        The directory name of the backup is
-        the current date-time up to the second in iso format, but with the `:`
-        replaced by `-`.
-
-        Below that we have directories:
-
-        *   `files`: contains the complete contents of the working directory of
-            the current run mode.
-        *   `db`: a backup of the complete contents of the MongoDb database of the
-            current run mode.
-            In there again a subdivision:
-
-            * [`bson`](https://www.mongodb.com/basics/bson)
-            * `json`
-
-            The name indicates the file format of the backup.
-            In both cases, the data ends up in folders per table,
-            and within those folders we have files per record.
-
-        Parameters
-        ----------
-        project: string, optional None
-            If given, only backs up the given project.
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Reset data is not allowed&#34;,
-                logmsg=(&#34;Reset data is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        workingDir = Settings.workingDir
-        runMode = Settings.runMode
-        activeDir = workingDir
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return False
-            activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{now}&#34;
-        backupFileDir = f&#34;{backupDir}/files&#34;
-        backupDbDir = f&#34;{backupDir}/db&#34;
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Making backup {now}&#34;,
-            logmsg=f&#34;Making {label} backup to {backupDir}&#34;,
-        )
-        Messages.info(msg=&#34;backup of database ...&#34;)
-        good = Mongo.mkBackup(backupDbDir, project=project, asJson=True)
-        if not good:
-            return False
-
-        Messages.info(msg=&#34;backup of files ...&#34;)
-        dirCopy(activeDir, backupFileDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
-
-    def restore(self, backup, project=None):
-        &#34;&#34;&#34;Restores data to files and db, from a backup.
-
-        See also `mkBackup()`.
-
-        First a new backup of the current situation will be made.
-
-        Parameters
-        ----------
-        backup: string
-            Name of a backup. The backup must exist.
-        project: string, optional None
-            If given, only restores the given project.
-
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Restoring from a backup is not allowed&#34;,
-                logmsg=(&#34;Restoring from a backup is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        workingDir = Settings.workingDir
-        activeDir = workingDir
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return False
-            activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{backup}&#34;
-        backupFileDir = f&#34;{backupDir}/files&#34;
-        backupDbDir = f&#34;{backupDir}/db&#34;
-
-        good = True
-        if not dirExists(backupDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not exist&#34;,
-                logmsg=f&#34;Backup to restore from ({backupDir}) does not exist&#34;,
-            )
-            good = False
-        elif not dirExists(backupFileDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not have file data&#34;,
-                logmsg=(
-                    f&#34;Backup to restore from ({backupDir}) &#34; f&#34;does not have file data&#34;
-                ),
-            )
-            good = False
-        elif not dirExists(backupDbDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not have db data&#34;,
-                logmsg=(
-                    f&#34;Backup to restore from ({backupDir}) &#34; &#34;does not have db data&#34;
-                ),
-            )
-            good = False
-        if not good:
-            return False
-
-        good = self.mkBackup(project=project)
-        if not good:
-            return False
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Restoring backup {backup}&#34;,
-            logmsg=f&#34;Restoring {label} backup {backupDir}&#34;,
-        )
-        Messages.info(msg=&#34;restore database ...&#34;)
-        good = Mongo.restore(backupDbDir, project=project, clean=True)
-        if not good:
-            return False
-
-        Messages.info(msg=&#34;restore files ...&#34;)
-        dirCopy(backupFileDir, activeDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
-
-    def delBackup(self, backup, project=None):
-        &#34;&#34;&#34;Deletes a backup.
-
-        See also `mkBackup()`.
-
-        Parameters
-        ----------
-        backup: string
-            Name of a backup. The backup must exist.
-        project: string, optional None
-            If given, only deletes the backup of this project.
-
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Deleting a backup is not allowed&#34;,
-                logmsg=(&#34;Deleting a backup is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{backup}&#34;
-
-        if not dirExists(backupDir):
-            Messages.warning(
-                msg=&#34;backup to delete does not exist&#34;,
-                logmsg=f&#34;Backup to delete ({backupDir}) does not exist&#34;,
-            )
-            return False
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Deleting backup {backup}&#34;,
-            logmsg=f&#34;Deleting {label} backup {backupDir}&#34;,
-        )
-        dirRemove(backupDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
 
     def precheck(self, record):
         &#34;&#34;&#34;Check the articles of an edition prior to publishing.
@@ -2284,7 +1949,7 @@ class that will compose a response out of it.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L29-L2218" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L28-L1883" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Content(Datamodel):
     def __init__(self, Settings, Messages, Viewers, Mongo, Wrap):
@@ -3065,95 +2730,6 @@ class that will compose a response out of it.</p>
 
         return F.formatted(record, &#34;update&#34; in actions, bust=bust, wrapped=wrapped)
 
-    def getBackups(self, project=None):
-        &#34;&#34;&#34;Produce a backup button and an overview of existing backups.
-
-        Only if it is relevant to the current user in the current run mode.
-
-        The existing backups will be presented as link: a click will trigger a restore
-        from that backup. There will also be delete buttons for each backup.
-
-        Parameters
-        ----------
-        project: AttrDict | ObjectId | string, optional None
-            If None, we deal with site-wide backup.
-            Otherwise we get the backups of this project.
-        &#34;&#34;&#34;
-        Auth = self.Auth
-        if not Auth.mayBackup(project=project):
-            return &#34;&#34;
-
-        Settings = self.Settings
-        Mongo = self.Mongo
-        H = Settings.H
-        Messages = self.Messages
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-        projectSlug = &#34;&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return &#34;&#34;
-            projectSlug = f&#34;/{projectId}&#34;
-            backupBase += f&#34;/project{projectSlug}&#34;
-
-        backups = []
-
-        if dirExists(backupBase):
-            with os.scandir(backupBase) as dh:
-                for entry in dh:
-                    if entry.is_dir():
-                        name = entry.name
-                        if name != &#34;project&#34;:
-                            backups.append(name)
-            backups = list(reversed(sorted(backups)))
-
-        title = &#34;restore this backup&#34;
-        msgs = Messages.client(&#34;info&#34;, &#34;wait for restore to complete ...&#34;, replace=True)
-        backups = (
-            H.small(H.i(&#34;No backups&#34;))
-            if len(backups) == 0
-            else H.div(
-                [
-                    [
-                        H.a(
-                            backup,
-                            f&#34;/restore/{backup}{projectSlug}&#34;,
-                            title=title,
-                            cls=&#34;small&#34;,
-                            **msgs,
-                        ),
-                        H.nbsp,
-                        H.iconx(&#34;delete&#34;, href=f&#34;/delbackup/{backup}{projectSlug}&#34;),
-                        H.br(),
-                    ]
-                    for backup in backups
-                ]
-            )
-        )
-
-        title = (
-            &#34;make a backup of &#34;
-            + (&#34;all&#34; if project is None else &#34;this project&#34;)
-            + &#34;data as stored in files and the database&#34;
-        )
-        return H.details(
-            H.a(
-                &#34;make backup&#34;,
-                f&#34;/backup{projectSlug}&#34;,
-                title=title,
-                cls=&#34;small&#34;,
-                **Messages.client(
-                    &#34;info&#34;, &#34;wait for backup to complete ...&#34;, replace=True
-                ),
-            ),
-            backups,
-            &#34;backups&#34;,
-        )
-
     def getDownload(self, table, record):
         &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
 
@@ -3511,251 +3087,6 @@ class that will compose a response out of it.</p>
                 ),
             ]
         )
-
-    def mkBackup(self, project=None):
-        &#34;&#34;&#34;Makes a backup of data as found in files and db.
-
-        We do site-wide backups and project-specific backups.
-
-        Site-wide backups take the complete working directory on the file system,
-        and the complete relevant database in MongoDb.
-
-        Project-specific backups take only the project directory on the file system,
-        and the relevant project record plus the relevant edition records in MongoDb.
-
-        !!! caution &#34;Site-wide backups affect user data&#34;
-            The set of users and their permissions may be different across backups.
-            After restoring a snaphot, the user that restored it may no longer exist,
-            or have different rights.
-
-        !!! caution &#34;Project backups do not affect user data&#34;
-            No user data nor any coupling between users and the project and its editions
-            are modified.
-
-            A consequence is that a backup may contain editions that do not
-            exist anymore and to which no users are coupled.
-            It may be needed to assign current users to editions after a restore.
-
-        Backups are stored in the data directory of the server under `backups` and then
-        the run mode (`pilot`, `test`, `prod`).
-        The site-wide backups are stores under `site`, the project backups
-        under `project/`*projectId*.
-
-        The directory name of the backup is
-        the current date-time up to the second in iso format, but with the `:`
-        replaced by `-`.
-
-        Below that we have directories:
-
-        *   `files`: contains the complete contents of the working directory of
-            the current run mode.
-        *   `db`: a backup of the complete contents of the MongoDb database of the
-            current run mode.
-            In there again a subdivision:
-
-            * [`bson`](https://www.mongodb.com/basics/bson)
-            * `json`
-
-            The name indicates the file format of the backup.
-            In both cases, the data ends up in folders per table,
-            and within those folders we have files per record.
-
-        Parameters
-        ----------
-        project: string, optional None
-            If given, only backs up the given project.
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Reset data is not allowed&#34;,
-                logmsg=(&#34;Reset data is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        workingDir = Settings.workingDir
-        runMode = Settings.runMode
-        activeDir = workingDir
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return False
-            activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{now}&#34;
-        backupFileDir = f&#34;{backupDir}/files&#34;
-        backupDbDir = f&#34;{backupDir}/db&#34;
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Making backup {now}&#34;,
-            logmsg=f&#34;Making {label} backup to {backupDir}&#34;,
-        )
-        Messages.info(msg=&#34;backup of database ...&#34;)
-        good = Mongo.mkBackup(backupDbDir, project=project, asJson=True)
-        if not good:
-            return False
-
-        Messages.info(msg=&#34;backup of files ...&#34;)
-        dirCopy(activeDir, backupFileDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
-
-    def restore(self, backup, project=None):
-        &#34;&#34;&#34;Restores data to files and db, from a backup.
-
-        See also `mkBackup()`.
-
-        First a new backup of the current situation will be made.
-
-        Parameters
-        ----------
-        backup: string
-            Name of a backup. The backup must exist.
-        project: string, optional None
-            If given, only restores the given project.
-
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Restoring from a backup is not allowed&#34;,
-                logmsg=(&#34;Restoring from a backup is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        workingDir = Settings.workingDir
-        activeDir = workingDir
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            if projectId is None:
-                return False
-            activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{backup}&#34;
-        backupFileDir = f&#34;{backupDir}/files&#34;
-        backupDbDir = f&#34;{backupDir}/db&#34;
-
-        good = True
-        if not dirExists(backupDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not exist&#34;,
-                logmsg=f&#34;Backup to restore from ({backupDir}) does not exist&#34;,
-            )
-            good = False
-        elif not dirExists(backupFileDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not have file data&#34;,
-                logmsg=(
-                    f&#34;Backup to restore from ({backupDir}) &#34; f&#34;does not have file data&#34;
-                ),
-            )
-            good = False
-        elif not dirExists(backupDbDir):
-            Messages.warning(
-                msg=&#34;backup to restore from does not have db data&#34;,
-                logmsg=(
-                    f&#34;Backup to restore from ({backupDir}) &#34; &#34;does not have db data&#34;
-                ),
-            )
-            good = False
-        if not good:
-            return False
-
-        good = self.mkBackup(project=project)
-        if not good:
-            return False
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Restoring backup {backup}&#34;,
-            logmsg=f&#34;Restoring {label} backup {backupDir}&#34;,
-        )
-        Messages.info(msg=&#34;restore database ...&#34;)
-        good = Mongo.restore(backupDbDir, project=project, clean=True)
-        if not good:
-            return False
-
-        Messages.info(msg=&#34;restore files ...&#34;)
-        dirCopy(backupFileDir, activeDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
-
-    def delBackup(self, backup, project=None):
-        &#34;&#34;&#34;Deletes a backup.
-
-        See also `mkBackup()`.
-
-        Parameters
-        ----------
-        backup: string
-            Name of a backup. The backup must exist.
-        project: string, optional None
-            If given, only deletes the backup of this project.
-
-        &#34;&#34;&#34;
-        Messages = self.Messages
-        Auth = self.Auth
-
-        if not Auth.mayBackup(project=project):
-            Messages.warning(
-                msg=&#34;Deleting a backup is not allowed&#34;,
-                logmsg=(&#34;Deleting a backup is not allowed&#34;),
-            )
-            return False
-
-        Settings = self.Settings
-        Messages = self.Messages
-        Mongo = self.Mongo
-
-        dataDir = Settings.dataDir
-        runMode = Settings.runMode
-        backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-        if project is not None:
-            (projectId, project) = Mongo.get(&#34;project&#34;, project)
-            backupBase += f&#34;/project/{projectId}&#34;
-
-        backupDir = f&#34;{backupBase}/{backup}&#34;
-
-        if not dirExists(backupDir):
-            Messages.warning(
-                msg=&#34;backup to delete does not exist&#34;,
-                logmsg=f&#34;Backup to delete ({backupDir}) does not exist&#34;,
-            )
-            return False
-
-        label = &#34;system wide&#34; if project is None else &#34;project&#34;
-        Messages.info(
-            msg=f&#34;Deleting backup {backup}&#34;,
-            logmsg=f&#34;Deleting {label} backup {backupDir}&#34;,
-        )
-        dirRemove(backupDir)
-        Messages.info(msg=&#34;backup completed.&#34;)
-        return True
 
     def precheck(self, record):
         &#34;&#34;&#34;Check the articles of an edition prior to publishing.
@@ -4493,7 +3824,7 @@ a handle to Auth after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L57-L63" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L56-L62" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addAuth(self, Auth):
     &#34;&#34;&#34;Give this object a handle to the Auth object.
@@ -4514,7 +3845,7 @@ a handle to Publish after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L65-L71" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L64-L70" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def addPublish(self, Publish):
     &#34;&#34;&#34;Give this object a handle to the Publish object.
@@ -4538,7 +3869,7 @@ a handle to Publish after their initialization.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1222-L1253" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1132-L1163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def breadCrumb(self, project):
     &#34;&#34;&#34;Makes a link to the landing page of a project.
@@ -4601,7 +3932,7 @@ messages indicating what is wrong with the content.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1908-L2030" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1573-L1695" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkFileContent(self, key, targetFileName, fileName, fileContent):
     &#34;&#34;&#34;Performs checks on the name and content of an uploaded file before saving it.
@@ -4746,7 +4077,7 @@ messages indicating what is wrong with the content.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L406-L490" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L405-L489" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def createEdition(self, project):
     &#34;&#34;&#34;Creates a new edition.
@@ -4854,7 +4185,7 @@ It acts as a master record for all projects.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L253-L307" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L252-L306" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def createProject(self, site):
     &#34;&#34;&#34;Creates a new project.
@@ -4939,7 +4270,7 @@ This should be different from the user names of existing users.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L598-L616" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L597-L615" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def createUser(self, user):
     &#34;&#34;&#34;Creates a new user with a given user name.
@@ -4960,78 +4291,6 @@ This should be different from the user names of existing users.</dd>
         * `name`: the name under which the new user has been saved
     &#34;&#34;&#34;
     return Admin(self).createUser(user)</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.delBackup"><code class="name flex">
-<span>def <span class="ident">delBackup</span></span>(<span>self, backup, project=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Deletes a backup.</p>
-<p>See also <code>mkBackup()</code>.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>backup</code></strong> :&ensp;<code>string</code></dt>
-<dd>Name of a backup. The backup must exist.</dd>
-<dt><strong><code>project</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>If given, only deletes the backup of this project.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1447-L1498" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def delBackup(self, backup, project=None):
-    &#34;&#34;&#34;Deletes a backup.
-
-    See also `mkBackup()`.
-
-    Parameters
-    ----------
-    backup: string
-        Name of a backup. The backup must exist.
-    project: string, optional None
-        If given, only deletes the backup of this project.
-
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Auth = self.Auth
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Deleting a backup is not allowed&#34;,
-            logmsg=(&#34;Deleting a backup is not allowed&#34;),
-        )
-        return False
-
-    Settings = self.Settings
-    Messages = self.Messages
-    Mongo = self.Mongo
-
-    dataDir = Settings.dataDir
-    runMode = Settings.runMode
-    backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-    if project is not None:
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        backupBase += f&#34;/project/{projectId}&#34;
-
-    backupDir = f&#34;{backupBase}/{backup}&#34;
-
-    if not dirExists(backupDir):
-        Messages.warning(
-            msg=&#34;backup to delete does not exist&#34;,
-            logmsg=f&#34;Backup to delete ({backupDir}) does not exist&#34;,
-        )
-        return False
-
-    label = &#34;system wide&#34; if project is None else &#34;project&#34;
-    Messages.info(
-        msg=f&#34;Deleting backup {backup}&#34;,
-        logmsg=f&#34;Deleting {label} backup {backupDir}&#34;,
-    )
-    dirRemove(backupDir)
-    Messages.info(msg=&#34;backup completed.&#34;)
-    return True</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.deleteFile"><code class="name flex">
@@ -5064,7 +4323,7 @@ A json response with the status of the save operation:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L2149-L2218" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1814-L1883" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteFile(self, record, key, path, fileName, targetFileName=None):
     &#34;&#34;&#34;Deletes a file in the context given by a record.
@@ -5158,7 +4417,7 @@ A json response with the status of the save operation:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L309-L404" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L308-L403" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteItem(self, table, record):
     &#34;&#34;&#34;Deletes an item, project or edition.
@@ -5283,7 +4542,7 @@ This should be a test user, not linked to any project or edition.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L618-L635" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L617-L634" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def deleteUser(self, user):
     &#34;&#34;&#34;Deletes a test user with a given user name.
@@ -5323,7 +4582,7 @@ A download response.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1687-L1806" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1352-L1471" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def download(self, table, record):
     &#34;&#34;&#34;Responds with a download of a project or edition.
@@ -5458,7 +4717,7 @@ A publish status response.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1664-L1685" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1329-L1350" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def generate(self):
     &#34;&#34;&#34;Regenerate the HTML for the published site.
@@ -5507,7 +4766,7 @@ the controls to do so.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L231-L251" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L230-L250" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getAdmin(self):
     &#34;&#34;&#34;Get the list of relevant projects, editions and users.
@@ -5530,115 +4789,6 @@ the controls to do so.</p>
     string
     &#34;&#34;&#34;
     return Admin(self).wrap()</code></pre>
-</details>
-</dd>
-<dt id="control.content.Content.getBackups"><code class="name flex">
-<span>def <span class="ident">getBackups</span></span>(<span>self, project=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Produce a backup button and an overview of existing backups.</p>
-<p>Only if it is relevant to the current user in the current run mode.</p>
-<p>The existing backups will be presented as link: a click will trigger a restore
-from that backup. There will also be delete buttons for each backup.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict | ObjectId | string</code>, optional <code>None</code></dt>
-<dd>If None, we deal with site-wide backup.
-Otherwise we get the backups of this project.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L808-L895" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getBackups(self, project=None):
-    &#34;&#34;&#34;Produce a backup button and an overview of existing backups.
-
-    Only if it is relevant to the current user in the current run mode.
-
-    The existing backups will be presented as link: a click will trigger a restore
-    from that backup. There will also be delete buttons for each backup.
-
-    Parameters
-    ----------
-    project: AttrDict | ObjectId | string, optional None
-        If None, we deal with site-wide backup.
-        Otherwise we get the backups of this project.
-    &#34;&#34;&#34;
-    Auth = self.Auth
-    if not Auth.mayBackup(project=project):
-        return &#34;&#34;
-
-    Settings = self.Settings
-    Mongo = self.Mongo
-    H = Settings.H
-    Messages = self.Messages
-
-    dataDir = Settings.dataDir
-    runMode = Settings.runMode
-    backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-    projectSlug = &#34;&#34;
-
-    if project is not None:
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        if projectId is None:
-            return &#34;&#34;
-        projectSlug = f&#34;/{projectId}&#34;
-        backupBase += f&#34;/project{projectSlug}&#34;
-
-    backups = []
-
-    if dirExists(backupBase):
-        with os.scandir(backupBase) as dh:
-            for entry in dh:
-                if entry.is_dir():
-                    name = entry.name
-                    if name != &#34;project&#34;:
-                        backups.append(name)
-        backups = list(reversed(sorted(backups)))
-
-    title = &#34;restore this backup&#34;
-    msgs = Messages.client(&#34;info&#34;, &#34;wait for restore to complete ...&#34;, replace=True)
-    backups = (
-        H.small(H.i(&#34;No backups&#34;))
-        if len(backups) == 0
-        else H.div(
-            [
-                [
-                    H.a(
-                        backup,
-                        f&#34;/restore/{backup}{projectSlug}&#34;,
-                        title=title,
-                        cls=&#34;small&#34;,
-                        **msgs,
-                    ),
-                    H.nbsp,
-                    H.iconx(&#34;delete&#34;, href=f&#34;/delbackup/{backup}{projectSlug}&#34;),
-                    H.br(),
-                ]
-                for backup in backups
-            ]
-        )
-    )
-
-    title = (
-        &#34;make a backup of &#34;
-        + (&#34;all&#34; if project is None else &#34;this project&#34;)
-        + &#34;data as stored in files and the database&#34;
-    )
-    return H.details(
-        H.a(
-            &#34;make backup&#34;,
-            f&#34;/backup{projectSlug}&#34;,
-            title=title,
-            cls=&#34;small&#34;,
-            **Messages.client(
-                &#34;info&#34;, &#34;wait for backup to complete ...&#34;, replace=True
-            ),
-        ),
-        backups,
-        &#34;backups&#34;,
-    )</code></pre>
 </details>
 </dd>
 <dt id="control.content.Content.getDataFile"><code class="name flex">
@@ -5677,7 +4827,7 @@ when <code>lenient</code> is True.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1127-L1220" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1037-L1130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDataFile(self, table, record, path, content=False, lenient=False):
     &#34;&#34;&#34;Gets a data file from the file system.
@@ -5805,7 +4955,7 @@ widgets to upload a new file or to delete the existing file.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L897-L939" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L807-L849" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDownload(self, table, record):
     &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
@@ -5875,7 +5025,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L103-L132" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L102-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getEditions(self, project):
     &#34;&#34;&#34;Get the list of the editions of a project.
@@ -5927,7 +5077,7 @@ wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L79-L101" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L78-L100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getProjects(self):
     &#34;&#34;&#34;Get the list of all projects.
@@ -5983,7 +5133,7 @@ also added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L941-L1089" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L851-L999" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getPublishInfo(self, table, record):
     &#34;&#34;&#34;Display the number under which a project/edition is published.
@@ -6181,7 +5331,7 @@ The result is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L134-L229" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L133-L228" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getScene(self, projectId, edition, version=None, action=None):
     &#34;&#34;&#34;Get the scene of an edition of a project.
@@ -6289,7 +5439,7 @@ The result is wrapped in a HTML string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L73-L77" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L72-L76" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getSurprise(self):
     &#34;&#34;&#34;Get the data that belongs to the surprise-me functionality.&#34;&#34;&#34;
@@ -6347,7 +5497,7 @@ widgets to upload a new file or to delete the existing file.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L750-L806" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L749-L805" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getUpload(self, record, key, fileName=None, bust=None, wrapped=True):
     &#34;&#34;&#34;Display the name and/or upload controls of an uploaded file.
@@ -6451,7 +5601,7 @@ If not, we return the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L666-L721" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L665-L720" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getValue(self, table, record, key, level=None, manner=&#34;formatted&#34;):
     &#34;&#34;&#34;Retrieve a metadata value.
@@ -6533,7 +5683,7 @@ If not, we return the empty string.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L723-L748" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L722-L747" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getValues(self, table, record, fieldSpecs):
     &#34;&#34;&#34;Puts several pieces of metadata on the web page.
@@ -6585,7 +5735,7 @@ Otherwise, we raise an error that will lead to a 404 response.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1091-L1125" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1001-L1035" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getViewerFile(self, path):
     &#34;&#34;&#34;Gets a viewer-related file from the file system.
@@ -6657,7 +5807,7 @@ material.</li>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L637-L664" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L636-L663" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def linkUser(self, table, recordId):
     &#34;&#34;&#34;Links a user in certain role to a project/edition record.
@@ -6689,166 +5839,6 @@ material.</li>
     return Admin(self).linkUser(newUser, newRole, table, recordId)</code></pre>
 </details>
 </dd>
-<dt id="control.content.Content.mkBackup"><code class="name flex">
-<span>def <span class="ident">mkBackup</span></span>(<span>self, project=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Makes a backup of data as found in files and db.</p>
-<p>We do site-wide backups and project-specific backups.</p>
-<p>Site-wide backups take the complete working directory on the file system,
-and the complete relevant database in MongoDb.</p>
-<p>Project-specific backups take only the project directory on the file system,
-and the relevant project record plus the relevant edition records in MongoDb.</p>
-<div class="admonition caution">
-<p class="admonition-title">Site-wide backups affect user data</p>
-<p>The set of users and their permissions may be different across backups.
-After restoring a snaphot, the user that restored it may no longer exist,
-or have different rights.</p>
-</div>
-<div class="admonition caution">
-<p class="admonition-title">Project backups do not affect user data</p>
-<p>No user data nor any coupling between users and the project and its editions
-are modified.</p>
-<p>A consequence is that a backup may contain editions that do not
-exist anymore and to which no users are coupled.
-It may be needed to assign current users to editions after a restore.</p>
-</div>
-<p>Backups are stored in the data directory of the server under <code>backups</code> and then
-the run mode (<code>pilot</code>, <code>test</code>, <code>prod</code>).
-The site-wide backups are stores under <code>site</code>, the project backups
-under <code>project/</code><em>projectId</em>.</p>
-<p>The directory name of the backup is
-the current date-time up to the second in iso format, but with the <code>:</code>
-replaced by <code>-</code>.</p>
-<p>Below that we have directories:</p>
-<ul>
-<li><code>files</code>: contains the complete contents of the working directory of
-the current run mode.</li>
-<li>
-<p><code>db</code>: a backup of the complete contents of the MongoDb database of the
-current run mode.
-In there again a subdivision:</p>
-<ul>
-<li><a href="https://www.mongodb.com/basics/bson"><code>bson</code></a></li>
-<li><code>json</code></li>
-</ul>
-<p>The name indicates the file format of the backup.
-In both cases, the data ends up in folders per table,
-and within those folders we have files per record.</p>
-</li>
-</ul>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>project</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>If given, only backs up the given project.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1255-L1354" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def mkBackup(self, project=None):
-    &#34;&#34;&#34;Makes a backup of data as found in files and db.
-
-    We do site-wide backups and project-specific backups.
-
-    Site-wide backups take the complete working directory on the file system,
-    and the complete relevant database in MongoDb.
-
-    Project-specific backups take only the project directory on the file system,
-    and the relevant project record plus the relevant edition records in MongoDb.
-
-    !!! caution &#34;Site-wide backups affect user data&#34;
-        The set of users and their permissions may be different across backups.
-        After restoring a snaphot, the user that restored it may no longer exist,
-        or have different rights.
-
-    !!! caution &#34;Project backups do not affect user data&#34;
-        No user data nor any coupling between users and the project and its editions
-        are modified.
-
-        A consequence is that a backup may contain editions that do not
-        exist anymore and to which no users are coupled.
-        It may be needed to assign current users to editions after a restore.
-
-    Backups are stored in the data directory of the server under `backups` and then
-    the run mode (`pilot`, `test`, `prod`).
-    The site-wide backups are stores under `site`, the project backups
-    under `project/`*projectId*.
-
-    The directory name of the backup is
-    the current date-time up to the second in iso format, but with the `:`
-    replaced by `-`.
-
-    Below that we have directories:
-
-    *   `files`: contains the complete contents of the working directory of
-        the current run mode.
-    *   `db`: a backup of the complete contents of the MongoDb database of the
-        current run mode.
-        In there again a subdivision:
-
-        * [`bson`](https://www.mongodb.com/basics/bson)
-        * `json`
-
-        The name indicates the file format of the backup.
-        In both cases, the data ends up in folders per table,
-        and within those folders we have files per record.
-
-    Parameters
-    ----------
-    project: string, optional None
-        If given, only backs up the given project.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Auth = self.Auth
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Reset data is not allowed&#34;,
-            logmsg=(&#34;Reset data is not allowed&#34;),
-        )
-        return False
-
-    Settings = self.Settings
-    Messages = self.Messages
-    Mongo = self.Mongo
-
-    dataDir = Settings.dataDir
-    workingDir = Settings.workingDir
-    runMode = Settings.runMode
-    activeDir = workingDir
-    backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-    now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
-
-    if project is not None:
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        if projectId is None:
-            return False
-        activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-        backupBase += f&#34;/project/{projectId}&#34;
-
-    backupDir = f&#34;{backupBase}/{now}&#34;
-    backupFileDir = f&#34;{backupDir}/files&#34;
-    backupDbDir = f&#34;{backupDir}/db&#34;
-
-    label = &#34;system wide&#34; if project is None else &#34;project&#34;
-    Messages.info(
-        msg=f&#34;Making backup {now}&#34;,
-        logmsg=f&#34;Making {label} backup to {backupDir}&#34;,
-    )
-    Messages.info(msg=&#34;backup of database ...&#34;)
-    good = Mongo.mkBackup(backupDbDir, project=project, asJson=True)
-    if not good:
-        return False
-
-    Messages.info(msg=&#34;backup of files ...&#34;)
-    dirCopy(activeDir, backupFileDir)
-    Messages.info(msg=&#34;backup completed.&#34;)
-    return True</code></pre>
-</details>
-</dd>
 <dt id="control.content.Content.precheck"><code class="name flex">
 <span>def <span class="ident">precheck</span></span>(<span>self, record)</span>
 </code></dt>
@@ -6867,7 +5857,7 @@ A status response.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1500-L1539" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1165-L1204" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def precheck(self, record):
     &#34;&#34;&#34;Check the articles of an edition prior to publishing.
@@ -6936,7 +5926,7 @@ ignored.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L2032-L2147" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1697-L1812" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def processModelZip(self, zf, destDir):
     &#34;&#34;&#34;Processes zip data with a scene and model files.
@@ -7074,7 +6064,7 @@ A publish status response.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1541-L1580" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1206-L1245" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def publish(self, record, force):
     &#34;&#34;&#34;Publish an edition.
@@ -7136,7 +6126,7 @@ A re-publish status response.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1582-L1623" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1247-L1288" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def republish(self, record, force):
     &#34;&#34;&#34;Re-ublish an edition.
@@ -7182,117 +6172,6 @@ A re-publish status response.</p></div>
     )</code></pre>
 </details>
 </dd>
-<dt id="control.content.Content.restore"><code class="name flex">
-<span>def <span class="ident">restore</span></span>(<span>self, backup, project=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Restores data to files and db, from a backup.</p>
-<p>See also <code>mkBackup()</code>.</p>
-<p>First a new backup of the current situation will be made.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>backup</code></strong> :&ensp;<code>string</code></dt>
-<dd>Name of a backup. The backup must exist.</dd>
-<dt><strong><code>project</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
-<dd>If given, only restores the given project.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1356-L1445" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def restore(self, backup, project=None):
-    &#34;&#34;&#34;Restores data to files and db, from a backup.
-
-    See also `mkBackup()`.
-
-    First a new backup of the current situation will be made.
-
-    Parameters
-    ----------
-    backup: string
-        Name of a backup. The backup must exist.
-    project: string, optional None
-        If given, only restores the given project.
-
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Auth = self.Auth
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Restoring from a backup is not allowed&#34;,
-            logmsg=(&#34;Restoring from a backup is not allowed&#34;),
-        )
-        return False
-
-    Settings = self.Settings
-    Messages = self.Messages
-    Mongo = self.Mongo
-
-    dataDir = Settings.dataDir
-    runMode = Settings.runMode
-    workingDir = Settings.workingDir
-    activeDir = workingDir
-    backupBase = f&#34;{dataDir}/backups/{runMode}&#34;
-
-    if project is not None:
-        (projectId, project) = Mongo.get(&#34;project&#34;, project)
-        if projectId is None:
-            return False
-        activeDir = f&#34;{workingDir}/project/{projectId}&#34;
-        backupBase += f&#34;/project/{projectId}&#34;
-
-    backupDir = f&#34;{backupBase}/{backup}&#34;
-    backupFileDir = f&#34;{backupDir}/files&#34;
-    backupDbDir = f&#34;{backupDir}/db&#34;
-
-    good = True
-    if not dirExists(backupDir):
-        Messages.warning(
-            msg=&#34;backup to restore from does not exist&#34;,
-            logmsg=f&#34;Backup to restore from ({backupDir}) does not exist&#34;,
-        )
-        good = False
-    elif not dirExists(backupFileDir):
-        Messages.warning(
-            msg=&#34;backup to restore from does not have file data&#34;,
-            logmsg=(
-                f&#34;Backup to restore from ({backupDir}) &#34; f&#34;does not have file data&#34;
-            ),
-        )
-        good = False
-    elif not dirExists(backupDbDir):
-        Messages.warning(
-            msg=&#34;backup to restore from does not have db data&#34;,
-            logmsg=(
-                f&#34;Backup to restore from ({backupDir}) &#34; &#34;does not have db data&#34;
-            ),
-        )
-        good = False
-    if not good:
-        return False
-
-    good = self.mkBackup(project=project)
-    if not good:
-        return False
-
-    label = &#34;system wide&#34; if project is None else &#34;project&#34;
-    Messages.info(
-        msg=f&#34;Restoring backup {backup}&#34;,
-        logmsg=f&#34;Restoring {label} backup {backupDir}&#34;,
-    )
-    Messages.info(msg=&#34;restore database ...&#34;)
-    good = Mongo.restore(backupDbDir, project=project, clean=True)
-    if not good:
-        return False
-
-    Messages.info(msg=&#34;restore files ...&#34;)
-    dirCopy(backupFileDir, activeDir)
-    Messages.info(msg=&#34;backup completed.&#34;)
-    return True</code></pre>
-</details>
-</dd>
 <dt id="control.content.Content.saveFile"><code class="name flex">
 <span>def <span class="ident">saveFile</span></span>(<span>self, record, key, path, fileName, targetFileName=None)</span>
 </code></dt>
@@ -7331,7 +6210,7 @@ A json response with the status of the save operation:</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1808-L1906" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1473-L1571" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveFile(self, record, key, path, fileName, targetFileName=None):
     &#34;&#34;&#34;Saves a file in the context given by a record.
@@ -7471,7 +6350,7 @@ material.</li>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L565-L596" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L564-L595" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveRole(self, user, table, recordId):
     &#34;&#34;&#34;Saves a role into a user or cross table record.
@@ -7542,7 +6421,7 @@ this will replace the currently displayed value.</li>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L492-L563" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L491-L562" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def saveValue(self, table, record, key):
     &#34;&#34;&#34;Saves a value of into a record.
@@ -7634,7 +6513,7 @@ An unpublish status response.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/content.py#L1625-L1662" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/content.py#L1290-L1327" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def unpublish(self, record):
     &#34;&#34;&#34;Unpublish an edition.
@@ -7769,14 +6648,12 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.content.Content.createEdition" href="#control.content.Content.createEdition">createEdition</a></code></li>
 <li><code><a title="control.content.Content.createProject" href="#control.content.Content.createProject">createProject</a></code></li>
 <li><code><a title="control.content.Content.createUser" href="#control.content.Content.createUser">createUser</a></code></li>
-<li><code><a title="control.content.Content.delBackup" href="#control.content.Content.delBackup">delBackup</a></code></li>
 <li><code><a title="control.content.Content.deleteFile" href="#control.content.Content.deleteFile">deleteFile</a></code></li>
 <li><code><a title="control.content.Content.deleteItem" href="#control.content.Content.deleteItem">deleteItem</a></code></li>
 <li><code><a title="control.content.Content.deleteUser" href="#control.content.Content.deleteUser">deleteUser</a></code></li>
 <li><code><a title="control.content.Content.download" href="#control.content.Content.download">download</a></code></li>
 <li><code><a title="control.content.Content.generate" href="#control.content.Content.generate">generate</a></code></li>
 <li><code><a title="control.content.Content.getAdmin" href="#control.content.Content.getAdmin">getAdmin</a></code></li>
-<li><code><a title="control.content.Content.getBackups" href="#control.content.Content.getBackups">getBackups</a></code></li>
 <li><code><a title="control.content.Content.getDataFile" href="#control.content.Content.getDataFile">getDataFile</a></code></li>
 <li><code><a title="control.content.Content.getDownload" href="#control.content.Content.getDownload">getDownload</a></code></li>
 <li><code><a title="control.content.Content.getEditions" href="#control.content.Content.getEditions">getEditions</a></code></li>
@@ -7789,12 +6666,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.content.Content.getValues" href="#control.content.Content.getValues">getValues</a></code></li>
 <li><code><a title="control.content.Content.getViewerFile" href="#control.content.Content.getViewerFile">getViewerFile</a></code></li>
 <li><code><a title="control.content.Content.linkUser" href="#control.content.Content.linkUser">linkUser</a></code></li>
-<li><code><a title="control.content.Content.mkBackup" href="#control.content.Content.mkBackup">mkBackup</a></code></li>
 <li><code><a title="control.content.Content.precheck" href="#control.content.Content.precheck">precheck</a></code></li>
 <li><code><a title="control.content.Content.processModelZip" href="#control.content.Content.processModelZip">processModelZip</a></code></li>
 <li><code><a title="control.content.Content.publish" href="#control.content.Content.publish">publish</a></code></li>
 <li><code><a title="control.content.Content.republish" href="#control.content.Content.republish">republish</a></code></li>
-<li><code><a title="control.content.Content.restore" href="#control.content.Content.restore">restore</a></code></li>
 <li><code><a title="control.content.Content.saveFile" href="#control.content.Content.saveFile">saveFile</a></code></li>
 <li><code><a title="control.content.Content.saveRole" href="#control.content.Content.saveRole">saveRole</a></code></li>
 <li><code><a title="control.content.Content.saveValue" href="#control.content.Content.saveValue">saveValue</a></code></li>

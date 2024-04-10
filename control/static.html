@@ -26,10 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L1-L856" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L1-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 from copy import deepcopy
+from traceback import format_exception
 
 from markdown import markdown
 
@@ -46,7 +47,7 @@ from control.files import (
     writeJson,
 )
 from control.generic import AttrDict, deepAttrDict, deepdict
-from control.helpers import prettify, genViewerSelector
+from control.helpers import prettify, genViewerSelector, ucFirst
 from control.precheck import Precheck as PrecheckCls
 
 
@@ -314,7 +315,11 @@ class Static:
                     partials[partial] = Handlebars.compile(pContent)
                 except Exception as e:
                     Messages.error(
-                        f&#34;Error in register partial {partial} : {str(e)}&#34;, stop=False
+                        logmsg=(
+                            f&#34;Error in register partial {partial} : &#34;
+                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                        ),
+                        stop=False,
                     )
                     good = False
 
@@ -345,7 +350,8 @@ class Static:
                     except Exception as e:
                         Messages.error(
                             logmsg=(
-                                f&#34;Error compiling template {templateFile} : {str(e)}&#34;
+                                f&#34;Error compiling template {templateFile} : &#34;
+                                f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
                             ),
                             stop=False,
                         )
@@ -362,7 +368,10 @@ class Static:
                     result = template(item, partials=partials)
                 except Exception as e:
                     Messages.error(
-                        logmsg=(f&#34;Error filling template {item.template} : {str(e)}&#34;),
+                        logmsg=(
+                            f&#34;Error filling template {item.template} : &#34;
+                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                        ),
                         stop=False,
                     )
                     failure += 1
@@ -590,7 +599,7 @@ class Static:
                 r.template = &#34;text.html&#34;
                 r.authorLink = authorRoot
                 r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-                r[&#34;is&#34; + r.name] = True
+                r[&#34;is&#34; + ucFirst(r.name)] = True
                 r.fileName = textFile
                 r.links = getLinks(textFile)
 
@@ -633,7 +642,7 @@ class Static:
 
         def get_projects():
             r = AttrDict()
-            r.isProject = True
+            r.isProjects = True
             r.name = &#34;All Projects&#34;
             r.template = &#34;projects.html&#34;
             r.fileName = &#34;projects.html&#34;
@@ -644,7 +653,7 @@ class Static:
 
         def get_editions():
             r = AttrDict()
-            r.isEdition = True
+            r.isEditions = True
             r.name = &#34;All Editions&#34;
             r.template = &#34;editions.html&#34;
             r.fileName = &#34;editions.html&#34;
@@ -667,8 +676,8 @@ class Static:
                 r.name = item.title
                 r.num = num
                 r.fileName = f&#34;project/{num}/index.html&#34;
-                r.description = dc.description
-                r.abstract = dc.abstract
+                r.abstract = dc.abstract or &#34;&#34;
+                r.description = dc.description or &#34;&#34;
                 r.subjects = dc.subject
                 r.visible = item.isVisible or False
                 result.append(r)
@@ -692,8 +701,8 @@ class Static:
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                    r.abstract = dc.abstract
-                    r.description = dc.description
+                    r.abstract = dc.abstract or &#34;&#34;
+                    r.description = dc.description or &#34;&#34;
                     r.subjects = dc.subject
                     r.published = item.isPublished or False
                     result.append(r)
@@ -904,7 +913,7 @@ class Static:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L27-L856" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L28-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Static:
     def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
@@ -1166,7 +1175,11 @@ class Static:
                     partials[partial] = Handlebars.compile(pContent)
                 except Exception as e:
                     Messages.error(
-                        f&#34;Error in register partial {partial} : {str(e)}&#34;, stop=False
+                        logmsg=(
+                            f&#34;Error in register partial {partial} : &#34;
+                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                        ),
+                        stop=False,
                     )
                     good = False
 
@@ -1197,7 +1210,8 @@ class Static:
                     except Exception as e:
                         Messages.error(
                             logmsg=(
-                                f&#34;Error compiling template {templateFile} : {str(e)}&#34;
+                                f&#34;Error compiling template {templateFile} : &#34;
+                                f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
                             ),
                             stop=False,
                         )
@@ -1214,7 +1228,10 @@ class Static:
                     result = template(item, partials=partials)
                 except Exception as e:
                     Messages.error(
-                        logmsg=(f&#34;Error filling template {item.template} : {str(e)}&#34;),
+                        logmsg=(
+                            f&#34;Error filling template {item.template} : &#34;
+                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                        ),
                         stop=False,
                     )
                     failure += 1
@@ -1442,7 +1459,7 @@ class Static:
                 r.template = &#34;text.html&#34;
                 r.authorLink = authorRoot
                 r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-                r[&#34;is&#34; + r.name] = True
+                r[&#34;is&#34; + ucFirst(r.name)] = True
                 r.fileName = textFile
                 r.links = getLinks(textFile)
 
@@ -1485,7 +1502,7 @@ class Static:
 
         def get_projects():
             r = AttrDict()
-            r.isProject = True
+            r.isProjects = True
             r.name = &#34;All Projects&#34;
             r.template = &#34;projects.html&#34;
             r.fileName = &#34;projects.html&#34;
@@ -1496,7 +1513,7 @@ class Static:
 
         def get_editions():
             r = AttrDict()
-            r.isEdition = True
+            r.isEditions = True
             r.name = &#34;All Editions&#34;
             r.template = &#34;editions.html&#34;
             r.fileName = &#34;editions.html&#34;
@@ -1519,8 +1536,8 @@ class Static:
                 r.name = item.title
                 r.num = num
                 r.fileName = f&#34;project/{num}/index.html&#34;
-                r.description = dc.description
-                r.abstract = dc.abstract
+                r.abstract = dc.abstract or &#34;&#34;
+                r.description = dc.description or &#34;&#34;
                 r.subjects = dc.subject
                 r.visible = item.isVisible or False
                 result.append(r)
@@ -1544,8 +1561,8 @@ class Static:
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                    r.abstract = dc.abstract
-                    r.description = dc.description
+                    r.abstract = dc.abstract or &#34;&#34;
+                    r.description = dc.description or &#34;&#34;
                     r.subjects = dc.subject
                     r.published = item.isPublished or False
                     result.append(r)
@@ -1787,7 +1804,7 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L136-L451" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L137-L460" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
     &#34;&#34;&#34;Generate html pages for a published edition.
@@ -1940,7 +1957,11 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
                 partials[partial] = Handlebars.compile(pContent)
             except Exception as e:
                 Messages.error(
-                    f&#34;Error in register partial {partial} : {str(e)}&#34;, stop=False
+                    logmsg=(
+                        f&#34;Error in register partial {partial} : &#34;
+                        f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                    ),
+                    stop=False,
                 )
                 good = False
 
@@ -1971,7 +1992,8 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
                 except Exception as e:
                     Messages.error(
                         logmsg=(
-                            f&#34;Error compiling template {templateFile} : {str(e)}&#34;
+                            f&#34;Error compiling template {templateFile} : &#34;
+                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
                         ),
                         stop=False,
                     )
@@ -1988,7 +2010,10 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
                 result = template(item, partials=partials)
             except Exception as e:
                 Messages.error(
-                    logmsg=(f&#34;Error filling template {item.template} : {str(e)}&#34;),
+                    logmsg=(
+                        f&#34;Error filling template {item.template} : &#34;
+                        f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
+                    ),
                     stop=False,
                 )
                 failure += 1
@@ -2159,7 +2184,7 @@ It is also stored in the member <code>data</code> of this object, under key
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L453-L812" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L462-L821" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getData(self, kind, pNumGiven, eNumGiven):
     &#34;&#34;&#34;Prepares page data of a certain kind.
@@ -2271,7 +2296,7 @@ It is also stored in the member <code>data</code> of this object, under key
             r.template = &#34;text.html&#34;
             r.authorLink = authorRoot
             r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-            r[&#34;is&#34; + r.name] = True
+            r[&#34;is&#34; + ucFirst(r.name)] = True
             r.fileName = textFile
             r.links = getLinks(textFile)
 
@@ -2314,7 +2339,7 @@ It is also stored in the member <code>data</code> of this object, under key
 
     def get_projects():
         r = AttrDict()
-        r.isProject = True
+        r.isProjects = True
         r.name = &#34;All Projects&#34;
         r.template = &#34;projects.html&#34;
         r.fileName = &#34;projects.html&#34;
@@ -2325,7 +2350,7 @@ It is also stored in the member <code>data</code> of this object, under key
 
     def get_editions():
         r = AttrDict()
-        r.isEdition = True
+        r.isEditions = True
         r.name = &#34;All Editions&#34;
         r.template = &#34;editions.html&#34;
         r.fileName = &#34;editions.html&#34;
@@ -2348,8 +2373,8 @@ It is also stored in the member <code>data</code> of this object, under key
             r.name = item.title
             r.num = num
             r.fileName = f&#34;project/{num}/index.html&#34;
-            r.description = dc.description
-            r.abstract = dc.abstract
+            r.abstract = dc.abstract or &#34;&#34;
+            r.description = dc.description or &#34;&#34;
             r.subjects = dc.subject
             r.visible = item.isVisible or False
             result.append(r)
@@ -2373,8 +2398,8 @@ It is also stored in the member <code>data</code> of this object, under key
                 r.name = item.title
                 r.num = eNum
                 r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                r.abstract = dc.abstract
-                r.description = dc.description
+                r.abstract = dc.abstract or &#34;&#34;
+                r.description = dc.description or &#34;&#34;
                 r.subjects = dc.subject
                 r.published = item.isPublished or False
                 result.append(r)
@@ -2537,7 +2562,7 @@ into files named <code>db.json</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L814-L856" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L823-L865" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDbData(self):
     &#34;&#34;&#34;Get the raw data contained in the json export from Mongo DB.
@@ -2610,7 +2635,7 @@ to HTML, or copied.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L83-L134" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L84-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def htmlify(self, info):
     &#34;&#34;&#34;Translate fields in a dict into html.
@@ -2687,7 +2712,7 @@ which fields should be present.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/1a4455072b1ffa872b86f15d4e31826810cd1f2e/src/control/static.py#L48-L81" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L49-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sanitizeDC(self, table, dc):
     &#34;&#34;&#34;Checks for missing (sub)-fields in the Dublin Core.
