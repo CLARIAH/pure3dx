@@ -101,20 +101,20 @@ class Users:
         2. obtaining the authentication results when the user visits that page
         3. storing the relevant user data
 
-        When we log in test/pilot users, we can skip the first step, because
-        we already know everything about the test/pilot user on the basis of the
+        When we log in special users, we can skip the first step, because
+        we already know everything about the special user on the basis of the
         information in the request that brought us here.
 
-        So, we find out if we have to log in a test/pilot user or a user that must be
+        So, we find out if we have to log in a special user or a user that must be
         authenticated through oidc.
 
-        We only log in a test/pilot user if we are in test/pilot mode and the user's "sub"
+        We only log in a test/pilot user if we are in non-prod mode and the user's "sub"
         is passed in the request.
 
         Returns
         -------
         response
-            A redirect. When logging in in test/pilot mode, the redirect
+            A redirect. When logging in in non-prod mode, the redirect
             is to *referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
@@ -335,7 +335,7 @@ class Users:
 
         If no user is logged in, a login button should be displayed.
 
-        If in test/pilot mode, a list of buttons for each test/pilot user should be
+        If in non-prod mode, a list of buttons for each test/pilot user should be
         displayed.
 
         Returns
@@ -413,8 +413,7 @@ class Users:
 
         else:
             # login button
-            if runMode != "custom":
-                content.append(wrap(None, "log in", "log in", "/alogin", False, True))
+            content.append(wrap(None, "log in", "log in", "/alogin", False, True))
 
         return (H.content(*specialContent), H.content(*content))
 

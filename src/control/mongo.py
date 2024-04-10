@@ -619,7 +619,7 @@ class Mongo:
 
         return n
 
-    def restore(self, src, project=None, clean=True):
+    def restoreBackup(self, src, project=None, clean=True):
         """Restores the database from record files in table folders.
 
         We do site-wide restores or project-specific restores.

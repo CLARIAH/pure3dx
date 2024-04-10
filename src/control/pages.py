@@ -2,7 +2,7 @@ from control.flask import redirectStatus, renderTemplate, sendFile, appStop, get
 
 
 class Pages:
-    def __init__(self, Settings, Viewers, Messages, Mongo, Content, Auth):
+    def __init__(self, Settings, Viewers, Messages, Mongo, Content, Backup, Auth):
         """Making responses that can be displayed as web pages.
 
         This class has methods that correspond to routes in the app,
@@ -39,6 +39,7 @@ class Pages:
         Messages.debugAdd(self)
         self.Mongo = Mongo
         self.Content = Content
+        self.Backup = Backup
         self.Auth = Auth
 
     def precheck(self, edition):
@@ -174,7 +175,7 @@ class Pages:
         response
         """
         Messages = self.Messages
-        Content = self.Content
+        Backup = self.Backup
         Auth = self.Auth
 
         if not Auth.mayBackup(project=project):
@@ -185,11 +186,11 @@ class Pages:
             ref = getReferrer().removeprefix("/")
             return redirectStatus(f"/{ref}", False)
 
-        good = Content.mkBackup(project=project)
+        good = Backup.mkBackup(project=project)
         ref = getReferrer().removeprefix("/")
         return redirectStatus(f"/{ref}", good)
 
-    def restore(self, backup, project=None):
+    def restoreBackup(self, backup, project=None):
         """Restore from a backup. Make a new backup first.
 
         After the operation:
@@ -212,7 +213,7 @@ class Pages:
         """
         Messages = self.Messages
         Mongo = self.Mongo
-        Content = self.Content
+        Backup = self.Backup
         Auth = self.Auth
 
         (projectId, project) = Mongo.get("project", project)
@@ -224,7 +225,7 @@ class Pages:
             )
             ref = getReferrer().removeprefix("/")
             return redirectStatus(f"/{ref}", False)
-        good = Content.restore(backup, project=project)
+        good = Backup.restoreBackup(backup, project=project)
         back = "/alogout" if project is None else f"/project/{projectId}"
         return redirectStatus(back, good)
 
@@ -249,7 +250,7 @@ class Pages:
         """
         Messages = self.Messages
         Mongo = self.Mongo
-        Content = self.Content
+        Backup = self.Backup
         Auth = self.Auth
 
         (projectId, project) = Mongo.get("project", project)
@@ -263,7 +264,7 @@ class Pages:
                 logmsg=("Deleting a backup is not allowed"),
             )
             return redirectStatus(back, False)
-        good = Content.delBackup(backup, project=project)
+        good = Backup.delBackup(backup, project=project)
         return redirectStatus(back, good)
 
     def home(self):
@@ -458,11 +459,12 @@ class Pages:
         H = Settings.H
         Mongo = self.Mongo
         Content = self.Content
+        Backup = self.Backup
         (projectId, project) = Mongo.get("project", project)
         publishInfo = Content.getPublishInfo("project", project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("project", project)
-        backups = Content.getBackups(project=project)
+        backups = Backup.getBackups(project=project)
         editionHeading = H.h(3, "Editions")
         editions = Content.getEditions(project)
         left = (
@@ -1013,11 +1015,14 @@ class Pages:
         """
         Settings = self.Settings
         Content = self.Content
+        Backup = self.Backup
         Auth = self.Auth
 
         navigation = self.navigation(url)
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
-        banner = Settings.banner.replace("«backups»", Content.getBackups(project=None))
+        banner = Settings.banner
+        if Backup is not None:
+            banner = banner.replace("«backups»", Backup.getBackups(project=None))
 
         (table, recordId, record) = Content.relevant()
         if recordId is None:

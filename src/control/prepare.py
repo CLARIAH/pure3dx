@@ -5,6 +5,7 @@ from control.config import Config as ConfigCls
 from control.mongo import Mongo as MongoCls
 from control.viewers import Viewers as ViewersCls
 from control.wrap import Wrap as WrapCls
+from control.backup import Backup as BackupCls
 from control.content import Content as ContentCls
 from control.publish import Publish as PublishCls
 from control.tailwind import Tailwind as TailwindCls
@@ -25,6 +26,7 @@ def prepare(design=False, migrate=False, trivial=False):
     * `control.mongo.Mongo`: higher-level commands to the MongoDb
     * `control.viewers.Viewers`: support the third party 3D viewers
     * `control.wrap.Wrap`: several lengthy functions to wrap concepts into HTML
+    * `control.backup.Backup`: several functions for user-triggered backup operations
     * `control.datamodel.Datamodel`: factory for handling fields, inherited by `Content`
     * `control.content.Content`: retrieve all data that needs to be displayed
     * `control.publish.Publish`: publish an edition as static pages
@@ -97,6 +99,7 @@ def prepare(design=False, migrate=False, trivial=False):
         Mongo = None
         Viewers = None
         Wrap = None
+        Backup = None
         Content = None
         Publish = None
         Auth = None
@@ -110,19 +113,26 @@ def prepare(design=False, migrate=False, trivial=False):
         Mongo = MongoCls(Settings, Messages)
 
         Wrap = WrapCls(Settings, Messages, Viewers)
+        Backup = (
+            None if Settings.runMode == "prod" else BackupCls(Settings, Messages, Mongo)
+        )
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
         Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
-        Publish = PublishCls(Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars)
+        Publish = PublishCls(
+            Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+        )
         Auth = AuthCls(Settings, Messages, Mongo, Content)
         AuthOidc = AuthOidcCls()
 
+        if Backup is not None:
+            Backup.addAuth(Auth)
         Wrap.addAuth(Auth)
         Content.addAuth(Auth)
         Wrap.addContent(Content)
         Viewers.addAuth(Auth)
 
-        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Auth)
+        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
         Messages.setFlask()
 
     return AttrDict(
@@ -131,6 +141,7 @@ def prepare(design=False, migrate=False, trivial=False):
         Mongo=Mongo,
         Viewers=Viewers,
         Wrap=Wrap,
+        Backup=Backup,
         Content=Content,
         Publish=Publish,
         Auth=Auth,

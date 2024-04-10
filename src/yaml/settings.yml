@@ -1,6 +1,14 @@
 dataUrl: data
 webdavUrl: webdav
 
+# prod must be the first runMode: production
+
+runModes:
+  - prod
+  - custom
+  - pilot
+  - test
+
 title: >-
   PURE3D - An Infrastructure
   for Publication and Preservation

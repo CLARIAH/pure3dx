@@ -102,7 +102,7 @@ def appFactory(objects):
 
         It is possible to restrict the backup to a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can backup the whole shebang;
         *   project organisers can backup their own projects;
@@ -112,7 +112,7 @@ def appFactory(objects):
 
     @app.route("/restore/<string:backup>/<string:project>")
     @app.route("/restore/<string:backup>/", defaults={"project": None})
-    def restore(backup, project=None):
+    def restoreBackup(backup, project=None):
         """Restores a backup.
 
         The chosen backup should be stored on the data share of the server under a name
@@ -124,13 +124,13 @@ def appFactory(objects):
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can restore the whole shebang;
         *   project organisers can restore their own projects;
         *   power users can restore all projects.
         """
-        return Pages.restore(backup, project=project)
+        return Pages.restoreBackup(backup, project=project)
 
     @app.route("/delbackup/<string:backup>/<string:project>")
     @app.route("/delbackup/<string:backup>/", defaults={"project": None})
@@ -142,7 +142,7 @@ def appFactory(objects):
 
         It is possible to restrict to backups of a single project.
 
-        Works only in pilot mode.
+        Does not work in prod mode.
 
         *   power users can delete backups of the whole shebang;
         *   project organisers can delete backups of their own projects;

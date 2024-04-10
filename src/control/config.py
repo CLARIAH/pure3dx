@@ -3,6 +3,7 @@ from subprocess import check_output
 
 from control.generic import AttrDict, getVersionKeyFunc
 from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
+from control.helpers import ucFirst
 from control.environment import var
 from control.html import HtmlElements
 
@@ -217,6 +218,8 @@ class Config:
         """Determine whether flask is running in test/pilot/custom/prod mode."""
         Messages = self.Messages
         Settings = self.Settings
+        runModes = Settings.runModes
+        runModeSet = set(runModes)
 
         if self.migrate:
             Settings.runMode = ""
@@ -229,13 +232,17 @@ class Config:
             self.good = False
             return
 
-        if runMode in {"test", "pilot", "custom"}:
+        if runMode in runModeSet:
             runMode = runMode
         else:
-            runMode = "prod"
+            Messages.error(
+                logmsg="Environment variable `runmode` not in [{', '.join(runModes)}]"
+            )
+            self.good = False
+            return
 
         Settings.runMode = runMode
-        Settings.runProd = runMode == "prod"
+        Settings.runProd = runMode == runModes[0]
         """In which mode the app runs.
 
         Values are:
@@ -347,17 +354,6 @@ class Config:
 
         if self.design:
             return
-
-        importSubdir = (
-            "exampledata"
-            if runMode == "test"
-            else "pilotdata"
-            if runMode == "pilot"
-            else "customdata"
-            if runMode == "custom"
-            else "proddata"
-        )
-        Settings.importDir = f"{dataDir}/{importSubdir}"
 
     def checkMongo(self):
         """Obtain the connection details for MongDB.
@@ -554,7 +550,7 @@ class Config:
                         f"Skipping viewer {viewerName} "
                         f"because there are no versions of it on the system"
                     ),
-                    stop=False
+                    stop=False,
                 )
                 continue
 
@@ -585,41 +581,26 @@ class Config:
         Settings = self.Settings
         H = Settings.H
         wip = var("devstatus")
+        isWip = wip == "wip"
         runMode = Settings.runMode
+        runProd = Settings.runProd
 
         banner = ""
 
-        if wip == "wip":
-            content = H.span(
-                dedent(
-                    """
-                    This site runs in Test Mode.
-                    Data you enter can be erased without warning.
-                    """
-                )
-                if runMode == "test"
-                else dedent(
-                    """
-                    This site runs in Pilot Mode.
-                    Data you enter will be saved, but might be inaccessible during
-                    periods of further development.
-                    """
-                )
-                if runMode == "pilot"
-                else dedent(
-                    """
-                    This site runs in Custom Mode.
-                    Modifications may be overwritten if other custom data is imported.
-                    """
-                )
-                if runMode == "custom"
-                else dedent(
-                    """
-                    This site is Work in Progress.
-                    """
-                )
-            )
-            dataLink = "«backups»" + H.br()
+        modeBanner = (
+            ""
+            if runProd and not isWip
+            else "This site is Work in Progress"
+            if runProd
+            else f"This site runs in {ucFirst(runMode)} mode."
+        )
+        dataWarning = (
+            "" if runProd else "\nData you enter can be erased without warning.\n"
+        )
+
+        if modeBanner or dataWarning:
+            content = H.span(f"""{modeBanner}{dataWarning}""")
+            dataLink = "" if runProd else ("«backups»" + H.br())
 
             issueLink = H.a(
                 "issues",
@@ -632,7 +613,7 @@ class Config:
                 [content, issueLink, dataLink], id="statusbanner", cls=runMode
             )
 
-        Settings.banner = banner
+            Settings.banner = banner
 
     def checkDesign(self):
         """Checks the design resources.

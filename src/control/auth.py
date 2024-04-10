@@ -326,7 +326,8 @@ class Auth(Users):
     def mayBackup(self, project=None):
         """Whether the current user is allowed to make backups.
 
-        *   Backups are only allowed in all modes.
+        *   Backups are not allowed in production mode, bacause the system and not the
+            users are responsible for backups.
         *   Site-wide backups are only allowed for power users.
         *   Project backups are only allowed for project organisers and (power users).
 
@@ -341,6 +342,12 @@ class Auth(Users):
         boolean
             whether the relevant backup/restore actions are allowed.
         """
+        Settings = self.Settings
+        runProd = Settings.runProd
+
+        if runProd:
+            return False
+
         User = self.myDetails()
 
         if User.role in {"admin", "root"}:
