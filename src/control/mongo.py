@@ -514,7 +514,7 @@ class Mongo:
 
         We do site-wide backups and project-specific backups.
 
-        See also `control.content.Content.mkBackup`
+        See also `control.backup.Backup.mkBackup`
 
         This function backs up database data in
         [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
@@ -624,7 +624,7 @@ class Mongo:
 
         We do site-wide restores or project-specific restores.
 
-        See also `control.content.Content.restore`
+        See also `control.backup.Backup.restoreBackup`
 
         This function restores database data given in
         [`bson`](https://www.mongodb.com/basics/bson).

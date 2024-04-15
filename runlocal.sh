@@ -14,10 +14,10 @@ cd $approot
 
 source .env
 
-rdctl start --virtual-machine.memory-in-gb 6
-
 function appup {
     # start the app, including its services
+
+    rdctl start --virtual-machine.memory-in-gb 6
 
     flaskdebug="x"
     runmode=""

@@ -1,9 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 cd ..
 
-if [ -f .env ]; then
+if [[ -f .env ]]; then
     source .env
+else
+    cat .env
 fi
 
 repodir="`pwd`"
@@ -24,12 +26,45 @@ python migrate.py prod -
 # Begin external backup action
 #
 # Later: Borg statements to backup $DATA_DIR/working/prod to a backup repository
-# Now: a simple copy action
+# Now: backup to hucdrive
 
-burepo=~/Downloads/pure3dbackup
-budata=~/github/CLARIAH/pure3dx/data/working/prod
+readonly budate="$(date '+%Y-%m-%d')"
+readonly budiscarddate="$(date -d '-7 days' '+%Y-%m-%d')"
 
-mkdir -p $burepo
-cp -R $budata $burepo
-#
+function myscp {
+    src="$1"
+    shift
+    dst="$1"
+    shift
+    scp -q -O -r "$@" -i ../secret/id_rsa -o "StrictHostKeyChecking no" -P 2222 "$src" "${backupuser}@${backuphost}:/${backupauthor}/$dst"
+}
+
+function mysftp {
+    cmd="$1"
+    shift
+    printf "$cmd\n" | sftp -q "$@" -i ../secret/id_rsa -o "StrictHostKeyChecking no" -P 2222 "${backupuser}@${backuphost}:/${backupauthor}" | tail -n +2
+}
+
+printf "Make full backup of today: ${budate} ...\n"
+srcdata="$DATA_DIR/working/prod"
+myscp "$srcdata" "$budate"
+
+buall=`mysftp ls` 
+printf "Done. All backups:\n$buall\n"
+
+printf "Discard old backups ...\n"
+
+for d in $buall
+do
+    if [[ "$d" < "$budiscarddate" ]]; then
+        mysftp "rmdir ${d}"
+        printf "$d removed\n"
+    else
+        printf "$d retained\n"
+    fi
+done
+
+printf "Done. Remaining backups:\n"
+mysftp ls
+
 # End external backup action

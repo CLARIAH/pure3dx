@@ -25,6 +25,11 @@ services:
       mongoportouter: ${mongoportouter}
       mongouser: ${mongouser}
       mongopassword: ${mongopassword}
+      backupauthor: ${backupauthor}
+      backupeditions: ${backupeditions}
+      backuphost: ${backuphost}
+      backupuser: ${backupuser}
+      backuppassword: ${backuppassword}
     entrypoint:
       - /bin/bash
       - src/start.sh

@@ -2,13 +2,7 @@
 
 source .env
 echo "building pure3d_author docker images from local folder; tagging as docker pure3d_author:${dockertag}...."
-docker build --platform linux/amd64 -f Dockerfile -t pure3d_author:${dockertag} \
-  --build-arg gitlocation=${gitlocation} \
-  --build-arg gitbranch=${gitbranch} \
-  --build-arg flasksecret=${flasksecret} \
-  --build-arg DATA_DIR=${DATA_DIR} \
-  --build-arg PUB_DIR=${PUB_DIR} \
-  .
+docker build --platform linux/amd64 -f Dockerfile -t pure3d_author:${dockertag} .
 
 if [ "$?" == "0" ]; then
   echo "docker images completed ...."
