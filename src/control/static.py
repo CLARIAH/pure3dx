@@ -240,7 +240,10 @@ class Static:
             dstDir = f"{pubModeDir}/{kind}"
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f"{c:>3} copied, {d:>3} deleted"
-            Messages.info(logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
+            Messages.info(
+                msg=f"{kind} {c} copied",
+                logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}",
+            )
             return good
 
         def updateViewers():
@@ -249,7 +252,7 @@ class Static:
             We are careful: instead of copying the folder with viewers from source to
             destination, we merge the source viewers with the destination viewers,
             without deleting destination viewers.
-            And per viewer, instaead of copying the viewer folder from source
+            And per viewer, instead of copying the viewer folder from source
             to destination, we merge the source versions of that viewer with the
             destination versions of that viewer, without deleting destination versions.
 
@@ -259,10 +262,23 @@ class Static:
             """
             srcDr = viewerDir
             dstDir = f"{pubModeDir}/viewers"
-            (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
+            (good, c, d) = dirUpdate(
+                srcDr, dstDir, level=2, conservative=True, delete=False
+            )
             report = f"{c:>3} copied, {d:>3} deleted"
-            Messages.info(logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}")
-            return good
+            Messages.info(
+                msg=f"viewers {c} copied",
+                logmsg=f"{'updated':<10} {'viewers':<12} {report:<24} to {dstDir}",
+            )
+
+            nViewerVersions = 0
+
+            for viewer in dirContents(dstDir)[1]:
+                nViewerVersions += len(dirContents(f"{dstDir}/{viewer}")[1])
+
+            msg = f"there are {nViewerVersions} viewer-version combinations"
+            Messages.info(msg=msg, logmsg=msg)
+            return (nViewerVersions, good)
 
         def registerPartials():
             good = True
@@ -295,11 +311,12 @@ class Static:
 
             report = f"{len(partials):<3} pieces"
             Messages.info(
-                logmsg=f"{'compiled':<10} {'partials':<12} {report:<24} to memory"
+                msg=f"{report} compiled",
+                logmsg=f"{'compiled':<10} {'partials':<12} {report:<24} to memory",
             )
             return good
 
-        def genTarget(target, pNum, eNum):
+        def genTarget(target, pNum, eNum, nvv=1):
             items = self.getData(target, pNum, eNum)
 
             success = 0
@@ -368,8 +385,13 @@ class Static:
             badStr = f"{failure:>3} XX" if failure else ""
             sep = ";" if failure else " "
             report = f"{goodStr}{sep} {badStr}"
+            if target == "editionpages":
+                report += (
+                    f" = {(success + failure) // (nvv + 1)} eds x " f"(1 + {nvv} v-v)"
+                )
             Messages.info(
-                logmsg=f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}"
+                msg=f"generated {target} {report}",
+                logmsg=f"{'generated':<10} {target:<12} {report:<24} to {pubModeDir}",
             )
             return good
 
@@ -436,7 +458,9 @@ class Static:
             if not updateStatic(kind, srcDir):
                 good = False
 
-        if not updateViewers():
+        (nvv, thisGood) = updateViewers()
+
+        if not thisGood:
             good = False
 
         if not registerPartials():
@@ -448,7 +472,7 @@ class Static:
         self.getDbData()
 
         for target in targets:
-            if not genTarget(*target):
+            if not genTarget(*target, nvv=nvv):
                 good = False
 
         if good:
@@ -601,7 +625,7 @@ class Static:
 
             for p in featured:
                 if p not in projectsIndex:
-                    Messages.warning(f"WARNING: featured project {p} does not exist")
+                    Messages.warning(f"featured project {p} does not exist")
                     continue
 
                 projectsFeatured.append(projectsIndex[p])

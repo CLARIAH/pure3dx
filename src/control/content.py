@@ -1329,6 +1329,8 @@ class Content(Datamodel):
     def generate(self):
         """Regenerate the HTML for the published site.
 
+        Not only the site wide files, but also all projects and editions.
+
         Return
         ------
         response
@@ -1347,7 +1349,7 @@ class Content(Datamodel):
             Messages.warning(msg=msg, logmsg=logmsg)
             return False
 
-        return Publish.generatePages(None, None)
+        return Publish.generatePages(True, True)
 
     def download(self, table, record):
         """Responds with a download of a project or edition.

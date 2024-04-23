@@ -4,7 +4,7 @@ HELP="
 
 ./pages-generate.sh x y z ...
 
-where x, y, z are integers that specify the features projects.
+where x, y, z are integers that specify the featured projects.
 "
 
 source .env

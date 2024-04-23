@@ -13,6 +13,8 @@ THREE_EXT_PAT = "|".join(THREE_EXT)
 IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
 THREED_RE = re.compile(rf"""^.*\.({THREE_EXT_PAT})$""", re.I)
 
+DS_STORE = ".DS_Store"
+
 
 def str_presenter(dumper, data):
     """configures yaml for dumping multiline strings
@@ -253,7 +255,7 @@ def dirCopy(pathSrc, pathDst, noclobber=False):
         return False
 
 
-def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
+def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1, conservative=False):
     """Makes a destination dir equal to a source dir by copying newer files only.
 
     Files of the source dir that are missing or older in the destination dir are
@@ -285,6 +287,12 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
 
         If we start with a positive level, we merge that many levels deep, after which
         we switch to copying.
+    conservative: boolean, optional False
+        If we are at level 0 and in the situation that we should copy a directory,
+        we assume that if there is already a corresponding directory at the destination,
+        it has the right contents, so we do not do the copying.
+        For example, if we are copying versioned directories of software, we assume
+        that directories with the same version names are the same
 
     Returns
     -------
@@ -314,7 +322,12 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
     (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
     (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
 
+    level -= 1
+
     for file in srcFiles:
+        if file == DS_STORE:
+            continue
+
         src = f"{srcPath}/{file}"
         dst = f"{dstPath}/{file}"
 
@@ -326,20 +339,25 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
                 good = False
                 continue
 
-        if file not in dstFiles or force or level == 0 or mTime(src) > mTime(dst):
+        if file not in dstFiles or force or mTime(src) > mTime(dst):
             fileCopy(src, dst)
             cActions += 1
 
     for file in dstFiles:
-        src = f"{srcPath}/{file}"
         dst = f"{dstPath}/{file}"
+
+        if file == DS_STORE:
+            fileRemove(dst)
+            continue
+
+        src = f"{srcPath}/{file}"
 
         if delete and file not in srcFiles:
             fileRemove(dst)
             dActions += 1
 
-    if level == 0:
-        return (good, cActions, dActions)
+    # if level == 0:
+    #   return (good, cActions, dActions)
 
     for dr in srcDrs:
         src = f"{srcPath}/{dr}"
@@ -354,16 +372,25 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
                 continue
 
         if level == 0:
-            dirCopy(src, dst)
-            cActions += 1
+            if not (conservative and dirExists(dst)):
+                dirCopy(src, dst)
+                cActions += 1
+
+            thisGood = True
         else:
-            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
+            (thisGood, thisC, thisD) = dirUpdate(
+                src,
+                dst,
+                force=force,
+                delete=delete,
+                level=level,
+                conservative=conservative,
+            )
+            cActions += thisC
+            dActions += thisD
 
         if not thisGood:
             good = False
-
-        cActions += thisC
-        dActions += thisD
 
     for dr in dstDirs:
         src = f"{srcPath}/{dr}"
@@ -535,7 +562,14 @@ def writeJson(data, asFile=None):
         json.dump(data, fh, ensure_ascii=False)
 
 
-def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
+def readYaml(
+    text=None,
+    asFile=None,
+    plain=False,
+    preferTuples=True,
+    defaultEmpty=True,
+    ignore=False,
+):
     """Reads a yaml file.
 
     Parameters

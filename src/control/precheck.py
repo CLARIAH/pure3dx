@@ -245,8 +245,6 @@ class Precheck:
 
             good = True
 
-            Messages.special(msg="Quality control report")
-
             if asPublished:
                 nUnref = 0
 
@@ -262,9 +260,12 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f"{nUnref} unreferenced files skipped from being published"
+                        f"Edition {project}/{edition}{nUnref} unreferenced files "
+                        "skipped from being published"
                     )
             else:
+                Messages.special(msg="Quality control report")
+
                 for sources in filesReferenced.values():
                     if len(sources) == 0:
                         statusIndex["unreferenced"] += 1
@@ -283,7 +284,7 @@ class Precheck:
         def wrapScene(sceneInfo):
             issues = {}
 
-            for (status, theseFiles) in filesIssues.items():
+            for status, theseFiles in filesIssues.items():
                 for file in theseFiles:
                     issues[file] = STATUS[status][0]
 

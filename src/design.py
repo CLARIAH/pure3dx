@@ -15,7 +15,7 @@ def build(featured):
         objects.Handlebars,
     )
 
-    Static.genPages(None, None, featured=featured or [1, 2, 3])
+    Static.genPages(True, True, featured=featured or [1, 2, 3])
 
 
 if __name__ == "__main__":

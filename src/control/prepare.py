@@ -74,66 +74,55 @@ def prepare(design=False, migrate=False, trivial=False):
         by the singleton objects themselves.
 
     """
-    if migrate:
-        Settings = ConfigCls(MessagesCls(None), migrate=True).Settings
-        Messages = MessagesCls(Settings)
+    if trivial:
+        Settings = AttrDict(dict(secret_key=None))
+        return AttrDict(Settings=Settings)
 
+    settingsAtts = dict(migrate=migrate, design=design) if migrate or design else {}
+    Settings = ConfigCls(MessagesCls(None), **settingsAtts).Settings
+    Messages = MessagesCls(Settings)
+
+    if migrate:
         return AttrDict(Settings=Settings, Messages=Messages)
 
+    Viewers = ViewersCls(Settings, Messages)
+
     if design:
-        Settings = ConfigCls(MessagesCls(None), design=True).Settings
-        Messages = MessagesCls(Settings)
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
 
         return AttrDict(
             Settings=Settings,
             Messages=Messages,
+            Viewers=Viewers,
             Tailwind=Tailwind,
             Handlebars=Handlebars,
         )
 
-    elif trivial:
-        Settings = AttrDict(dict(secret_key=None))
-        Messages = None
-        Mongo = None
-        Viewers = None
-        Wrap = None
-        Backup = None
-        Content = None
-        Publish = None
-        Auth = None
-        Pages = None
-        AuthOidc = None
-    else:
-        Settings = ConfigCls(MessagesCls(None)).Settings
-        Messages = MessagesCls(Settings)
-        Viewers = ViewersCls(Settings, Messages)
+    Mongo = MongoCls(Settings, Messages)
 
-        Mongo = MongoCls(Settings, Messages)
+    Wrap = WrapCls(Settings, Messages, Viewers)
+    Backup = (
+        None if Settings.runMode == "prod" else BackupCls(Settings, Messages, Mongo)
+    )
+    Tailwind = TailwindCls(Settings)
+    Handlebars = Compiler()
+    Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
+    Publish = PublishCls(
+        Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+    )
+    Auth = AuthCls(Settings, Messages, Mongo, Content)
+    AuthOidc = AuthOidcCls()
 
-        Wrap = WrapCls(Settings, Messages, Viewers)
-        Backup = (
-            None if Settings.runMode == "prod" else BackupCls(Settings, Messages, Mongo)
-        )
-        Tailwind = TailwindCls(Settings)
-        Handlebars = Compiler()
-        Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
-        Publish = PublishCls(
-            Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
-        )
-        Auth = AuthCls(Settings, Messages, Mongo, Content)
-        AuthOidc = AuthOidcCls()
+    if Backup is not None:
+        Backup.addAuth(Auth)
+    Wrap.addAuth(Auth)
+    Content.addAuth(Auth)
+    Wrap.addContent(Content)
+    Viewers.addAuth(Auth)
 
-        if Backup is not None:
-            Backup.addAuth(Auth)
-        Wrap.addAuth(Auth)
-        Content.addAuth(Auth)
-        Wrap.addContent(Content)
-        Viewers.addAuth(Auth)
-
-        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
-        Messages.setFlask()
+    Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
+    Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,
