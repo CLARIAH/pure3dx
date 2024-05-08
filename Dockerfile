@@ -5,8 +5,14 @@ RUN apt update && apt install -y \
     vim \
     rsync \
     less \
-    git
+    git \
+    cron
 
 WORKDIR ./app
 COPY requirements.txt .
 RUN pip install -r ./requirements.txt
+
+COPY exportdb.crontab /etc/cron.d/exportdb
+RUN chmod 0644 /etc/cron.d/exportdb \
+    && \
+    crontab /etc/cron.d/exportdb

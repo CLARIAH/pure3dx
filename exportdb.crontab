@@ -1,0 +1,2 @@
+@hourly /app/src/exportdb.sh
+
