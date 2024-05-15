@@ -2,28 +2,24 @@
     <h2>{{title}}</h2>
 </div>
 
-<div class="flex relative h-64" id="projectContainer">
+<div class="flex relative h-64 z-20" id="projectContainer">
 </div>
-<div class="flex justify-between mt-4 w-full absolute">
-    <button
-        id="rotback"
-        class="text-6xl font-bold p-6"
-    >&#8249;</button>
-    <button
-        id="rotnext"
-        class="text-6xl font-bold p-6"
-    >&#8250;</button>
+<div class="absolute -translate-y-56 flex justify-center w-full z-30">
+    <div class="flex justify-between mt-4 w-full max-w-7xl">
+        <button id="rotback" class="p-4 bg-white/60 rounded" aria-label="Previous project">{{>icons/iconChevronLeft isFill=true twSize="8" twColor="p3D-900"}}</button>
+        <button id="rotnext" class="p-3 bg-white/60 rounded" aria-label="Next project">{{>icons/iconChevronRight isFill=true twSize="8" twColor="p3D-900"}}</button>
+    </div>
+
 </div>
+
 
 <script type="module">
-import { Carousel } from "/js/carousel.js"
+    import { Carousel } from "/js/carousel.js"
 
-const projects = [
-  {{#each projects}}{{>project-obj}}{{/each}}
-]
-  
-const car = new Carousel(projects, "projectContainer", "rotback", "rotnext")
-car.init()
-
-
+    const projects = [
+    {{#each projects}}{{>project-obj}}{{/each}}
+    ]
+    
+    const car = new Carousel(projects, "projectContainer", "rotback", "rotnext")
+    car.init()
 </script>

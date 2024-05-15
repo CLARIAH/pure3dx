@@ -2,10 +2,10 @@
     <h2 id="sumTitle">{{title}}</h2>
     <em>{{actor}}</em>
     <div class="{{> styles/image-frame}} my-8">
-        <img src="images/{{image}}" class="{{> styles/image-frame-img}}" alt="" loading="lazy" id="sumImg">
+        <a href="/project.html" id="sumlink1" aria-label="go to project: {{title}}"><img src="images/{{image}}" class="{{> styles/image-frame-img}}" alt="{{title}}" loading="lazy" id="sumImg"></a>
     </div>
     <div id="sumAbstract">{{text}}</div>
     <div class="flex justify-end my-4">
-        <a href="project.html" class="{{> styles/button-basic isDark=true}}" id="sumlink">Go to project</a>
+        <a href="/project.html" class="{{> styles/button-basic isDark=true}}" id="sumlink2" aria-label="go to project: {{title}}">Go to project</a>
     </div>
 </div>

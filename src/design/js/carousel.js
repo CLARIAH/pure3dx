@@ -76,7 +76,8 @@ export class Carousel {
     document.getElementById("sumImg").src = `/project/${
       this.data[this.curP].num
     }/icon.png`
-    document.getElementById("sumlink").href = this.data[this.curP].fileName
+    document.getElementById("sumlink1").href = this.data[this.curP].fileName
+    document.getElementById("sumlink2").href = this.data[this.curP].fileName
   }
   init() {
     window.addEventListener("load", () => {
@@ -94,9 +95,10 @@ export class Carousel {
           (p, i) => `
           <div
             href="${p.projectLink}"
-            class="absolute mx-auto left-0 right-0 bg-white transition-all z-0 bg-white" 
+            class="absolute mx-auto left-0 right-0 transition-all z-0 bg-white overflow-hidden h-48" 
             id="pc${i}"
             style="width:300px; z-index:0"
+            aria-label="Go to project: ${p.name}"
           >
             <img
               src="/project/${p.num}/icon.png"

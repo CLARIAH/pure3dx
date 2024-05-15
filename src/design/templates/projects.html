@@ -1,20 +1,22 @@
-{{> general/html-header}}
+{{> general/html-header-preamble}}
+</head>
+<body>
 {{> responsive-header}}
 {{> bar-gradient-color}}
-{{> bar-info infoText="<strong>Did you know?</strong><br>A project is a collection of narratives in 3D and may entail multiple 3D scholary editions."}}
+{{> bar-info readmore="Read more about 3D Scholary edition" infoText="A project is a collection of narratives in 3D and may entail multiple 3D scholary editions."}}
 <main class="">
 
-    {{> hero}}
     {{> project-carousel title="Explore our 3D Projects"}}
 
     {{> bar-gradient-grey}}
 
     <div class="px-4 w-full max-w-xl mx-auto flex flex-col gap-16 mb-16">
         {{>project-summary image="" title="" actor="" text=""}}
-        {{> edition-select title=""}}
+        {{!-- {{> edition-select title=""}} --}}
+        
     </div>
 
-    {{> bar-info infoText="Did you know??<br>A project is a collection of narratives in 3D and may entail multiple 3D scholary editions."}}
+    {{> bar-info readmore="Read more about 3D Scholary edition" infoText="Did you know??A project is a collection of narratives in 3D and may entail multiple 3D scholary editions."}}
     {{> bar-gradient-color}}
     {{> main-footer}}
 
