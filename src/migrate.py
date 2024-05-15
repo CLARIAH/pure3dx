@@ -77,7 +77,7 @@ from control.files import (
     dirCopy,
     dirContents,
 )
-from control.prepare import prepare
+from control.prepareMigrate import prepare
 
 
 MODES = set(
@@ -107,15 +107,17 @@ def isMode(x):
 
 def inContainer():
     host = var("HOSTNAME") or ""
+    print(f"HOSTNAME={host}")
     return host.startswith("pure3d")
 
 
 def connect(Settings):
-    host = Settings.mongoHost if inContainer() else None
-    port = Settings.mongoPort if inContainer() else Settings.mongoPortOuter
+    inside = inContainer()
+    host = Settings.mongoHost if inside else None
+    port = Settings.mongoPort if inside else Settings.mongoPortOuter
 
     try:
-        print(f"Connect to MongoDB ({host}:{port})")
+        print(f"Connect to MongoDB (in container={inside}, {host}:{port})")
         client = MongoClient(
             host, port, username=Settings.mongoUser, password=Settings.mongoPassword
         )
@@ -331,7 +333,7 @@ def main(args):
 
     print("Arguments OK: starting migration")
 
-    objects = prepare(migrate=True)
+    objects = prepare()
 
     Settings = objects.Settings
     database = Settings.database
