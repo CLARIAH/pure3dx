@@ -2,6 +2,7 @@
 
 # Pure3d
 
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/CLARIAH/pure3dx/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/CLARIAH/pure3dx)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
 ## About
