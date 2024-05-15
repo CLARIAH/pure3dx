@@ -9,7 +9,7 @@
 
 Pure3D is an app for authoring and publishing 3D editions.
 
-It is the outcome of the [Pure3D project](https://pure3d.eu) lead by
+It is the outcome of the [Pure3D project](https://pure3d.eu) led by
 Susan Schreibman and Costas Papadopoulos at Maastricht University, Netherlands.
 
 [Pure3D](https://editions.acc.pure3d.eu)
