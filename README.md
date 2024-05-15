@@ -1,4 +1,8 @@
-# Pure3dx
+<img src="/logos/logo_pure3d.png" align="left"/>
+
+# Pure3d
+
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
 ## About
 
@@ -7,7 +11,8 @@ Pure3D is an app for authoring and publishing 3D editions.
 It is the outcome of the [Pure3D project](https://pure3d.eu) lead by
 Susan Schreibman and Costas Papadopoulos at Maastricht University, Netherlands.
 
-Pure3D is hosted on CLARIAH infrastructure, managed from
+[Pure3D](https://editions.acc.pure3d.eu)
+is hosted on CLARIAH infrastructure, managed from
 [KNAW/HuC](https://di.huc.knaw.nl/home-en.html).
 
 ## Contributors
@@ -16,9 +21,11 @@ Pure3D is hosted on CLARIAH infrastructure, managed from
 *   MM (HuC) - technical oversight
 *   VD (HuC) - guidance for deployment on Kubernetes
 *   DH (HuC) - support with the Kubernetes deployment
+*   LW (HuC) - support with the backup solution
 *   Bas Doppen (HuC) - styling
 *   Jamie Cope (Smithsonian) - support for handling the Voyager 3D web viewer
-*   Dirk Roorda (HuC) - architecture and most of the code
+*   [Dirk Roorda](https://github.com/dirkroorda) (HuC)
+    - architecture and most of the code
 
 ## Components
 
