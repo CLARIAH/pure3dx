@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L1-L721" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L1-L755" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import yaml
@@ -42,6 +42,8 @@ THREE_EXT_PAT = &#34;|&#34;.join(THREE_EXT)
 
 IMAGE_RE = re.compile(r&#34;&#34;&#34;^.*\.(png|jpg|jpeg)$&#34;&#34;&#34;, re.I)
 THREED_RE = re.compile(rf&#34;&#34;&#34;^.*\.({THREE_EXT_PAT})$&#34;&#34;&#34;, re.I)
+
+DS_STORE = &#34;.DS_Store&#34;
 
 
 def str_presenter(dumper, data):
@@ -283,7 +285,7 @@ def dirCopy(pathSrc, pathDst, noclobber=False):
         return False
 
 
-def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
+def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1, conservative=False):
     &#34;&#34;&#34;Makes a destination dir equal to a source dir by copying newer files only.
 
     Files of the source dir that are missing or older in the destination dir are
@@ -315,6 +317,12 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
 
         If we start with a positive level, we merge that many levels deep, after which
         we switch to copying.
+    conservative: boolean, optional False
+        If we are at level 0 and in the situation that we should copy a directory,
+        we assume that if there is already a corresponding directory at the destination,
+        it has the right contents, so we do not do the copying.
+        For example, if we are copying versioned directories of software, we assume
+        that directories with the same version names are the same
 
     Returns
     -------
@@ -344,7 +352,12 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
     (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
     (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
 
+    level -= 1
+
     for file in srcFiles:
+        if file == DS_STORE:
+            continue
+
         src = f&#34;{srcPath}/{file}&#34;
         dst = f&#34;{dstPath}/{file}&#34;
 
@@ -356,20 +369,25 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
                 good = False
                 continue
 
-        if file not in dstFiles or force or level == 0 or mTime(src) &gt; mTime(dst):
+        if file not in dstFiles or force or mTime(src) &gt; mTime(dst):
             fileCopy(src, dst)
             cActions += 1
 
     for file in dstFiles:
-        src = f&#34;{srcPath}/{file}&#34;
         dst = f&#34;{dstPath}/{file}&#34;
+
+        if file == DS_STORE:
+            fileRemove(dst)
+            continue
+
+        src = f&#34;{srcPath}/{file}&#34;
 
         if delete and file not in srcFiles:
             fileRemove(dst)
             dActions += 1
 
-    if level == 0:
-        return (good, cActions, dActions)
+    # if level == 0:
+    #   return (good, cActions, dActions)
 
     for dr in srcDrs:
         src = f&#34;{srcPath}/{dr}&#34;
@@ -384,16 +402,25 @@ def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
                 continue
 
         if level == 0:
-            dirCopy(src, dst)
-            cActions += 1
+            if not (conservative and dirExists(dst)):
+                dirCopy(src, dst)
+                cActions += 1
+
+            thisGood = True
         else:
-            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
+            (thisGood, thisC, thisD) = dirUpdate(
+                src,
+                dst,
+                force=force,
+                delete=delete,
+                level=level,
+                conservative=conservative,
+            )
+            cActions += thisC
+            dActions += thisD
 
         if not thisGood:
             good = False
-
-        cActions += thisC
-        dActions += thisD
 
     for dr in dstDirs:
         src = f&#34;{srcPath}/{dr}&#34;
@@ -565,7 +592,14 @@ def writeJson(data, asFile=None):
         json.dump(data, fh, ensure_ascii=False)
 
 
-def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
+def readYaml(
+    text=None,
+    asFile=None,
+    plain=False,
+    preferTuples=True,
+    defaultEmpty=True,
+    ignore=False,
+):
     &#34;&#34;&#34;Reads a yaml file.
 
     Parameters
@@ -766,7 +800,7 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L48-L49" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L50-L51" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def abspath(path):
     return normpath(os.path.abspath(path))</code></pre>
@@ -785,7 +819,7 @@ def list3d(path):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L480-L488" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L507-L515" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def chDir(directory):
     &#34;&#34;&#34;Change to other directory.
@@ -813,7 +847,7 @@ home directory.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L76-L104" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L78-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clearTree(path):
     &#34;&#34;&#34;Remove all files from a directory, recursively, but leave subdirectories.
@@ -870,7 +904,7 @@ by the bit relative to <code>path</code>.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L424-L466" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L451-L493" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirAllFiles(path, ignore=None):
     &#34;&#34;&#34;Gets all the files found by `path`.
@@ -944,7 +978,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L385-L421" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L412-L448" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirContents(path, asSet=False):
     &#34;&#34;&#34;Gets the contents of a directory.
@@ -994,7 +1028,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L240-L253" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L242-L255" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirCopy(pathSrc, pathDst, noclobber=False):
     &#34;&#34;&#34;Copies a directory if it exists as directory.
@@ -1020,7 +1054,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L71-L73" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L73-L75" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirEmpty(target):
     target = normpath(target)
@@ -1035,7 +1069,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L210-L220" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L212-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirExists(path):
     &#34;&#34;&#34;Whether a path exists as directory on the file system.&#34;&#34;&#34;
@@ -1058,7 +1092,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L379-L382" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L406-L409" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirMake(path):
     &#34;&#34;&#34;Creates a directory if it does not already exist as directory.&#34;&#34;&#34;
@@ -1075,7 +1109,7 @@ so <code>path</code> is not prepended to these names.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L229-L237" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L231-L239" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirMove(pathSrc, pathDst):
     &#34;&#34;&#34;Moves a directory if it exists as directory.
@@ -1103,7 +1137,7 @@ If it is 0 or lower, the <code>path</code> itself is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L139-L149" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L141-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirNm(path, up=1):
     &#34;&#34;&#34;Get the directory part of a file name.
@@ -1126,7 +1160,7 @@ If it is 0 or lower, the <code>path</code> itself is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L223-L226" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L225-L228" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dirRemove(path):
     &#34;&#34;&#34;Removes a directory if it exists as directory.&#34;&#34;&#34;
@@ -1135,7 +1169,7 @@ If it is 0 or lower, the <code>path</code> itself is returned.</dd>
 </details>
 </dd>
 <dt id="control.files.dirUpdate"><code class="name flex">
-<span>def <span class="ident">dirUpdate</span></span>(<span>pathSrc, pathDst, force=False, delete=True, level=-1)</span>
+<span>def <span class="ident">dirUpdate</span></span>(<span>pathSrc, pathDst, force=False, delete=True, level=-1, conservative=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Makes a destination dir equal to a source dir by copying newer files only.</p>
@@ -1166,6 +1200,12 @@ always.</p>
 <p>If we start with a positive level, we merge that many levels deep, after which
 we switch to copying.</p>
 </dd>
+<dt><strong><code>conservative</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If we are at level 0 and in the situation that we should copy a directory,
+we assume that if there is already a corresponding directory at the destination,
+it has the right contents, so we do not do the copying.
+For example, if we are copying versioned directories of software, we assume
+that directories with the same version names are the same</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1181,9 +1221,9 @@ we switch to copying.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L256-L376" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L258-L403" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1):
+<pre><code class="python">def dirUpdate(pathSrc, pathDst, force=False, delete=True, level=-1, conservative=False):
     &#34;&#34;&#34;Makes a destination dir equal to a source dir by copying newer files only.
 
     Files of the source dir that are missing or older in the destination dir are
@@ -1215,6 +1255,12 @@ we switch to copying.</p>
 
         If we start with a positive level, we merge that many levels deep, after which
         we switch to copying.
+    conservative: boolean, optional False
+        If we are at level 0 and in the situation that we should copy a directory,
+        we assume that if there is already a corresponding directory at the destination,
+        it has the right contents, so we do not do the copying.
+        For example, if we are copying versioned directories of software, we assume
+        that directories with the same version names are the same
 
     Returns
     -------
@@ -1244,7 +1290,12 @@ we switch to copying.</p>
     (srcFiles, srcDrs) = dirContents(pathSrc, asSet=True)
     (dstFiles, dstDirs) = dirContents(pathDst, asSet=True)
 
+    level -= 1
+
     for file in srcFiles:
+        if file == DS_STORE:
+            continue
+
         src = f&#34;{srcPath}/{file}&#34;
         dst = f&#34;{dstPath}/{file}&#34;
 
@@ -1256,20 +1307,25 @@ we switch to copying.</p>
                 good = False
                 continue
 
-        if file not in dstFiles or force or level == 0 or mTime(src) &gt; mTime(dst):
+        if file not in dstFiles or force or mTime(src) &gt; mTime(dst):
             fileCopy(src, dst)
             cActions += 1
 
     for file in dstFiles:
-        src = f&#34;{srcPath}/{file}&#34;
         dst = f&#34;{dstPath}/{file}&#34;
+
+        if file == DS_STORE:
+            fileRemove(dst)
+            continue
+
+        src = f&#34;{srcPath}/{file}&#34;
 
         if delete and file not in srcFiles:
             fileRemove(dst)
             dActions += 1
 
-    if level == 0:
-        return (good, cActions, dActions)
+    # if level == 0:
+    #   return (good, cActions, dActions)
 
     for dr in srcDrs:
         src = f&#34;{srcPath}/{dr}&#34;
@@ -1284,16 +1340,25 @@ we switch to copying.</p>
                 continue
 
         if level == 0:
-            dirCopy(src, dst)
-            cActions += 1
+            if not (conservative and dirExists(dst)):
+                dirCopy(src, dst)
+                cActions += 1
+
+            thisGood = True
         else:
-            (thisGood, thisC, thisD) = dirUpdate(src, dst, force=force, delete=delete, level=level - 1)
+            (thisGood, thisC, thisD) = dirUpdate(
+                src,
+                dst,
+                force=force,
+                delete=delete,
+                level=level,
+                conservative=conservative,
+            )
+            cActions += thisC
+            dActions += thisD
 
         if not thisGood:
             good = False
-
-        cActions += thisC
-        dActions += thisD
 
     for dr in dstDirs:
         src = f&#34;{srcPath}/{dr}&#34;
@@ -1314,7 +1379,7 @@ we switch to copying.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L52-L57" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L54-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def expanduser(path):
     nPath = normpath(path)
@@ -1334,7 +1399,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L607-L614" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L641-L648" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def extNm(path):
     &#34;&#34;&#34;Get the extension part of a file name.
@@ -1355,7 +1420,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L190-L197" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L192-L199" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileCopy(pathSrc, pathDst):
     &#34;&#34;&#34;Copies a file if it exists as file.
@@ -1375,7 +1440,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L179-L181" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L181-L183" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileExists(path):
     &#34;&#34;&#34;Whether a path exists as file on the file system.&#34;&#34;&#34;
@@ -1391,7 +1456,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L200-L207" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L202-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileMove(pathSrc, pathDst):
     &#34;&#34;&#34;Moves a file if it exists as file.
@@ -1411,7 +1476,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L152-L154" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L154-L156" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileNm(path):
     &#34;&#34;&#34;Get the file part of a file name.&#34;&#34;&#34;
@@ -1426,7 +1491,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L184-L187" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L186-L189" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fileRemove(path):
     &#34;&#34;&#34;Removes a file if it exists as file.&#34;&#34;&#34;
@@ -1447,7 +1512,7 @@ If there is no extension, the empty string is returned.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L469-L477" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L496-L504" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getCwd():
     &#34;&#34;&#34;Get current directory.
@@ -1481,7 +1546,7 @@ subdirectories.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L107-L136" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L109-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def initTree(path, fresh=False, gentle=False):
     &#34;&#34;&#34;Make sure a directory exists, optionally clean it.
@@ -1523,7 +1588,7 @@ subdirectories.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L174-L176" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L176-L178" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def isDir(path):
     &#34;&#34;&#34;Whether path exists and is a directory.&#34;&#34;&#34;
@@ -1538,7 +1603,7 @@ subdirectories.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L169-L171" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L171-L173" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def isFile(path):
     &#34;&#34;&#34;Whether path exists and is a file.&#34;&#34;&#34;
@@ -1556,7 +1621,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L702-L721" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L736-L755" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def list3d(path):
     &#34;&#34;&#34;The list of all 3D files in a directory.
@@ -1589,7 +1654,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L617-L633" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L651-L667" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listDirs(path):
     &#34;&#34;&#34;The list of all subdirectories in a directory.
@@ -1619,7 +1684,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L636-L653" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L670-L687" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFiles(path, ext):
     &#34;&#34;&#34;The list of all files in a directory with a certain extension.
@@ -1650,7 +1715,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L656-L677" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L690-L711" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listFilesAccepted(path, accept, withExt=True):
     &#34;&#34;&#34;The list of all files in a directory that match a certain accepted header.
@@ -1687,7 +1752,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L680-L699" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L714-L733" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def listImages(path):
     &#34;&#34;&#34;The list of all image files in a directory.
@@ -1719,7 +1784,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L31-L35" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L33-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def normpath(path):
     if path is None:
@@ -1736,7 +1801,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L66-L68" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L68-L70" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prefixSlash(path):
     &#34;&#34;&#34;Prefix a / before a path if it is non-empty and not already starts with it.&#34;&#34;&#34;
@@ -1751,7 +1816,7 @@ case variants.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L517-L527" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L544-L554" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readJson(text=None, plain=False, asFile=None, preferTuples=False):
     if asFile is None:
@@ -1790,7 +1855,7 @@ If the file does not exist, the empty string is returned.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L491-L514" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L518-L541" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def readPath(filePath):
     &#34;&#34;&#34;Reads the (textual) contents of a file.
@@ -1854,9 +1919,16 @@ return the text itself.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L538-L596" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L565-L630" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def readYaml(text=None, asFile=None, plain=False, preferTuples=True, defaultEmpty=True, ignore=False):
+<pre><code class="python">def readYaml(
+    text=None,
+    asFile=None,
+    plain=False,
+    preferTuples=True,
+    defaultEmpty=True,
+    ignore=False,
+):
     &#34;&#34;&#34;Reads a yaml file.
 
     Parameters
@@ -1925,7 +1997,7 @@ return the text itself.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L164-L166" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L166-L168" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def splitPath(path):
     &#34;&#34;&#34;Split a file name in a directory part and a file part.&#34;&#34;&#34;
@@ -1941,7 +2013,7 @@ Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L17-L24" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L19-L26" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def str_presenter(dumper, data):
     &#34;&#34;&#34;configures yaml for dumping multiline strings
@@ -1961,7 +2033,7 @@ Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L157-L161" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L159-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def stripExt(path):
     &#34;&#34;&#34;Strip the extension of a file name, if there is one.&#34;&#34;&#34;
@@ -1978,7 +2050,7 @@ Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L60-L63" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L62-L65" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def unexpanduser(path):
     nPath = normpath(path)
@@ -1994,7 +2066,7 @@ Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L530-L535" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L557-L562" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def writeJson(data, asFile=None):
     if asFile is None:
@@ -2012,7 +2084,7 @@ Ref: <a href="https://stackoverflow.com/questions/8640959/how-can-i-control-what
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/files.py#L599-L604" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/files.py#L633-L638" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def writeYaml(data, asFile=None):
     if asFile is None:

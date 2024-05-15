@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/precheck.py#L1-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/precheck.py#L1-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import collections
@@ -275,8 +275,6 @@ class Precheck:
 
             good = True
 
-            Messages.special(msg=&#34;Quality control report&#34;)
-
             if asPublished:
                 nUnref = 0
 
@@ -292,9 +290,12 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f&#34;{nUnref} unreferenced files skipped from being published&#34;
+                        f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
+                        &#34;skipped from being published&#34;
                     )
             else:
+                Messages.special(msg=&#34;Quality control report&#34;)
+
                 for sources in filesReferenced.values():
                     if len(sources) == 0:
                         statusIndex[&#34;unreferenced&#34;] += 1
@@ -313,7 +314,7 @@ class Precheck:
         def wrapScene(sceneInfo):
             issues = {}
 
-            for (status, theseFiles) in filesIssues.items():
+            for status, theseFiles in filesIssues.items():
                 for file in theseFiles:
                     issues[file] = STATUS[status][0]
 
@@ -439,7 +440,7 @@ class Precheck:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/precheck.py#L36-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/precheck.py#L36-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Precheck:
     def __init__(self, Settings, Messages, Viewers):
@@ -653,8 +654,6 @@ class Precheck:
 
             good = True
 
-            Messages.special(msg=&#34;Quality control report&#34;)
-
             if asPublished:
                 nUnref = 0
 
@@ -670,9 +669,12 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f&#34;{nUnref} unreferenced files skipped from being published&#34;
+                        f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
+                        &#34;skipped from being published&#34;
                     )
             else:
+                Messages.special(msg=&#34;Quality control report&#34;)
+
                 for sources in filesReferenced.values():
                     if len(sources) == 0:
                         statusIndex[&#34;unreferenced&#34;] += 1
@@ -691,7 +693,7 @@ class Precheck:
         def wrapScene(sceneInfo):
             issues = {}
 
-            for (status, theseFiles) in filesIssues.items():
+            for status, theseFiles in filesIssues.items():
                 for file in theseFiles:
                     issues[file] = STATUS[status][0]
 
@@ -849,7 +851,7 @@ it returns whether the edition passed all checks.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/precheck.py#L44-L391" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/precheck.py#L44-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def checkEdition(self, project, edition, eInfo, asPublished=False):
     &#34;&#34;&#34;Checks the article and media files in an editon and produces a toc.
@@ -1055,8 +1057,6 @@ it returns whether the edition passed all checks.</dd>
 
         good = True
 
-        Messages.special(msg=&#34;Quality control report&#34;)
-
         if asPublished:
             nUnref = 0
 
@@ -1072,9 +1072,12 @@ it returns whether the edition passed all checks.</dd>
 
             if nUnref:
                 Messages.warning(
-                    f&#34;{nUnref} unreferenced files skipped from being published&#34;
+                    f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
+                    &#34;skipped from being published&#34;
                 )
         else:
+            Messages.special(msg=&#34;Quality control report&#34;)
+
             for sources in filesReferenced.values():
                 if len(sources) == 0:
                     statusIndex[&#34;unreferenced&#34;] += 1
@@ -1093,7 +1096,7 @@ it returns whether the edition passed all checks.</dd>
     def wrapScene(sceneInfo):
         issues = {}
 
-        for (status, theseFiles) in filesIssues.items():
+        for status, theseFiles in filesIssues.items():
             for file in theseFiles:
                 issues[file] = STATUS[status][0]
 

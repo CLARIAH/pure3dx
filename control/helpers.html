@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L1-L361" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L1-L361" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 from subprocess import run as run_cmd, CalledProcessError
@@ -406,7 +406,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L55-L63" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L55-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def console(*msg, error=False, newline=True):
     msg = &#34; &#34;.join(m if type(m) is str else repr(m) for m in msg)
@@ -427,7 +427,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L18-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L18-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def genViewerSelector(
     allViewers,
@@ -474,7 +474,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L303-L322" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L303-L322" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hData(x, tight=True, issues={}, isIssueKey=False):
     if not x:
@@ -506,7 +506,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L266-L300" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L266-L300" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hDict(x, outer=False, tight=True, issues={}):
     html = []
@@ -553,7 +553,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L148-L157" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L148-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hEmpty(x):
     return (
@@ -575,7 +575,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L208-L263" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L208-L263" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hList(x, outer=False, tight=True, issues={}, isIssueKey=False):
     elem = f&#34;{&#39;o&#39; if outer else &#39;u&#39;}l&#34;
@@ -643,7 +643,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L160-L168" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L160-L168" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hScalar(x, issues={}, isIssueKey=False):
     if type(x) is str:
@@ -664,7 +664,7 @@ def showDict(title, data, *keys, tight=True, issues={}):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L171-L205" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L171-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def hScalar0(x, tight=True, issues={}, isIssueKey=False):
     tpv = type(x)
@@ -718,7 +718,7 @@ in cases where you need them literally.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L100-L121" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L100-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def htmlEsc(val):
     &#34;&#34;&#34;Escape certain HTML characters by HTML entities.
@@ -757,7 +757,7 @@ in cases where you need them literally.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L124-L142" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L124-L142" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def htmlUnEsc(val):
     &#34;&#34;&#34;Unescape certain HTML entities by their character values.
@@ -788,7 +788,7 @@ in cases where you need them literally.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L14-L15" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L14-L15" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prettify(x):
     return &#34; &#34;.join(ucFirst(w) for w in x.split(&#34;_&#34;))</code></pre>
@@ -813,7 +813,7 @@ If <code>None</code> the current directory is used.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L66-L97" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L66-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def run(cmdline, workDir=None):
     &#34;&#34;&#34;Runs a shell command and returns all relevant info.
@@ -870,7 +870,7 @@ will be displayed. If no keys are passed, all keys will be displayed.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L325-L361" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L325-L361" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def showDict(title, data, *keys, tight=True, issues={}):
     &#34;&#34;&#34;Shows selected keys of a dictionary in a pretty way.
@@ -919,7 +919,7 @@ will be displayed. If no keys are passed, all keys will be displayed.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/helpers.py#L7-L11" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/helpers.py#L7-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def ucFirst(x):
     if not x:

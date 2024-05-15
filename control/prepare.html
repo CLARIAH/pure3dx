@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/prepare.py#L1-L150" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/prepare.py#L1-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from pybars import Compiler
 
@@ -104,66 +104,55 @@ def prepare(design=False, migrate=False, trivial=False):
         by the singleton objects themselves.
 
     &#34;&#34;&#34;
-    if migrate:
-        Settings = ConfigCls(MessagesCls(None), migrate=True).Settings
-        Messages = MessagesCls(Settings)
+    if trivial:
+        Settings = AttrDict(dict(secret_key=None))
+        return AttrDict(Settings=Settings)
 
+    settingsAtts = dict(migrate=migrate, design=design) if migrate or design else {}
+    Settings = ConfigCls(MessagesCls(None), **settingsAtts).Settings
+    Messages = MessagesCls(Settings)
+
+    if migrate:
         return AttrDict(Settings=Settings, Messages=Messages)
 
+    Viewers = ViewersCls(Settings, Messages)
+
     if design:
-        Settings = ConfigCls(MessagesCls(None), design=True).Settings
-        Messages = MessagesCls(Settings)
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
 
         return AttrDict(
             Settings=Settings,
             Messages=Messages,
+            Viewers=Viewers,
             Tailwind=Tailwind,
             Handlebars=Handlebars,
         )
 
-    elif trivial:
-        Settings = AttrDict(dict(secret_key=None))
-        Messages = None
-        Mongo = None
-        Viewers = None
-        Wrap = None
-        Backup = None
-        Content = None
-        Publish = None
-        Auth = None
-        Pages = None
-        AuthOidc = None
-    else:
-        Settings = ConfigCls(MessagesCls(None)).Settings
-        Messages = MessagesCls(Settings)
-        Viewers = ViewersCls(Settings, Messages)
+    Mongo = MongoCls(Settings, Messages)
 
-        Mongo = MongoCls(Settings, Messages)
+    Wrap = WrapCls(Settings, Messages, Viewers)
+    Backup = (
+        None if Settings.runMode == &#34;prod&#34; else BackupCls(Settings, Messages, Mongo)
+    )
+    Tailwind = TailwindCls(Settings)
+    Handlebars = Compiler()
+    Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
+    Publish = PublishCls(
+        Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+    )
+    Auth = AuthCls(Settings, Messages, Mongo, Content)
+    AuthOidc = AuthOidcCls()
 
-        Wrap = WrapCls(Settings, Messages, Viewers)
-        Backup = (
-            None if Settings.runMode == &#34;prod&#34; else BackupCls(Settings, Messages, Mongo)
-        )
-        Tailwind = TailwindCls(Settings)
-        Handlebars = Compiler()
-        Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
-        Publish = PublishCls(
-            Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
-        )
-        Auth = AuthCls(Settings, Messages, Mongo, Content)
-        AuthOidc = AuthOidcCls()
+    if Backup is not None:
+        Backup.addAuth(Auth)
+    Wrap.addAuth(Auth)
+    Content.addAuth(Auth)
+    Wrap.addContent(Content)
+    Viewers.addAuth(Auth)
 
-        if Backup is not None:
-            Backup.addAuth(Auth)
-        Wrap.addAuth(Auth)
-        Content.addAuth(Auth)
-        Wrap.addContent(Content)
-        Viewers.addAuth(Auth)
-
-        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
-        Messages.setFlask()
+    Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
+    Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,
@@ -250,7 +239,7 @@ by the singleton objects themselves.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/prepare.py#L18-L150" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/prepare.py#L18-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prepare(design=False, migrate=False, trivial=False):
     &#34;&#34;&#34;Prepares the way for setting up the Flask webapp.
@@ -311,66 +300,55 @@ by the singleton objects themselves.</dd>
         by the singleton objects themselves.
 
     &#34;&#34;&#34;
-    if migrate:
-        Settings = ConfigCls(MessagesCls(None), migrate=True).Settings
-        Messages = MessagesCls(Settings)
+    if trivial:
+        Settings = AttrDict(dict(secret_key=None))
+        return AttrDict(Settings=Settings)
 
+    settingsAtts = dict(migrate=migrate, design=design) if migrate or design else {}
+    Settings = ConfigCls(MessagesCls(None), **settingsAtts).Settings
+    Messages = MessagesCls(Settings)
+
+    if migrate:
         return AttrDict(Settings=Settings, Messages=Messages)
 
+    Viewers = ViewersCls(Settings, Messages)
+
     if design:
-        Settings = ConfigCls(MessagesCls(None), design=True).Settings
-        Messages = MessagesCls(Settings)
         Tailwind = TailwindCls(Settings)
         Handlebars = Compiler()
 
         return AttrDict(
             Settings=Settings,
             Messages=Messages,
+            Viewers=Viewers,
             Tailwind=Tailwind,
             Handlebars=Handlebars,
         )
 
-    elif trivial:
-        Settings = AttrDict(dict(secret_key=None))
-        Messages = None
-        Mongo = None
-        Viewers = None
-        Wrap = None
-        Backup = None
-        Content = None
-        Publish = None
-        Auth = None
-        Pages = None
-        AuthOidc = None
-    else:
-        Settings = ConfigCls(MessagesCls(None)).Settings
-        Messages = MessagesCls(Settings)
-        Viewers = ViewersCls(Settings, Messages)
+    Mongo = MongoCls(Settings, Messages)
 
-        Mongo = MongoCls(Settings, Messages)
+    Wrap = WrapCls(Settings, Messages, Viewers)
+    Backup = (
+        None if Settings.runMode == &#34;prod&#34; else BackupCls(Settings, Messages, Mongo)
+    )
+    Tailwind = TailwindCls(Settings)
+    Handlebars = Compiler()
+    Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
+    Publish = PublishCls(
+        Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+    )
+    Auth = AuthCls(Settings, Messages, Mongo, Content)
+    AuthOidc = AuthOidcCls()
 
-        Wrap = WrapCls(Settings, Messages, Viewers)
-        Backup = (
-            None if Settings.runMode == &#34;prod&#34; else BackupCls(Settings, Messages, Mongo)
-        )
-        Tailwind = TailwindCls(Settings)
-        Handlebars = Compiler()
-        Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
-        Publish = PublishCls(
-            Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
-        )
-        Auth = AuthCls(Settings, Messages, Mongo, Content)
-        AuthOidc = AuthOidcCls()
+    if Backup is not None:
+        Backup.addAuth(Auth)
+    Wrap.addAuth(Auth)
+    Content.addAuth(Auth)
+    Wrap.addContent(Content)
+    Viewers.addAuth(Auth)
 
-        if Backup is not None:
-            Backup.addAuth(Auth)
-        Wrap.addAuth(Auth)
-        Content.addAuth(Auth)
-        Wrap.addContent(Content)
-        Viewers.addAuth(Auth)
-
-        Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
-        Messages.setFlask()
+    Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
+    Messages.setFlask()
 
     return AttrDict(
         Settings=Settings,

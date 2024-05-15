@@ -18,6 +18,7 @@ URLS=[
 "control/pages.html",
 "control/content.html",
 "control/admin.html",
+"control/prepareMigrate.html",
 "control/messages.html",
 "control/static.html",
 "control/environment.html",
@@ -308,7 +309,7 @@ INDEX=[
 {
 "ref":"control.files.dirUpdate",
 "url":4,
-"doc":"Makes a destination dir equal to a source dir by copying newer files only. Files of the source dir that are missing or older in the destination dir are copied from the source to the destination. Files and directories in the destination dir that do not exist in the source dir are deleted, but this can be prevented. Parameters      pathSrc: string The source directory. It does not matter whether the directory ends with a slash or not, unless the directory is the root. pathDst: string The destination directory. It does not matter whether the directory ends with a slash or not, unless the directory is the root. force: boolean, optional False If True, files that are older in the source than in the destination will also be copied. delete: boolean, optional False Whether to delete items from the destination that do not exist in the source. level: integer, optional -1 Whether to merge recursively and to what level. At level 0 we do not merge, but copy each item from source to destination. If we start with a negative level, we never reach level 0, so we apply merging always. If we start with level 0, we merge the files, but we copy the subdirectories. If we start with a positive level, we merge that many levels deep, after which we switch to copying. Returns    - tuple  boolean: whether the action was successful;  integer: the amount of copy actions to destination directory  integer: the amount of delete actions in the destination directory",
+"doc":"Makes a destination dir equal to a source dir by copying newer files only. Files of the source dir that are missing or older in the destination dir are copied from the source to the destination. Files and directories in the destination dir that do not exist in the source dir are deleted, but this can be prevented. Parameters      pathSrc: string The source directory. It does not matter whether the directory ends with a slash or not, unless the directory is the root. pathDst: string The destination directory. It does not matter whether the directory ends with a slash or not, unless the directory is the root. force: boolean, optional False If True, files that are older in the source than in the destination will also be copied. delete: boolean, optional False Whether to delete items from the destination that do not exist in the source. level: integer, optional -1 Whether to merge recursively and to what level. At level 0 we do not merge, but copy each item from source to destination. If we start with a negative level, we never reach level 0, so we apply merging always. If we start with level 0, we merge the files, but we copy the subdirectories. If we start with a positive level, we merge that many levels deep, after which we switch to copying. conservative: boolean, optional False If we are at level 0 and in the situation that we should copy a directory, we assume that if there is already a corresponding directory at the destination, it has the right contents, so we do not do the copying. For example, if we are copying versioned directories of software, we assume that directories with the same version names are the same Returns    - tuple  boolean: whether the action was successful;  integer: the amount of copy actions to destination directory  integer: the amount of delete actions in the destination directory",
 "func":1
 },
 {
@@ -1847,7 +1848,7 @@ INDEX=[
 {
 "ref":"control.content.Content.generate",
 "url":17,
-"doc":"Regenerate the HTML for the published site. Return    response A publish status response.",
+"doc":"Regenerate the HTML for the published site. Not only the site wide files, but also all projects and editions. Return    response A publish status response.",
 "func":1
 },
 {
@@ -1993,413 +1994,447 @@ INDEX=[
 "func":1
 },
 {
-"ref":"control.messages",
+"ref":"control.prepareMigrate",
 "url":19,
 "doc":""
 },
 {
-"ref":"control.messages.Messages",
+"ref":"control.prepareMigrate.MessagesCls",
 "url":19,
+"doc":""
+},
+{
+"ref":"control.prepareMigrate.MessagesCls.debugAdd",
+"url":19,
+"doc":"",
+"func":1
+},
+{
+"ref":"control.prepareMigrate.MessagesCls.info",
+"url":19,
+"doc":"",
+"func":1
+},
+{
+"ref":"control.prepareMigrate.MessagesCls.error",
+"url":19,
+"doc":"",
+"func":1
+},
+{
+"ref":"control.prepareMigrate.prepare",
+"url":19,
+"doc":"Prepares some objects of the Flask app for a task outside the web app. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin Returns    - AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
+"func":1
+},
+{
+"ref":"control.messages",
+"url":20,
+"doc":""
+},
+{
+"ref":"control.messages.Messages",
+"url":20,
 "doc":"Sending messages to the user and the server log. This class is instantiated by a singleton object. It has methods to issue messages to the screen of the webuser and to the log for the sysadmin. They distinguish themselves by the  severity :  debug ,  info ,  warning ,  error . There is also  plain , a leaner variant of  info . All those methods have two optional parameters:  logmsg and  msg . The behaviors of these methods are described in detail in the  Messages.message() function.  ! hint \"What to disclose?\" You can pass both parameters, which gives you the opportunity to make a sensible distinction between what you tell the web user (not much) and what you send to the log (the gory details). Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings ."
 },
 {
 "ref":"control.messages.Messages.setFlask",
-"url":19,
+"url":20,
 "doc":"Enables messaging to the web interface.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.debugAdd",
-"url":19,
+"url":20,
 "doc":"Adds a quick debug method to a destination object. The result of this method is that instead of saying   self.Messages.debug (logmsg=\"blabla\")   you can say   self.debug (\"blabla\")   It is recommended that in each object where you store a handle to Messages, you issue the statement   Messages.addDebug(self)  ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.debug",
-"url":19,
+"url":20,
 "doc":"Issue a debug message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.error",
-"url":19,
+"url":20,
 "doc":"Issue an error message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.warning",
-"url":19,
+"url":20,
 "doc":"Issue a warning message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.good",
-"url":19,
+"url":20,
 "doc":"Issue a success message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.info",
-"url":19,
+"url":20,
 "doc":"Issue a informational message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.special",
-"url":19,
+"url":20,
 "doc":"Issue an emphasised informational message. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.plain",
-"url":19,
+"url":20,
 "doc":"Issue a informational message, without bells and whistles. See  Messages.message() ",
 "func":1
 },
 {
 "ref":"control.messages.Messages.message",
-"url":19,
+"url":20,
 "doc":"Workhorse to issue a message in a variety of ways. It can issue log messages and screen messages. Messages passed in  msg go to the web interface, the ones passed in  logmsg go to the log. If there is not yet a web interface,  msg messages are suppressed if there is also a  logmsg , otherwise they will be directed to the log as well. Parameters      tp: string The severity of the message. There is a fixed number of types:   debug Messages are prepended with  DEBUG:  . Log messages go to stderr. Messages will only show up on the web page if the app runs in debug mode.   plain Messages are not prepended with anything. Log messages go to standard output.   info Messages are prepended with  INFO:  . Log messages go to standard output.   warning Messages are prepended with  WARNING:  . Log messages go to standard error.   error Messages are prepended with  ERROR:  . Log messages go to standard error. It also raises an exception, which will lead to a 404 response (if flask is running, that is). But this stopping can be prevented by passing  stop=False . msg: string | void If not None, it is the contents of a screen message. This happens by the built-in  flash method of Flask. logmsg: string | void If not None, it is the contents of a log message. stop: boolean, optional True If False, an error message will not lead to a stop.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.client",
-"url":19,
+"url":20,
 "doc":"Adds javascript code whose execution displays a message. Parameters      tp, msg: string, string As in  message() replace: boolean, optional False If True, clears all previous messages. Returns    - dict an onclick attribute that can be added to a link element.",
 "func":1
 },
 {
 "ref":"control.messages.Messages.onFlask",
-"url":19,
+"url":20,
 "doc":"Whether the webserver is running. If False, mo messages will be sent to the screen of the webuser, instead those messages end up in the log. This is useful in the initial processing that takes place before the flask app is started."
 },
 {
 "ref":"control.static",
-"url":20,
+"url":21,
 "doc":""
 },
 {
 "ref":"control.static.Static",
-"url":20,
+"url":21,
 "doc":"All about generating static pages."
 },
 {
 "ref":"control.static.Static.sanitizeDC",
-"url":20,
+"url":21,
 "doc":"Checks for missing (sub)-fields in the Dublin Core. Parameters      table: string The kind of info: site, project, or edition. This influences which fields should be present. dc: dict The Dublin Core info Returns    - void The dict is changed in place.",
 "func":1
 },
 {
 "ref":"control.static.Static.htmlify",
-"url":20,
+"url":21,
 "doc":"Translate fields in a dict into html. Certain fields will trigger a markdown to html conversion. Certain fields will be normalized to lists: if the type of such a field is not list, it will be turned into a one-element list. There will also be generated a field whose name has the string  Comma appended, it will be a comma-separated list of the items in that field. Parameters      info: dict The input data Returns    - AttrDict The resulting data. NB: it is brand-new data which does not share any data with the input data. Fields are either transformed from markdown to HTML, or copied.",
 "func":1
 },
 {
 "ref":"control.static.Static.genPages",
-"url":20,
+"url":21,
 "doc":"Generate html pages for a published edition. We assume the data of the projects and editions is already in place. As to the viewers: we compare the viewers and versions in the  data/viewers directory with the viewers and versions in the  published/viewers directory, and we copy viewer versions that are missing in the latter from the former. Exactly what will be generated depends on the parameters. There are the following things to generate:   S : site wide files, outside projects   P : project wide files, outside editions   E : edition pages  S will always be (re)generated. If a particular project is specified, the  P for that project will also be (re)generated. If a particular edition is specified, the  E for that edition will also be (re)generated. Parameters      pPubNUm, ePubNUm: integer or boolean or void Specifies which project and edition must be (re)generated, if they are integers. The integers is the numbers of the published project and edition. The following combinations are possible:   None ,  None : only  S is (re)generated;   p ,  None :  S and  P for project with number  p are (re)generated;   p ,  e :  S and  P and  E are (re)generated for project with number  p and edition with number  e within that project;   True ,  True : everything will be regenerated. Returns    - boolean Whether the generation was successful.",
 "func":1
 },
 {
 "ref":"control.static.Static.getData",
-"url":20,
+"url":21,
 "doc":"Prepares page data of a certain kind. Pages are generated by filling in templates and partials on the basis of JSON data. Pages may require several kinds of data. For example, the index page needs data to fill in a list of projects and editions. Other pages may need the same kind of data. So we store the gathered data under the kinds they have been gathered. For some kinds we may restrict the data fetching to specified items: for  projectpages and  editionpages . When an edition has changed, we want to restrict the regeneration of pages to only those pages that need to change. And we also update things outside the projects and editions. Still, when an edition changes, the page with All editions also has to change. And if the edition was the first in a project to be published, a new project will be published as well, and hence the  All projects page needs to change. If an edition is published next to other editions in a project, the project page needs to change, since it contains thumbnails of all its editions. So, the general rule is that we will always regenerate the thumbnails and the All-projects and All-edition pages, but not all of the project pages and edition pages.  ! note \"Not all kinds will be restricted\" The kinds  viewers ,  textpages ,  site will never be restricted. The kinds  projects ,  editions are needed for thumbnails, and are never restricted. The kinds  project ,  edition are called by the collection of kinds  project and  edition , and are also not restricted. That leaves only the  projectpages and  editionpages needing to be restricted. Parameters      kind: string The kind of data we need to prepare. pNumGiven: integer or void Restricts the data fetching to projects with this publication number eNumGiven: integer or void Restricts the data fetching to editions with this publication number Returns    - dict or array The data itself. It is also stored in the member  data of this object, under key  kind . It will not be computed twice.",
 "func":1
 },
 {
 "ref":"control.static.Static.getDbData",
-"url":20,
+"url":21,
 "doc":"Get the raw data contained in the json export from Mongo DB. This is the metadata of the site, the projects, and the editions. We store them as is in member  dbData . Later we distil page data from this, i.e. the data that is ready to fill in the variables of the templates. We assume this data has been exported when projects and editions got published, into files named  db.json .",
 "func":1
 },
 {
 "ref":"control.environment",
-"url":21,
+"url":22,
 "doc":""
 },
 {
 "ref":"control.environment.var",
-"url":21,
+"url":22,
 "doc":"Retrieves the value of an environment variable. Parameters      name: string The name of the environment variable Returns    - string | void If the variable does not exist, None is returned.",
 "func":1
 },
 {
 "ref":"control.app",
-"url":22,
+"url":23,
 "doc":""
 },
 {
 "ref":"control.app.appFactory",
-"url":22,
+"url":23,
 "doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the onses starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
 "func":1
 },
 {
 "ref":"control.viewers",
-"url":23,
+"url":24,
 "doc":""
 },
 {
 "ref":"control.viewers.Viewers",
-"url":23,
+"url":24,
 "doc":"Knowledge of the installed 3D viewers. This class knows which (versions of) viewers are installed, and has the methods to invoke them. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages ."
 },
 {
 "ref":"control.viewers.Viewers.addAuth",
-"url":23,
+"url":24,
 "doc":"Give this object a handle to the Auth object. The Viewers and Auth objects need each other, so one of them must be given the handle to the other after initialization.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.check",
-"url":23,
+"url":24,
 "doc":"Checks whether a viewer version exists. Given a viewer and a version, it is looked up whether the code is present. If not, reasonable defaults returned instead by default. Parameters      viewer: string The viewer in question. version: string The version of the viewer in question. Returns    - string | void The version is returned unmodified if that viewer version is supported. If the viewer is supported, but not the version, the default version of that viewer is taken, if there is a default version, otherwise the latest supported version. If the viewer is not supported, None is returned.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getViewInfo",
-"url":23,
+"url":24,
 "doc":"Gets viewer-related info that an edition is made with. Parameters      edition: AttrDict The edition record. Returns    - tuple of string  The name of the viewer  The name of the scene",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getFrame",
-"url":23,
+"url":24,
 "doc":"Produces a set of buttons to launch 3D viewers for a scene. Make sure that if there is no scene file present, no viewer will be opened. Parameters      edition: AttrDict The edition in question. actions: iterable of string The actions for which we have to create buttons. Typically  read and possibly also  update . Actions that are not recognized as viewer actions will be filtered out, such as  create and  delete . viewer: string The viewer in which the scene is currently loaded. versionActive: string | void The version of the viewer in which the scene is currently loaded, if any, otherwise None actionActive: string | void The mode in which the scene is currently loaded in the viewer ( read or  update ), if any, otherwise None sceneExists: boolean Whether the scene file exists. Returns    - string The HTML that represents the buttons.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.genHtml",
-"url":23,
+"url":24,
 "doc":"Generates the HTML for the viewer page that is loaded in an iframe. When a scene is loaded in a viewer, it happens in an iframe. Here we generate the complete HTML for such an iframe. Parameters      urlBase: string The first part of the root url that is given to the viewer. The viewer code uses this to retrieve additional information. The root url will be completed with the  action and the  viewer . sceneFile: string The name of the scene file in the file system. viewer: string The chosen viewer. version: string The chosen version of the viewer. action: string The chosen mode in which the viewer is launched ( read or  update ). subMode: string | None The sub mode in which the viewer is to be used ( update or  create ). Returns    - string The HTML for the iframe.",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getRoot",
-"url":23,
+"url":24,
 "doc":"Composes the root url for a viewer. The root url is passed to a viewer instance as the url that the viewer can use to fetch its data. It is not meant for the static data that is part of the viewer software, but for the model related data that the viewer is going to display. See  getStaticRoot() for the url meant for getting parts of the viewer software. Parameters      urlBase: string The first part of the root url, depending on the project and edition. action: string The mode in which the viewer is opened. Depending on the mode, the viewer code may communicate with the server with different urls. For example, for the voyager, the  read mode (voyager-explorer) uses ordinary HTTP requests, but the  update mode (voyager-story) uses WebDAV requests. So this app points voyager-explorer to a root url starting with  /data , and voyager-story to a root url starting with  /webdav . These prefixes of the urls can be configured per viewer in the viewer configuration in  yaml/viewers.yml .",
 "func":1
 },
 {
 "ref":"control.viewers.Viewers.getStaticRoot",
-"url":23,
+"url":24,
 "doc":"Composes the static root url for a viewer. The static root url is passed to a viewer instance as the url that the viewer can use to fetch its assets. It is not meant for the model related data, but for the parts of the viewer software that it needs to get from the server. See  getRoot() for the url meant for getting model-related data. Parameters      urlBase: string The first part of the root url, depending on the project and edition. action: string The mode in which the viewer is opened. Depending on the mode, the viewer code may communicate with the server with different urls. For example, for the voyager, the  read mode (voyager-explorer) uses ordinary HTTP requests, but the  update mode (voyager-story) uses WebDAV requests. So this app points voyager-explorer to a root url starting with  /data , and voyager-story to a root url starting with  /webdav . These prefixes of the urls can be configured per viewer in the viewer configuration in  yaml/viewers.yml .",
 "func":1
 },
 {
 "ref":"control.wrap",
-"url":24,
+"url":25,
 "doc":""
 },
 {
 "ref":"control.wrap.Wrap",
-"url":24,
+"url":25,
 "doc":"Wrap concepts into HTML. This class knows how to wrap several higher-level concepts into HTML, such as projects, editions and users, depending on specific purposes, such as showing widgets to manage projects and editions. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Viewers: object Singleton instance of  control.viewers.Viewers ."
 },
 {
 "ref":"control.wrap.Wrap.addAuth",
-"url":24,
+"url":25,
 "doc":"Give this object a handle to the Auth object. The Wrap and Auth objects need each other, so one of them must be given the handle to the other after initialization.",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.addContent",
-"url":24,
+"url":25,
 "doc":"Give this object a handle to the Content object. The Wrap and Content objects need each other, so one of them must be given the handle to the other after initialization.",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.projectsMain",
-"url":24,
+"url":25,
 "doc":"Wrap the list of projects for the main display. Parameters      site: AttrDict The record that corresponds to the site as a whole. It acts as a master record of the projects. projects: list of AttrDict The project records. Returns    - string The HTML of the project list",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.editionsMain",
-"url":24,
+"url":25,
 "doc":"Wrap the list of editions of a project for the main display. Parameters      project: AttrDict The master project record of the editions. editions: list of AttrDict The edition records. Returns    - string The HTML of the edition list",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.sceneMain",
-"url":24,
+"url":25,
 "doc":"Wrap the scene of an edition for the main display. Parameters      projectId: ObjectId The id of the project to which the edition belongs. edition: AttrDict The edition record of the scene. viewer: string The viewer that will be used. version: string The version of the chosen viewer that will be used. action: string The mode in which the viewer should be opened. sceneExists: boolean Whether the scene file exists Returns    - string The HTML of the scene",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.getCaption",
-"url":24,
+"url":25,
 "doc":"Produces a caption of a project or edition. Parameters      visual: string A link to an image to display in the caption. titleText: string The text on the caption. status: string The status of the project/edition: visible/hidden/published/in progress. The exact names statusCls: string The CSS class corresponding to  status button: string Control for a certain action, or empty if the user is not authorised. url: string The url to navigate to if the user clicks the caption.",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.wrapCaption",
-"url":24,
+"url":25,
 "doc":"Assembles a caption from building blocks.",
 "func":1
 },
 {
 "ref":"control.wrap.Wrap.contentButton",
-"url":24,
+"url":25,
 "doc":"Puts a button on the interface, if that makes sense. The button, when pressed, will lead to an action on certain content. It will be checked first if that action is allowed for the current user. If not the button will not be shown.  ! note \"Delete buttons\" Even if a user is authorised to delete a record, it is not allowed to delete master records if its detail records still exist. In that case, no delete button is displayed. Instead we display a count of detail records.  ! note \"Create buttons\" When placing a create button, the relevant record acts as the master record, to which the newly created record will be added as a detail. Parameters      table: string The relevant table. record: string | ObjectId | AttrDict The relevant record. action: string The type of action that will be performed if the button triggered. permitted: boolean, optional None If the permission for the action is already known before calling this function, it is passed here. If this parameter is None, we'll compute the permission. insertTable: string, optional None If the action is \"create\", this is the table in which a record get inserted. The  table and  record arguments are then supposed to specify the  master record of the newly inserted record. Needed to determine whether a press on the button is permitted. key: string, optional None If present, it identifies a field that is stored inside the record. href: string, optional None If present, contains the href attribute for the button. confirm: boolean, optional False Whether to ask the user for confirmation",
 "func":1
 },
 {
 "ref":"control.helpers",
-"url":25,
+"url":26,
 "doc":""
 },
 {
 "ref":"control.helpers.ucFirst",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.prettify",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.genViewerSelector",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.console",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.run",
-"url":25,
+"url":26,
 "doc":"Runs a shell command and returns all relevant info. The function runs a command-line in a shell, and returns whether the command was successful, and also what the output was, separately for standard error and standard output. Parameters      cmdline: string The command-line to execute. workDir: string, optional None The working directory where the command should be executed. If  None the current directory is used.",
 "func":1
 },
 {
 "ref":"control.helpers.htmlEsc",
-"url":25,
+"url":26,
 "doc":"Escape certain HTML characters by HTML entities. To prevent them to be interpreted as HTML in cases where you need them literally. Parameters      val: string The input value",
 "func":1
 },
 {
 "ref":"control.helpers.htmlUnEsc",
-"url":25,
+"url":26,
 "doc":"Unescape certain HTML entities by their character values. Parameters      val: string The input value",
 "func":1
 },
 {
 "ref":"control.helpers.hEmpty",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.hScalar",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.hScalar0",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.hList",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.hDict",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.hData",
-"url":25,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.helpers.showDict",
-"url":25,
+"url":26,
 "doc":"Shows selected keys of a dictionary in a pretty way. Parameters      keys: iterable of string For each key passed to this function, the information for that key will be displayed. If no keys are passed, all keys will be displayed. tight: boolean, optional True Whether to use the details element to compactify the representation. Returns    - displayed HTML An expandable list of the key-value pair for the requested keys.",
 "func":1
 },
 {
 "ref":"control.prepare",
-"url":26,
+"url":27,
 "doc":""
 },
 {
 "ref":"control.prepare.prepare",
-"url":26,
+"url":27,
 "doc":"Prepares the way for setting up the Flask webapp. Several classes are instantiated with a singleton object; each of these objects has a dedicated task in the app:   control.config.Config.Settings : all configuration aspects   control.messages.Messages : handle all messaging to user and sysadmin   control.mongo.Mongo : higher-level commands to the MongoDb   control.viewers.Viewers : support the third party 3D viewers   control.wrap.Wrap : several lengthy functions to wrap concepts into HTML   control.backup.Backup : several functions for user-triggered backup operations   control.datamodel.Datamodel : factory for handling fields, inherited by  Content   control.content.Content : retrieve all data that needs to be displayed   control.publish.Publish : publish an edition as static pages   control.auth.Auth : compute the permission of the current user to access content   control.pages.Pages : high-level functions that distribute content over the page  ! note \"Should be run once!\" These objects are used in several web apps:  the main web app  a copy of the main app that is enriched with the webdav functionality However, these objects should be initialized once, before either app starts, and the same objects should be passed to both invocations of the factory functions that make them ( control.app.appFactory ). The invocations are done in  control.webdavapp.appFactory . Parameters      migrate: boolean, optional False If True, overrides the  trivial parameter. It will initialize those objects that are needed for the migration of data. design: boolean, optional False If True, overrides the  trivial parameter. It will initialize those objects that are needed for static page generation in the  Published directory, assuming that the project/edition files have already been exported. trivial: boolean, optional False If  design is False and  trivial is True, skips the initialization of most objects. Useful if the pure3d app container should run without doing anything. This happens when we just want to start the container and run shell commands inside it, for example after a complicated refactoring when the flask app has too many bugs. Returns    - AttrDict A dictionary keyed by the names of the singleton objects and valued by the singleton objects themselves.",
 "func":1
 },
 {
 "ref":"control.publish",
-"url":27,
+"url":28,
 "doc":""
 },
 {
 "ref":"control.publish.Publish",
-"url":27,
+"url":28,
 "doc":"Publishing content as static pages. It is instantiated by a singleton object. Parameters      Settings: AttrDict App-wide configuration data obtained from  control.config.Config.Settings . Messages: object Singleton instance of  control.messages.Messages . Mongo: object Singleton instance of  control.mongo.Mongo . Tailwind: object Singleton instance of  control.tailwind.Tailwind ."
 },
 {
 "ref":"control.publish.Publish.getPubNums",
-"url":27,
+"url":28,
 "doc":"Determine project and edition publication numbers. Those numbers are inside the project and edition records in the database if the project/edition has been published before; otherwise we pick an unused number for the project; and within the project an unused edition number. When we look for those numbers, we look in the database records, and we look on the filesystem, and we take the number one higher than the maximum number used in the database and on the file system.",
 "func":1
 },
 {
 "ref":"control.publish.Publish.generatePages",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.updateEdition",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.addSiteFiles",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.addProjectFiles",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.addEditionFiles",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.removeProjectFiles",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"control.publish.Publish.removeEditionFiles",
-"url":27,
+"url":28,
 "doc":"",
 "func":1
 }

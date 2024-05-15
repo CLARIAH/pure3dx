@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L1-L865" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L1-L889" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 from copy import deepcopy
@@ -270,7 +270,10 @@ class Static:
             dstDir = f&#34;{pubModeDir}/{kind}&#34;
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-            Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
+            Messages.info(
+                msg=f&#34;{kind} {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+            )
             return good
 
         def updateViewers():
@@ -279,7 +282,7 @@ class Static:
             We are careful: instead of copying the folder with viewers from source to
             destination, we merge the source viewers with the destination viewers,
             without deleting destination viewers.
-            And per viewer, instaead of copying the viewer folder from source
+            And per viewer, instead of copying the viewer folder from source
             to destination, we merge the source versions of that viewer with the
             destination versions of that viewer, without deleting destination versions.
 
@@ -289,10 +292,23 @@ class Static:
             &#34;&#34;&#34;
             srcDr = viewerDir
             dstDir = f&#34;{pubModeDir}/viewers&#34;
-            (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
+            (good, c, d) = dirUpdate(
+                srcDr, dstDir, level=2, conservative=True, delete=False
+            )
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-            Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
-            return good
+            Messages.info(
+                msg=f&#34;viewers {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {&#39;viewers&#39;:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+            )
+
+            nViewerVersions = 0
+
+            for viewer in dirContents(dstDir)[1]:
+                nViewerVersions += len(dirContents(f&#34;{dstDir}/{viewer}&#34;)[1])
+
+            msg = f&#34;there are {nViewerVersions} viewer-version combinations&#34;
+            Messages.info(msg=msg, logmsg=msg)
+            return (nViewerVersions, good)
 
         def registerPartials():
             good = True
@@ -325,11 +341,12 @@ class Static:
 
             report = f&#34;{len(partials):&lt;3} pieces&#34;
             Messages.info(
-                logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;
+                msg=f&#34;{report} compiled&#34;,
+                logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;,
             )
             return good
 
-        def genTarget(target, pNum, eNum):
+        def genTarget(target, pNum, eNum, nvv=1):
             items = self.getData(target, pNum, eNum)
 
             success = 0
@@ -398,8 +415,13 @@ class Static:
             badStr = f&#34;{failure:&gt;3} XX&#34; if failure else &#34;&#34;
             sep = &#34;;&#34; if failure else &#34; &#34;
             report = f&#34;{goodStr}{sep} {badStr}&#34;
+            if target == &#34;editionpages&#34;:
+                report += (
+                    f&#34; = {(success + failure) // (nvv + 1)} eds x &#34; f&#34;(1 + {nvv} v-v)&#34;
+                )
             Messages.info(
-                logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;
+                msg=f&#34;generated {target} {report}&#34;,
+                logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;,
             )
             return good
 
@@ -466,7 +488,9 @@ class Static:
             if not updateStatic(kind, srcDir):
                 good = False
 
-        if not updateViewers():
+        (nvv, thisGood) = updateViewers()
+
+        if not thisGood:
             good = False
 
         if not registerPartials():
@@ -478,7 +502,7 @@ class Static:
         self.getDbData()
 
         for target in targets:
-            if not genTarget(*target):
+            if not genTarget(*target, nvv=nvv):
                 good = False
 
         if good:
@@ -631,7 +655,7 @@ class Static:
 
             for p in featured:
                 if p not in projectsIndex:
-                    Messages.warning(f&#34;WARNING: featured project {p} does not exist&#34;)
+                    Messages.warning(f&#34;featured project {p} does not exist&#34;)
                     continue
 
                 projectsFeatured.append(projectsIndex[p])
@@ -913,7 +937,7 @@ class Static:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L28-L865" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L28-L889" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Static:
     def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
@@ -1130,7 +1154,10 @@ class Static:
             dstDir = f&#34;{pubModeDir}/{kind}&#34;
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-            Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
+            Messages.info(
+                msg=f&#34;{kind} {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+            )
             return good
 
         def updateViewers():
@@ -1139,7 +1166,7 @@ class Static:
             We are careful: instead of copying the folder with viewers from source to
             destination, we merge the source viewers with the destination viewers,
             without deleting destination viewers.
-            And per viewer, instaead of copying the viewer folder from source
+            And per viewer, instead of copying the viewer folder from source
             to destination, we merge the source versions of that viewer with the
             destination versions of that viewer, without deleting destination versions.
 
@@ -1149,10 +1176,23 @@ class Static:
             &#34;&#34;&#34;
             srcDr = viewerDir
             dstDir = f&#34;{pubModeDir}/viewers&#34;
-            (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
+            (good, c, d) = dirUpdate(
+                srcDr, dstDir, level=2, conservative=True, delete=False
+            )
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-            Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
-            return good
+            Messages.info(
+                msg=f&#34;viewers {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {&#39;viewers&#39;:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+            )
+
+            nViewerVersions = 0
+
+            for viewer in dirContents(dstDir)[1]:
+                nViewerVersions += len(dirContents(f&#34;{dstDir}/{viewer}&#34;)[1])
+
+            msg = f&#34;there are {nViewerVersions} viewer-version combinations&#34;
+            Messages.info(msg=msg, logmsg=msg)
+            return (nViewerVersions, good)
 
         def registerPartials():
             good = True
@@ -1185,11 +1225,12 @@ class Static:
 
             report = f&#34;{len(partials):&lt;3} pieces&#34;
             Messages.info(
-                logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;
+                msg=f&#34;{report} compiled&#34;,
+                logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;,
             )
             return good
 
-        def genTarget(target, pNum, eNum):
+        def genTarget(target, pNum, eNum, nvv=1):
             items = self.getData(target, pNum, eNum)
 
             success = 0
@@ -1258,8 +1299,13 @@ class Static:
             badStr = f&#34;{failure:&gt;3} XX&#34; if failure else &#34;&#34;
             sep = &#34;;&#34; if failure else &#34; &#34;
             report = f&#34;{goodStr}{sep} {badStr}&#34;
+            if target == &#34;editionpages&#34;:
+                report += (
+                    f&#34; = {(success + failure) // (nvv + 1)} eds x &#34; f&#34;(1 + {nvv} v-v)&#34;
+                )
             Messages.info(
-                logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;
+                msg=f&#34;generated {target} {report}&#34;,
+                logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;,
             )
             return good
 
@@ -1326,7 +1372,9 @@ class Static:
             if not updateStatic(kind, srcDir):
                 good = False
 
-        if not updateViewers():
+        (nvv, thisGood) = updateViewers()
+
+        if not thisGood:
             good = False
 
         if not registerPartials():
@@ -1338,7 +1386,7 @@ class Static:
         self.getDbData()
 
         for target in targets:
-            if not genTarget(*target):
+            if not genTarget(*target, nvv=nvv):
                 good = False
 
         if good:
@@ -1491,7 +1539,7 @@ class Static:
 
             for p in featured:
                 if p not in projectsIndex:
-                    Messages.warning(f&#34;WARNING: featured project {p} does not exist&#34;)
+                    Messages.warning(f&#34;featured project {p} does not exist&#34;)
                     continue
 
                 projectsFeatured.append(projectsIndex[p])
@@ -1804,7 +1852,7 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L137-L460" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L137-L484" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
     &#34;&#34;&#34;Generate html pages for a published edition.
@@ -1912,7 +1960,10 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
         dstDir = f&#34;{pubModeDir}/{kind}&#34;
         (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
         report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-        Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
+        Messages.info(
+            msg=f&#34;{kind} {c} copied&#34;,
+            logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+        )
         return good
 
     def updateViewers():
@@ -1921,7 +1972,7 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
         We are careful: instead of copying the folder with viewers from source to
         destination, we merge the source viewers with the destination viewers,
         without deleting destination viewers.
-        And per viewer, instaead of copying the viewer folder from source
+        And per viewer, instead of copying the viewer folder from source
         to destination, we merge the source versions of that viewer with the
         destination versions of that viewer, without deleting destination versions.
 
@@ -1931,10 +1982,23 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
         &#34;&#34;&#34;
         srcDr = viewerDir
         dstDir = f&#34;{pubModeDir}/viewers&#34;
-        (good, c, d) = dirUpdate(srcDr, dstDir, level=2, delete=False)
+        (good, c, d) = dirUpdate(
+            srcDr, dstDir, level=2, conservative=True, delete=False
+        )
         report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-        Messages.info(logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;)
-        return good
+        Messages.info(
+            msg=f&#34;viewers {c} copied&#34;,
+            logmsg=f&#34;{&#39;updated&#39;:&lt;10} {&#39;viewers&#39;:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+        )
+
+        nViewerVersions = 0
+
+        for viewer in dirContents(dstDir)[1]:
+            nViewerVersions += len(dirContents(f&#34;{dstDir}/{viewer}&#34;)[1])
+
+        msg = f&#34;there are {nViewerVersions} viewer-version combinations&#34;
+        Messages.info(msg=msg, logmsg=msg)
+        return (nViewerVersions, good)
 
     def registerPartials():
         good = True
@@ -1967,11 +2031,12 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
 
         report = f&#34;{len(partials):&lt;3} pieces&#34;
         Messages.info(
-            logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;
+            msg=f&#34;{report} compiled&#34;,
+            logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;,
         )
         return good
 
-    def genTarget(target, pNum, eNum):
+    def genTarget(target, pNum, eNum, nvv=1):
         items = self.getData(target, pNum, eNum)
 
         success = 0
@@ -2040,8 +2105,13 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
         badStr = f&#34;{failure:&gt;3} XX&#34; if failure else &#34;&#34;
         sep = &#34;;&#34; if failure else &#34; &#34;
         report = f&#34;{goodStr}{sep} {badStr}&#34;
+        if target == &#34;editionpages&#34;:
+            report += (
+                f&#34; = {(success + failure) // (nvv + 1)} eds x &#34; f&#34;(1 + {nvv} v-v)&#34;
+            )
         Messages.info(
-            logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;
+            msg=f&#34;generated {target} {report}&#34;,
+            logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;,
         )
         return good
 
@@ -2108,7 +2178,9 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
         if not updateStatic(kind, srcDir):
             good = False
 
-    if not updateViewers():
+    (nvv, thisGood) = updateViewers()
+
+    if not thisGood:
         good = False
 
     if not registerPartials():
@@ -2120,7 +2192,7 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
     self.getDbData()
 
     for target in targets:
-        if not genTarget(*target):
+        if not genTarget(*target, nvv=nvv):
             good = False
 
     if good:
@@ -2184,7 +2256,7 @@ It is also stored in the member <code>data</code> of this object, under key
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L462-L821" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L486-L845" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getData(self, kind, pNumGiven, eNumGiven):
     &#34;&#34;&#34;Prepares page data of a certain kind.
@@ -2328,7 +2400,7 @@ It is also stored in the member <code>data</code> of this object, under key
 
         for p in featured:
             if p not in projectsIndex:
-                Messages.warning(f&#34;WARNING: featured project {p} does not exist&#34;)
+                Messages.warning(f&#34;featured project {p} does not exist&#34;)
                 continue
 
             projectsFeatured.append(projectsIndex[p])
@@ -2562,7 +2634,7 @@ into files named <code>db.json</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L823-L865" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L847-L889" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def getDbData(self):
     &#34;&#34;&#34;Get the raw data contained in the json export from Mongo DB.
@@ -2635,7 +2707,7 @@ to HTML, or copied.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L84-L135" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L84-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def htmlify(self, info):
     &#34;&#34;&#34;Translate fields in a dict into html.
@@ -2712,7 +2784,7 @@ which fields should be present.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/23c61c878149a0c80bf432c2e0e320f5e806d778/src/control/static.py#L49-L82" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/static.py#L49-L82" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sanitizeDC(self, table, dc):
     &#34;&#34;&#34;Checks for missing (sub)-fields in the Dublin Core.
