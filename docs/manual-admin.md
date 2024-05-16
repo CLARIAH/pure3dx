@@ -26,17 +26,17 @@ A user that wants to create an edition has to ask permission from an admin, as f
 1.  The user logs in;
 2.  The user sends a message to an admin (this is not done within the Pure3D system);
 3.  The admin creates a new, blank project and assigns the user in question to it
-    as coordinator;
-4.  The user, now coordinator, encounters the new project on Pure3D and creates
+    as organiser;
+4.  The user, now organiser, encounters the new project on Pure3D and creates
     a new, blank edition;
-5.  The coordinator assigns editors for that edition; they must be users that
+5.  The organiser assigns editors for that edition; they must be users that
     have logged in;
 6.  The editors can now write that edition: upload a model, upload media, firing up
     Voyager Story and add annotations, articles and tours;
-7.  The coordinator and editor can invite reviewers (users that have logged in) to
+7.  The organiser and editor can invite reviewers (users that have logged in) to
     read the edition and give comments; commenting is done outside Pure3D;
 8.  The editor can check the edition for basic sanity at all times;
-9.  When an edition is publication ready, the coordinator can publish it;
+9.  When an edition is publication ready, the organiser can publish it;
     it will then appear in the **P** app in a more professional styling; there will
     also be links from this edition in **A** to its published counterpart in **P**
     and back. Note that editions and projects in **A** are accessed by URLS that
@@ -84,3 +84,108 @@ makes the difference: an orange bar:
 *   *acceptance*
 
     ![acceptance](images/acc.png)
+
+### My work
+
+The most straightforward entry-point to start working is the `My Work` button.
+Depending on who you are, the app shows you the things you can do. Here we focus
+on what you see if you are an admin or owner.
+
+You see the sections:
+
+*   My details
+*   My projects and editions
+*   Published projects
+*   All projects and editions
+*   Manage users
+
+We'll discuss them one by one.
+
+### `My details`
+
+![my details](images/mydetails.png)
+
+Here you see who you are, according to the system, and in particular, what role
+you have. You can change your role, provided you are an admin or owner:
+you can demote yourself. You cannot promote yourself, unless there are no owners
+or admins in the system. Then you can make yourself owner or admin.
+In this way, you can make somebody owner or admin of a new system without asking
+the system manager to do so by manually setting something in the database.
+
+Note that once you demote yourself, you cannot promote yourself again, in general.
+You'll have to ask somebody with a more powerful role to promote you.
+If nobody has a more powerful role, then you can promote yourself.
+
+### `My projects and editions`
+
+Users have two kind of roles:
+
+*   *general* roles such as `owner`, `admin`, `user`, `guest`;
+*   *special* roles such as `organiser`, `editor`, `reviewer`; users have these roles
+    with respect to particular projects and editions;
+
+![my projects and editions](images/myprojecteditions.png)
+
+Under this tab, the projects/editions are listed for which you have a *special* role.
+
+Here you can add other people in specific roles to your projects and editions,
+depending on your own role. Organizers can add editors to editions,
+organizers and editors can add reviewers to editions.
+
+### `Published projects`
+
+Projects that have published editions are visible themselves.
+We call them published projects, although they may contain editions that are not yet
+published.
+
+![publishedprojects](images/publishedprojects.png)
+
+What you see here is not a list of published projects, but some controls to do something
+to the published projects.
+
+First of all, here is where you can determine which projects are *featured*.
+Featured projects will be shown on the home page of the **P** app.
+
+Every project in the **P** app has a number, it is the number you see in the
+URL after `project`:
+
+```
+https://editions.pure3d.eu/project/7/index.html
+```
+
+Secondly, you can regenerate the HTML pages for the **P** app. When is this needed?
+
+If you have changed the featured projects. It will only take effect after regeneration.
+
+Also, the systems manager has to do it when the **P** app gets a new layout.
+Then the HTML for everything in the **P** app has to be regenerated.
+
+### `All projects and editions`
+
+Here is an overview of all projects and editions in the system.
+
+It is very much like `My projects and editions`, except that you also see
+the projects and editions for which you have no special role.
+Normal users do not see this section, whereas they do see the `My projects and editions`
+section.
+
+You can give users special roles with respect to projects and editions here.
+In particular, if you have created a new project, you'll find that project here and you
+can assign an organiser to it. That will set off the authoring of a new edition.
+
+### `Manage users`
+
+![manageusers](images/manageusers.png)
+
+Here you can see all users in the system that have been authenticated once.
+
+The thing to do here is to give them general roles. You do not have to do this often,
+because all new users have role `user` by default.
+Only when you want to promote or demote users you want to take action here.
+
+If you do not trust a user and want to give them less rights, you can change his role
+to `guest`, which gives the same rights as unauthenticated users.
+
+Conversely, here you can make other users admin. If you are an owner yourself, you
+can make other users owner as well.
+
