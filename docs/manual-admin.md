@@ -58,12 +58,12 @@ The life cycle of an edition starts with somebody that wants to create an editio
     old edition, and no file sharing takes place.
 12. When an edition is definitely published, it can be thrown away from the **A** app,
     it lives on in the **P** app.
-13. When a published and thrown away edition needs a revision, it is
-    technically possible to obtain the files of the published edition and use it as a
+13. When a published and thrown-away edition needs a revision, it is
+    technically possible to obtain the files of the published edition and use them as a
     starting point for the revised edition (which will be a different edition).
     However, there is nothing yet that facilitates that, a system manager has
     to locate the files where they are stored, download them, and hand them over
-    to an admin or owner. This is one reason no to trhow away a published edition
+    to an admin or owner. This is one reason not to throw away a published edition
     from the **A** interface too soon.
 
 ## The authoring interface
@@ -101,7 +101,7 @@ You see the sections:
 
 We'll discuss them one by one.
 
-### `My details`
+#### `My details`
 
 ![my details](images/mydetails.png)
 
@@ -110,13 +110,13 @@ you have. You can change your role, provided you are an admin or owner:
 you can demote yourself. You cannot promote yourself, unless there are no owners
 or admins in the system. Then you can make yourself owner or admin.
 In this way, you can make somebody owner or admin of a new system without asking
-the system manager to do so by manually setting something in the database.
+the system manager to do so.
 
 Note that once you demote yourself, you cannot promote yourself again, in general.
 You'll have to ask somebody with a more powerful role to promote you.
 If nobody has a more powerful role, then you can promote yourself.
 
-### `My projects and editions`
+#### `My projects and editions`
 
 Users have two kind of roles:
 
@@ -132,7 +132,7 @@ Here you can add other people in specific roles to your projects and editions,
 depending on your own role. Organizers can add editors to editions,
 organizers and editors can add reviewers to editions.
 
-### `Published projects`
+#### `Published projects`
 
 Projects that have published editions are visible themselves.
 We call them published projects, although they may contain editions that are not yet
@@ -160,7 +160,7 @@ If you have changed the featured projects. It will only take effect after regene
 Also, the systems manager has to do it when the **P** app gets a new layout.
 Then the HTML for everything in the **P** app has to be regenerated.
 
-### `All projects and editions`
+#### `All projects and editions`
 
 Here is an overview of all projects and editions in the system.
 
@@ -173,19 +173,95 @@ You can give users special roles with respect to projects and editions here.
 In particular, if you have created a new project, you'll find that project here and you
 can assign an organiser to it. That will set off the authoring of a new edition.
 
-### `Manage users`
+#### `Manage users`
 
 ![manageusers](images/manageusers.png)
 
-Here you can see all users in the system that have been authenticated once.
+Here you can see all users in the system that have been authenticated.
 
 The thing to do here is to give them general roles. You do not have to do this often,
 because all new users have role `user` by default.
 Only when you want to promote or demote users you want to take action here.
 
-If you do not trust a user and want to give them less rights, you can change his role
-to `guest`, which gives the same rights as unauthenticated users.
+If you do not trust a user and want to give him less rights, you can change his role
+to `guest`, which gives the same rights as an unauthenticated user.
 
 Conversely, here you can make other users admin. If you are an owner yourself, you
 can make other users owner as well.
+
+### Edition pages
+
+An edition page has additional controls for checking, publishing and unpublishing.
+
+If you are an organiser, you see the `check` and `publish` controls.
+
+If you are an owner or admin, and the edition is published, you see the `unpublish`
+control.
+
+If you are both admin/owner and organiser, you see all controls.
+
+These controls are in the left column:
+
+![publish controls](publishcontrols.png)
+
+Here is what you see (from top to button):
+
+*   a link to the published counterpart in the **P** interface;
+*   a button to check the edition;
+*   a button to publish (again);
+*   a button to *force* publish (again) - even if the checking process revealed errors;
+*   a button to unpublish.
+
+The checking process does more than checking only: it produces a bunch of overviews,
+you find them in the right column, under **Scene overview**:
+
+![publish overviews](publishoverviews.png)
+
+Here is what you see (from top to button):
+
+*   a collapsible view on the `scene.svx.json` file. If that file contains links to
+    non-existing files, they will be colored red. In this case, we see that there are
+    such links. This site must have been published with *force*.
+    You can expand triangles until you see exactly where the culprits are.
+
+    ![culprits](culprits.png)
+
+*   **Table of models**
+
+    All 3D models plus information which files reference them and how often.
+
+    ![tablemodels](tablemodels.png)
+
+*   **Table of articles**
+
+    All authored articles plus information which files reference them and how often.
+
+    ![tablearticles](tablearticles.png)
+
+*   **Table of media**
+
+    All added media files plus information which files reference them and how often.
+    The media files that are not used are marked with a warning color.
+
+    ![tablemedia](tablemedia.png)
+
+*   **Table of link(s) with missing target**
+
+    All files with links that point to within the edition but not to something that
+    exists there. External links are not checked.
+
+    ![tablelinks](tablelinks.png)
+
+
+### Pre-flight checking
+
+Editors should use the `check` button before publishing and then check the coloured
+items in these overviews. Probably they can do something about it:
+
+*   remove unused media files;
+*   correct broken links, either by editing the link itself, of by renaming or adding 
+    the file that is the target of the link.
+
+
+
 
