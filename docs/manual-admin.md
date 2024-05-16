@@ -21,21 +21,21 @@ provided that these things exist at both ends.
 
 ## The general workflow
 
-A user that wants to create an edition has to ask permission from an admin, as follows:
+The life cycle of an edition starts with somebody that wants to create an edition.
 
-1.  The user logs in;
-2.  The user sends a message to an admin (this is not done within the Pure3D system);
+1.  The user logs in.
+2.  The user sends a message to an admin (this is not done within the Pure3D system).
 3.  The admin creates a new, blank project and assigns the user in question to it
-    as organiser;
+    as organiser.
 4.  The user, now organiser, encounters the new project on Pure3D and creates
-    a new, blank edition;
+    a new, blank edition.
 5.  The organiser assigns editors for that edition; they must be users that
-    have logged in;
+    have logged in.
 6.  The editors can now write that edition: upload a model, upload media, firing up
-    Voyager Story and add annotations, articles and tours;
+    Voyager Story and add annotations, articles and tours.
 7.  The organiser and editor can invite reviewers (users that have logged in) to
-    read the edition and give comments; commenting is done outside Pure3D;
-8.  The editor can check the edition for basic sanity at all times;
+    read the edition and give comments; commenting is done outside Pure3D.
+8.  The editor can check the edition for basic sanity at all times.
 9.  When an edition is publication ready, the organiser can publish it;
     it will then appear in the **P** app in a more professional styling; there will
     also be links from this edition in **A** to its published counterpart in **P**
@@ -49,15 +49,15 @@ A user that wants to create an edition has to ask permission from an admin, as f
     A published edition is visible both in **A** and in **P**.
 
 10. When there are mistakes after publishing, and admin or owner can unpublish the
-    edition, after which it can be modified and published again;
+    edition, after which it can be modified and published again.
 11. When a published edition needs a revision, it is possible to create a new edition
     on the basis of the old edition: you can download the files of the edition from
     the **A** interface, and upload it into a new edition, preferably within the
     same project; there is no special logic that links the revised edition to the
     older edition; once created, the new edition is completely independent of the
-    old edition, and no file sharing takes place;
+    old edition, and no file sharing takes place.
 12. When an edition is definitely published, it can be thrown away from the **A** app,
-    it lives on in the **P** app;
+    it lives on in the **P** app.
 13. When a published and thrown away edition needs a revision, it is
     technically possible to obtain the files of the published edition and use it as a
     starting point for the revised edition (which will be a different edition).
