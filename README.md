@@ -80,7 +80,11 @@ which is the app that contains all the business logic.
 
 ## History
 
-In the earlier stages a lot has been discussed, many experiments have been carried out,
+*   2024-05-16 Pure3D went in production
+
+**Earlier**
+
+A lot has been discussed, many experiments have been carried out,
 great whishes have been expressed. It is still visible in a
 [previous repo](https://github.com/CLARIAH/pure3d).
 
