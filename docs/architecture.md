@@ -9,7 +9,7 @@ Pure3D is an app to create 3D editions and to publish them.
 We have separated Pure3D into an
 [authoring app](https://author.pure3d.eu) (**A**)
 and a
-[publish app](https://author.pure3d.eu) (**P**)
+[publish app](https://editions.pure3d.eu) (**P**)
 
 There are very few dependencies between the two.
 

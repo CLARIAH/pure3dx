@@ -15,7 +15,7 @@ and
 [Costas Papadopoulos](https://www.maastrichtuniversity.nl/cp-papadopoulos)
 at Maastricht University, Netherlands.
 
-[Pure3D](https://editions.acc.pure3d.eu)
+[Pure3D](https://editions.pure3d.eu)
 is hosted on
 [CLARIAH](https://www.clariah.nl)
 infrastructure, managed from
