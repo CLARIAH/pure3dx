@@ -202,7 +202,7 @@ If you are both admin/owner and organiser, you see all controls.
 
 These controls are in the left column:
 
-![publish controls](publishcontrols.png)
+![publish controls](images/publishcontrols.png)
 
 Here is what you see (from top to button):
 
@@ -215,7 +215,7 @@ Here is what you see (from top to button):
 The checking process does more than checking only: it produces a bunch of overviews,
 you find them in the right column, under **Scene overview**:
 
-![publish overviews](publishoverviews.png)
+![publish overviews](images/publishoverviews.png)
 
 Here is what you see (from top to button):
 
@@ -224,33 +224,33 @@ Here is what you see (from top to button):
     such links. This site must have been published with *force*.
     You can expand triangles until you see exactly where the culprits are.
 
-    ![culprits](culprits.png)
+    ![culprits](images/culprits.png)
 
 *   **Table of models**
 
     All 3D models plus information which files reference them and how often.
 
-    ![tablemodels](tablemodels.png)
+    ![tablemodels](images/tablemodels.png)
 
 *   **Table of articles**
 
     All authored articles plus information which files reference them and how often.
 
-    ![tablearticles](tablearticles.png)
+    ![tablearticles](images/tablearticles.png)
 
 *   **Table of media**
 
     All added media files plus information which files reference them and how often.
     The media files that are not used are marked with a warning color.
 
-    ![tablemedia](tablemedia.png)
+    ![tablemedia](images/tablemedia.png)
 
 *   **Table of link(s) with missing target**
 
     All files with links that point to within the edition but not to something that
     exists there. External links are not checked.
 
-    ![tablelinks](tablelinks.png)
+    ![tablelinks](images/tablelinks.png)
 
 
 ### Pre-flight checking
@@ -261,7 +261,3 @@ items in these overviews. Probably they can do something about it:
 *   remove unused media files;
 *   correct broken links, either by editing the link itself, of by renaming or adding 
     the file that is the target of the link.
-
-
-
-
