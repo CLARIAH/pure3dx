@@ -9,7 +9,6 @@ export class Carousel {
 
   nextI(i, step) {
     const result = (i + step + this.data.length) % this.data.length
-    console.warn({ ln: this.data.length, i, result })
     return result
   }
 

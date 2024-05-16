@@ -101,7 +101,6 @@ const createUser = () => {
   const button = userInfo.find("a")
   const userName = userInfo.find("input")
   const saveUrl = button.attr("href")
-  console.warn({ userInfo, button })
   button.off("click").click(() => {
     const name = userName
       .val()
@@ -110,7 +109,6 @@ const createUser = () => {
       .replaceAll(/[^A-Za-z0-9._-]/g, "_")
       .toLowerCase()
     button.attr("href", `${saveUrl}/${name}`)
-    console.warn({ name, button })
     return true
   })
 }

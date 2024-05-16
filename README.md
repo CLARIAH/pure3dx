@@ -42,6 +42,11 @@ as 3D-viewer for the web with facilities for enrichments and annotations.
 For more detail, see
 [architecture](docs/architecture.md).
 
+## Manual
+
+There is a concise manual for admin/owners of the Pure3D system
+[here](docs/manual-admin.md).
+
 ## Deployment
 
 Pure3D is deployed on a

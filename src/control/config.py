@@ -611,7 +611,7 @@ class Config:
                 [content, issueLink, dataLink], id="statusbanner", cls=runMode
             )
 
-            Settings.banner = banner
+        Settings.banner = banner
 
     def checkDesign(self):
         """Checks the design resources.
