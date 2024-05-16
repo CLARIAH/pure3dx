@@ -103,7 +103,7 @@ We'll discuss them one by one.
 
 #### `My details`
 
-<img src="images/mydetails.png" width="600">
+<img src="images/mydetails.png" width="750">
 
 Here you see who you are, according to the system, and in particular, what role
 you have. You can change your role, provided you are an admin or owner:
@@ -124,7 +124,7 @@ Users have two kind of roles:
 *   *special* roles such as `organiser`, `editor`, `reviewer`; users have these roles
     with respect to particular projects and editions;
 
-<img src="images/myprojecteditions.png" width="600">
+<img src="images/myprojecteditions.png" width="750">
 
 Under this tab, the projects/editions are listed for which you have a *special* role.
 
@@ -175,7 +175,7 @@ can assign an organiser to it. That will set off the authoring of a new edition.
 
 #### `Manage users`
 
-<img src="images/manageusers.png" width="600">
+<img src="images/manageusers.png" width="750">
 
 Here you can see all users in the system that have been authenticated.
 
@@ -202,7 +202,7 @@ If you are both admin/owner and organiser, you see all controls.
 
 These controls are in the left column:
 
-<img src="images/publishcontrols.png" width="600">
+<img src="images/publishcontrols.png" width="750">
 
 Here is what you see (from top to button):
 
@@ -215,7 +215,7 @@ Here is what you see (from top to button):
 The checking process does more than checking only: it produces a bunch of overviews,
 you find them in the right column, under **Scene overview**:
 
-<img src="images/publishoverviews.png" width="600">
+<img src="images/publishoverviews.png" width="750">
 
 Here is what you see (from top to button):
 
@@ -224,7 +224,7 @@ Here is what you see (from top to button):
     such links. This site must have been published with *force*.
     You can expand triangles until you see exactly where the culprits are.
 
-    <img src="images/culprits.png" width="600">
+    <img src="images/culprits.png" width="500">
 
 *   **Table of models**
 
@@ -243,14 +243,14 @@ Here is what you see (from top to button):
     All added media files plus information which files reference them and how often.
     The media files that are not used are marked with a warning color.
 
-    <img src="images/tablemedia.png" width="600">
+    <img src="images/tablemedia.png" width="650">
 
 *   **Table of link(s) with missing target**
 
     All files with links that point to within the edition but not to something that
     exists there. External links are not checked.
 
-    <img src="images/tablelinks.png" width="600">
+    <img src="images/tablelinks.png" width="650">
 
 
 ### Pre-flight checking
