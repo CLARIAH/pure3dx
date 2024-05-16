@@ -79,11 +79,11 @@ makes the difference: an orange bar:
 
 *   *production*
 
-    ![production](images/prod.png)
+    <img src="images/prod.png" width="600">
 
 *   *acceptance*
 
-    ![acceptance](images/acc.png)
+    <img src="images/acc.png" width="600">
 
 ### My work
 
@@ -103,7 +103,7 @@ We'll discuss them one by one.
 
 #### `My details`
 
-![my details](images/mydetails.png)
+<img src="images/mydetails.png" width="600">
 
 Here you see who you are, according to the system, and in particular, what role
 you have. You can change your role, provided you are an admin or owner:
@@ -124,7 +124,7 @@ Users have two kind of roles:
 *   *special* roles such as `organiser`, `editor`, `reviewer`; users have these roles
     with respect to particular projects and editions;
 
-![my projects and editions](images/myprojecteditions.png)
+<img src="images/myprojecteditions.png" width="600">
 
 Under this tab, the projects/editions are listed for which you have a *special* role.
 
@@ -138,7 +138,7 @@ Projects that have published editions are visible themselves.
 We call them published projects, although they may contain editions that are not yet
 published.
 
-![publishedprojects](images/publishedprojects.png)
+<img src="images/publishedprojects.png" width="600">
 
 What you see here is not a list of published projects, but some controls to do something
 to the published projects.
@@ -175,7 +175,7 @@ can assign an organiser to it. That will set off the authoring of a new edition.
 
 #### `Manage users`
 
-![manageusers](images/manageusers.png)
+<img src="images/manageusers.png" width="600">
 
 Here you can see all users in the system that have been authenticated.
 
@@ -202,7 +202,7 @@ If you are both admin/owner and organiser, you see all controls.
 
 These controls are in the left column:
 
-![publish controls](images/publishcontrols.png)
+<img src="images/publishcontrols.png" width="600">
 
 Here is what you see (from top to button):
 
@@ -215,7 +215,7 @@ Here is what you see (from top to button):
 The checking process does more than checking only: it produces a bunch of overviews,
 you find them in the right column, under **Scene overview**:
 
-![publish overviews](images/publishoverviews.png)
+<img src="images/publishoverviews.png" width="600">
 
 Here is what you see (from top to button):
 
@@ -224,33 +224,33 @@ Here is what you see (from top to button):
     such links. This site must have been published with *force*.
     You can expand triangles until you see exactly where the culprits are.
 
-    ![culprits](images/culprits.png)
+    <img src="images/culprits.png" width="600">
 
 *   **Table of models**
 
     All 3D models plus information which files reference them and how often.
 
-    ![tablemodels](images/tablemodels.png)
+    <img src="images/tablemodels.png" width="600">
 
 *   **Table of articles**
 
     All authored articles plus information which files reference them and how often.
 
-    ![tablearticles](images/tablearticles.png)
+    <img src="images/tablearticles.png" width="600">
 
 *   **Table of media**
 
     All added media files plus information which files reference them and how often.
     The media files that are not used are marked with a warning color.
 
-    ![tablemedia](images/tablemedia.png)
+    <img src="images/tablemedia.png" width="600">
 
 *   **Table of link(s) with missing target**
 
     All files with links that point to within the edition but not to something that
     exists there. External links are not checked.
 
-    ![tablelinks](images/tablelinks.png)
+    <img src="images/tablelinks.png" width="600">
 
 
 ### Pre-flight checking
