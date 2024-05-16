@@ -49,9 +49,18 @@ There is a concise manual for admin/owners of the Pure3D system
 
 ## Deployment
 
-Pure3D is deployed on a
-[Kubernetes cluster for CLARIAH](https://code.huc.knaw.nl/pure3d/pure3d-config)
-at the HuC.
+Pure3D is deployed on a Kubernetes cluster for CLARIAH at the HuC.
+The important thing to know is that the **P** and **A** app have their own deployments
+with their own pods and containers. They can run independently.
+So, if **A** fails for some reason, **P** happily prods along, and vice versa.
+
+This whole setup is duplicated into a production cluster and a development cluster.
+In the production cluster there is an extra deployment that takes care of an incremental
+backup with a retention of 30 days.
+
+For more information on the set up you need to have a VPN connection to the HuC
+institute and then you can follow this
+[link](https://code.huc.knaw.nl/pure3d/pure3d-config).
 
 ## Technical documentation
 
