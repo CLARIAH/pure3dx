@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/authoidc.py#L1-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/authoidc.py#L1-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask_oidc import OpenIDConnect
 import json
@@ -41,6 +41,13 @@ def _json_loads(content):
 
 
 class AuthOidc:
+    &#34;&#34;&#34;Invoke the OIDC authentication.
+
+    Here the Pure3D app is configured to work with the CLARIAH authentication provider.
+
+    For that we use the Python module
+    [flask-oidc](https://github.com/puiterwijk/flask-oidc).
+    &#34;&#34;&#34;
     OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
@@ -95,13 +102,23 @@ class AuthOidc:
 <span>class <span class="ident">AuthOidc</span></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Invoke the OIDC authentication.</p>
+<p>Here the Pure3D app is configured to work with the CLARIAH authentication provider.</p>
+<p>For that we use the Python module
+<a href="https://github.com/puiterwijk/flask-oidc">flask-oidc</a>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/authoidc.py#L13-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/authoidc.py#L13-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AuthOidc:
+    &#34;&#34;&#34;Invoke the OIDC authentication.
+
+    Here the Pure3D app is configured to work with the CLARIAH authentication provider.
+
+    For that we use the Python module
+    [flask-oidc](https://github.com/puiterwijk/flask-oidc).
+    &#34;&#34;&#34;
     OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
@@ -159,7 +176,7 @@ class AuthOidc:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/authoidc.py#L16-L20" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/authoidc.py#L23-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def load_secrets(cls):
@@ -176,7 +193,7 @@ def load_secrets(cls):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/4bb2a3c091b2869e30f26c6c28942718f16603ee/src/control/authoidc.py#L22-L52" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/authoidc.py#L29-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@classmethod
 def prepare(cls, app):

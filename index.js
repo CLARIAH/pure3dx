@@ -89,7 +89,7 @@ INDEX=[
 {
 "ref":"control.auth.Auth.makeSafe",
 "url":2,
-"doc":"Changes an update action into a read action if needed. This function 'demotes' an \"update: to a \"read\" if the \"update\" is not allowed. If \"read\" itself is not allowed, None is returned. If any other action tahn \"update\" or \"read\" is passed, None is returned. Parameters      table: string The table in which the record exists. record: ObjectId | AttrDict The id of the record or the record itself. action: string An intended action. Returns    - string | void The resulting safe action.",
+"doc":"Changes an update action into a read action if needed. This function 'demotes' an \"update: to a \"read\" if the \"update\" is not allowed. If \"read\" itself is not allowed, None is returned. If any other action than \"update\" or \"read\" is passed, None is returned. Parameters      table: string The table in which the record exists. record: ObjectId | AttrDict The id of the record or the record itself. action: string An intended action. Returns    - string | void The resulting safe action.",
 "func":1
 },
 {
@@ -1448,7 +1448,7 @@ INDEX=[
 {
 "ref":"control.authoidc.AuthOidc",
 "url":14,
-"doc":""
+"doc":"Invoke the OIDC authentication. Here the Pure3D app is configured to work with the CLARIAH authentication provider. For that we use the Python module [flask-oidc](https: github.com/puiterwijk/flask-oidc)."
 },
 {
 "ref":"control.authoidc.AuthOidc.OIDC_CLIENT_SECRETS",
@@ -2167,7 +2167,7 @@ INDEX=[
 {
 "ref":"control.app.appFactory",
 "url":23,
-"doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the onses starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
+"doc":"Sets up the main flask app. The main task here is to configure routes, i.e. mappings from url-patterns to functions that create responses  ! note \"WebDAV enabling\" This flask app will later be combined with a webdav app, so that the combined app has the business logic of the main app but can also handle webdav requests. The routes below contain a few patterns that are used for authorising WebDAV calls: the ones starting with  /auth and  /cannot . See also  control.webdavapp . Parameters      objects a slew of objects that set up the toolkit with which the app works: settings, messaging and logging, MongoDb connection, 3d viewer support, higher level objects that can fetch chunks of content and distribute it over the web page. Returns    - object A WebDAV-enabled flask app, which is a wsgi app.",
 "func":1
 },
 {
