@@ -375,7 +375,7 @@ class Auth(Users):
 
         If "read" itself is not allowed, None is returned.
 
-        If any other action tahn "update" or "read" is passed, None is returned.
+        If any other action than "update" or "read" is passed, None is returned.
 
         Parameters
         ----------

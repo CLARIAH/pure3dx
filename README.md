@@ -39,6 +39,9 @@ Both parts make use of the
 [Smithsonian Voyager](https://github.com/Smithsonian/dpo-voyager)
 as 3D-viewer for the web with facilities for enrichments and annotations.
 
+For more detail, see
+[architecture](docs/architecture.md).
+
 ## Deployment
 
 Pure3D is deployed on a

@@ -13,7 +13,7 @@ def appFactory(objects):
         but can also handle webdav requests.
 
         The routes below contain a few patterns that are used for
-        authorising WebDAV calls: the onses starting with `/auth` and `/cannot`.
+        authorising WebDAV calls: the ones starting with `/auth` and `/cannot`.
         See also `control.webdavapp`.
 
     Parameters
