@@ -13,9 +13,11 @@ and a
 
 There are very few dependencies between the two.
 
-The **P** can be deployed without the presence of (**A**), and this is important,
+The **P** can be deployed without the presence of **A**, and this is important,
 because **P** must be able to work into the indefinite future.
-That is why **P** is very simple: it is an out-of-the-box NGINX webserver that
+That is why **P** is very simple: it is an out-of-the-box
+[nginx](https://hub.docker.com/_/nginx/)
+webserver that
 serves a directory of static pages. Very easy to maintain.
 
 In **P** there is no user management, no login functionality, no underlying database,
@@ -29,7 +31,10 @@ Note that the generation of static pages for an edition when it gets published, 
 performed by **P**, but by **A**. This helps to keep **P** really dumb.
 
 As **A** is the part that implements all the business logic, it is a complex web app,
-written in Python, using Flask.
+written in the
+[Python](https://www.python.org) language,
+using the
+[Flask](https://flask.palletsprojects.com/en/3.0.x/) web framework.
 
 ## 3D handling in the browser
 
@@ -46,7 +51,9 @@ differs a lot:
 *   **A** makes use of Voyager Story. This is a 3D viewer where the user can add
     supplementary material to the 3D experience: annotations, articles, media.
     In order to save the user's work, Voyager sends files and other updates back to
-    the server via the WebDAV protocol. This poses an extra requirement on
+    the server via the
+    [WebDAV](http://www.webdav.org) protocol.
+    This poses an extra requirement on
     **A** as webserver: it has to be able to interpret WebDAV requests and respond
     to them correctly. Not only that, it also has to make sure that these WebDAV
     requests do not violate the business logic of what users can do on the server.

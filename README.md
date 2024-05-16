@@ -10,30 +10,38 @@
 Pure3D is an app for authoring and publishing 3D editions.
 
 It is the outcome of the [Pure3D project](https://pure3d.eu) led by
-Susan Schreibman and Costas Papadopoulos at Maastricht University, Netherlands.
+[Susan Schreibman](https://www.maastrichtuniversity.nl/s-schreibman)
+and
+[Costas Papadopoulos](https://www.maastrichtuniversity.nl/cp-papadopoulos)
+at Maastricht University, Netherlands.
 
 [Pure3D](https://editions.acc.pure3d.eu)
-is hosted on CLARIAH infrastructure, managed from
+is hosted on
+[CLARIAH](https://www.clariah.nl)
+infrastructure, managed from
 [KNAW/HuC](https://di.huc.knaw.nl/home-en.html).
 
 ## Contributors
 
-*   Kelly Schoueri (Maastricht) - key user, source of requirements
-*   MM (HuC) - technical oversight
-*   VD (HuC) - guidance for deployment on Kubernetes
-*   DH (HuC) - support with the Kubernetes deployment
-*   LW (HuC) - support with the backup solution
-*   Bas Doppen (HuC) - styling
-*   Jamie Cope (Smithsonian) - support for handling the Voyager 3D web viewer
+*   [Kelly Schoueri](https://www.maastrichtuniversity.nl/km-gillikin-schoueri) (Maastricht)
+    - key user, source of requirements
+*   MM (HuC) technical oversight
+*   VD (HuC) guidance for deployment on Kubernetes
+*   DH (HuC) support with the Kubernetes deployment
+*   LW (HuC) support with the backup solution
+*   [Bas Doppen](https://pure.knaw.nl/portal/en/persons/bas-doppen) (HuC)
+    styling
+*   [Jamie Cope](https://github.com/gjcope) (Smithsonian)
+    support for handling the Voyager 3D web viewer
 *   [Dirk Roorda](https://github.com/dirkroorda) (HuC)
-    - architecture and most of the code
+    architecture and most of the code
 
 ## Components
 
 Pure3D consists of two parts:
 
-*   an authoring app, where users can create 3D editions and publish them;
-*   a publishing app, showing the published editions as static web pages.
+*   (**A**) an authoring app, where users can create 3D editions and publish them;
+*   (**P**) a publishing app, showing the published editions as static web pages.
 
 Both parts make use of the
 [Smithsonian Voyager](https://github.com/Smithsonian/dpo-voyager)
@@ -49,7 +57,9 @@ There is a concise manual for admin/owners of the Pure3D system
 
 ## Deployment
 
-Pure3D is deployed on a Kubernetes cluster for CLARIAH at the HuC.
+Pure3D is deployed on a
+[Kubernetes](https://kubernetes.io/docs/home/)
+cluster for CLARIAH at the HuC.
 The important thing to know is that the **P** and **A** app have their own deployments
 with their own pods and containers. They can run independently.
 So, if **A** fails for some reason, **P** happily prods along, and vice versa.
@@ -94,9 +104,11 @@ for improvements and further development:
 *   No attempt for persistent identifiers has been made; we do have stable urls for
     published editions: `https://editions.pure3d.eu/project/p/edition/e` where `p` and
     `e` are the project and edition numbers, which start at `1`.
+    See also
+    [cool uris](https://www.w3.org/Provider/Style/URI).
 
 *   A 3D dataset is more than a 3D model with annotations: there is also paradata or
-    supplementary material; Pure3D does manage such data.
+    supplementary material; Pure3D does not manage such data.
 
 *   Pure3D is currently tied to the Voyager 3D Viewer, but it is desirable to be able
     to support more viewers. Even better would it be if editions made for one viewer,

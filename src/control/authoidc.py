@@ -11,6 +11,13 @@ def _json_loads(content):
 
 
 class AuthOidc:
+    """Invoke the OIDC authentication.
+
+    Here the Pure3D app is configured to work with the CLARIAH authentication provider.
+
+    For that we use the Python module
+    [flask-oidc](https://github.com/puiterwijk/flask-oidc).
+    """
     OIDC_CLIENT_SECRETS = "/app/secret/client_secrets.json"
 
     @classmethod
