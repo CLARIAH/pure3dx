@@ -556,10 +556,10 @@ def readJson(text=None, plain=False, asFile=None, preferTuples=False):
 
 def writeJson(data, asFile=None):
     if asFile is None:
-        return json.dumps(data, ensure_ascii=False)
+        return json.dumps(data, ensure_ascii=False, indent=2)
 
     with open(asFile, "w", encoding="utf8") as fh:
-        json.dump(data, fh, ensure_ascii=False)
+        json.dump(data, fh, ensure_ascii=False, indent=2)
 
 
 def readYaml(

@@ -476,7 +476,8 @@ class Admin:
         user = self.user
 
         projectsAll = sorted(
-            projects.values(), key=lambda x: (1 if x.isVisible else 0, x.title, x._id)
+            projects.values(),
+            key=lambda x: (1 if x.isVisible else 0, x.title or "", x._id),
         )
         projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
@@ -597,7 +598,7 @@ class Admin:
                 for e in editions.values()
                 if not myOnly or e._id in (myIds.edition or set())
             ),
-            key=lambda x: (x.title, x._id),
+            key=lambda x: (x.title or "", x._id),
         )
         title = project.title
         if not title:
@@ -619,9 +620,11 @@ class Admin:
                     cls="phead",
                 ),
                 H.div(
-                    "no editions"
-                    if len(theseEditions) == 0
-                    else [self._wrapEdition(e) for e in theseEditions],
+                    (
+                        "no editions"
+                        if len(theseEditions) == 0
+                        else [self._wrapEdition(e) for e in theseEditions]
+                    ),
                     cls="peditions",
                 ),
             ],
@@ -724,7 +727,8 @@ class Admin:
 
         else:
             for u, (uRecord, role) in sorted(
-                theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
+                theseUsers.items(),
+                key=lambda x: (x[1][1], x[1][0].nickname or "", x[0] or ""),
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
@@ -1010,9 +1014,7 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == "edition"
-            else editionRoles
+            else projectRoles if table == "edition" else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -1088,9 +1090,7 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == "edition"
-            else editionRoles
+            else projectRoles if table == "edition" else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 

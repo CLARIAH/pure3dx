@@ -346,7 +346,6 @@ class Users:
         """
         Settings = self.Settings
         H = Settings.H
-        runMode = Settings.runMode
         runProd = Settings.runProd
         Mongo = self.Mongo
 
@@ -385,7 +384,7 @@ class Users:
 
             for record in sorted(
                 Mongo.getList("user", sort="nickname", isSpecial=True),
-                key=lambda r: r.nickname,
+                key=lambda r: r.nickname or "",
             ):
                 user = record.user
                 name = record.nickname
@@ -495,7 +494,7 @@ class Users:
                     relatedUserList = Mongo.getList(f"{table}User", **criteria)
                     relatedUsers = sorted(
                         (userInfo[r.user] for r in relatedUserList),
-                        key=lambda x: x.nickname,
+                        key=lambda x: x.nickname or "",
                     )
                 users = tuple((u.user, u.nickname) for u in relatedUsers)
 
@@ -611,8 +610,10 @@ class Users:
             return False
 
         User.clear()
+
         for att in PROVIDER_ATTS.values():
             User[att] = record[att]
+
         User.role = record.role
 
         return True
@@ -643,6 +644,11 @@ class Users:
         oidc = self.oidc
         User = acg.User
 
+        def fillNickname(record):
+            if not record.get("nickname", None):
+                email = record.get("email", "")
+                record["nickname"] = email.split("@", 1)[0] or "unknown_name"
+
         record = Mongo.getRecord("user", user=user, warn=False)
         newUser = None
 
@@ -651,22 +657,37 @@ class Users:
                 att: oidc.user_getfield(oidcAtt)
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
+            fillNickname(newUser)
+
             userId = Mongo.insertRecord("user", role="user", **newUser)
             record = Mongo.getRecord("user", _id=userId)
 
         User.clear()
+
         for att in PROVIDER_ATTS.values():
             User[att] = record[att]
+
+        fillNickname(User)
+
         User.role = record.role
 
         if update and not newUser:
+            givenUser = {
+                att: oidc.user_getfield(oidcAtt)
+                for (oidcAtt, att) in PROVIDER_ATTS.items()
+            }
+            fillNickname(givenUser)
+
             changes = {}
+
             for oidcAtt, att in PROVIDER_ATTS.items():
                 orig = User[att]
-                new = oidc.user_getfield(oidcAtt)
+                new = givenUser[att]
+
                 if new is not None and orig != new:
                     changes[att] = new
                     User[att] = new
+
             if changes:
                 Mongo.updateRecord("user", changes, user=User.user)
         return True
