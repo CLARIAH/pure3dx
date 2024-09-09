@@ -613,7 +613,9 @@ class Pages:
         )
         left = (
             breadCrumb
-            + Content.getValues("edition", edition, "title@4")
+            + Content.getValues(
+                "edition", edition, "title@4 + creator@0 + contributor@0"
+            )
             + publishButton
             + actionHeading
             + downloadButton

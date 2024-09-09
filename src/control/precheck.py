@@ -13,6 +13,7 @@ from control.files import (
     writeYaml,
 )
 from control.helpers import showDict, htmlUnEsc
+from control.generic import AttrDict
 
 
 ONLINE_RE = re.compile(r"""^https?://""", re.I)
@@ -210,6 +211,30 @@ class Precheck:
             for name in dirs:
                 checkFiles(path + (name,))
 
+        def checkMeta():
+            if asPublished:
+                return True
+
+            good = True
+
+            pAbstract = (project.dc or AttrDict()).abstract
+
+            if not pAbstract:
+                Messages.error(
+                    "The project of this edition has no abstract", stop=False
+                )
+                good = False
+
+            eAbstract = (edition.dc or AttrDict()).abstract
+
+            if not eAbstract:
+                Messages.error(
+                    "This edition of this edition has no abstract", stop=False
+                )
+                good = False
+
+            return good
+
         def checkLinks():
             for kind, thisFileList in filesFound.items():
                 for target in thisFileList:
@@ -232,9 +257,12 @@ class Precheck:
                     kind = (
                         "articles"
                         if targetPath.endswith(".html")
-                        else "models"
-                        if targetPath.endswith(".glb") or targetPath.endswith("gltf")
-                        else "media"
+                        else (
+                            "models"
+                            if targetPath.endswith(".glb")
+                            or targetPath.endswith("gltf")
+                            else "media"
+                        )
                     )
                     filesReferenced[targetPath][sourcePath] += 1
                 else:
@@ -373,7 +401,7 @@ class Precheck:
 
         sceneInfo = checkScene()
         checkFiles(())
-        good = checkLinks()
+        good = checkMeta() and checkLinks()
         allTocs = wrapReport()
 
         if asPublished:

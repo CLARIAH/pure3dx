@@ -426,7 +426,7 @@ class Config:
         So if we know the key of a field, we have access to all of its
         properties.
 
-        The properties `nameSpave` and `fieldPath` determine how to drill
+        The properties `nameSpace` and `fieldPath` determine how to drill
         down in a record in order to find the value of that field.
 
         The property `tp` is the data type of the field, default `string`.

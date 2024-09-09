@@ -390,7 +390,7 @@ class Publish:
             fileCopy(f"{workingDir}/{x}", f"{pubModeDir}/{x}")
 
         for x in dirs:
-            if x in {"project", "meta"}:
+            if x in {"project", "db"}:
                 continue
 
             dirCopy(f"{workingDir}/{x}", f"{pubModeDir}/{x}")
@@ -414,7 +414,7 @@ class Publish:
             fileCopy(f"{inDir}/{x}", f"{outDir}/{x}")
 
         for x in dirs:
-            if x in {"edition", "meta"}:
+            if x in {"edition", "db"}:
                 continue
 
             dirCopy(f"{inDir}/{x}", f"{outDir}/{x}")
@@ -442,7 +442,7 @@ class Publish:
             fileCopy(f"{inDir}/{x}", f"{outDir}/{x}")
 
         for x in dirs:
-            if x in {"meta"}:
+            if x in {"db"}:
                 continue
 
             dirCopy(f"{inDir}/{x}", f"{outDir}/{x}")

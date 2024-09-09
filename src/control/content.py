@@ -285,11 +285,12 @@ class Content(Datamodel):
 
         dcMeta = dict(
             title=title,
-            description=dict(abstract="No intro", description="No description"),
+            abstract="No intro",
+            description="No description",
             creator=name,
         )
         projectId = Mongo.insertRecord(
-            "project", title=title, siteId=siteId, meta=dict(dc=dcMeta), isVisible=False
+            "project", title=title, siteId=siteId, dc=dcMeta, isVisible=False
         )
         Mongo.insertRecord(
             "projectUser", projectId=projectId, user=user, role="organiser"
@@ -460,18 +461,16 @@ class Content(Datamodel):
 
         dcMeta = dict(
             title=title,
-            description=dict(
-                abstract="No intro",
-                description="No description",
-                provenance="No sources",
-            ),
+            abstract="No intro",
+            description="No description",
+            provenance="No sources",
             creator=name,
         )
         editionId = Mongo.insertRecord(
             "edition",
             title=title,
             projectId=projectId,
-            meta=dict(dc=dcMeta),
+            dc=dcMeta,
             settings=editionSettings,
             isPublished=False,
         )
