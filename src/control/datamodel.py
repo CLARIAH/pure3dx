@@ -112,6 +112,7 @@ class Datamodel:
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return (None, None, None, None, None, None)
 

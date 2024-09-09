@@ -289,7 +289,7 @@ class Content(Datamodel):
             creator=name,
         )
         projectId = Mongo.insertRecord(
-            "project", title=title, meta=dict(dc=dcMeta), isVisible=False
+            "project", title=title, siteId=siteId, meta=dict(dc=dcMeta), isVisible=False
         )
         Mongo.insertRecord(
             "projectUser", projectId=projectId, user=user, role="organiser"
@@ -1809,6 +1809,7 @@ class Content(Datamodel):
         except Exception as e:
             good = False
             msgs.append(("error", "Something went wrong"))
+            self.debug(f"XXXXXXXXXXXXXXXXXX {e}")
             Messages.warning(logmsg=str(e))
 
         return (good, msgs)
