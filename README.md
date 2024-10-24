@@ -72,6 +72,8 @@ For more information on the set up you need to have a VPN connection to the HuC
 institute and then you can follow this
 [link](https://code.huc.knaw.nl/pure3d/pure3d-config).
 
+You can also deploy it locally, see [local-deploy](docs/local-deploy.md).
+
 ## Technical documentation
 
 There is a lot of documentation in the

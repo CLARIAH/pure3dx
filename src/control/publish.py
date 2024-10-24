@@ -61,6 +61,24 @@ class Publish:
         When we look for those numbers, we look in the database records,
         and we look on the filesystem, and we take the number one higher than
         the maximum number used in the database and on the file system.
+
+        **N.B.:** This practice has the flaw that numbers used for publishing projects
+        and editions may get reused when you unpublish and/or delete published editions.
+
+        We store the used publishing numbers for projects and editions in the
+        `site` record, as a dictionary named pubNums, keyed by project numbers, and
+        valued by the maximum edition pubNum for that project.
+
+        The `pubNums` dictionary will never lose keys, and its values will
+        never be lowered when projects or editions are removed.
+
+        So new projects and editions always get numbers that have never been used before
+        for publishing.
+
+        We also copy the `pubNum` field of a project or edition into the field
+        `pubNumLast` when we unpublish such an item, thereby nulling the `pubNum` field.
+        When we republish the item, its `pubNumLast` is restored to the `pubNum`
+        field.
         """
         Mongo = self.Mongo
         Settings = self.Settings

@@ -66,6 +66,9 @@ def prepare(design=False, migrate=False, trivial=False):
         This happens when we just want to start the container and run shell commands
         inside it, for example after a complicated refactoring when the flask app has
         too many bugs.
+        The only way to enable this is by setting `trivial = True` in the file
+        `src/control/webdavapp.py`, in the function `appFactory()`, where you see
+        the statement `trivial = False`.
 
     Returns
     -------

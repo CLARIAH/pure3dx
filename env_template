@@ -1,4 +1,4 @@
-dockertag=0.11.0
+dockertag=0.12.1
 DATA_DIR=/app/data
 PUB_DIR=/app/published
 PUB_URL=http://localhost:8080

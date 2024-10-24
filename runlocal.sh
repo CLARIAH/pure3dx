@@ -7,17 +7,21 @@ Run local app $app
 
 USAGE
 
-runlocal [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
+runlocal [host|up|down|peek|peekpub|mongo|buildlocal|build|dev] args
 "
 
 cd $approot
 
 source .env
 
+function apphost {
+    rdctl start --virtual-machine.memory-in-gb 6
+}
+
 function appup {
     # start the app, including its services
 
-    rdctl start --virtual-machine.memory-in-gb 6
+    hostup
 
     flaskdebug="x"
     runmode=""
