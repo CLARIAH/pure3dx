@@ -1,3 +1,5 @@
+#!/bin/bash
+
 app=$K_NAMESPACE
 approot="$K_LOCALDIR"
 
@@ -21,7 +23,7 @@ function apphost {
 function appup {
     # start the app, including its services
 
-    hostup
+    apphost
 
     flaskdebug="x"
     runmode=""
