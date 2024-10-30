@@ -225,7 +225,7 @@ class Precheck:
                 )
                 good = False
 
-            eAbstract = (edition.dc or AttrDict()).abstract
+            eAbstract = (eInfo.dc or AttrDict()).abstract
 
             if not eAbstract:
                 Messages.error(
