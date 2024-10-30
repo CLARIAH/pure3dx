@@ -46,9 +46,7 @@ been developed are contributed by
 *   Museum van Bommel van Dam,
 *   Nederlands Mijnmuseum.
 
-The
-[software code](https://github.com/CLARIAH/pure3dx)
-of Pure3D is the product of
+The software in this repo the product of
 
 *   [Bas Doppen](https://pure.knaw.nl/portal/en/persons/bas-doppen):
     visual design of the editions app;
@@ -60,7 +58,7 @@ of Pure3D is the product of
     [Smithsonian Voyager](https://github.com/Smithsonian/dpo-voyager),
     whose main developer is
     [Jamie Cope](https://github.com/gjcope) who provided helpful support
-    for handling the Voyager 3D web viewer within Pure3D;
+    for handling the Voyager 3D web viewer within Pure3D.
 
 ## Components
 
