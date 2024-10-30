@@ -8,10 +8,9 @@
 ## About
 
 Pure3D is an app for authoring and publishing 3D editions.
-
-It is the outcome of the [Pure3D project](https://pure3d.eu) led by
-[Susan Schreibman](https://www.maastrichtuniversity.nl/s-schreibman)
-and
+It is the outcome of the
+[Pure3D project](https://pure3d.eu/)
+led by
 [Costas Papadopoulos](https://www.maastrichtuniversity.nl/cp-papadopoulos)
 at Maastricht University, Netherlands.
 
@@ -23,18 +22,45 @@ infrastructure, managed from
 
 ## Contributors
 
-*   [Kelly Schoueri](https://www.maastrichtuniversity.nl/km-gillikin-schoueri) (Maastricht)
-    - key user, source of requirements
-*   MM (HuC) technical oversight
-*   VD (HuC) guidance for deployment on Kubernetes
-*   DH (HuC) support with the Kubernetes deployment
-*   LW (HuC) support with the backup solution
-*   [Bas Doppen](https://pure.knaw.nl/portal/en/persons/bas-doppen) (HuC)
-    styling
-*   [Jamie Cope](https://github.com/gjcope) (Smithsonian)
-    support for handling the Voyager 3D web viewer
-*   [Dirk Roorda](https://github.com/dirkroorda) (HuC)
-    architecture and most of the code
+The Maastricht University project team
+consists of
+
+*   Susan Schreibman (Co-PI),
+*   [Kelly Gillikin Schoueri](https://www.maastrichtuniversity.nl/km-gillikin-schoueri)
+    (Ph. D. researcher),
+*   Alicia Walsh (Research Assistant),
+*   Sohini Mallick (Research Software Engineer).
+
+Project partners include the
+
+*   4DRLab at the University of Amsterdam,
+*   KNAW Humanities Cluster - Digital Infrastructure,
+*   Data Archiving and Networked Services (DANS).
+
+Pilot projects through which user requirements have
+been developed are contributed by
+
+*   4DRLab,
+*   Erfgoed Leiden en Omstreken,
+*   Gemeente Maastricht,
+*   Museum van Bommel van Dam,
+*   Nederlands Mijnmuseum.
+
+The
+[software code](https://github.com/CLARIAH/pure3dx)
+of Pure3D is the product of
+
+*   [Bas Doppen](https://pure.knaw.nl/portal/en/persons/bas-doppen):
+    visual design of the editions app;
+*   [Dirk Roorda](https://github.com/dirkroorda):
+    backend, integration, and the overall architecture;
+*   Qiqing Ding (Vic) and his colleagues in the Concern Infrastructure team:
+    lots of help on the containerization and Kubernetes deployment;
+*   Pure3D contains several releases of the
+    [Smithsonian Voyager](https://github.com/Smithsonian/dpo-voyager),
+    whose main developer is
+    [Jamie Cope](https://github.com/gjcope) who provided helpful support
+    for handling the Voyager 3D web viewer within Pure3D;
 
 ## Components
 
