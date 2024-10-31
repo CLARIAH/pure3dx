@@ -133,7 +133,7 @@ runlocal buildlocal
 
 #### Provision the volumes
 
-You might wnat to have a look ate the `docker-compose.yml` file.
+You might want to have a look at the `docker-compose.yml` file.
 There you see how parts of the directory structure of the repo are mounted.
 
 The toplevel directory of the repo is mounted as `/app`, so the source code
@@ -142,5 +142,18 @@ is within reach.
 
 #### Run Pure3d
 
-We can now run Pure3d via Docker compose. When the app starts up, the script
+We can now run Pure3d via Docker compose (`runlocal up prod`). When the app starts up, the script
 `src/start.sh` will be executed
+
+#### Import the database
+```
+docker exec -it pure3d_author src/importdb.sh
+```
+
+#### Give your user root access
+
+1. Open the web app: localhost:8000
+2. Login
+3. Open `mogosh` on the 'mongodb'-docker with user `root`
+4. Execute `use pure3d_prod`
+5. Execute `db.user.update({'user': '<the value of your user property>'}, {'$set' : {'role': 'root'}})`
