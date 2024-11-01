@@ -332,15 +332,8 @@ class Publish:
                     theseEditions = dirContents(f"{thisProjectDir}/edition")[1]
 
                     if len(theseEditions) == 0:
-                        stage = f"unset pubnum for project from {pPubNum} to None"
-                        update = dict(pubNum=None, isVisible=False)
-                        Mongo.updateRecord("project", update, _id=project._id)
-
                         stage = f"remove project files {pPubNum}"
                         self.removeProjectFiles(pPubNum)
-
-                        pPubNumNew = None
-
                     else:
                         Messages.info(
                             msg=(
