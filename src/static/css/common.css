@@ -378,3 +378,6 @@ input[type=file] {
 .editcontent {
   display: none;
 }
+.editcontent.show {
+  display: inline;
+}

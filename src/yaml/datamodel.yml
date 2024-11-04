@@ -53,7 +53,12 @@ fields:
   period:
     nameSpace: dc
     fieldPath: coverage.period
-    caption: Period
+    caption: Period (free text)
+  temporal:
+    nameSpace: dc
+    fieldPath: coverage.temporal
+    caption: Period (keywords)
+    keyword: true
   place:
     nameSpace: dc
     fieldPath: coverage.place
@@ -61,7 +66,7 @@ fields:
   subject:
     nameSpace: dc
     caption: Subjects
-
+    keyword: true
 
 uploads:
   model:

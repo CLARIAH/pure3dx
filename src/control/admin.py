@@ -50,6 +50,10 @@ class Admin:
         All project and edition ids to which the current user has a relationship.
         It is a dict with keys `project` and `edition` and the values are sets
         of ids.
+
+        ### keywords
+
+        The lists of keywords in meta data fields
         """
         self.Content = Content
 
@@ -513,13 +517,20 @@ class Admin:
             allProjects = H.div(wrapped, id="allprojects")
 
             wrapped = []
+            wrapped.append(H.h(1, "Manage keywords"))
+            wrapped.append(H.div(self._wrapKeywords()))
+            allKeywords = H.div(wrapped, id="allkeywords")
+
+            wrapped = []
             wrapped.append(H.h(1, "Manage users"))
             wrapped.append(
                 H.div(self._wrapUsers(siteRoles, workIndicator=True), cls="susers")
             )
             allUsers = H.div(wrapped, id="allusers")
 
-        return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
+        return H.div(
+            [myDetails, myProjects, allProjects, allKeywords, allUsers], cls="myadmin"
+        )
 
     def _wrapPubProjects(self):
         """Generate HTML for the published projects in admin view.
@@ -667,6 +678,92 @@ class Admin:
                 ),
             ],
             cls="eentry",
+        )
+
+    def _wrapKeywords(self):
+        """Generate HTML for a widget in admin view to manage metadata keywords.
+
+        The keywords sit in a table with name `keyword`.
+        Each record corresponds to a keyword, each keyword has fields:
+
+        *   *name*: the name of the metadata field of which it is a value;
+        *   *value*: the keyword itself;
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+        Mongo = self.Mongo
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        fieldsConfig = datamodel.fields
+
+        keywordLists = {field for (field, cfg) in fieldsConfig.items() if cfg.keyword}
+
+        keywords = {}
+        keywordOccs = {}
+
+        for name in keywordLists:
+            keywords[name] = set()
+            keywordOccs[name] = {}
+
+        keywordItems = Mongo.getList("keyword", stop=False)
+
+        for keywordRecord in keywordItems:
+            name = keywordRecord.name
+            value = keywordRecord.value
+            keywords[name].add(value)
+            criteria = {f"dc.{name}": value}
+            recordsP = Mongo.getList("project", stop=False, **criteria)
+            recordsE = Mongo.getList("project", stop=False, **criteria)
+            occs = len(recordsP) + len(recordsE)
+            keywordOccs[name][value] = occs
+
+        return H.div(
+            [
+                self._wrapKeyList(
+                    name,
+                    sorted(values, key=lambda x: (x or "").lower()),
+                    keywordOccs[name],
+                )
+                for name, values in keywords.items()
+            ],
+            cls="skeywords",
+        )
+
+    def _wrapKeyList(self, name, values, occs):
+        H = self.H
+
+        saveUrl = "/save/keyword/"
+        cancelButton = H.actionButton("kwmanage_cancel")
+        saveButton = H.actionButton("kwmanage_save")
+        messages = H.div("", cls="editmsgs")
+        editableContent = H.input(
+            "", "text", cls="editcontent show", name=name, saveurl=saveUrl
+        )
+
+        return H.details(
+            name,
+            H.div(
+                H.div(
+                    [
+                        editableContent,
+                        saveButton,
+                        cancelButton,
+                        messages,
+                    ]
+                )
+                + H.div(
+                    [
+                        H.span(value, cls="keyword") + f"({occs[value]})"
+                        for value in values
+                    ]
+                ),
+                cls="kwmanagewidget",
+            ),
+            f"keywordlist-{name}",
         )
 
     def _wrapUsers(

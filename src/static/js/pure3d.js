@@ -436,6 +436,113 @@ const linkUser = (linkuser, topContent) => {
   })
 }
 
+const kwmanageWidgets = () => {
+  const kwmanagewidgets = $(".kwmanagewidget")
+
+  kwmanagewidgets.each((i, kwmanagewidget) => {
+    kwmanageWidget(kwmanagewidget)
+  })
+}
+
+const kwmanageWidget = kwmanagewidget => {
+  const kwmanagewidgetJQ = $(kwmanagewidget)
+  const cancelButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_cancel"]`)
+  const saveButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_save"]`)
+  const editContent = kwmanagewidgetJQ.find(".editcontent")
+  const editMessages = kwmanagewidgetJQ.find(".editmsgs")
+  const saveUrl = editContent.attr("saveurl")
+  const name = editContent.attr("name")
+
+  const saveData = saveValue => {
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: saveUrl,
+      data: JSON.stringify(saveValue),
+      processData: false,
+      contentType: true,
+      success: processSavedOK(saveValue),
+      error: processSavedError,
+    })
+  }
+
+  const processSavedOK = saveValue => response => {
+    const { stat, messages, readonly } = response
+    if (stat) {
+      finishSave(saveValue, readonly)
+    } else {
+      abortSave(messages)
+    }
+  }
+
+  const processSavedError = (jqXHR, stat) => {
+    const { status, statusText } = jqXHR
+    abortSave([[stat, `save failed: ${status} ${statusText}`]])
+  }
+
+  const finishSave = () => {
+    editContent.val("")
+    editContent.removeClass("dirty")
+    editMessages.hide()
+    cancelButton.hide()
+    saveButton.hide()
+  }
+
+  const abortSave = messages => {
+    editMessages.html("")
+    for (const [tp, msg] of messages) {
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      editMessages.append(html)
+    }
+    editMessages.show()
+
+    cancelButton.show()
+    saveButton.show()
+  }
+
+  const handleTyping = () => {
+    const value = editContent.val()
+    if ("" == value) {
+      editContent.removeClass("dirty")
+      cancelButton.hide()
+      saveButton.hide()
+    } else {
+      editContent.addClass("dirty")
+      cancelButton.show()
+      saveButton.show()
+    }
+  }
+
+  cancelButton.off("click").click(() => {
+    editContent.val("")
+    editContent.removeClass("dirty")
+    editMessages.html("")
+    editMessages.hide()
+    cancelButton.hide()
+    saveButton.hide()
+  })
+  saveButton.off("click").click(() => {
+    const saveValue = editContent.val()
+    if ("" == saveValue) {
+      editContent.val("")
+      editContent.removeClass("dirty")
+      editMessages.html("")
+      editMessages.hide()
+      cancelButton.hide()
+      saveButton.hide()
+    } else {
+      saveData({ value: saveValue, name })
+    }
+  })
+
+  editContent.removeClass("dirty")
+  editContent.off("keyup").keyup(handleTyping)
+  editMessages.html("")
+  editMessages.hide()
+  cancelButton.hide()
+  saveButton.hide()
+}
+
 const editWidgets = () => {
   const editwidgets = $(".editwidget")
 
@@ -710,6 +817,7 @@ const processMyWork = () => {
 
 $(() => {
   uploadControls()
+  kwmanageWidgets()
   editWidgets()
   processMyWork()
   confirmInit()

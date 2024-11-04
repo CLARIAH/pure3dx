@@ -95,7 +95,8 @@ authRules:
         editor: true
         reader: true
     update:
-      true: {}
+      true:
+        organiser: true
       false:
         organiser: true
     delete:
