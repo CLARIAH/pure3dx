@@ -317,7 +317,7 @@ class Publish:
             elif action == "remove":
                 try:
                     stage = f"unset pubnum for edition from {ePubNum} to None"
-                    update = dict(pubNum=None, isPublished=False)
+                    update = dict(isPublished=False)
                     Mongo.updateRecord("edition", update, _id=edition._id)
 
                     stage = f"remove edition files {pPubNum}/{ePubNum}"
