@@ -104,13 +104,19 @@ class Publish:
 
             return pubNum
 
-        kind = "project"
-        item = project
-        pubNumLast = pPubNumLast
-        condition = {}
-        itemsDir = projectDir
+        if pPubNumLast is None:
+            # because there is only 1 site in the database, we can retrieve it without paramaters
+            site = Mongo.getRecord("site")
 
-        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+            if "publishedProjectCount" in site:
+                pPubNum = site["publishedProjectCount"] + 1
+                Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
+            else:
+                # Determine project publish number the old way, to make sure no two project have the same pubNum
+                pPubNum = getNum("project", project,  pPubNumLast, {}, projectDir)
+                Mongo.updateRecord("site", {"publishedProjectCount": 1})
+        else:
+            pPubNum = pPubNumLast
 
         kind = "edition"
         item = edition
