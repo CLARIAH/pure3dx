@@ -918,7 +918,7 @@ class Content(Datamodel):
         editionPubRow = (
             (
                 H.i("Not published")
-                if editionIsPublished
+                if not editionIsPublished
                 else H.span("Published: ")
             ),
             H.a(
@@ -926,7 +926,7 @@ class Content(Datamodel):
                 f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
                 target=published,
                 cls="button large",
-            ),
+            ) if editionIsPublished else ""
         )
 
         can = dict(
