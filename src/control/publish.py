@@ -110,11 +110,11 @@ class Publish:
 
             if "publishedProjectCount" in site:
                 pPubNum = site["publishedProjectCount"] + 1
-                Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
             else:
                 # Determine project publish number the old way, to make sure no two project have the same pubNum
                 pPubNum = getNum("project", project,  pPubNumLast, {}, projectDir)
-                Mongo.updateRecord("site", {"publishedProjectCount": 1})
+
+            Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
         else:
             pPubNum = pPubNumLast
 
