@@ -1,5 +1,6 @@
 from datetime import datetime as dt
 from traceback import format_exception
+from .mongo import Mongo
 
 from control.files import (
     dirContents,
@@ -18,7 +19,7 @@ from control.static import Static as StaticCls
 
 class Publish:
     def __init__(
-        self, Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+        self, Settings, Messages, Viewers, Mongo: Mongo, Content, Tailwind, Handlebars
     ):
         """Publishing content as static pages.
 
@@ -115,6 +116,7 @@ class Publish:
                 pPubNum = getNum("project", project,  pPubNumLast, {}, projectDir)
 
             Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
+
         else:
             pPubNum = pPubNumLast
 
