@@ -272,8 +272,14 @@ span.fileupload.iconedition img {
 .editwidget.editing {
   border: 0.1rem solid var(--edit-text-border);
 }
-.editcontent.dirty {
+.editcontent.dirty,.editcontent.show.dirty {
   border: 0.3rem solid var(--edit-dirty-border);
+}
+.editcontent {
+  display: none;
+}
+.editcontent.show {
+  display: inline;
 }
 
 #mydetails,#myprojects,#pubprojects,#allprojects,#allusers {
@@ -420,4 +426,16 @@ span.fileupload.iconedition img {
   color: var(--role-on-fore);
   background-color: var(--role-on-back);
   border: 0.2rem solid var(--role-on-border);
+}
+.keyword {
+  margin: 0.1rem 0.2rem;
+  padding: 0.1rem 0.2rem;
+  border: 0.1rem solid grey;
+  border-radius: 0.4rem;
+}
+.kwmanagewidget {
+  margin-bottom: 1rem;
+}
+.kwmanagewidgetinput {
+  margin-bottom: 0.2rem;
 }

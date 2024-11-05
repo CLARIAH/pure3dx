@@ -123,6 +123,11 @@ td
 	background-color: var(--action-back);
 	border-color: var(--action-border);
 }
+.button.danger
+{
+	color: var(--action-danger-fore);
+	background-color: var(--action-danger-back);
+}
 .button.disabled
 {
 	cursor: default;
@@ -374,10 +379,4 @@ input[type=file] {
     visibility: hidden;
     width: 0;
     height: 0;
-}
-.editcontent {
-  display: none;
-}
-.editcontent.show {
-  display: inline;
 }

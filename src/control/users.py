@@ -115,7 +115,7 @@ class Users:
         -------
         response
             A redirect. When logging in in non-prod mode, the redirect
-            is to *referrer* (the url we came from). Otherwise it is to a url
+            is to*referrer* (the url we came from). Otherwise it is to a url
             that triggers an oidc login procedure. To that page we pass
             the referrer as part of the url, so that after login the user
             can be redirected to the original referrer.
@@ -273,7 +273,7 @@ class Users:
     def myDetails(self):
         """Who is the currently authenticated user?
 
-        The appplication-context-global `User` is inspected:
+        The application-context-global `User` is inspected:
         does it contain a member called `user`?
         If so, that is taken as proof that we have a valid user.
 
@@ -286,6 +286,27 @@ class Users:
         """
         User = acg.User
         return AttrDict(**User) if "user" in User else AttrDict({})
+
+    def inPower(self):
+        """Whether the current user is a power user: admin or root.
+
+        Returns
+        -------
+        tuple
+            The first member is a boolean:
+            true if the current user is an admin or root, false if the current
+            user is not logged in or neither an admin ir root.
+            The second member is the role of the current user, None if there is
+            no current user.
+        """
+        User = self.myDetails()
+        user = User.user
+
+        if not user:
+            return (False, None)
+
+        myRole = User.role
+        return (myRole in {"root", "admin"}, myRole)
 
     def getUser(self, fromArg=False):
         """Obtain the "sub" of the currently logged in user from the request info.

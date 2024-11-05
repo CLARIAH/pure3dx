@@ -545,6 +545,14 @@ def appFactory(objects):
         """
         return Content.saveRole(user, table, record)
 
+    @app.route("/save/keyword/", methods=["POST"])
+    def saveKeyword():
+        return Content.saveKeyword()
+
+    @app.route("/keyword/delete/")
+    def deleteKeyword():
+        return Content.deleteKeyword()
+
     @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
     def saveValue(table, record, key):
         """Saves metadata to the database.

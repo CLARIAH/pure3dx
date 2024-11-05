@@ -88,7 +88,7 @@ class Publish:
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
 
-        def getNum(kind, item, pubNumLast, condition, itemsDir):
+        def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
                 itemsDb = Mongo.getList(kind, stop=False, **condition)
                 nDb = len(itemsDb)
@@ -105,20 +105,18 @@ class Publish:
             return pubNum
 
         kind = "project"
-        item = project
         pubNumLast = pPubNumLast
         condition = {}
         itemsDir = projectDir
 
-        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+        pPubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
         kind = "edition"
-        item = edition
         pubNumLast = ePubNumLast
         condition = dict(projectId=project._id)
         itemsDir = f"{projectDir}/{pPubNum}/edition"
 
-        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+        ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
         return (pPubNum, ePubNum)
 

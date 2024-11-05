@@ -438,13 +438,14 @@ const linkUser = (linkuser, topContent) => {
 
 const kwmanageWidgets = () => {
   const kwmanagewidgets = $(".kwmanagewidget")
+  const topContent = $(".myadmin")
 
   kwmanagewidgets.each((i, kwmanagewidget) => {
-    kwmanageWidget(kwmanagewidget)
+    kwmanageWidget(kwmanagewidget, topContent)
   })
 }
 
-const kwmanageWidget = kwmanagewidget => {
+const kwmanageWidget = (kwmanagewidget, topContent) => {
   const kwmanagewidgetJQ = $(kwmanagewidget)
   const cancelButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_cancel"]`)
   const saveButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_save"]`)
@@ -461,15 +462,15 @@ const kwmanageWidget = kwmanagewidget => {
       data: JSON.stringify(saveValue),
       processData: false,
       contentType: true,
-      success: processSavedOK(saveValue),
+      success: processSavedOK,
       error: processSavedError,
     })
   }
 
-  const processSavedOK = saveValue => response => {
-    const { stat, messages, readonly } = response
+  const processSavedOK = response => {
+    const { stat, messages, updated } = response
     if (stat) {
-      finishSave(saveValue, readonly)
+      finishSave(updated)
     } else {
       abortSave(messages)
     }
@@ -480,12 +481,9 @@ const kwmanageWidget = kwmanagewidget => {
     abortSave([[stat, `save failed: ${status} ${statusText}`]])
   }
 
-  const finishSave = () => {
-    editContent.val("")
-    editContent.removeClass("dirty")
-    editMessages.hide()
-    cancelButton.hide()
-    saveButton.hide()
+  const finishSave = updated => {
+    topContent.html(updated)
+    processMyWork()
   }
 
   const abortSave = messages => {
@@ -523,6 +521,7 @@ const kwmanageWidget = kwmanagewidget => {
   })
   saveButton.off("click").click(() => {
     const saveValue = editContent.val()
+    console.warn({ saveValue })
     if ("" == saveValue) {
       editContent.val("")
       editContent.removeClass("dirty")
@@ -809,6 +808,7 @@ const confirmInit = () => {
 }
 
 const processMyWork = () => {
+  kwmanageWidgets()
   editRoles()
   createUser()
   linkUsers()

@@ -1,8 +1,8 @@
-from io import BytesIO
 import os
 import json
 import yaml
 import magic
+from io import BytesIO
 from tempfile import mkdtemp
 from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -560,6 +560,49 @@ class Content(Datamodel):
             readonly=F.formatted(table, record, editable=False, level=None),
         )
 
+    def saveKeyword(self):
+        """Saves a keyword.
+
+        A keyword is a string value and it belongs to a list of keywords.
+        Some metadata fields are associated with a list of values: keywords.
+
+        All keywords for all lists are stored in the table *keyword*. The keyword
+        itself is stored in field *value*, and the name of the keyword list is stored
+        in the field *name*.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+        return Admin(self).saveKeyword(name, value)
+
+    def deleteKeyword(self):
+        """Deletes a keyword.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+        return Admin(self).saveKeyword(name, value)
+
     def saveRole(self, user, table, recordId):
         """Saves a role into a user or cross table record.
 
@@ -1079,9 +1122,11 @@ class Content(Datamodel):
         urlBase = (
             ""
             if project is None
-            else f"project/{projectId}"
-            if edition is None
-            else f"project/{projectId}/edition/{editionId}"
+            else (
+                f"project/{projectId}"
+                if edition is None
+                else f"project/{projectId}/edition/{editionId}"
+            )
         )
         sep = "/" if urlBase else ""
         base = f"{workingDir}{sep}{urlBase}"
@@ -1107,9 +1152,7 @@ class Content(Datamodel):
             result = (
                 ""
                 if content
-                else dataPath
-                if lenient
-                else H.span(dataPath, cls="error")
+                else dataPath if lenient else H.span(dataPath, cls="error")
             )
 
             if not lenient:

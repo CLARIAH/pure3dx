@@ -113,16 +113,10 @@ class Admin:
         self.User = User
         self.user = user
 
+        (self.inPower, self.myRole) = Auth.inPower()
+
         if not user:
-            self.myRole = None
-            self.inPower = False
             return
-
-        myRole = User.role
-        inPower = myRole in {"root", "admin"}
-
-        self.myRole = myRole
-        self.inPower = inPower
 
         siteRecord = Mongo.getRecord("site")
         userList = Mongo.getList("user", sort="nickname")
@@ -703,37 +697,27 @@ class Admin:
         keywordLists = {field for (field, cfg) in fieldsConfig.items() if cfg.keyword}
 
         keywords = {}
-        keywordOccs = {}
 
         for name in keywordLists:
-            keywords[name] = set()
-            keywordOccs[name] = {}
+            keywords[name] = {}
 
         keywordItems = Mongo.getList("keyword", stop=False)
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
             value = keywordRecord.value
-            keywords[name].add(value)
             criteria = {f"dc.{name}": value}
             recordsP = Mongo.getList("project", stop=False, **criteria)
             recordsE = Mongo.getList("project", stop=False, **criteria)
             occs = len(recordsP) + len(recordsE)
-            keywordOccs[name][value] = occs
+            keywords[name][value] = occs
 
         return H.div(
-            [
-                self._wrapKeyList(
-                    name,
-                    sorted(values, key=lambda x: (x or "").lower()),
-                    keywordOccs[name],
-                )
-                for name, values in keywords.items()
-            ],
+            [self._wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
             cls="skeywords",
         )
 
-    def _wrapKeyList(self, name, values, occs):
+    def _wrapKeywordList(self, name, values):
         H = self.H
 
         saveUrl = "/save/keyword/"
@@ -753,18 +737,45 @@ class Admin:
                         saveButton,
                         cancelButton,
                         messages,
-                    ]
+                    ],
+                    cls="kwmanagewidgetinput",
                 )
                 + H.div(
                     [
-                        H.span(value, cls="keyword") + f"({occs[value]})"
-                        for value in values
+                        self._wrapKeyword(name, value, values[value])
+                        for value in sorted(values)
                     ]
                 ),
                 cls="kwmanagewidget",
             ),
             f"keywordlist-{name}",
         )
+
+    def saveKeyword(self, name, value):
+        Auth = self.Auth
+        Mongo = self.Mongo
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[["error", "adding a keyword is not allowed"]]
+            )
+
+        Mongo.insertRecord("keyword", name=name, value=value)
+
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def _wrapKeyword(self, name, value, occ):
+        H = self.H
+
+        deleteButton = H.iconx(
+            "cross",
+            title=f"delete keyword {value}",
+            href="/keyword/delete/",
+            cls="button small danger",
+        )
+        return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
 
     def _wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
