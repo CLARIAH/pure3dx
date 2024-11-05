@@ -112,10 +112,10 @@ function appmongo {
     done
 
     if [[ "$runmode" == "" ]]; then
-        mongo --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin
+        mongosh --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin
     else
-        echo mongo --port $mongoportouter -u root -p example --authenticationDatabase admin ${app}_$runmode
-        mongo --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin ${app}_$runmode
+        echo mongosh --port $mongoportouter -u root -p example --authenticationDatabase admin ${app}_$runmode
+        mongosh --port $mongoportouter -u $mongouser -p $mongopassword --authenticationDatabase admin ${app}_$runmode
     fi
 }
 
