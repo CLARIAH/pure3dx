@@ -118,13 +118,22 @@ class Publish:
         else:
             pPubNum = pPubNumLast
 
-        kind = "edition"
-        item = edition
-        pubNumLast = ePubNumLast
-        condition = dict(projectId=project._id)
-        itemsDir = f"{projectDir}/{pPubNum}/edition"
+        if ePubNumLast is None:
+            if "publishedEditionCount" in project:
+                ePubNum = project["publishedEditionCount"] + 1
+            else:
+                # use get num for existing projects
+                kind = "edition"
+                item = edition
+                pubNumLast = ePubNumLast
+                condition = dict(projectId=project._id)
+                itemsDir = f"{projectDir}/{pPubNum}/edition"
 
-        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+                ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+
+            Mongo.updateRecord("project", {"publishedEditionCount": ePubNum}, _id=project._id)
+        else:
+            ePubNum = ePubNumLast
 
         return (pPubNum, ePubNum)
 
