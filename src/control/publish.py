@@ -89,7 +89,7 @@ class Publish:
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
 
-        def getNum(kind, item, pubNumLast, condition, itemsDir):
+        def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
                 itemsDb = Mongo.getList(kind, stop=False, **condition)
                 nDb = len(itemsDb)
@@ -113,7 +113,7 @@ class Publish:
                 pPubNum = site["publishedProjectCount"] + 1
             else:
                 # Determine project publish number the old way, to make sure no two project have the same pubNum
-                pPubNum = getNum("project", project,  pPubNumLast, {}, projectDir)
+                pPubNum = getNum("project", pPubNumLast, {}, projectDir)
 
             Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
 
@@ -126,12 +126,11 @@ class Publish:
             else:
                 # use get num for existing projects
                 kind = "edition"
-                item = edition
                 pubNumLast = ePubNumLast
                 condition = dict(projectId=project._id)
                 itemsDir = f"{projectDir}/{pPubNum}/edition"
 
-                ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+                ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
             Mongo.updateRecord("project", {"publishedEditionCount": ePubNum}, _id=project._id)
         else:
