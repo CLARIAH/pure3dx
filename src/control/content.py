@@ -913,11 +913,12 @@ class Content(Datamodel):
             return H.p(projectPubStr)
 
         ePubNum = edition.pubNum
+        editionIsPublished = edition.isPublished
 
         editionPubRow = (
             (
                 H.i("Not published")
-                if ePubNum is None or pPubNum is None
+                if not editionIsPublished
                 else H.span("Published: ")
             ),
             H.a(
@@ -925,14 +926,14 @@ class Content(Datamodel):
                 f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
                 target=published,
                 cls="button large",
-            ),
+            ) if editionIsPublished else ""
         )
 
         can = dict(
             precheck=True,
-            publish=ePubNum is None,
-            unpublish=pPubNum is not None and ePubNum is not None,
-            republish=pPubNum is not None and ePubNum is not None,
+            publish=not editionIsPublished,
+            unpublish=editionIsPublished,
+            republish=editionIsPublished,
         )
 
         rows = []
