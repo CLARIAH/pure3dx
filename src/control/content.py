@@ -601,7 +601,7 @@ class Content(Datamodel):
         specs = json.loads(requestData())
         name = specs["name"]
         value = specs["value"]
-        return Admin(self).saveKeyword(name, value)
+        return Admin(self).deleteKeyword(name, value)
 
     def saveRole(self, user, table, recordId):
         """Saves a role into a user or cross table record.
@@ -1851,7 +1851,6 @@ class Content(Datamodel):
         except Exception as e:
             good = False
             msgs.append(("error", "Something went wrong"))
-            self.debug(f"XXXXXXXXXXXXXXXXXX {e}")
             Messages.warning(logmsg=str(e))
 
         return (good, msgs)

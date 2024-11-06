@@ -549,7 +549,7 @@ def appFactory(objects):
     def saveKeyword():
         return Content.saveKeyword()
 
-    @app.route("/keyword/delete/")
+    @app.route("/keyword/delete/", methods=["POST"])
     def deleteKeyword():
         return Content.deleteKeyword()
 

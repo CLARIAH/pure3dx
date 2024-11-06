@@ -449,12 +449,14 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
   const kwmanagewidgetJQ = $(kwmanagewidget)
   const cancelButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_cancel"]`)
   const saveButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_save"]`)
+  const deleteButtons = kwmanagewidgetJQ.find(`span[delurl]`)
   const editContent = kwmanagewidgetJQ.find(".editcontent")
   const editMessages = kwmanagewidgetJQ.find(".editmsgs")
   const saveUrl = editContent.attr("saveurl")
   const name = editContent.attr("name")
 
   const saveData = saveValue => {
+    const { name } = saveValue
     $.ajax({
       type: "POST",
       headers: { "Content-Type": "application/json" },
@@ -462,31 +464,47 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
       data: JSON.stringify(saveValue),
       processData: false,
       contentType: true,
-      success: processSavedOK,
-      error: processSavedError,
+      success: processOK("save", name),
+      error: processError("save", name),
     })
   }
 
-  const processSavedOK = response => {
+  const delData = (delUrl, delValue) => {
+    const { name } = delValue
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: delUrl,
+      data: JSON.stringify(delValue),
+      processData: false,
+      contentType: true,
+      success: processOK("delete", name),
+      error: processError("delete", name),
+    })
+  }
+
+  const processOK = (kind, name) => response => {
     const { stat, messages, updated } = response
     if (stat) {
-      finishSave(updated)
+      finishSave(name, updated)
     } else {
-      abortSave(messages)
+      abortSave(name, [[false, `${kind} failed`]] + messages)
     }
   }
 
-  const processSavedError = (jqXHR, stat) => {
+  const processError = (kind, name) => (jqXHR, stat) => {
     const { status, statusText } = jqXHR
-    abortSave([[stat, `save failed: ${status} ${statusText}`]])
+    abortSave(name, [[stat, `${kind} failed: ${status} ${statusText}`]])
   }
 
-  const finishSave = updated => {
+  const finishSave = (name, updated) => {
+    console.warn({ name })
     topContent.html(updated)
-    processMyWork()
+    processMyWork(name)
   }
 
-  const abortSave = messages => {
+  const abortSave = (name, messages) => {
+    $(`[itemkey="keywordlist-${name}"]`).prop("open", true)
     editMessages.html("")
     for (const [tp, msg] of messages) {
       const html = `<span class="msgitem ${tp}">${msg}</span>`
@@ -521,7 +539,6 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
   })
   saveButton.off("click").click(() => {
     const saveValue = editContent.val()
-    console.warn({ saveValue })
     if ("" == saveValue) {
       editContent.val("")
       editContent.removeClass("dirty")
@@ -532,6 +549,11 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
     } else {
       saveData({ value: saveValue, name })
     }
+  })
+  deleteButtons.off("click").click(e => {
+    const elem = $(e.target)
+    const delUrl = elem.attr("delurl")
+    delData(delUrl, { name: elem.attr("name"), value: elem.attr("value") })
   })
 
   editContent.removeClass("dirty")
@@ -807,8 +829,11 @@ const confirmInit = () => {
   })
 }
 
-const processMyWork = () => {
+const processMyWork = name => {
   kwmanageWidgets()
+  if (name) {
+    $(`[itemkey="keywordlist-${name}"]`).prop("open", true)
+  }
   editRoles()
   createUser()
   linkUsers()

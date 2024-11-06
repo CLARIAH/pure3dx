@@ -53,7 +53,7 @@ class Admin:
 
         ### keywords
 
-        The lists of keywords in meta data fields
+        The lists of keywords in metadata fields
         """
         self.Content = Content
 
@@ -101,7 +101,7 @@ class Admin:
         Typically needed when you have used an admin function to perform
         a user administration action.
 
-        This may change the permissions and hence the visiblity of projects and editions.
+        This may change the permissions and hence the visibility of projects and editions.
         It also changes the possible user management actions in the future.
         """
         Mongo = self.Mongo
@@ -256,7 +256,7 @@ class Admin:
         ----------
         otherUser: string | void
             the other user as string (eppn)
-            If None, the question is: what are the roles in which an other
+            If None, the question is: what are the roles in which another
             user may be put wrt to this project/edition?
         table: string, optional None
             the relevant table: `project` or `edition`;
@@ -266,7 +266,7 @@ class Admin:
         record: ObjectId | AttrDict, optional None
             the relevant record;
             it is the record relative to which the other user will be
-            assigned an other role.
+            assigned another role.
             If None, the role to be assigned is a site wide role.
 
         Returns
@@ -389,7 +389,7 @@ class Admin:
         projects = self.projects
         editionRolesSet = self.editionRolesSet
 
-        # check whether the role is a edition-scoped role
+        # check whether the role is an edition-scoped role
         pRecord = projects[record.projectId]
         pUsers = pRecord.users or AttrDict()
         eUsers = record.users or AttrDict()
@@ -497,6 +497,7 @@ class Admin:
         myProjects = H.div(wrapped, id="myprojects")
         allProjects = ""
         allUsers = ""
+        allKeywords = ""
 
         if inPower:
             wrapped = []
@@ -766,13 +767,29 @@ class Admin:
 
         return dict(stat=True, messages=[], updated=self.wrap())
 
+    def deleteKeyword(self, name, value):
+        Auth = self.Auth
+        Mongo = self.Mongo
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[["error", "deleting a keyword is not allowed"]]
+            )
+
+        good = Mongo.deleteRecord("keyword", stop=False, name=name, value=value)
+        messages = [] if good else [["warning", "no keyword has been deleted"]]
+
+        return dict(stat=good, messages=messages, updated=self.wrap())
+
     def _wrapKeyword(self, name, value, occ):
         H = self.H
 
         deleteButton = H.iconx(
             "cross",
             title=f"delete keyword {value}",
-            href="/keyword/delete/",
+            name=name, value=value, delUrl="/keyword/delete/",
             cls="button small danger",
         )
         return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
@@ -802,7 +819,7 @@ class Admin:
         theseUsers: dict, optional None
             If table/record is not specified, you can specify users here.
             If this parameter is also None, then all users in the system are taken.
-            Otherwise you have to specify a dict, keyed by user eppns and valued by
+            Otherwise, you have to specify a dict, keyed by user eppns and valued by
             tuples consisting of a user record and a role.
 
         Returns
@@ -1244,8 +1261,8 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
-            This should be different from the user names of existing users.
+            The username of the user.
+            This should be different from the usernames of existing users.
             The name may only contain the ASCII digits and lower case letters,
             plus dash, dot, and underscore.
 
@@ -1316,7 +1333,7 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
+            The username of the user.
 
         Returns
         -------
