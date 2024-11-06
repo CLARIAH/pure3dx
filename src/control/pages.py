@@ -1097,8 +1097,8 @@ class Pages:
         search = H.span(
             [
                 H.input(
-                    "search",
                     "",
+                    "search",
                     name="search",
                     placeholder="search item",
                     cls="button disabled",
@@ -1106,10 +1106,9 @@ class Pages:
                     style="display:none"
                 ),
                 H.input(
-                    "submit",
                     "Search",
+                    "submit",
                     cls="button disabled",
-                    type="button disabled",
                     disabled="",
                     style="display:none"
                 ),
