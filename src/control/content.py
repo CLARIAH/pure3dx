@@ -560,49 +560,6 @@ class Content(Datamodel):
             readonly=F.formatted(table, record, editable=False, level=None),
         )
 
-    def saveKeyword(self):
-        """Saves a keyword.
-
-        A keyword is a string value and it belongs to a list of keywords.
-        Some metadata fields are associated with a list of values: keywords.
-
-        All keywords for all lists are stored in the table *keyword*. The keyword
-        itself is stored in field *value*, and the name of the keyword list is stored
-        in the field *name*.
-
-        The name and value are given by the request.
-
-        Returns
-        -------
-        dict
-            Contains the following keys:
-
-            * `status`: whether the save action was successful
-            * `messages`: messages issued during the process
-        """
-        specs = json.loads(requestData())
-        name = specs["name"]
-        value = specs["value"]
-        return Admin(self).saveKeyword(name, value)
-
-    def deleteKeyword(self):
-        """Deletes a keyword.
-
-        The name and value are given by the request.
-
-        Returns
-        -------
-        dict
-            Contains the following keys:
-
-            * `status`: whether the save action was successful
-            * `messages`: messages issued during the process
-        """
-        specs = json.loads(requestData())
-        name = specs["name"]
-        value = specs["value"]
-        return Admin(self).deleteKeyword(name, value)
-
     def saveRole(self, user, table, recordId):
         """Saves a role into a user or cross table record.
 
@@ -693,7 +650,7 @@ class Content(Datamodel):
         Returns
         -------
         dict
-            Contains the following keys:
+            Containsthe following keys:
 
             * `status`: whether the save action was successful
             * `messages`: messages issued during the process

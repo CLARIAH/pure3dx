@@ -1,4 +1,5 @@
 from control.flask import appMake, appStop, requestMethod, appInitializing
+from control.admin import Admin
 
 
 def appFactory(objects):
@@ -547,11 +548,11 @@ def appFactory(objects):
 
     @app.route("/save/keyword/", methods=["POST"])
     def saveKeyword():
-        return Content.saveKeyword()
+        return Admin(Content).saveKeyword()
 
     @app.route("/keyword/delete/", methods=["POST"])
     def deleteKeyword():
-        return Content.deleteKeyword()
+        return Admin(Content).deleteKeyword()
 
     @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
     def saveValue(table, record, key):

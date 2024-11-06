@@ -1,6 +1,9 @@
 import re
+import json
 
-from control.generic import AttrDict
+from .flask import requestData
+from .generic import AttrDict
+from .helpers import normalize
 
 
 USERNAME_RE = re.compile(r"[^a-z0-9._-]")
@@ -675,21 +678,21 @@ class Admin:
             cls="eentry",
         )
 
-    def _wrapKeywords(self):
-        """Generate HTML for a widget in admin view to manage metadata keywords.
+    def getKeywords(self):
+        """Get the lists of keywords that act as values for metadata fields.
 
-        The keywords sit in a table with name `keyword`.
-        Each record corresponds to a keyword, each keyword has fields:
+        A keyword is a string value and it belongs to a list of keywords.
+        Some metadata fields are associated with a list of values: keywords.
 
-        *   *name*: the name of the metadata field of which it is a value;
-        *   *value*: the keyword itself;
+        We read the table of keywords, organize it by metadata field, and count
+        how many edition/project record use that keyword.
 
         Returns
         -------
-        string
-            The HTML
+        dict
+            keyed by name of the metadata field, then by the keyword itself,
+            and valued by the number of edition/project records it occurs in.
         """
-        H = self.H
         Mongo = self.Mongo
         Settings = self.Settings
         datamodel = Settings.datamodel
@@ -712,6 +715,26 @@ class Admin:
             recordsE = Mongo.getList("project", stop=False, **criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
+
+        return keywords
+
+    def _wrapKeywords(self):
+        """Generate HTML for a widget in admin view to manage metadata keywords.
+
+        The keywords sit in a table with name `keyword`.
+        Each record corresponds to a keyword, each keyword has fields:
+
+        *   *name*: the name of the metadata field of which it is a value;
+        *   *value*: the keyword itself;
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+
+        keywords = self.getKeywords()
 
         return H.div(
             [self._wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
@@ -752,7 +775,36 @@ class Admin:
             f"keywordlist-{name}",
         )
 
-    def saveKeyword(self, name, value):
+    def _wrapKeyword(self, name, value, occ):
+        H = self.H
+
+        deleteButton = H.iconx(
+            "cross",
+            title=f"delete keyword {value}",
+            name=name,
+            value=value,
+            delUrl="/keyword/delete/",
+            cls="button small danger",
+        )
+        return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
+
+    def saveKeyword(self):
+        """Saves a keyword.
+
+        All keywords for all lists are stored in the table *keyword*. The keyword
+        itself is stored in field *value*, and the name of the keyword list is stored
+        in the field *name*.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
         Auth = self.Auth
         Mongo = self.Mongo
 
@@ -763,11 +815,55 @@ class Admin:
                 stat=False, messages=[["error", "adding a keyword is not allowed"]]
             )
 
+        keywords = self.getKeywords()
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[["error", f"unknown keyword list '{name}'"]]
+            )
+
+        keywords = keywords[name]
+
+        if value in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    ["warning", f"keyword list '{name}' already contains '{value}'"]
+                ],
+            )
+
+        if normalize(value) in {normalize(val) for val in keywords}:
+            return dict(
+                stat=False,
+                messages=[
+                    [
+                        "warning",
+                        f"keyword list '{name}' already contains "
+                        f"a variant of '{value}'",
+                    ]
+                ],
+            )
+
         Mongo.insertRecord("keyword", name=name, value=value)
 
         return dict(stat=True, messages=[], updated=self.wrap())
 
-    def deleteKeyword(self, name, value):
+    def deleteKeyword(self):
+        """Deletes a keyword.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
         Auth = self.Auth
         Mongo = self.Mongo
 
@@ -778,21 +874,40 @@ class Admin:
                 stat=False, messages=[["error", "deleting a keyword is not allowed"]]
             )
 
+        keywords = self.getKeywords()
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[["error", f"unknown keyword list '{name}'"]]
+            )
+
+        keywords = keywords[name]
+
+        if value not in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    ["warning", f"keyword list '{name}' did not contain '{value}'"]
+                ],
+            )
+
+        occs = keywords[value]
+
+        if occs:
+            return dict(
+                stat=False,
+                messages=[
+                    ["error", f"keyword '{name}':'{value}' is used {occs} x"]
+                ],
+            )
+
         good = Mongo.deleteRecord("keyword", stop=False, name=name, value=value)
         messages = [] if good else [["warning", "no keyword has been deleted"]]
 
         return dict(stat=good, messages=messages, updated=self.wrap())
-
-    def _wrapKeyword(self, name, value, occ):
-        H = self.H
-
-        deleteButton = H.iconx(
-            "cross",
-            title=f"delete keyword {value}",
-            name=name, value=value, delUrl="/keyword/delete/",
-            cls="button small danger",
-        )
-        return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
 
     def _wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None

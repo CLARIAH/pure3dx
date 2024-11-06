@@ -408,36 +408,6 @@ class Pages:
         newUrl = "/admin"
         return redirectStatus(newUrl, good)
 
-    def deleteUser(self, user):
-        """Deletes a test user.
-
-        After the operation:
-
-        *   *success*: goes to admin url, good status
-        *   *failure*: goes to admin url, error status
-
-        Returns
-        -------
-        response
-        """
-        Messages = self.Messages
-        Content = self.Content
-        result = Content.deleteUser(user)
-
-        good = result.get("status", False)
-        if good:
-            Messages.info(logmsg=f"Deleted user {user}", msg=f"user {user} deleted")
-        else:
-            Messages.warning(
-                logmsg=f"Could not delete user {user}",
-                msg=f"failed to delete new user {user}",
-            )
-            for kind, msg in result.get("messages", []):
-                Messages.message(kind, msg, stop=False)
-
-        newUrl = "/admin"
-        return redirectStatus(newUrl, good)
-
     def createProject(self, site):
         """Creates a project and shows the new project.
 

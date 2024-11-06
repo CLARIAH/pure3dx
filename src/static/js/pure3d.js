@@ -488,7 +488,7 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
     if (stat) {
       finishSave(name, updated)
     } else {
-      abortSave(name, [[false, `${kind} failed`]] + messages)
+      abortSave(name, messages)
     }
   }
 
@@ -498,7 +498,6 @@ const kwmanageWidget = (kwmanagewidget, topContent) => {
   }
 
   const finishSave = (name, updated) => {
-    console.warn({ name })
     topContent.html(updated)
     processMyWork(name)
   }
