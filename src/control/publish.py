@@ -2,7 +2,7 @@ from datetime import datetime as dt
 from traceback import format_exception
 from .mongo import Mongo
 
-from control.files import (
+from .files import (
     dirContents,
     dirMake,
     dirRemove,
@@ -12,9 +12,9 @@ from control.files import (
     fileRemove,
     writeJson,
 )
-from control.generic import deepdict
-from control.precheck import Precheck as PrecheckCls
-from control.static import Static as StaticCls
+from .generic import deepdict
+from .precheck import Precheck as PrecheckCls
+from .static import Static as StaticCls
 
 
 class Publish:

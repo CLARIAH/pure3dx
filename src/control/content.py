@@ -8,8 +8,8 @@ from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
 from traceback import format_exception
 
-from control.generic import AttrDict
-from control.files import (
+from .generic import AttrDict
+from .files import (
     fileExists,
     fileRemove,
     dirExists,
@@ -19,10 +19,10 @@ from control.files import (
     extNm,
     readYaml,
 )
-from control.datamodel import Datamodel
-from control.flask import requestData, getReferrer, redirectStatus
-from control.admin import Admin
-from control.checkgltf import check
+from .datamodel import Datamodel
+from .flask import requestData, getReferrer, redirectStatus
+from .admin import Admin
+from .checkgltf import check
 
 
 class Content(Datamodel):

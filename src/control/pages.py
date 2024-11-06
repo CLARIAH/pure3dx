@@ -1,4 +1,4 @@
-from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
+from .flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
 
 class Pages:

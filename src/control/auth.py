@@ -1,6 +1,6 @@
 from itertools import chain
-from control.generic import AttrDict
-from control.users import Users
+from .generic import AttrDict
+from .users import Users
 
 
 class Auth(Users):

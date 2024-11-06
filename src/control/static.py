@@ -4,7 +4,7 @@ from traceback import format_exception
 
 from markdown import markdown
 
-from control.files import (
+from .files import (
     fileNm,
     dirNm,
     dirUpdate,
@@ -16,9 +16,9 @@ from control.files import (
     readYaml,
     writeJson,
 )
-from control.generic import AttrDict, deepAttrDict, deepdict
-from control.helpers import prettify, genViewerSelector, ucFirst
-from control.precheck import Precheck as PrecheckCls
+from .generic import AttrDict, deepAttrDict, deepdict
+from .helpers import prettify, genViewerSelector, ucFirst
+from .precheck import Precheck as PrecheckCls
 
 
 COMMENT_RE = re.compile(r"""\{\{!--.*?--}}""", re.S)

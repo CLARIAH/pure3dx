@@ -1,7 +1,7 @@
 from markdown import markdown
 
-from control.generic import AttrDict, now
-from control.files import fileExists, listFilesAccepted, writeYaml
+from .generic import AttrDict, now
+from .files import fileExists, listFilesAccepted, writeYaml
 
 
 class Datamodel:

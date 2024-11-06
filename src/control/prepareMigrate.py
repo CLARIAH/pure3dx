@@ -1,5 +1,5 @@
-from control.generic import AttrDict
-from control.config import Config as ConfigCls
+from .generic import AttrDict
+from .config import Config as ConfigCls
 
 
 class MessagesCls:

@@ -1,6 +1,6 @@
 import re
 
-from control.generic import AttrDict
+from .generic import AttrDict
 
 
 USERNAME_RE = re.compile(r"[^a-z0-9._-]")

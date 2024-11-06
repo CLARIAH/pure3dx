@@ -1,4 +1,4 @@
-from control.flask import appMake, appStop, requestMethod, appInitializing
+from .flask import appMake, appStop, requestMethod, appInitializing
 
 
 def appFactory(objects):

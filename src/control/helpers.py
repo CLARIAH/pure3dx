@@ -1,7 +1,7 @@
 import sys
 from subprocess import run as run_cmd, CalledProcessError
 
-from control.files import unexpanduser as ux
+from .files import unexpanduser as ux
 
 
 def ucFirst(x):

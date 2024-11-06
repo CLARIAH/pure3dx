@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from control.generic import AttrDict, attResolve
+from .generic import AttrDict, attResolve
 
 
 class Viewers:

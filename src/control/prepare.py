@@ -1,18 +1,18 @@
 from pybars import Compiler
 
-from control.messages import Messages as MessagesCls
-from control.config import Config as ConfigCls
-from control.mongo import Mongo as MongoCls
-from control.viewers import Viewers as ViewersCls
-from control.wrap import Wrap as WrapCls
-from control.backup import Backup as BackupCls
-from control.content import Content as ContentCls
-from control.publish import Publish as PublishCls
-from control.tailwind import Tailwind as TailwindCls
-from control.pages import Pages as PagesCls
-from control.auth import Auth as AuthCls
-from control.generic import AttrDict
-from control.authoidc import AuthOidc as AuthOidcCls
+from .messages import Messages as MessagesCls
+from .config import Config as ConfigCls
+from .mongo import Mongo as MongoCls
+from .viewers import Viewers as ViewersCls
+from .wrap import Wrap as WrapCls
+from .backup import Backup as BackupCls
+from .content import Content as ContentCls
+from .publish import Publish as PublishCls
+from .tailwind import Tailwind as TailwindCls
+from .pages import Pages as PagesCls
+from .auth import Auth as AuthCls
+from .generic import AttrDict
+from .authoidc import AuthOidc as AuthOidcCls
 
 
 def prepare(design=False, migrate=False, trivial=False):
