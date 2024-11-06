@@ -1101,8 +1101,9 @@ class Pages:
                     name="search",
                     placeholder="search item",
                     cls="button disabled",
+                    disabled="",
                 ),
-                H.input("submit", "Search", cls="button disabled"),
+                H.input("submit", "Search", cls="button disabled", type="button disabled", disabled=""),
             ],
             cls="search-bar",
         )
