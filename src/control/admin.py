@@ -530,14 +530,6 @@ class Admin:
             rather coarse manner.
         *   a control to regenerate the static pages
 
-        Parameters
-        ----------
-        project: AttrDict
-            A project record
-        myOnly: boolean, optional False
-            Whether to show only the editions in the project that are associated
-            with the current user.
-
         Returns
         -------
         string
