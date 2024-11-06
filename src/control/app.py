@@ -1,4 +1,5 @@
 from .flask import appMake, appStop, requestMethod, appInitializing
+from .admin import Admin
 
 
 def appFactory(objects):
@@ -544,6 +545,14 @@ def appFactory(objects):
             The id of the record to the user is linked to.
         """
         return Content.saveRole(user, table, record)
+
+    @app.route("/save/keyword/", methods=["POST"])
+    def saveKeyword():
+        return Admin(Content).saveKeyword()
+
+    @app.route("/keyword/delete/", methods=["POST"])
+    def deleteKeyword():
+        return Admin(Content).deleteKeyword()
 
     @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
     def saveValue(table, record, key):

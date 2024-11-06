@@ -1,8 +1,8 @@
-from io import BytesIO
 import os
 import json
 import yaml
 import magic
+from io import BytesIO
 from tempfile import mkdtemp
 from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -650,7 +650,7 @@ class Content(Datamodel):
         Returns
         -------
         dict
-            Contains the following keys:
+            Containsthe following keys:
 
             * `status`: whether the save action was successful
             * `messages`: messages issued during the process
@@ -1080,9 +1080,11 @@ class Content(Datamodel):
         urlBase = (
             ""
             if project is None
-            else f"project/{projectId}"
-            if edition is None
-            else f"project/{projectId}/edition/{editionId}"
+            else (
+                f"project/{projectId}"
+                if edition is None
+                else f"project/{projectId}/edition/{editionId}"
+            )
         )
         sep = "/" if urlBase else ""
         base = f"{workingDir}{sep}{urlBase}"
@@ -1108,9 +1110,7 @@ class Content(Datamodel):
             result = (
                 ""
                 if content
-                else dataPath
-                if lenient
-                else H.span(dataPath, cls="error")
+                else dataPath if lenient else H.span(dataPath, cls="error")
             )
 
             if not lenient:
@@ -1809,7 +1809,6 @@ class Content(Datamodel):
         except Exception as e:
             good = False
             msgs.append(("error", "Something went wrong"))
-            self.debug(f"XXXXXXXXXXXXXXXXXX {e}")
             Messages.warning(logmsg=str(e))
 
         return (good, msgs)

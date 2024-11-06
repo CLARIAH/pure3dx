@@ -282,7 +282,7 @@ class Mongo:
         asDict: boolean or string, optional False
             If False, returns a list of records as result. If True or a string, returns
             the same records, but now as dict, keyed by the `_id` field if
-            asDict is True, else keyed by the field in dicated by asDict.
+            asDict is True, else keyed by the field in dictated by asDict.
         criteria: dict
             A set of criteria to narrow down the search.
 

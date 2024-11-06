@@ -1,4 +1,5 @@
 import sys
+import re
 from subprocess import run as run_cmd, CalledProcessError
 
 from .files import unexpanduser as ux
@@ -359,3 +360,22 @@ def showDict(title, data, *keys, tight=True, issues={}):
     )
 
     return html
+
+
+WHITE_RE = re.compile(r"""\s+""")
+
+
+def normalize(text):
+    """Produce a normalized version of a string.
+
+    Parameters
+    ----------
+    text: string
+        The input text
+
+    Returns
+    -------
+    string
+        The lower-cased, whitespace normalized version of the input.
+    """
+    return WHITE_RE.sub(" ", text.strip()).lower()

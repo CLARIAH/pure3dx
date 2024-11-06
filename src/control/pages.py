@@ -498,6 +498,7 @@ class Pages:
                 provenance@4
                 instructionalMethod@4
                 period@4
+                temporal@4
                 place@4
                 subject@4
                 """.strip().split()

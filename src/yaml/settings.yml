@@ -57,6 +57,8 @@ css:
 icons:
   assign: "⊫"
   download: "⇲"
+  kwmanage_cancel: "❌"
+  kwmanage_save: "✅"
   edit_cancel: "❌"
   edit_save: "✅"
   edit_update: "✎"

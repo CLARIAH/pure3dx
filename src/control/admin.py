@@ -1,6 +1,9 @@
 import re
+import json
 
+from .flask import requestData
 from .generic import AttrDict
+from .helpers import normalize
 
 
 USERNAME_RE = re.compile(r"[^a-z0-9._-]")
@@ -50,6 +53,10 @@ class Admin:
         All project and edition ids to which the current user has a relationship.
         It is a dict with keys `project` and `edition` and the values are sets
         of ids.
+
+        ### keywords
+
+        The lists of keywords in metadata fields
         """
         self.Content = Content
 
@@ -97,7 +104,7 @@ class Admin:
         Typically needed when you have used an admin function to perform
         a user administration action.
 
-        This may change the permissions and hence the visiblity of projects and editions.
+        This may change the permissions and hence the visibility of projects and editions.
         It also changes the possible user management actions in the future.
         """
         Mongo = self.Mongo
@@ -109,16 +116,10 @@ class Admin:
         self.User = User
         self.user = user
 
+        (self.inPower, self.myRole) = Auth.inPower()
+
         if not user:
-            self.myRole = None
-            self.inPower = False
             return
-
-        myRole = User.role
-        inPower = myRole in {"root", "admin"}
-
-        self.myRole = myRole
-        self.inPower = inPower
 
         siteRecord = Mongo.getRecord("site")
         userList = Mongo.getList("user", sort="nickname")
@@ -258,7 +259,7 @@ class Admin:
         ----------
         otherUser: string | void
             the other user as string (eppn)
-            If None, the question is: what are the roles in which an other
+            If None, the question is: what are the roles in which another
             user may be put wrt to this project/edition?
         table: string, optional None
             the relevant table: `project` or `edition`;
@@ -268,7 +269,7 @@ class Admin:
         record: ObjectId | AttrDict, optional None
             the relevant record;
             it is the record relative to which the other user will be
-            assigned an other role.
+            assigned another role.
             If None, the role to be assigned is a site wide role.
 
         Returns
@@ -391,7 +392,7 @@ class Admin:
         projects = self.projects
         editionRolesSet = self.editionRolesSet
 
-        # check whether the role is a edition-scoped role
+        # check whether the role is an edition-scoped role
         pRecord = projects[record.projectId]
         pUsers = pRecord.users or AttrDict()
         eUsers = record.users or AttrDict()
@@ -499,6 +500,7 @@ class Admin:
         myProjects = H.div(wrapped, id="myprojects")
         allProjects = ""
         allUsers = ""
+        allKeywords = ""
 
         if inPower:
             wrapped = []
@@ -513,13 +515,20 @@ class Admin:
             allProjects = H.div(wrapped, id="allprojects")
 
             wrapped = []
+            wrapped.append(H.h(1, "Manage keywords"))
+            wrapped.append(H.div(self._wrapKeywords()))
+            allKeywords = H.div(wrapped, id="allkeywords")
+
+            wrapped = []
             wrapped.append(H.h(1, "Manage users"))
             wrapped.append(
                 H.div(self._wrapUsers(siteRoles, workIndicator=True), cls="susers")
             )
             allUsers = H.div(wrapped, id="allusers")
 
-        return H.div([myDetails, myProjects, allProjects, allUsers], cls="myadmin")
+        return H.div(
+            [myDetails, myProjects, allProjects, allKeywords, allUsers], cls="myadmin"
+        )
 
     def _wrapPubProjects(self):
         """Generate HTML for the published projects in admin view.
@@ -661,6 +670,237 @@ class Admin:
             cls="eentry",
         )
 
+    def getKeywords(self):
+        """Get the lists of keywords that act as values for metadata fields.
+
+        A keyword is a string value and it belongs to a list of keywords.
+        Some metadata fields are associated with a list of values: keywords.
+
+        We read the table of keywords, organize it by metadata field, and count
+        how many edition/project record use that keyword.
+
+        Returns
+        -------
+        dict
+            keyed by name of the metadata field, then by the keyword itself,
+            and valued by the number of edition/project records it occurs in.
+        """
+        Mongo = self.Mongo
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        fieldsConfig = datamodel.fields
+
+        keywordLists = {field for (field, cfg) in fieldsConfig.items() if cfg.keyword}
+
+        keywords = {}
+
+        for name in keywordLists:
+            keywords[name] = {}
+
+        keywordItems = Mongo.getList("keyword", stop=False)
+
+        for keywordRecord in keywordItems:
+            name = keywordRecord.name
+            value = keywordRecord.value
+            criteria = {f"dc.{name}": value}
+            recordsP = Mongo.getList("project", stop=False, **criteria)
+            recordsE = Mongo.getList("project", stop=False, **criteria)
+            occs = len(recordsP) + len(recordsE)
+            keywords[name][value] = occs
+
+        return keywords
+
+    def _wrapKeywords(self):
+        """Generate HTML for a widget in admin view to manage metadata keywords.
+
+        The keywords sit in a table with name `keyword`.
+        Each record corresponds to a keyword, each keyword has fields:
+
+        *   *name*: the name of the metadata field of which it is a value;
+        *   *value*: the keyword itself;
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+
+        keywords = self.getKeywords()
+
+        return H.div(
+            [self._wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
+            cls="skeywords",
+        )
+
+    def _wrapKeywordList(self, name, values):
+        H = self.H
+
+        saveUrl = "/save/keyword/"
+        cancelButton = H.actionButton("kwmanage_cancel")
+        saveButton = H.actionButton("kwmanage_save")
+        messages = H.div("", cls="editmsgs")
+        editableContent = H.input(
+            "", "text", cls="editcontent show", name=name, saveurl=saveUrl
+        )
+
+        return H.details(
+            name,
+            H.div(
+                H.div(
+                    [
+                        editableContent,
+                        saveButton,
+                        cancelButton,
+                        messages,
+                    ],
+                    cls="kwmanagewidgetinput",
+                )
+                + H.div(
+                    [
+                        self._wrapKeyword(name, value, values[value])
+                        for value in sorted(values)
+                    ]
+                ),
+                cls="kwmanagewidget",
+            ),
+            f"keywordlist-{name}",
+        )
+
+    def _wrapKeyword(self, name, value, occ):
+        H = self.H
+
+        deleteButton = H.iconx(
+            "cross",
+            title=f"delete keyword {value}",
+            name=name,
+            value=value,
+            delUrl="/keyword/delete/",
+            cls="button small danger",
+        )
+        return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
+
+    def saveKeyword(self):
+        """Saves a keyword.
+
+        All keywords for all lists are stored in the table *keyword*. The keyword
+        itself is stored in field *value*, and the name of the keyword list is stored
+        in the field *name*.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
+        Auth = self.Auth
+        Mongo = self.Mongo
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[["error", "adding a keyword is not allowed"]]
+            )
+
+        keywords = self.getKeywords()
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[["error", f"unknown keyword list '{name}'"]]
+            )
+
+        keywords = keywords[name]
+
+        if value in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    ["warning", f"keyword list '{name}' already contains '{value}'"]
+                ],
+            )
+
+        if normalize(value) in {normalize(val) for val in keywords}:
+            return dict(
+                stat=False,
+                messages=[
+                    [
+                        "warning",
+                        f"keyword list '{name}' already contains "
+                        f"a variant of '{value}'",
+                    ]
+                ],
+            )
+
+        Mongo.insertRecord("keyword", name=name, value=value)
+
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def deleteKeyword(self):
+        """Deletes a keyword.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        """
+        Auth = self.Auth
+        Mongo = self.Mongo
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[["error", "deleting a keyword is not allowed"]]
+            )
+
+        keywords = self.getKeywords()
+        specs = json.loads(requestData())
+        name = specs["name"]
+        value = specs["value"]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[["error", f"unknown keyword list '{name}'"]]
+            )
+
+        keywords = keywords[name]
+
+        if value not in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    ["warning", f"keyword list '{name}' did not contain '{value}'"]
+                ],
+            )
+
+        occs = keywords[value]
+
+        if occs:
+            return dict(
+                stat=False,
+                messages=[
+                    ["error", f"keyword '{name}':'{value}' is used {occs} x"]
+                ],
+            )
+
+        good = Mongo.deleteRecord("keyword", stop=False, name=name, value=value)
+        messages = [] if good else [["warning", "no keyword has been deleted"]]
+
+        return dict(stat=good, messages=messages, updated=self.wrap())
+
     def _wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
     ):
@@ -686,7 +926,7 @@ class Admin:
         theseUsers: dict, optional None
             If table/record is not specified, you can specify users here.
             If this parameter is also None, then all users in the system are taken.
-            Otherwise you have to specify a dict, keyed by user eppns and valued by
+            Otherwise, you have to specify a dict, keyed by user eppns and valued by
             tuples consisting of a user record and a role.
 
         Returns
@@ -1128,8 +1368,8 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
-            This should be different from the user names of existing users.
+            The username of the user.
+            This should be different from the usernames of existing users.
             The name may only contain the ASCII digits and lower case letters,
             plus dash, dot, and underscore.
 
@@ -1200,7 +1440,7 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
+            The username of the user.
 
         Returns
         -------

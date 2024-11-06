@@ -436,6 +436,133 @@ const linkUser = (linkuser, topContent) => {
   })
 }
 
+const kwmanageWidgets = () => {
+  const kwmanagewidgets = $(".kwmanagewidget")
+  const topContent = $(".myadmin")
+
+  kwmanagewidgets.each((i, kwmanagewidget) => {
+    kwmanageWidget(kwmanagewidget, topContent)
+  })
+}
+
+const kwmanageWidget = (kwmanagewidget, topContent) => {
+  const kwmanagewidgetJQ = $(kwmanagewidget)
+  const cancelButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_cancel"]`)
+  const saveButton = kwmanagewidgetJQ.find(`a.button[kind="kwmanage_save"]`)
+  const deleteButtons = kwmanagewidgetJQ.find(`span[delurl]`)
+  const editContent = kwmanagewidgetJQ.find(".editcontent")
+  const editMessages = kwmanagewidgetJQ.find(".editmsgs")
+  const saveUrl = editContent.attr("saveurl")
+  const name = editContent.attr("name")
+
+  const saveData = saveValue => {
+    const { name } = saveValue
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: saveUrl,
+      data: JSON.stringify(saveValue),
+      processData: false,
+      contentType: true,
+      success: processOK("save", name),
+      error: processError("save", name),
+    })
+  }
+
+  const delData = (delUrl, delValue) => {
+    const { name } = delValue
+    $.ajax({
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
+      url: delUrl,
+      data: JSON.stringify(delValue),
+      processData: false,
+      contentType: true,
+      success: processOK("delete", name),
+      error: processError("delete", name),
+    })
+  }
+
+  const processOK = (kind, name) => response => {
+    const { stat, messages, updated } = response
+    if (stat) {
+      finishSave(name, updated)
+    } else {
+      abortSave(name, messages)
+    }
+  }
+
+  const processError = (kind, name) => (jqXHR, stat) => {
+    const { status, statusText } = jqXHR
+    abortSave(name, [[stat, `${kind} failed: ${status} ${statusText}`]])
+  }
+
+  const finishSave = (name, updated) => {
+    topContent.html(updated)
+    processMyWork(name)
+  }
+
+  const abortSave = (name, messages) => {
+    $(`[itemkey="keywordlist-${name}"]`).prop("open", true)
+    editMessages.html("")
+    for (const [tp, msg] of messages) {
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      editMessages.append(html)
+    }
+    editMessages.show()
+
+    cancelButton.show()
+    saveButton.show()
+  }
+
+  const handleTyping = () => {
+    const value = editContent.val()
+    if ("" == value) {
+      editContent.removeClass("dirty")
+      cancelButton.hide()
+      saveButton.hide()
+    } else {
+      editContent.addClass("dirty")
+      cancelButton.show()
+      saveButton.show()
+    }
+  }
+
+  cancelButton.off("click").click(() => {
+    editContent.val("")
+    editContent.removeClass("dirty")
+    editMessages.html("")
+    editMessages.hide()
+    cancelButton.hide()
+    saveButton.hide()
+  })
+  saveButton.off("click").click(() => {
+    const saveValue = editContent.val()
+    if ("" == saveValue) {
+      editContent.val("")
+      editContent.removeClass("dirty")
+      editMessages.html("")
+      editMessages.hide()
+      cancelButton.hide()
+      saveButton.hide()
+    } else {
+      saveData({ value: saveValue, name })
+    }
+  })
+  deleteButtons.off("click").click(e => {
+    const elem = $(e.target)
+    const delUrl = elem.attr("delurl")
+    delData(delUrl, { name: elem.attr("name"), value: elem.attr("value") })
+  })
+
+  editContent.removeClass("dirty")
+  editContent.off("keyup").keyup(handleTyping)
+  editMessages.html("")
+  editMessages.hide()
+  cancelButton.hide()
+  saveButton.hide()
+}
+
 const editWidgets = () => {
   const editwidgets = $(".editwidget")
 
@@ -701,7 +828,11 @@ const confirmInit = () => {
   })
 }
 
-const processMyWork = () => {
+const processMyWork = name => {
+  kwmanageWidgets()
+  if (name) {
+    $(`[itemkey="keywordlist-${name}"]`).prop("open", true)
+  }
   editRoles()
   createUser()
   linkUsers()
@@ -710,6 +841,7 @@ const processMyWork = () => {
 
 $(() => {
   uploadControls()
+  kwmanageWidgets()
   editWidgets()
   processMyWork()
   confirmInit()
