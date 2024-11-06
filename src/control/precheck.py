@@ -3,7 +3,7 @@ import collections
 from urllib.parse import unquote_plus as uq
 from unicodedata import normalize as un
 
-from control.files import (
+from .files import (
     dirNm,
     dirContents,
     dirRemove,
@@ -12,8 +12,8 @@ from control.files import (
     readJson,
     writeYaml,
 )
-from control.helpers import showDict, htmlUnEsc
-from control.generic import AttrDict
+from .helpers import showDict, htmlUnEsc
+from .generic import AttrDict
 
 
 ONLINE_RE = re.compile(r"""^https?://""", re.I)

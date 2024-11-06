@@ -1,5 +1,5 @@
-from control.generic import AttrDict
-from control.flask import (
+from .generic import AttrDict
+from .flask import (
     acg,
     requestArg,
     sessionPop,

@@ -1,4 +1,4 @@
-from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
+from .flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
 
 class Pages:
@@ -1102,8 +1102,17 @@ class Pages:
                     name="search",
                     placeholder="search item",
                     cls="button disabled",
+                    disabled="",
+                    style="display:none"
                 ),
-                H.input("submit", "Search", cls="button disabled"),
+                H.input(
+                    "submit",
+                    "Search",
+                    cls="button disabled",
+                    type="button disabled",
+                    disabled="",
+                    style="display:none"
+                ),
             ],
             cls="search-bar",
         )

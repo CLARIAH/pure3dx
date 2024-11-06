@@ -1,11 +1,11 @@
 from textwrap import dedent
 from subprocess import check_output
 
-from control.generic import AttrDict, getVersionKeyFunc
-from control.files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
-from control.helpers import ucFirst
-from control.environment import var
-from control.html import HtmlElements
+from .generic import AttrDict, getVersionKeyFunc
+from .files import dirMake, dirExists, fileExists, readYaml, readPath, listDirs
+from .helpers import ucFirst
+from .environment import var
+from .html import HtmlElements
 
 
 class Config:

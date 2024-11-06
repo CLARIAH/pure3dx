@@ -4,9 +4,9 @@ from bson import ObjectId, BSON, decode_all
 from bson.json_util import dumps as dumpjs
 from pymongo import MongoClient
 
-from control.flask import appStop
-from control.generic import AttrDict, deepAttrDict
-from control.files import dirMake, dirExists
+from .flask import appStop
+from .generic import AttrDict, deepAttrDict
+from .files import dirMake, dirExists
 
 
 class Mongo:

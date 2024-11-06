@@ -4,7 +4,7 @@ import json
 import re
 from shutil import rmtree, copytree, copy
 
-from control.generic import deepAttrDict
+from .generic import deepAttrDict
 
 
 THREE_EXT = {"glb", "gltf"}

@@ -1,5 +1,5 @@
 import sys
-from control.flask import appStop, flashMsg
+from .flask import appStop, flashMsg
 
 
 class Messages:

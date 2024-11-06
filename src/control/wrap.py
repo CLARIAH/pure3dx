@@ -1,4 +1,4 @@
-# from control.generic import AttrDict
+# from .generic import AttrDict
 
 
 class Wrap:
@@ -67,7 +67,7 @@ class Wrap:
 
         wrapped = []
         wrapped.append(
-            H.p(self.contentButton("site", site, "create", insertTable="project"))
+            H.p(self.contentButton("site", site, "create", insertTable="project", text="New project"))
         )
 
         for project in projects:
@@ -87,7 +87,7 @@ class Wrap:
             statusCls = css.isVisible[stat]
 
             projectUrl = f"/project/{projectId}"
-            button = self.contentButton("project", project, "delete", confirm=True)
+            button = self.contentButton("project", project, "delete", confirm=True, text="Delete project")
             visual = Content.getUpload(project, "iconProject")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, projectUrl
@@ -135,7 +135,7 @@ class Wrap:
             statusCls = css.isPublished[stat]
 
             editionUrl = f"/edition/{editionId}"
-            button = self.contentButton("edition", edition, "delete", confirm=True)
+            button = self.contentButton("edition", edition, "delete", confirm=True, text="Delete edition")
             visual = Content.getUpload(edition, "iconEdition")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, editionUrl
@@ -143,7 +143,7 @@ class Wrap:
             wrapped.append(caption)
 
         wrapped.append(
-            H.p(self.contentButton("project", project, "create", insertTable="edition"))
+            H.p(self.contentButton("project", project, "create", insertTable="edition", text="New Edition"))
         )
         return H.content(*wrapped)
 
@@ -184,7 +184,7 @@ class Wrap:
         wrapped = []
 
         titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.contentButton("edition", edition, "delete", confirm=True)
+        button = self.contentButton("edition", edition, "delete", confirm=True, text="Delete scene")
 
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
@@ -239,6 +239,8 @@ class Wrap:
             [H.div(content, cls=f"caption {activeCls}"), *rest], cls="captioncontent"
         )
 
+
+
     def contentButton(
         self,
         table,
@@ -249,6 +251,7 @@ class Wrap:
         insertTable=None,
         key=None,
         href=None,
+        text=None,
     ):
         """Puts a button on the interface, if that makes sense.
 
@@ -356,5 +359,5 @@ class Wrap:
 
         fullCls = f"button small {cls}"
         return (
-            H.iconx(action, href=href, title=tip, cls=fullCls, **confirmAtt) + report
+            H.iconx(action, href=href, title=tip, cls=fullCls, text=text, **confirmAtt) + report
         )

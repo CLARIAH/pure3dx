@@ -1,11 +1,7 @@
 import os
 from datetime import datetime as dt
 
-from control.files import (
-    dirExists,
-    dirCopy,
-    dirRemove,
-)
+from .files import dirExists, dirCopy, dirRemove
 
 
 class Backup:

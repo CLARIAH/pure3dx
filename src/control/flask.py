@@ -14,7 +14,7 @@ from flask import (
     g,
 )
 
-from control.environment import var
+from .environment import var
 
 
 acg = g

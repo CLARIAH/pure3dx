@@ -1,5 +1,5 @@
-from control.flask import appMake, appStop, requestMethod, appInitializing
-from control.admin import Admin
+from .flask import appMake, appStop, requestMethod, appInitializing
+from .admin import Admin
 
 
 def appFactory(objects):

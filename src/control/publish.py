@@ -1,7 +1,8 @@
 from datetime import datetime as dt
 from traceback import format_exception
+from .mongo import Mongo
 
-from control.files import (
+from .files import (
     dirContents,
     dirMake,
     dirRemove,
@@ -11,14 +12,14 @@ from control.files import (
     fileRemove,
     writeJson,
 )
-from control.generic import deepdict
-from control.precheck import Precheck as PrecheckCls
-from control.static import Static as StaticCls
+from .generic import deepdict
+from .precheck import Precheck as PrecheckCls
+from .static import Static as StaticCls
 
 
 class Publish:
     def __init__(
-        self, Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+        self, Settings, Messages, Viewers, Mongo: Mongo, Content, Tailwind, Handlebars
     ):
         """Publishing content as static pages.
 
@@ -104,19 +105,36 @@ class Publish:
 
             return pubNum
 
-        kind = "project"
-        pubNumLast = pPubNumLast
-        condition = {}
-        itemsDir = projectDir
+        if pPubNumLast is None:
+            # because there is only 1 site in the database, we can retrieve it without paramaters
+            site = Mongo.getRecord("site")
 
-        pPubNum = getNum(kind, pubNumLast, condition, itemsDir)
+            if "publishedProjectCount" in site:
+                pPubNum = site["publishedProjectCount"] + 1
+            else:
+                # Determine project publish number the old way, to make sure no two project have the same pubNum
+                pPubNum = getNum("project", pPubNumLast, {}, projectDir)
 
-        kind = "edition"
-        pubNumLast = ePubNumLast
-        condition = dict(projectId=project._id)
-        itemsDir = f"{projectDir}/{pPubNum}/edition"
+            Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
 
-        ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
+        else:
+            pPubNum = pPubNumLast
+
+        if ePubNumLast is None:
+            if "publishedEditionCount" in project:
+                ePubNum = project["publishedEditionCount"] + 1
+            else:
+                # use get num for existing projects
+                kind = "edition"
+                pubNumLast = ePubNumLast
+                condition = dict(projectId=project._id)
+                itemsDir = f"{projectDir}/{pPubNum}/edition"
+
+                ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
+
+            Mongo.updateRecord("project", {"publishedEditionCount": ePubNum}, _id=project._id)
+        else:
+            ePubNum = ePubNumLast
 
         return (pPubNum, ePubNum)
 
@@ -309,7 +327,7 @@ class Publish:
             elif action == "remove":
                 try:
                     stage = f"unset pubnum for edition from {ePubNum} to None"
-                    update = dict(pubNum=None, isPublished=False)
+                    update = dict(isPublished=False)
                     Mongo.updateRecord("edition", update, _id=edition._id)
 
                     stage = f"remove edition files {pPubNum}/{ePubNum}"
@@ -330,15 +348,12 @@ class Publish:
                     theseEditions = dirContents(f"{thisProjectDir}/edition")[1]
 
                     if len(theseEditions) == 0:
-                        stage = f"unset pubnum for project from {pPubNum} to None"
-                        update = dict(pubNum=None, isVisible=False)
+                        stage = f"make project with {pPubNum} invisible"
+                        update = dict(isVisible=False)
                         Mongo.updateRecord("project", update, _id=project._id)
 
                         stage = f"remove project files {pPubNum}"
                         self.removeProjectFiles(pPubNum)
-
-                        pPubNumNew = None
-
                     else:
                         Messages.info(
                             msg=(

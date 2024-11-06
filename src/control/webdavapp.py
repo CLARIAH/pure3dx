@@ -1,8 +1,8 @@
 from wsgidav.wsgidav_app import WsgiDAVApp
 
-from control.prepare import prepare
-from control.app import appFactory as appFactoryMain
-from control.flask import appMake
+from .prepare import prepare
+from .app import appFactory as appFactoryMain
+from .flask import appMake
 
 
 def getWebdavApp(objects):
