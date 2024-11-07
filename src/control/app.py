@@ -105,9 +105,9 @@ def appFactory(objects):
 
         Does not work in prod mode.
 
-        *   power users can backup the whole shebang;
-        *   project organisers can backup their own projects;
-        *   power users can backup all projects.
+        *   power users can back up the whole shebang;
+        *   project organisers can back up their own projects;
+        *   power users can back up all projects.
         """
         return Pages.mkBackup(project=project)
 
@@ -212,7 +212,7 @@ def appFactory(objects):
         return Pages.createProject(site)
 
     @app.route("/project/<string:project>")
-    def project(project):
+    def project_rt(project):
         """Presents the landing page of a project.
 
         Parameters
@@ -247,7 +247,7 @@ def appFactory(objects):
     @app.route("/edition/<string:edition>", defaults=dict(version=None, action=None))
     @app.route("/edition/<string:edition>/<string:version>", defaults=dict(action=None))
     @app.route("/edition/<string:edition>/<string:version>/<string:action>")
-    def edition(edition, version, action):
+    def edition_rt(edition, version, action):
         """Presents the landing page of an edition.
 
         The edition is shown in the viewer associated with the edition.
@@ -265,7 +265,7 @@ def appFactory(objects):
 
     @app.route("/edition/<string:edition>/delete")
     def deleteEdition(edition):
-        """Deletes a edition.
+        """Deletes an edition.
 
         Parameters
         ----------
@@ -508,7 +508,7 @@ def appFactory(objects):
 
     @app.route("/link/user/<string:table>/<string:record>", methods=["POST"])
     def linkUser(table, record):
-        """Links a user to a project/edition in a certain role..
+        """Links a user to a project/edition in a certain role.
 
         The user and role are passed as request data.
 
@@ -539,6 +539,8 @@ def appFactory(objects):
 
         Parameters
         ----------
+        user: string
+            The user whose role must be saved
         table: string
             The table of the record the user is linked to.
         record: string
@@ -582,7 +584,7 @@ def appFactory(objects):
         """Authorises webdav requests.
 
         When 3D viewers make direct requests to the server through WebDAV,
-        these requests are intercepted here and it is checked whether it is authorised.
+        these requests are intercepted here, and it is checked whether it is authorised.
 
         Such requests are always made in the context of an edition, and hence a project.
 
@@ -613,7 +615,7 @@ def appFactory(objects):
         Auth.identify()
         method = requestMethod()
         action = webdavMethods[method]
-        return Pages.authWebdav(edition, method, path, action)
+        return Pages.authWebdav(project, edition, method, path, action)
 
     @app.route("/auth/webdav/<path:path>", methods=tuple(webdavMethods))
     def webdavinvalid(path):
@@ -654,8 +656,8 @@ def appFactory(objects):
         Messages.warning(logmsg=f"Unauthorized webdav access: {path}")
         appStop()
 
-    @app.route("/<path:path>")
-    def remaining(path, methods=("GET", "POST") + tuple(webdavMethods)):
+    @app.route("/<path:path>", methods=("GET", "POST") + tuple(webdavMethods))
+    def remaining(path):
         """Handles unmatched urls.
 
         Parameters

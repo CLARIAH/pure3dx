@@ -27,7 +27,7 @@ consists of
 
 *   Susan Schreibman (Co-PI),
 *   [Kelly Gillikin Schoueri](https://www.maastrichtuniversity.nl/km-gillikin-schoueri)
-    (Ph. D. researcher),
+    (Ph.D. researcher),
 *   Alicia Walsh (Research Assistant),
 *   Sohini Mallick (Research Software Engineer).
 

@@ -459,7 +459,7 @@ class Viewers:
 
         Parameters
         ----------
-        urlBase: string
+        viewerUrlBase: string
             The first part of the root url, depending
             on the project and edition.
         action: string
