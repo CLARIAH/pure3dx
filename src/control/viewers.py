@@ -379,9 +379,6 @@ class Viewers:
                             tp="image/png",
                         ),
                         H.link("stylesheet", f"{viewerStaticRoot}/fonts/fonts.css"),
-                        H.link(
-                            "stylesheet", f"{viewerStaticRoot}/css/{fileBase}.{ext}.css"
-                        ),
                         H.script(
                             "",
                             defer=True,
