@@ -1,13 +1,14 @@
 import os
 import json
-import yaml
-import magic
 from io import BytesIO
 from tempfile import mkdtemp
-from flask import jsonify
 from zipfile import ZipFile, ZIP_DEFLATED
 from traceback import format_exception
 
+import yaml
+import magic
+
+from flask import jsonify
 from .generic import AttrDict
 from .files import (
     fileExists,
@@ -979,11 +980,15 @@ class Content(Datamodel):
             if can[asKind]:
                 rows.append(
                     (
-                        H.span(f"You may {kindRep}:"),
-                        H.iconx(
-                            kind,
-                            href=f"/{kind}/{recordId}",
-                            cls="button large",
+                        H.span(
+                            [
+                                "You may ",
+                                H.a(
+                                    kindRep,
+                                    href=f"/{kind}/{recordId}",
+                                    cls="button",
+                                )
+                            ]
                         ),
                     )
                     if asKind in actions
