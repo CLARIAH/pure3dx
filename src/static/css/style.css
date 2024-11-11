@@ -269,8 +269,16 @@ span.fileupload.iconproject img {
 span.fileupload.iconedition img {
   width: 10rem;
 }
+.editwidget {
+  border-radius: 0.4rem;
+  border-style: solid;
+  border-width: 0.2rem;
+  border-color: var(--edit-text-border);
+  padding: 1rem 0.2rem;
+  margin: 1rem 0.1rem;
+}
 .editwidget.editing {
-  border: 0.1rem solid var(--edit-text-border);
+  border-color: var(--edit-text-border-edit);
 }
 .editcontent.dirty,.editcontent.show.dirty {
   border: 0.3rem solid var(--edit-dirty-border);

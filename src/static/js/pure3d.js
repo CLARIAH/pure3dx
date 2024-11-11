@@ -578,6 +578,8 @@ const editWidget = editwidget => {
   const saveButton = editwidgetJQ.find(`a.button[kind="edit_save"]`)
   const editContent = editwidgetJQ.find(".editcontent")
   const editType = editContent.attr("type")
+  const editMult = editContent.attr("multiple")
+  const doWrapKw = editType && editMult
   const editMessages = editwidgetJQ.find(".editmsgs")
   const saveUrl = editContent.attr("saveurl")
   const readonlyContent = editwidgetJQ.find(".readonlycontent")
@@ -613,14 +615,15 @@ const editWidget = editwidget => {
     abortSave([[stat, `save failed: ${status} ${statusText}`]])
   }
 
-  const unwrapVal = v => (editType == "keyword" ? v.split("§") : v)
-  const wrapVal = v => (editType == "keyword" ? v.join("§") : v)
+  const unwrapVal = v => (doWrapKw ? (v || "").split("§") : v)
+  const wrapVal = v => (doWrapKw ? (v || []).join("§") : v)
 
   const finishSave = (saveValue, readonly) => {
     editwidgetJQ.removeClass("editing")
     readonlyContent.html(readonly)
     readonlyContent.show()
     editContent.val("")
+    console.warn("AAA", { saveValue })
     editContent.attr("origvalue", wrapVal(saveValue))
     editContent.removeClass("dirty")
     editContent.hide()
@@ -646,6 +649,7 @@ const editWidget = editwidget => {
   const handleTyping = () => {
     const value = editContent.val()
     const origValue = editContent.attr("origvalue")
+    console.warn("BBB", { value })
     if (origValue == wrapVal(value)) {
       editContent.removeClass("dirty")
       cancelButton.hide()
@@ -684,6 +688,7 @@ const editWidget = editwidget => {
   saveButton.off("click").click(() => {
     const origValue = editContent.attr("origvalue")
     const saveValue = editContent.val()
+    console.warn("CCC", { saveValue })
     if (origValue == wrapVal(saveValue)) {
       editwidgetJQ.removeClass("editing")
       readonlyContent.show()
