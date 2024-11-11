@@ -1157,7 +1157,7 @@ class HtmlElements:
         Parameters
         ----------
         options: iterable
-            Every option is a tuple or list of two elements: (text, value)
+            Every option is a tuple or list of three elements: (text, value, selected)
         multiple: boolean, optional False
             Whether multiple selection is allowed or not.
 
@@ -1167,7 +1167,9 @@ class HtmlElements:
         """
 
         return HtmlElement("select").wrap(
-            [self.option(**opt) for opt in options], **atts
+            [self.option(*opt[0:2], selected=opt[2]) for opt in options],
+            multiple=multiple,
+            **atts,
         )
 
     @staticmethod

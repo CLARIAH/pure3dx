@@ -512,6 +512,10 @@ class Field:
         when they edit fields.
         """
 
+        self.multiple = True
+        """Whether multiple values are allowed.
+        """
+
         self.caption = key
         """A caption that may be displayed with the field value.
 
@@ -629,6 +633,7 @@ class Field:
         """
         Settings = self.Settings
         Mongo = self.Mongo
+        Datamodel = self.Datamodel
 
         H = Settings.H
 
@@ -639,6 +644,7 @@ class Field:
         tp = self.tp
         caption = self.caption
         key = self.key
+        multiple = self.multiple
 
         bare = self.bare(record)
         logical = self.logical(record)
@@ -661,15 +667,29 @@ class Field:
             cancelButton = H.actionButton("edit_cancel")
             saveButton = H.actionButton("edit_save")
             messages = H.div("", cls="editmsgs")
-            orig = bare if tp == "text" else writeYaml(logical)
+            orig = (
+                bare
+                if tp == "text"
+                else "§".join(logical or []) if tp == "keyword" else writeYaml(logical)
+            )
 
             if tp == "keyword":
-                keywords = self.getKeywords()[key]
-                editableContent = H.select([(k, k) for k in keywords])
-                CONTINUE HERE
+                keywords = Datamodel.getKeywords()[key]
+                valueSet = set() if logical is None else set(logical)
+                options = (
+                    [] if multiple else [(f"Choose a {key} ...", "", valueSet == set())]
+                ) + [(k, k, k in valueSet) for k in keywords]
+                editableContent = H.select(
+                    options,
+                    multiple=multiple,
+                    cls="editcontent",
+                    saveurl=saveUrl,
+                    origValue=orig,
+                    tp=tp,
+                )
             else:
                 editableContent = H.textarea(
-                    "", cls="editcontent", saveurl=saveUrl, origValue=orig
+                    "", cls="editcontent", saveurl=saveUrl, origValue=orig, tp=key
                 )
 
             content = "".join(

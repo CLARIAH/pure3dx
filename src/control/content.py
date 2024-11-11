@@ -540,9 +540,14 @@ class Content(Datamodel):
                 messages=[["error", "record does not exist"]],
             )
 
-        sValue = value if tp == "text" else readYaml(value, plain=True, ignore=True)
+        sValue = (
+            value
+            if tp == "text"
+            else value if tp == "keyword" else readYaml(value, plain=True, ignore=True)
+        )
         nameSpaceRep = "" if not nameSpace else f"{nameSpace}."
         update = {f"{nameSpaceRep}{fieldPath}": sValue}
+
         if key == "title":
             update[key] = sValue
 
@@ -916,17 +921,17 @@ class Content(Datamodel):
         editionIsPublished = edition.isPublished
 
         editionPubRow = (
+            (H.i("Not published") if not editionIsPublished else H.span("Published: ")),
             (
-                H.i("Not published")
-                if not editionIsPublished
-                else H.span("Published: ")
+                H.a(
+                    f"{pPubNum}/{ePubNum} ⌲",
+                    f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
+                    target=published,
+                    cls="button large",
+                )
+                if editionIsPublished
+                else ""
             ),
-            H.a(
-                f"{pPubNum}/{ePubNum} ⌲",
-                f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
-                target=published,
-                cls="button large",
-            ) if editionIsPublished else ""
         )
 
         can = dict(

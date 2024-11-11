@@ -1,3 +1,6 @@
+"""The routing definitions of the flask webapp.
+"""
+
 from .flask import appMake, appStop, requestMethod, appInitializing
 from .admin import Admin
 
@@ -550,10 +553,12 @@ def appFactory(objects):
 
     @app.route("/save/keyword/", methods=["POST"])
     def saveKeyword():
+        """Save a single keyword."""
         return Admin(Content).saveKeyword()
 
     @app.route("/keyword/delete/", methods=["POST"])
     def deleteKeyword():
+        """Delete a single keyword."""
         return Admin(Content).deleteKeyword()
 
     @app.route("/save/<string:table>/<string:record>/<string:key>", methods=["POST"])
