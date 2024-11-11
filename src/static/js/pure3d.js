@@ -577,6 +577,7 @@ const editWidget = editwidget => {
   const cancelButton = editwidgetJQ.find(`a.button[kind="edit_cancel"]`)
   const saveButton = editwidgetJQ.find(`a.button[kind="edit_save"]`)
   const editContent = editwidgetJQ.find(".editcontent")
+  const editType = editContent.attr("type")
   const editMessages = editwidgetJQ.find(".editmsgs")
   const saveUrl = editContent.attr("saveurl")
   const readonlyContent = editwidgetJQ.find(".readonlycontent")
@@ -612,12 +613,15 @@ const editWidget = editwidget => {
     abortSave([[stat, `save failed: ${status} ${statusText}`]])
   }
 
+  const unwrapVal = v => (editType == "keyword" ? v.split("§") : v)
+  const wrapVal = v => (editType == "keyword" ? v.join("§") : v)
+
   const finishSave = (saveValue, readonly) => {
     editwidgetJQ.removeClass("editing")
     readonlyContent.html(readonly)
     readonlyContent.show()
     editContent.val("")
-    editContent.attr("origvalue", saveValue)
+    editContent.attr("origvalue", wrapVal(saveValue))
     editContent.removeClass("dirty")
     editContent.hide()
     editMessages.hide()
@@ -642,7 +646,7 @@ const editWidget = editwidget => {
   const handleTyping = () => {
     const value = editContent.val()
     const origValue = editContent.attr("origvalue")
-    if (origValue == value) {
+    if (origValue == wrapVal(value)) {
       editContent.removeClass("dirty")
       cancelButton.hide()
       saveButton.show()
@@ -656,9 +660,10 @@ const editWidget = editwidget => {
   updateButton.off("click").click(() => {
     editwidgetJQ.addClass("editing")
     readonlyContent.hide()
-    editContent.val(editContent.attr("origvalue"))
+    editContent.val(unwrapVal(editContent.attr("origvalue")))
     editContent.removeClass("dirty")
     editContent.off("keyup").keyup(handleTyping)
+    editContent.off("blur").blur(handleTyping)
     editContent.show()
     editMessages.html("")
     editMessages.hide()
@@ -668,7 +673,7 @@ const editWidget = editwidget => {
     saveButton.show()
   })
   cancelButton.off("click").click(() => {
-    editContent.val(editContent.attr("origvalue"))
+    editContent.val(unwrapVal(editContent.attr("origvalue")))
     editContent.removeClass("dirty")
     editMessages.html("")
     editMessages.hide()
@@ -679,7 +684,7 @@ const editWidget = editwidget => {
   saveButton.off("click").click(() => {
     const origValue = editContent.attr("origvalue")
     const saveValue = editContent.val()
-    if (origValue == saveValue) {
+    if (origValue == wrapVal(saveValue)) {
       editwidgetJQ.removeClass("editing")
       readonlyContent.show()
       editContent.val("")

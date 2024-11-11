@@ -119,6 +119,7 @@ def prepare(design=False, migrate=False, trivial=False):
 
     if Backup is not None:
         Backup.addAuth(Auth)
+
     Wrap.addAuth(Auth)
     Content.addAuth(Auth)
     Wrap.addContent(Content)

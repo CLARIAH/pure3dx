@@ -288,7 +288,7 @@ class Admin:
         myRole = self.myRole
 
         if myRole in {None, "guest"}:
-            return (False, frozenset())
+            return False, frozenset()
 
         user = self.user
         users = self.users
@@ -474,7 +474,6 @@ class Admin:
 
         User = self.User
         inPower = self.inPower
-        user = self.user
 
         projectsAll = sorted(
             projects.values(),
@@ -490,13 +489,16 @@ class Admin:
             id="mydetails",
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, "My projects and editions"))
-        wrapped.append(
-            H.div([self._wrapProject(p) for p in projectsMy])
-            if len(projectsMy)
-            else H.div("You do not have a specific role w.r.t. projects and editions.")
-        )
+        wrapped = [
+            H.h(1, "My projects and editions"),
+            (
+                H.div([self._wrapProject(p) for p in projectsMy])
+                if len(projectsMy)
+                else H.div(
+                    "You do not have a specific role w.r.t. projects and editions."
+                )
+            ),
+        ]
         myProjects = H.div(wrapped, id="myprojects")
         allProjects = ""
         allUsers = ""
@@ -670,46 +672,6 @@ class Admin:
             cls="eentry",
         )
 
-    def getKeywords(self):
-        """Get the lists of keywords that act as values for metadata fields.
-
-        A keyword is a string value and it belongs to a list of keywords.
-        Some metadata fields are associated with a list of values: keywords.
-
-        We read the table of keywords, organize it by metadata field, and count
-        how many edition/project record use that keyword.
-
-        Returns
-        -------
-        dict
-            keyed by name of the metadata field, then by the keyword itself,
-            and valued by the number of edition/project records it occurs in.
-        """
-        Mongo = self.Mongo
-        Settings = self.Settings
-        datamodel = Settings.datamodel
-        fieldsConfig = datamodel.fields
-
-        keywordLists = {field for (field, cfg) in fieldsConfig.items() if cfg.keyword}
-
-        keywords = {}
-
-        for name in keywordLists:
-            keywords[name] = {}
-
-        keywordItems = Mongo.getList("keyword", stop=False)
-
-        for keywordRecord in keywordItems:
-            name = keywordRecord.name
-            value = keywordRecord.value
-            criteria = {f"dc.{name}": value}
-            recordsP = Mongo.getList("project", stop=False, **criteria)
-            recordsE = Mongo.getList("project", stop=False, **criteria)
-            occs = len(recordsP) + len(recordsE)
-            keywords[name][value] = occs
-
-        return keywords
-
     def _wrapKeywords(self):
         """Generate HTML for a widget in admin view to manage metadata keywords.
 
@@ -725,8 +687,9 @@ class Admin:
             The HTML
         """
         H = self.H
+        Content = self.Content
 
-        keywords = self.getKeywords()
+        keywords = Content.getKeywords()
 
         return H.div(
             [self._wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
@@ -799,6 +762,7 @@ class Admin:
         """
         Auth = self.Auth
         Mongo = self.Mongo
+        Content = self.Content
 
         permitted = Auth.inPower()[0]
 
@@ -807,7 +771,7 @@ class Admin:
                 stat=False, messages=[["error", "adding a keyword is not allowed"]]
             )
 
-        keywords = self.getKeywords()
+        keywords = Content.getKeywords()
         specs = json.loads(requestData())
         name = specs["name"]
         value = specs["value"]
@@ -858,6 +822,7 @@ class Admin:
         """
         Auth = self.Auth
         Mongo = self.Mongo
+        Content = self.Content
 
         permitted = Auth.inPower()[0]
 
@@ -866,7 +831,7 @@ class Admin:
                 stat=False, messages=[["error", "deleting a keyword is not allowed"]]
             )
 
-        keywords = self.getKeywords()
+        keywords = Content.getKeywords()
         specs = json.loads(requestData())
         name = specs["name"]
         value = specs["value"]
@@ -891,9 +856,7 @@ class Admin:
         if occs:
             return dict(
                 stat=False,
-                messages=[
-                    ["error", f"keyword '{name}':'{value}' is used {occs} x"]
-                ],
+                messages=[["error", f"keyword '{name}':'{value}' is used {occs} x"]],
             )
 
         good = Mongo.deleteRecord("keyword", stop=False, name=name, value=value)
@@ -1257,6 +1220,8 @@ class Admin:
         if newRole not in otherRoles:
             return dict(stat=False, messages=[["error", f"invalid role: {newRoleRep}"]])
 
+        msg = ""
+
         if table is None:
             result = Mongo.updateRecord("user", dict(role=newRole), user=u)
         else:
@@ -1339,6 +1304,8 @@ class Admin:
 
         criteria = {"user": u, f"{table}Id": recordId}
         crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
+
+        msg = ""
 
         if crossRecord:
             result = Mongo.updateRecord(f"{table}User", dict(role=newRole), **criteria)

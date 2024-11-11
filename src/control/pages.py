@@ -1,6 +1,43 @@
 from .flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
 
+META_FIELDS_PROJECT = " + ".join(
+    """
+    abstract@4
+    description@4
+    provenance@4
+    instructionalMethod@4
+    place@4
+    country@4
+    period@4
+    temporal@4
+    language@4
+    source@4
+    subject@4
+    keyword@4
+    """.strip().split()
+)
+
+META_FIELDS_EDITION = " + ".join(
+    """
+    abstract@5
+    description@5
+    provenance@5
+    instructionalMethod@5
+    license@5
+    rightsholder@5
+    place@5
+    country@5
+    period@5
+    temporal@5
+    language@5
+    source@5
+    subject@5
+    keyword@5
+    """.strip().split()
+)
+
+
 class Pages:
     def __init__(self, Settings, Viewers, Messages, Mongo, Content, Backup, Auth):
         """Making responses that can be displayed as web pages.
@@ -488,22 +525,7 @@ class Pages:
             + editionHeading
             + editions
         )
-        right = Content.getValues(
-            "project",
-            project,
-            " + ".join(
-                """
-                abstract@4
-                description@4
-                provenance@4
-                instructionalMethod@4
-                period@4
-                temporal@4
-                place@4
-                subject@4
-                """.strip().split()
-            ),
-        )
+        right = Content.getValues("project", project, META_FIELDS_PROJECT)
         return self.page("projects", left=left, right=right)
 
     def createEdition(self, project):
@@ -624,9 +646,7 @@ class Pages:
             + sceneMaterial
         )
         right = Content.getValues(
-            "edition",
-            edition,
-            "abstract@5 + description@5 + provenance@5 + instructionalMethod@5",
+            "edition", edition, META_FIELDS_EDITION
         ) + Content.getDataFile("edition", edition, tocFile, content=True, lenient=True)
 
         return self.page("projects", left=left, right=right)
@@ -916,7 +936,7 @@ class Pages:
             record, key, path, fileName, targetFileName=targetFileName
         )
 
-    def authWebdav(self, edition, method, path, action):
+    def authWebdav(self, project, edition, method, path, action):
         """Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -926,6 +946,8 @@ class Pages:
 
         Parameters
         ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
         edition: string | ObjectId | AttrDict
             The edition in question.
         path: string
@@ -945,6 +967,10 @@ class Pages:
 
         User = Auth.myDetails()
         user = User.user
+
+        (projectId, project) = Mongo.get("project", project)
+        if projectId is None:
+            return False
 
         (editionId, edition) = Mongo.get("edition", edition)
         if editionId is None:
@@ -1103,14 +1129,14 @@ class Pages:
                     placeholder="search item",
                     cls="button disabled",
                     disabled="",
-                    style="display:none"
+                    style="display:none",
                 ),
                 H.input(
                     "Search",
                     "submit",
                     cls="button disabled",
                     disabled="",
-                    style="display:none"
+                    style="display:none",
                 ),
             ],
             cls="search-bar",

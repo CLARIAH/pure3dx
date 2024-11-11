@@ -434,7 +434,7 @@ class Config:
         The property `caption` is a label that may accompany a field value
         on the interface.
         """
-        if self.design or self.migrate:
+        if self.design:
             return
 
         Messages = self.Messages

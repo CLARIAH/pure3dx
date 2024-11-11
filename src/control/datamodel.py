@@ -241,6 +241,49 @@ class Datamodel:
 
         return linkCriteria
 
+    def getKeywords(self):
+        """Get the lists of keywords that act as values for metadata fields.
+
+        A keyword is a string value and it belongs to a list of keywords.
+        The metadata fields that are declared with `tp: keyword` are associated
+        with a list of values: keywords.
+
+        We read the table of keywords, organize it by metadata field, and count
+        how many edition/project record use that keyword.
+
+        Returns
+        -------
+        dict
+            keyed by name of the metadata field, then by the keyword itself,
+            and valued by the number of edition/project records it occurs in.
+        """
+        Mongo = self.Mongo
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        fieldsConfig = datamodel.fields
+
+        keywordLists = {
+            field for (field, cfg) in fieldsConfig.items() if cfg.tp == "keyword"
+        }
+
+        keywords = {}
+
+        for name in keywordLists:
+            keywords[name] = {}
+
+        keywordItems = Mongo.getList("keyword", stop=False)
+
+        for keywordRecord in keywordItems:
+            name = keywordRecord.name
+            value = keywordRecord.value
+            criteria = {f"dc.{name}": value}
+            recordsP = Mongo.getList("project", stop=False, **criteria)
+            recordsE = Mongo.getList("project", stop=False, **criteria)
+            occs = len(recordsP) + len(recordsE)
+            keywords[name][value] = occs
+
+        return keywords
+
     def makeField(self, key):
         """Make a field object and registers it.
 
@@ -451,6 +494,26 @@ class Field:
 
         Value types can be string, integer, but also date times, and values
         from an other table (value lists), or structured values.
+
+        The value "keyword" is used if the the field works with values from another
+        table (i.e. values from the keyword table). It is assumed that all these values
+        are strings.
+
+        If True, the value of such a field must consist of zero or more elements
+        of a prescribed list of keywords.
+
+        These lists are associated with certain metadata fields and can be managed
+        by admins in a widget on the MyWork page.
+
+        We do not enforce that the value of such a field is a member of the
+        associated list at all times. For example, if we import projects and editions
+        that have been made with different lists of keywords in force, we accept
+        foreign keywords. However, users will not be able to apply foreign keywords
+        when they edit fields.
+        """
+
+        self.multiple = True
+        """Whether multiple values are allowed.
         """
 
         self.caption = key
@@ -465,7 +528,7 @@ class Field:
         in the caption.
         """
 
-        for (arg, value) in kwargs.items():
+        for arg, value in kwargs.items():
             if value is not None:
                 setattr(self, arg, value)
 
@@ -570,6 +633,7 @@ class Field:
         """
         Settings = self.Settings
         Mongo = self.Mongo
+        Datamodel = self.Datamodel
 
         H = Settings.H
 
@@ -580,6 +644,7 @@ class Field:
         tp = self.tp
         caption = self.caption
         key = self.key
+        multiple = self.multiple
 
         bare = self.bare(record)
         logical = self.logical(record)
@@ -602,10 +667,30 @@ class Field:
             cancelButton = H.actionButton("edit_cancel")
             saveButton = H.actionButton("edit_save")
             messages = H.div("", cls="editmsgs")
-            orig = bare if tp == "text" else writeYaml(logical)
-            editableContent = H.textarea(
-                "", cls="editcontent", saveurl=saveUrl, origValue=orig
+            orig = (
+                bare
+                if tp == "text"
+                else "§".join(logical or []) if tp == "keyword" else writeYaml(logical)
             )
+
+            if tp == "keyword":
+                keywords = Datamodel.getKeywords()[key]
+                valueSet = set() if logical is None else set(logical)
+                options = (
+                    [] if multiple else [(f"Choose a {key} ...", "", valueSet == set())]
+                ) + [(k, k, k in valueSet) for k in keywords]
+                editableContent = H.select(
+                    options,
+                    multiple=multiple,
+                    cls="editcontent",
+                    saveurl=saveUrl,
+                    origValue=orig,
+                    tp=tp,
+                )
+            else:
+                editableContent = H.textarea(
+                    "", cls="editcontent", saveurl=saveUrl, origValue=orig, tp=key
+                )
 
             content = "".join(
                 [
@@ -732,7 +817,7 @@ class Upload:
 
         # let attributes be filled in from the function **kwargs
 
-        for (arg, value) in kwargs.items():
+        for arg, value in kwargs.items():
             if value is not None:
                 setattr(self, arg, value)
 
@@ -767,20 +852,22 @@ class Upload:
         projectId = (
             recordId
             if table == "project"
-            else record.projectId
-            if table == "edition"
-            else None
+            else record.projectId if table == "edition" else None
         )
         editionId = recordId if table == "edition" else None
 
         path = (
             ""
             if table == "site"
-            else f"project/{projectId}"
-            if table == "project"
-            else f"project/{projectId}/edition/{editionId}"
-            if table == "edition"
-            else None
+            else (
+                f"project/{projectId}"
+                if table == "project"
+                else (
+                    f"project/{projectId}/edition/{editionId}"
+                    if table == "edition"
+                    else None
+                )
+            )
         )
         sep = "/" if path else ""
         return f"{path}{sep}"

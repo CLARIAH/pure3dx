@@ -50,6 +50,25 @@ fields:
   contributor:
     nameSpace: dc
     caption: "and {value}"
+  license:
+    nameSpace: dc
+    fieldPath: rights.license
+    caption: License
+    tp: keyword
+    multiple: false
+  rightsholder:
+    nameSpace: dc
+    fieldPath: rights.holder
+    caption: Rights holder
+  place:
+    nameSpace: dc
+    fieldPath: coverage.place
+    caption: Place
+  country:
+    nameSpace: dc
+    fieldPath: coverage.country
+    caption: Countries
+    tp: keyword
   period:
     nameSpace: dc
     fieldPath: coverage.period
@@ -57,16 +76,23 @@ fields:
   temporal:
     nameSpace: dc
     fieldPath: coverage.temporal
-    caption: Period (keywords)
-    keyword: true
-  place:
+    caption: Periods (keywords)
+    tp: keyword
+  language:
     nameSpace: dc
-    fieldPath: coverage.place
-    caption: Place
+    caption: Languages
+    tp: keyword
+  source:
+    nameSpace: dc
+    caption: Sources
+    tp: keyword
   subject:
     nameSpace: dc
     caption: Subjects
-    keyword: true
+    tp: keyword
+  keyword:
+    nameSpace: dc
+    caption: Keywords
 
 uploads:
   model:

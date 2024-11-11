@@ -1,4 +1,4 @@
-# Manual for admins and owners
+# Manual for admins and owners and devops
 
 For background, read [architecture](architecture.md) first.
 There the concepts of **A** (authoring app) and **P** (publishing app) are explained.
@@ -261,3 +261,65 @@ items in these overviews. Probably they can do something about it:
 *   remove unused media files;
 *   correct broken links, either by editing the link itself, of by renaming or adding 
     the file that is the target of the link.
+
+## Set up a new instance (devops)
+
+When a new instance of Pure3D is set up, and you start with a new database, it might
+be desirable to populate sets of keywords that are associated with certain
+metadata fields, e.g. periods, countries, languages, subjects, licences. 
+
+An initial set is stored in the yaml file *keywords.yml* and you can import it by 
+means of a shell command.
+No exisiting keywords will be deleted, the initial keywords will be added to
+the existing ones.
+
+Note that once imported, admins may add/delete keywords to the keywords table.
+When you re-import the initial set, no keywords will be deleted, so the later additions
+will be preserved, but all deleted keywords of the initial set will reappear.
+
+When you do it in a local version of the app, make sure the container for moongodb
+of the app is running:
+
+```
+k
+kset pure3d author
+```
+
+```
+k
+kset pure3d author
+kcd
+cd src
+./initkeywords.sh --dry pilot
+```
+
+(or instead of `pilot`: `test` or `custom` or `prod`).
+
+You'll see roughly what the effect of merging in the initial keywords will be.
+
+If all looks good, you can perform the action, by omitting the `--dry` argument:
+
+```
+./initkeywords.sh pilot
+```
+
+To check whether you really have the keywords, run it again with or without `--dry`
+(the operation is idempotent). You see that there are many keywords in the system now
+and that none has to be added.
+
+For the production and acceptance systems:
+
+```
+k
+kset pure3d mongodb
+ksh
+```
+
+You are now in a shell on the remote server.
+
+```
+cd src
+./initkeywords.sh --dry pilot
+./initkeywords.sh pilot
+./initkeywords.sh --dry pilot
+```

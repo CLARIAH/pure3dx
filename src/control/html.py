@@ -971,9 +971,11 @@ class HtmlElements:
                 )
                 if imgUrl
                 else self.span(
-                    [self.icon("exist" if exists else "noexist"), fileRep]
-                    if prescribed
-                    else fileRep,
+                    (
+                        [self.icon("exist" if exists else "noexist"), fileRep]
+                        if prescribed
+                        else fileRep
+                    ),
                     cls="filename",
                 )
             )
@@ -1095,6 +1097,26 @@ class HtmlElements:
         return HtmlElement("ol").wrap(items, type=tp, **atts)
 
     @staticmethod
+    def option(text, value, **atts):
+        """OPTION.
+
+        Option within a select element..
+
+        Parameters
+        ----------
+        text: string
+            The text of the option element.
+        value: string
+            The value attribute of the option element.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("option").wrap(text, value=value, **atts)
+
+    @staticmethod
     def p(material, **atts):
         """P.
 
@@ -1126,6 +1148,29 @@ class HtmlElements:
         """
 
         return HtmlElement("script").wrap(material, **atts)
+
+    def select(self, options, multiple=False, **atts):
+        """SELECT.
+
+        Select box with options.
+
+        Parameters
+        ----------
+        options: iterable
+            Every option is a tuple or list of three elements: (text, value, selected)
+        multiple: boolean, optional False
+            Whether multiple selection is allowed or not.
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("select").wrap(
+            [self.option(*opt[0:2], selected=opt[2]) for opt in options],
+            multiple=multiple,
+            **atts,
+        )
 
     @staticmethod
     def small(material, **atts):
@@ -1280,11 +1325,15 @@ def asString(value, tight=True):
     return (
         E
         if value is None
-        else value
-        if type(value) is str
-        else sep.join(asString(val, tight=tight) for val in value)
-        if isIterable(value)
-        else str(value)
+        else (
+            value
+            if type(value) is str
+            else (
+                sep.join(asString(val, tight=tight) for val in value)
+                if isIterable(value)
+                else str(value)
+            )
+        )
     )
 
 
