@@ -60,6 +60,9 @@ fields:
     nameSpace: dc
     fieldPath: rights.holder
     caption: Rights holder
+  contact:
+    nameSpace: dc
+    caption: Contact details
   place:
     nameSpace: dc
     fieldPath: coverage.place
