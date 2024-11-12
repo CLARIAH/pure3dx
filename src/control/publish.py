@@ -1,4 +1,3 @@
-from datetime import datetime as dt
 from traceback import format_exception
 from .mongo import Mongo
 
@@ -12,7 +11,7 @@ from .files import (
     fileRemove,
     writeJson,
 )
-from .generic import deepdict
+from .generic import deepdict, utcnow
 from .precheck import Precheck as PrecheckCls
 from .static import Static as StaticCls
 
@@ -48,7 +47,9 @@ class Publish:
         Content.addPublish(self)
 
         self.Precheck = (
-            None if Content is None else PrecheckCls(Settings, Messages, Viewers)
+            None
+            if Content is None
+            else PrecheckCls(Settings, Messages, Content, Viewers)
         )
 
     def getPubNums(self, project, edition):
@@ -106,13 +107,15 @@ class Publish:
             return pubNum
 
         if pPubNumLast is None:
-            # because there is only 1 site in the database, we can retrieve it without paramaters
+            # because there is only 1 site in the database,
+            # we can retrieve it without paramaters
             site = Mongo.getRecord("site")
 
             if "publishedProjectCount" in site:
                 pPubNum = site["publishedProjectCount"] + 1
             else:
-                # Determine project publish number the old way, to make sure no two project have the same pubNum
+                # Determine project publish number the old way,
+                # to make sure no two project have the same pubNum
                 pPubNum = getNum("project", pPubNumLast, {}, projectDir)
 
             Mongo.updateRecord("site", {"publishedProjectCount": pPubNum})
@@ -132,7 +135,9 @@ class Publish:
 
                 ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
-            Mongo.updateRecord("project", {"publishedEditionCount": ePubNum}, _id=project._id)
+            Mongo.updateRecord(
+                "project", {"publishedEditionCount": ePubNum}, _id=project._id
+            )
         else:
             ePubNum = ePubNumLast
 
@@ -149,7 +154,7 @@ class Publish:
         site = Content.relevant()[-1]
         featured = Content.getValue("site", site, "featured", manner="logical")
 
-        Static = StaticCls(Settings, Messages, Viewers, Tailwind, Handlebars)
+        Static = StaticCls(Settings, Messages, Content, Viewers, Tailwind, Handlebars)
 
         try:
             good = Static.genPages(pPubNum, ePubNum, featured=featured)
@@ -188,7 +193,8 @@ class Publish:
         # this will prevent other publishing actions while this action is running
 
         last = site.lastPublished
-        now = dt.utcnow().isoformat(timespec="seconds").replace(":", "-")
+        now = utcnow().isoformat(timespec="seconds").replace(":", "-")
+        today = utcnow().isoformat(sep="T").split("T")[0]
 
         Mongo.updateRecord(
             "site", dict(processing=True, lastPublished=now), _id=site._id
@@ -279,7 +285,12 @@ class Publish:
                     Mongo.updateRecord("project", update, _id=project._id)
 
                     stage = f"set pubnum for edition to {ePubNum}"
-                    update = dict(pubNum=ePubNum, lastPublished=now, isPublished=True)
+                    update = {
+                        "pubNum": ePubNum,
+                        "lastPublished": now,
+                        "isPublished": True,
+                        "dc.datePublished": today,
+                    }
                     Mongo.updateRecord("edition", update, _id=edition._id)
 
                     stage = "add site files"

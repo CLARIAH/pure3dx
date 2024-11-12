@@ -96,6 +96,11 @@ fields:
   keyword:
     nameSpace: dc
     caption: Keywords
+  datePublished:
+    nameSpace: dc
+    caption: Date (last) published
+    tp: datetime
+    readonly: true
 
 uploads:
   model:

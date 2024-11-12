@@ -1,6 +1,6 @@
 import os
-from datetime import datetime as dt
 
+from .generic import utcnow
 from .files import dirExists, dirCopy, dirRemove
 
 
@@ -82,7 +82,7 @@ class Backup:
         title = "restore this backup"
         msgs = Messages.client("info", "wait for restore to complete ...", replace=True)
         backups = (
-            H.small(H.i("No backups"))
+            H.div(H.small(H.i("No backups")))
             if len(backups) == 0
             else H.div(
                 [
@@ -91,11 +91,15 @@ class Backup:
                             backup,
                             f"/restore/{backup}{projectSlug}",
                             title=title,
-                            cls="small",
+                            cls="button small",
                             **msgs,
                         ),
                         H.nbsp,
-                        H.iconx("delete", href=f"/delbackup/{backup}{projectSlug}"),
+                        H.iconx(
+                            "delete",
+                            href=f"/delbackup/{backup}{projectSlug}",
+                            cls="button small",
+                        ),
                         H.br(),
                     ]
                     for backup in backups
@@ -110,10 +114,10 @@ class Backup:
         )
         return H.details(
             H.a(
-                "make backup",
+                "Make backup",
                 f"/backup{projectSlug}",
                 title=title,
-                cls="small",
+                cls="button small",
                 **Messages.client(
                     "info", "wait for backup to complete ...", replace=True
                 ),
@@ -195,7 +199,7 @@ class Backup:
         activeDir = workingDir
         backupBase = f"{dataDir}/backups/{runMode}"
 
-        now = dt.utcnow().isoformat(timespec="seconds").replace(":", "-")
+        now = utcnow().isoformat(timespec="seconds").replace(":", "-")
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)

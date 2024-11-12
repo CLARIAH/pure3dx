@@ -710,7 +710,7 @@ class HtmlElements:
         addCls = f"symbol i-{icon} "
         return HtmlElement("span").wrap((text or "") + iconChar, addCls=addCls, **atts)
 
-    def iconx(self, icon, text=None, href=None, **atts):
+    def iconx(self, icon, text=None, tip=None, href=None, **atts):
         """iconx.
 
         Pseudo element for a clickable icon.
@@ -730,6 +730,9 @@ class HtmlElements:
             Name of the icon.
         text: string, optional, `None`
             Extra text that will be placed in front of the icon.
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
         href: url, optional, `None`
             Destination of the icon when clicked.
             Will be left out when equal to the empty string.
@@ -749,14 +752,15 @@ class HtmlElements:
 
         if "title" not in atts:
             title = iconTips.get(icon, None)
-            if title is not None:
-                atts["title"] = title
+
+            if title is not None and tip is not None:
+                atts["title"] = (title or "") + (tip or "")
 
         return HtmlElement("span" if href is None else "a").wrap(
             (text or "") + iconChar, addCls=addCls, **atts
         )
 
-    def actionButton(self, name, kind=None, **atts):
+    def actionButton(self, name, tip=None, kind=None, **atts):
         """Generates an action button to be activated by client side Javascript.
 
         It is assumed that the permission has already been checked.
@@ -769,6 +773,10 @@ class HtmlElements:
         name: string
             The name of the icon as displayed on the button
 
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
+
         kind: string, optional None
             The kind of the button, passed on in attribute `kind`, can be
             used by Javascript to identify this button.
@@ -780,7 +788,9 @@ class HtmlElements:
             The HTML of the button.
 
         """
-        return self.iconx(name, href="#", cls="button small", kind=name, **atts)
+        return self.iconx(
+            name, href="#", cls="button small", tip=tip, kind=name, **atts
+        )
 
     @staticmethod
     def iframe(src, **atts):

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime as dt
+from datetime import datetime as dt, UTC
 from functools import cmp_to_key as keyFromComparison
 
 from bson.objectid import ObjectId
@@ -30,6 +30,10 @@ OP_VERSION_RE = re.compile(
 )
 
 
+def utcnow():
+    return dt.now(UTC)
+
+
 def now():
     """The current moment in time as a isolike string value.
 
@@ -37,7 +41,7 @@ def now():
     (milliseconds and timezone).
     """
 
-    return dt.utcnow().isoformat().split(".")[0].replace(":", "-")
+    return utcnow().isoformat().split(".")[0].replace(":", "-")
 
 
 def splitComp(c):

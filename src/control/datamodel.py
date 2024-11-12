@@ -492,8 +492,8 @@ class Field:
         self.tp = "string"
         """The value type of the field.
 
-        Value types can be string, integer, but also date times, and values
-        from an other table (value lists), or structured values.
+        Value types can be string, integer, but also date-time, and values
+        from an other table (keyword).
 
         The value "keyword" is used if the the field works with values from another
         table (i.e. values from the keyword table). It is assumed that all these values
@@ -514,6 +514,13 @@ class Field:
 
         self.multiple = True
         """Whether multiple values are allowed.
+        """
+
+        self.readonly = False
+        """Whether the field can be edited manually by authorized users.
+
+        If this field is True, no user can directly change the value. Instead, the
+        system will fill in this value, dependent on the completion of certain actions.
         """
 
         self.caption = key
@@ -618,6 +625,8 @@ class Field:
         editable: boolean, optional False
             Whether the field is editable by the current user.
             If so, edit controls are provided.
+            But if the field has been declared as readonly in the field specs, no edit
+            controls will be provided.
         outerCls: string optional "fieldouter"
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not 'text'
@@ -645,6 +654,7 @@ class Field:
         caption = self.caption
         key = self.key
         multiple = self.multiple
+        readonly = self.readonly
 
         bare = self.bare(record)
         logical = self.logical(record)
@@ -652,6 +662,8 @@ class Field:
 
         if tp == "text":
             readonlyContent = markdown(bareRep, tight=False)
+        elif tp == "datetime":
+            readonlyContent = bare or H.i("never")
         else:
             readonlyContent = H.wrapValue(
                 logical,
@@ -660,12 +672,12 @@ class Field:
                 innerElem="span",
                 innerAtts=dict(cls=innerCls),
             )
-        if editable:
+        if editable and not readonly:
             keyRepUrl = "" if key is None else f"/{key}"
             saveUrl = f"/save/{table}/{recordId}{keyRepUrl}"
-            updateButton = H.actionButton("edit_update")
-            cancelButton = H.actionButton("edit_cancel")
-            saveButton = H.actionButton("edit_save")
+            updateButton = H.actionButton("edit_update", tip=f" for field {key}")
+            cancelButton = H.actionButton("edit_cancel", tip=f" for field {key}")
+            saveButton = H.actionButton("edit_save", tip=f" for field {key}")
             messages = H.div("", cls="editmsgs")
             orig = (
                 bare
@@ -729,7 +741,11 @@ class Field:
             theCaption if inCaption else content
         )
 
-        return H.div(fullContent, cls="editwidget") if editable else fullContent
+        return (
+            H.div(fullContent, cls="editwidget")
+            if editable and not readonly
+            else fullContent
+        )
 
 
 class Upload:

@@ -122,6 +122,8 @@ td
 	color: var(--action-fore);
 	background-color: var(--action-back);
 	border-color: var(--action-border);
+  border-width: 0.1em;
+  border-style: solid;
 }
 .button.danger
 {

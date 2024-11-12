@@ -26,7 +26,7 @@ CONFIG_FILE = "client.yml"
 
 
 class Static:
-    def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
+    def __init__(self, Settings, Messages, Content, Viewers, Tailwind, Handlebars):
         """All about generating static pages."""
         self.Settings = Settings
         self.Tailwind = Tailwind
@@ -34,7 +34,7 @@ class Static:
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages, Viewers)
+        self.Precheck = PrecheckCls(Settings, Messages, Content, Viewers)
 
         yamlDir = Settings.yamlDir
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"

@@ -67,7 +67,11 @@ class Wrap:
 
         wrapped = []
         wrapped.append(
-            H.p(self.contentButton("site", site, "create", insertTable="project", text="New project"))
+            H.p(
+                self.contentButton(
+                    "site", site, "create", insertTable="project", text="New project"
+                )
+            )
         )
 
         for project in projects:
@@ -87,7 +91,9 @@ class Wrap:
             statusCls = css.isVisible[stat]
 
             projectUrl = f"/project/{projectId}"
-            button = self.contentButton("project", project, "delete", confirm=True, text="Delete project")
+            button = self.contentButton(
+                "project", project, "delete", confirm=True, text="Delete project"
+            )
             visual = Content.getUpload(project, "iconProject")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, projectUrl
@@ -135,7 +141,9 @@ class Wrap:
             statusCls = css.isPublished[stat]
 
             editionUrl = f"/edition/{editionId}"
-            button = self.contentButton("edition", edition, "delete", confirm=True, text="Delete edition")
+            button = self.contentButton(
+                "edition", edition, "delete", confirm=True, text="Delete edition"
+            )
             visual = Content.getUpload(edition, "iconEdition")
             caption = self.getCaption(
                 visual, title, status, statusCls, button, editionUrl
@@ -143,7 +151,15 @@ class Wrap:
             wrapped.append(caption)
 
         wrapped.append(
-            H.p(self.contentButton("project", project, "create", insertTable="edition", text="New Edition"))
+            H.p(
+                self.contentButton(
+                    "project",
+                    project,
+                    "create",
+                    insertTable="edition",
+                    text="New Edition",
+                )
+            )
         )
         return H.content(*wrapped)
 
@@ -184,7 +200,9 @@ class Wrap:
         wrapped = []
 
         titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.contentButton("edition", edition, "delete", confirm=True, text="Delete scene")
+        button = self.contentButton(
+            "edition", edition, "delete", confirm=True, text="Delete scene"
+        )
 
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
@@ -238,8 +256,6 @@ class Wrap:
         return H.div(
             [H.div(content, cls=f"caption {activeCls}"), *rest], cls="captioncontent"
         )
-
-
 
     def contentButton(
         self,
@@ -321,7 +337,7 @@ class Wrap:
             if len(details):
                 disable = True
                 detailContent = []
-                for (detailTable, detailRecords) in details.items():
+                for detailTable, detailRecords in details.items():
                     nDetails = len(detailRecords)
                     plural = "" if nDetails == 1 else "s"
                     detailRep = detailTable + plural
@@ -359,5 +375,6 @@ class Wrap:
 
         fullCls = f"button small {cls}"
         return (
-            H.iconx(action, href=href, title=tip, cls=fullCls, text=text, **confirmAtt) + report
+            H.iconx(action, href=href, title=tip, cls=fullCls, text=text, **confirmAtt)
+            + report
         )

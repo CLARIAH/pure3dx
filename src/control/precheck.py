@@ -35,10 +35,11 @@ SKIP = set(
 
 
 class Precheck:
-    def __init__(self, Settings, Messages, Viewers):
+    def __init__(self, Settings, Messages, Content, Viewers):
         """All about checking the files of an edition prior to publishing."""
         self.Settings = Settings
         self.Messages = Messages
+        self.Content = Content
         self.Viewers = Viewers
         Messages.debugAdd(self)
 
@@ -91,6 +92,7 @@ class Precheck:
             it returns whether the edition passed all checks.
         """
         Viewers = self.Viewers
+        Content = self.Content
         Messages = self.Messages
         Settings = self.Settings
         H = Settings.H
@@ -225,13 +227,34 @@ class Precheck:
                 )
                 good = False
 
-            eAbstract = (eInfo.dc or AttrDict()).abstract
-
-            if not eAbstract:
+            if not eInfo.dc:
                 Messages.error(
-                    "This edition of this edition has no abstract", stop=False
+                    "This edition has no metadata", stop=False
                 )
                 good = False
+
+            if not good:
+                return False
+
+            for metaKey in (
+                "title",
+                "abstract",
+                "description",
+                "provenance",
+                "creator",
+                "license",
+                "rightsholder",
+                "contact",
+                "language",
+                "source",
+                "subject",
+            ):
+                value = Content.getValue("edition", eInfo, metaKey)
+                if not value:
+                    Messages.error(
+                        f"This edition no {metaKey}", stop=False
+                    )
+                    good = False
 
             return good
 

@@ -530,6 +530,11 @@ class Content(Datamodel):
 
         F = self.makeField(key)
 
+        readonly = F.readonly
+
+        if readonly:
+            return dict(stat=False, messages=[["error", f"{key} is not updatable"]])
+
         nameSpace = F.nameSpace
         fieldPath = F.fieldPath
         tp = F.tp
@@ -849,8 +854,13 @@ class Content(Datamodel):
         if "read" not in actions:
             return ""
 
-        return H.iconx(
-            "download", text="download", href=f"/download/{table}/{recordId}"
+        return H.p(
+            H.iconx(
+                "download",
+                text="Download",
+                href=f"/download/{table}/{recordId}",
+                cls="button small",
+            )
         )
 
     def getPublishInfo(self, table, record):
@@ -922,7 +932,24 @@ class Content(Datamodel):
         editionIsPublished = edition.isPublished
 
         editionPubRow = (
-            (H.i("Not published") if not editionIsPublished else H.span("Published: ")),
+            (
+                H.p(H.i("Published: ")),
+                H.p(
+                    H.a(
+                        f"{pPubNum}/{ePubNum} ⌲",
+                        f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
+                        target=published,
+                        cls="button large",
+                    )
+                ),
+                H.p(self.getValue("edition", edition, "datePublished")),
+            )
+            if editionIsPublished
+            else (H.p("Not published"), "", "")
+        )
+
+        editionPubRow = (
+            (H.i("Published: ") if editionIsPublished else H.span("Not published")),
             (
                 H.a(
                     f"{pPubNum}/{ePubNum} ⌲",
@@ -933,6 +960,7 @@ class Content(Datamodel):
                 if editionIsPublished
                 else ""
             ),
+            H.span(self.getValue("edition", edition, "datePublished")),
         )
 
         can = dict(
@@ -985,21 +1013,18 @@ class Content(Datamodel):
             if can[asKind]:
                 rows.append(
                     (
-                        H.span(
-                            [
-                                "You may ",
-                                H.a(
-                                    kindRep,
-                                    href=f"/{kind}/{recordId}",
-                                    cls="button",
-                                )
-                            ]
+                        H.p("You may"),
+                        H.p(
+                            H.a(
+                                kindRep, href=f"/{kind}/{recordId}", cls="button medium"
+                            )
                         ),
                     )
                     if asKind in actions
                     else (
-                        H.span(f"You may not {kindRep}"),
-                        Auth.getInvolvedUsers(tbRecRoles, asString=True),
+                        H.p("You may not"),
+                        H.p(H.i(kindRep)),
+                        H.p(Auth.getInvolvedUsers(tbRecRoles, asString=True)),
                     )
                 )
 
@@ -1166,7 +1191,7 @@ class Content(Datamodel):
                 H.a(
                     text,
                     projectUrl,
-                    cls="button",
+                    cls="button medium",
                     title="back to the project page",
                 ),
             ]
