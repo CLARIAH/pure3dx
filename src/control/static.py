@@ -29,6 +29,7 @@ class Static:
     def __init__(self, Settings, Messages, Content, Viewers, Tailwind, Handlebars):
         """All about generating static pages."""
         self.Settings = Settings
+        self.Content = Content
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
         self.Messages = Messages
@@ -62,6 +63,9 @@ class Static:
         void
             The dict is changed in place.
         """
+        CONTINUE HERE
+        Make sure that all mandatory metadata fields are filled in with nullish values.
+        Adapt the template such that a box with metadata will be generated
         if table == "site":
             return
         if table == "project":

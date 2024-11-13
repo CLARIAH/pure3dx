@@ -59,6 +59,8 @@
         <dd class="w-2/3">{{contentdata.rights.license}}</dd>
         <dt class="italic w-1/3">Rights holder</dt>
         <dd class="w-2/3">{{contentdata.rights.holder}}</dd>
+        <dt class="italic w-1/3">Contact</dt>
+        <dd class="w-2/3">{{contentdata.contact}}</dd>
       </dl>
 
       <h2 class="text-lg mt-4 mb-1" tabindex="3">Institution(s)</h2>
@@ -70,7 +72,7 @@
 
       <h2 class="text-lg mt-4 mb-1" tabindex="4">Period</h2>
       <ul>
-        {{#each contentdata.period}}
+        {{#each contentdata.coverage.temporal}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>

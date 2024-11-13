@@ -1,6 +1,6 @@
 import os
 
-from .generic import utcnow
+from .generic import isonow
 from .files import dirExists, dirCopy, dirRemove
 
 
@@ -199,7 +199,7 @@ class Backup:
         activeDir = workingDir
         backupBase = f"{dataDir}/backups/{runMode}"
 
-        now = utcnow().isoformat(timespec="seconds").replace(":", "-")
+        now = isonow()
 
         if project is not None:
             (projectId, project) = Mongo.get("project", project)

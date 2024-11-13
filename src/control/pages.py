@@ -1,43 +1,6 @@
 from .flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
 
 
-META_FIELDS_PROJECT = " + ".join(
-    """
-    abstract@4
-    description@4
-    provenance@4
-    instructionalMethod@4
-    place@4
-    country@4
-    period@4
-    temporal@4
-    language@4
-    source@4
-    subject@4
-    keyword@4
-    """.strip().split()
-)
-
-META_FIELDS_EDITION = " + ".join(
-    """
-    abstract@5
-    description@5
-    provenance@5
-    instructionalMethod@5
-    license@5
-    rightsholder@5
-    place@5
-    country@5
-    period@5
-    temporal@5
-    language@5
-    source@5
-    subject@5
-    keyword@5
-    """.strip().split()
-)
-
-
 class Pages:
     def __init__(self, Settings, Viewers, Messages, Mongo, Content, Backup, Auth):
         """Making responses that can be displayed as web pages.
@@ -316,7 +279,8 @@ class Pages:
         if recordId is None:
             left = None
         else:
-            left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
+            mainFields = Content.getMetaFields("site", "main", level=2)
+            left = Content.getValues(table, record, mainFields)
         return self.page("home", left=left)
 
     def about(self):
@@ -331,26 +295,11 @@ class Pages:
         if recordId is None:
             (left, right) = (None, None)
         else:
-            left = Content.getValues(table, record, "siteTitle@1 + abstract@2")
-            right = Content.getValues(table, record, "description@2 + provenance@2")
+            mainFields = Content.getMetaFields("site", "main", level=2)
+            boxFields = Content.getMetaFields("site", "box", level=2)
+            left = Content.getValues(table, record, mainFields)
+            right = Content.getValues(table, record, boxFields)
         return self.page("about", left=left, right=right)
-
-    def surprise(self):
-        """The "surprise me!" page.
-
-        Returns
-        -------
-        response
-        """
-        Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            (left, right) = (None, None)
-        else:
-            surpriseMe = Content.getSurprise()
-            left = Content.getValues(table, record, "siteTitle@1")
-            right = surpriseMe
-        return self.page("surpriseme", left=left, right=right)
 
     def projects(self):
         """The page with the list of projects.
@@ -365,7 +314,7 @@ class Pages:
             left = None
         else:
             projects = Content.getProjects()
-            left = Content.getValues(table, record, "siteTitle@2") + projects
+            left = projects
         return self.page("projects", left=left)
 
     def admin(self):
@@ -381,7 +330,7 @@ class Pages:
             left = None
         else:
             items = Content.getAdmin()
-            left = Content.getValues(table, record, "siteTitle@2") + items
+            left = items
         return self.page("admin", left=left)
 
     def createUser(self, user):
@@ -506,18 +455,12 @@ class Pages:
         backups = "" if runProd else Backup.getBackups(project=project)
         editionHeading = H.h(3, "Editions")
         editions = Content.getEditions(project)
+
+        mainFields = Content.getMetaFields("project", "main", level=3)
+        boxFields = Content.getMetaFields("project", "box", level=3)
+
         left = (
-            Content.getValues(
-                "project",
-                project,
-                " + ".join(
-                    """
-                    title@3
-                    creator@0
-                    contributor@0
-                    """.strip().split()
-                ),
-            )
+            Content.getValues("project", project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -525,7 +468,7 @@ class Pages:
             + editionHeading
             + editions
         )
-        right = Content.getValues("project", project, META_FIELDS_PROJECT)
+        right = Content.getValues("project", project, boxFields)
         return self.page("projects", left=left, right=right)
 
     def createEdition(self, project):
@@ -634,20 +577,21 @@ class Pages:
             if False and action is None
             else Content.getScene(projectId, edition, version=version, action=action)
         )
+        mainFields = Content.getMetaFields("edition", "main", level=4)
+        boxFields = Content.getMetaFields("edition", "box", level=4)
+
         left = (
             breadCrumb
-            + Content.getValues(
-                "edition", edition, "title@4 + creator@0 + contributor@0"
-            )
+            + Content.getValues("edition", edition, mainFields)
             + publishButton
             + actionHeading
             + downloadButton
             + sceneHeading
             + sceneMaterial
         )
-        right = Content.getValues(
-            "edition", edition, META_FIELDS_EDITION
-        ) + Content.getDataFile("edition", edition, tocFile, content=True, lenient=True)
+        right = Content.getValues("edition", edition, boxFields) + Content.getDataFile(
+            "edition", edition, tocFile, content=True, lenient=True
+        )
 
         return self.page("projects", left=left, right=right)
 
@@ -1116,7 +1060,6 @@ class Pages:
             (pubUrl, "Published Projects ⌲", True, True),
             ("admin", "My Work", True, True),
             ("directory", "3D Directory", False, False),
-            ("surpriseme", "Surprise Me", True, False),
             ("advancedsearch", "Advanced Search", False, False),
         )
 

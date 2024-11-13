@@ -1,6 +1,6 @@
 from markdown import markdown
 
-from .generic import AttrDict, now
+from .generic import AttrDict, pseudoisonow
 from .files import fileExists, listFilesAccepted, writeYaml
 
 
@@ -42,9 +42,67 @@ class Datamodel:
         self.masterDetail = datamodel.masterDetail
         self.mainLink = datamodel.mainLink
         self.fieldsConfig = datamodel.fields
+        self.fieldDistribution = datamodel.fieldDistribution
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
+
+    def getMetaFields(self, table, kind, level=None, asPublished=False):
+        """Get the list of metadata fields for in the meta box.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+        kind: string
+            The kind of fields to fetch: `main` or `box`
+        asPublished: boolean, optional False
+            The display of the meta box on the published app leaves out the
+            abstract and description fields, they are specified elsewhere.
+        level: integer, optional None
+            If not None, append @ plus level to each meta key that is delivered,
+            and join the components with ` + `
+            If one of the fields is `title`, its level is one lower.
+
+        Returns
+        -------
+        tuple of string
+            The meta keys in question
+        """
+        fieldDistribution = self.fieldDistribution
+        narrative = set(fieldDistribution.narrative)
+        items = fieldDistribution[kind]
+        theseItems = items[table]
+
+        result = (
+            tuple(x for x in theseItems if not (kind == "box" and x in narrative))
+            if asPublished
+            else tuple(theseItems)
+        )
+        return (
+            result
+            if level is None
+            else " + ".join(
+                f"{x}@{level - 1 if x == 'title' else level}" for x in result
+            )
+        )
+
+    def checkMetaFields(self, table):
+        """Get the list of metadata fields that must be present before publication.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+
+        Returns
+        -------
+        tuple of string
+            The meta keys in question
+        """
+        fieldDistribution = self.fieldDistribution
+        items = fieldDistribution.mandatory
+        return items[table]
 
     def relevant(self, project=None, edition=None):
         """Get a relevant record and the table to which it belongs.
@@ -241,7 +299,7 @@ class Datamodel:
 
         return linkCriteria
 
-    def getKeywords(self):
+    def getKeywords(self, extra=None):
         """Get the lists of keywords that act as values for metadata fields.
 
         A keyword is a string value and it belongs to a list of keywords.
@@ -250,6 +308,15 @@ class Datamodel:
 
         We read the table of keywords, organize it by metadata field, and count
         how many edition/project record use that keyword.
+
+        Parameters
+        ----------
+        extra: dict, optional None
+            If passed, it is a dictionary keyed by metadata keys and valued
+            with value sets for those metadata keys. These values must be added to
+            the respective keyword lists.
+            These are typically from existing values in metadata fields that
+            have been accepted when different keyword lists were in effect.
 
         Returns
         -------
@@ -281,6 +348,15 @@ class Datamodel:
             recordsE = Mongo.getList("project", stop=False, **criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
+
+        if extra is not None:
+            for name, values in extra.items():
+                for value in values:
+                    criteria = {f"dc.{name}": value}
+                    recordsP = Mongo.getList("project", stop=False, **criteria)
+                    recordsE = Mongo.getList("project", stop=False, **criteria)
+                    occs = len(recordsP) + len(recordsE)
+                    keywords[name][value] = occs
 
         return keywords
 
@@ -567,15 +643,19 @@ class Field:
                 break
 
         value = None if dataSource is None else dataSource.get(fields[-1], None)
+
         return value
 
-    def bare(self, record):
+    def bare(self, record, compact=False):
         """Give the bare string value of the field in a record.
 
         Parameters
         ----------
         record: string | ObjectId | AttrDict
             The record in which the field value is stored.
+        compact: boolean, optional False
+            Only relevant for datetime types: if True, omit the time, leaving only
+            the date plus the timezone (always `Z` = UTC).
 
         Returns
         -------
@@ -583,8 +663,14 @@ class Field:
             Whatever the value is that we find for that field, converted to string.
             If the field is not present, returns the empty string, without warning.
         """
+        tp = self.tp
         logical = self.logical(record)
-        return "" if logical is None else str(logical)
+
+        return (
+            ""
+            if logical is None
+            else (logical.split("T")[0] + "Z") if tp == "datetime" else str(logical)
+        )
 
     def formatted(
         self,
@@ -662,7 +748,7 @@ class Field:
 
         if tp == "text":
             readonlyContent = markdown(bareRep, tight=False)
-        elif tp == "datetime":
+        elif tp == "datetime" or tp == "date":
             readonlyContent = bare or H.i("never")
         else:
             readonlyContent = H.wrapValue(
@@ -686,8 +772,12 @@ class Field:
             )
 
             if tp == "keyword":
-                keywords = Datamodel.getKeywords()[key]
-                valueSet = set() if logical is None else set(logical)
+                valueSet = (
+                    set()
+                    if logical is None
+                    else {logical} if type(logical) is str else set(logical)
+                )
+                keywords = Datamodel.getKeywords(extra={key: valueSet})[key]
                 options = (
                     [] if multiple else [(f"Choose a {key} ...", "", valueSet == set())]
                 ) + [(k, k, k in valueSet) for k in keywords]
@@ -728,11 +818,12 @@ class Field:
 
             if level == 0:
                 elem = "span"
-                lv = []
+                cls = None
             else:
-                elem = "h"
-                lv = [level]
-            theCaption = H.elem(elem, *lv, theCaption)
+                elem = "div"
+                cls = f"lv lv{level}"
+
+            theCaption = H.elem(elem, theCaption, cls=cls)
         else:
             theCaption = ""
             inCaption = False
@@ -741,10 +832,9 @@ class Field:
             theCaption if inCaption else content
         )
 
-        return (
-            H.div(fullContent, cls="editwidget")
-            if editable and not readonly
-            else fullContent
+        return H.div(
+            fullContent,
+            cls="editwidget" if editable and not readonly else "readonlywidget",
         )
 
 
@@ -938,7 +1028,7 @@ class Upload:
             content = []
             for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
                 buster = (
-                    f"?v={now()}"
+                    f"?v={pseudoisonow()}"
                     if show and bust is not None and bust == fileNm
                     else ""
                 )
@@ -946,7 +1036,9 @@ class Upload:
                 content.append(item)
         else:
             buster = (
-                f"?v={now()}" if show and bust is not None and bust == fileName else ""
+                f"?v={pseudoisonow()}"
+                if show and bust is not None and bust == fileName
+                else ""
             )
             fullPath = (f"{workingDir}{sep}{path}").rstrip("/") + f"/{fileName}"
             exists = fileExists(fullPath)

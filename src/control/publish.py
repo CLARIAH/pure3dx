@@ -11,7 +11,7 @@ from .files import (
     fileRemove,
     writeJson,
 )
-from .generic import deepdict, utcnow
+from .generic import deepdict, isonow
 from .precheck import Precheck as PrecheckCls
 from .static import Static as StaticCls
 
@@ -193,8 +193,7 @@ class Publish:
         # this will prevent other publishing actions while this action is running
 
         last = site.lastPublished
-        now = utcnow().isoformat(timespec="seconds").replace(":", "-")
-        today = utcnow().isoformat(sep="T").split("T")[0]
+        now = isonow()
 
         Mongo.updateRecord(
             "site", dict(processing=True, lastPublished=now), _id=site._id
@@ -211,7 +210,6 @@ class Publish:
                 table,
                 {
                     "pubNum": record.pubNum,
-                    "lastPublished": record.lastPublished,
                     key: record[key] or False,
                 },
                 _id=record._id,
@@ -279,17 +277,18 @@ class Publish:
             logmsg = None
 
             if action == "add":
+                againRep = "Re-" if again else ""
                 try:
                     stage = f"set pubnum for project to {pPubNum}"
-                    update = dict(pubNum=pPubNum, lastPublished=now, isVisible=True)
+                    update = dict(pubNum=pPubNum, isVisible=True)
                     Mongo.updateRecord("project", update, _id=project._id)
 
                     stage = f"set pubnum for edition to {ePubNum}"
                     update = {
                         "pubNum": ePubNum,
-                        "lastPublished": now,
                         "isPublished": True,
-                        "dc.datePublished": today,
+                        "dc.datePublished": now,
+                        "dc.dateUnPublished": None,
                     }
                     Mongo.updateRecord("edition", update, _id=edition._id)
 
@@ -306,9 +305,9 @@ class Publish:
 
                     if self.generatePages(pPubNum, ePubNum):
                         Messages.info(
-                            msg=f"Published edition to {pPubNum}/{ePubNum}",
+                            msg=f"{againRep}Published edition to {pPubNum}/{ePubNum}",
                             logmsg=(
-                                f"Published {project._id}/{edition._id} "
+                                f"{againRep}Published {project._id}/{edition._id} "
                                 f"as {pPubNum}/{ePubNum}"
                             ),
                         )
@@ -318,14 +317,14 @@ class Publish:
                 except Exception as e:
                     good = False
                     logmsg = (
-                        f"Publishing {project._id}/{edition._id} "
+                        f"{againRep}Publishing {project._id}/{edition._id} "
                         f"as {pPubNum}/{ePubNum} failed with error {e}"
                         f"at stage '{stage}'"
                     )
 
                 if not good:
                     Messages.error(
-                        msg="Publishing of edition failed",
+                        msg=f"{againRep}Publishing of edition failed",
                         logmsg=logmsg,
                         stop=False,
                     )
@@ -338,7 +337,10 @@ class Publish:
             elif action == "remove":
                 try:
                     stage = f"unset pubnum for edition from {ePubNum} to None"
-                    update = dict(isPublished=False)
+                    update = {
+                        "isPublished": False,
+                        "dc.dateUnPublished": now,
+                    }
                     Mongo.updateRecord("edition", update, _id=edition._id)
 
                     stage = f"remove edition files {pPubNum}/{ePubNum}"

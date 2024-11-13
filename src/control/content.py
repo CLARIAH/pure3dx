@@ -9,7 +9,7 @@ import yaml
 import magic
 
 from flask import jsonify
-from .generic import AttrDict
+from .generic import AttrDict, isonow
 from .files import (
     fileExists,
     fileRemove,
@@ -69,12 +69,6 @@ class Content(Datamodel):
         a handle to Publish after their initialization.
         """
         self.Publish = Publish
-
-    def getSurprise(self):
-        """Get the data that belongs to the surprise-me functionality."""
-        Settings = self.Settings
-        H = Settings.H
-        return H.h(2, "You will be surprised!")
 
     def getProjects(self):
         """Get the list of all projects.
@@ -289,6 +283,7 @@ class Content(Datamodel):
             abstract="No intro",
             description="No description",
             creator=name,
+            dateCreated=isonow(),
         )
         projectId = Mongo.insertRecord(
             "project", title=title, siteId=siteId, dc=dcMeta, isVisible=False
@@ -466,6 +461,7 @@ class Content(Datamodel):
             description="No description",
             provenance="No sources",
             creator=name,
+            dateCreated=isonow(),
         )
         editionId = Mongo.insertRecord(
             "edition",
@@ -498,6 +494,9 @@ class Content(Datamodel):
 
         Where exactly is given by a path that is stored in the field information,
         which is accessible by the key.
+
+        If we save a value to an edition record, and the record has not yet a
+        date created, we fill in today for the date created.
 
         Parameters
         ----------
@@ -564,6 +563,19 @@ class Content(Datamodel):
             )
         else:
             (recordId, record) = Mongo.get(table, recordId)
+
+        now = isonow()
+
+        if not self.getValue(
+            table, record, "dateCreated", manner="logical"
+        ):
+            Mongo.updateRecord(
+                table, {"dc.dateCreated": now}, stop=False, _id=recordId
+            )
+
+        Mongo.updateRecord(
+            table, {"dc.dateModified": now}, stop=False, _id=recordId
+        )
 
         return dict(
             stat=True,
@@ -703,6 +715,7 @@ class Content(Datamodel):
             If it is "formatted", the value is represented fully wrapped in HTML,
             possibly with edit/save controls.
             If it is "bare", the value is represented as a simple string.
+            If it is "barex", the value is represented as a compact simple string.
             If it is "logical", the logical value is returned.
 
         Returns
@@ -720,11 +733,12 @@ class Content(Datamodel):
 
         F = self.makeField(key)
 
-        isBare = manner == "bare"
+        isBare = manner in {"bare", "barex"}
+        compact = manner == "barex"
         isLogical = manner == "logical"
 
         if isBare or isLogical:
-            return (F.bare if isBare else F.logical)(record)
+            return F.bare(record, compact=compact) if isBare else F.logical(record)
 
         editable = Auth.authorise(table, record, action="update")
         return F.formatted(table, record, editable=editable, level=level)
@@ -933,7 +947,7 @@ class Content(Datamodel):
 
         editionPubRow = (
             (
-                H.p(H.i("Published: ")),
+                H.p(H.i("Published:") + H.nbsp),
                 H.p(
                     H.a(
                         f"{pPubNum}/{ePubNum} ⌲",
@@ -942,25 +956,34 @@ class Content(Datamodel):
                         cls="button large",
                     )
                 ),
-                H.p(self.getValue("edition", edition, "datePublished")),
+                H.p(self.getValue("edition", edition, "datePublished", manner="barex")),
             )
             if editionIsPublished
-            else (H.p("Not published"), "", "")
-        )
-
-        editionPubRow = (
-            (H.i("Published: ") if editionIsPublished else H.span("Not published")),
-            (
-                H.a(
-                    f"{pPubNum}/{ePubNum} ⌲",
-                    f"{pubUrl}/project/{pPubNum}/edition/{ePubNum}/index.html",
-                    target=published,
-                    cls="button large",
+            else (
+                (
+                    H.p(H.i("Unpublished") + H.nbsp),
+                    H.p(dateUnPublished),
+                    H.p(
+                        H.i("last published")
+                        + H.nbsp
+                        + H.span(
+                            self.getValue(
+                                "edition", edition, "datePublished", manner="barex"
+                            )
+                        )
+                    ),
                 )
-                if editionIsPublished
-                else ""
-            ),
-            H.span(self.getValue("edition", edition, "datePublished")),
+                if (
+                    dateUnPublished := self.getValue(
+                        "edition", edition, "dateUnPublished", manner="barex"
+                    )
+                )
+                else (
+                    H.p(H.i("Never published") + H.nbsp),
+                    "",
+                    "",
+                )
+            )
         )
 
         can = dict(
@@ -975,7 +998,7 @@ class Content(Datamodel):
         for kind, kindRep, tbRecRoles in (
             (
                 "precheck",
-                "check articles",
+                "check (meta)data",
                 (
                     ("edition", edition, "editor"),
                     ("project", project, "organiser"),

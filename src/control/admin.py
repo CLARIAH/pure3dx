@@ -719,11 +719,12 @@ class Admin:
                     ],
                     cls="kwmanagewidgetinput",
                 )
-                + H.div(
+                + H.span(
                     [
                         self._wrapKeyword(name, value, values[value])
                         for value in sorted(values)
-                    ]
+                    ],
+                    cls="fieldouter",
                 ),
                 cls="kwmanagewidget",
             ),
@@ -739,9 +740,11 @@ class Admin:
             name=name,
             value=value,
             delUrl="/keyword/delete/",
-            cls="button small danger",
+            cls="danger",
         )
-        return H.span(value + (f"({occ})" if occ else deleteButton), cls="keyword")
+        return H.span(
+            value + H.nbsp + (f"({occ})" if occ else deleteButton), cls="fieldinner"
+        )
 
     def saveKeyword(self):
         """Saves a keyword.

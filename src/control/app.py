@@ -165,11 +165,6 @@ def appFactory(objects):
         """Present the "about" page."""
         return Pages.about()
 
-    @app.route("/surpriseme")
-    def surpriseme():
-        """Present the "Surprise Me" page."""
-        return Pages.surprise()
-
     @app.route("/project")
     def projects():
         """Present the "projects" page with the list of projects."""
@@ -368,6 +363,7 @@ def appFactory(objects):
         record: string
             The record of the item to be published.
         """
+        Messages.debug("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         return Pages.precheck(record)
 
     @app.route("/publish/<string:record>")

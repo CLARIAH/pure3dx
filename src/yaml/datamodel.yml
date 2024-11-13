@@ -28,28 +28,70 @@ fields:
   title:
     nameSpace: dc
     caption: "{kind}: {value}"
+  subtitle:
+    nameSpace: dc
+    caption: Subtitle
+  creator:
+    nameSpace: dc
+    caption: Creator
+  contributor:
+    nameSpace: dc
+    caption: Contributors
   abstract:
     nameSpace: dc
     tp: text
-    caption: Intro
+    caption: Abstract
   description:
     nameSpace: dc
     tp: text
     caption: Description
+  keyword:
+    nameSpace: dc
+    caption: Keywords
+  audience:
+    nameSpace: dc
+    caption: Intended audience
+  funder:
+    nameSpace: dc
+    caption: Funder
+  country:
+    nameSpace: dc
+    fieldPath: coverage.country
+    caption: Countries
+    tp: keyword
+  place:
+    nameSpace: dc
+    fieldPath: coverage.place
+    caption: Place
+  temporal:
+    nameSpace: dc
+    fieldPath: coverage.temporal
+    caption: Temporal classification
+    tp: keyword
+  geo:
+    nameSpace: dc
+    fieldPath: coverage.geo
+    caption: Geographical coordinates (latitude/longitude)
+  period:
+    nameSpace: dc
+    fieldPath: coverage.period
+    caption: Period
+  subject:
+    nameSpace: dc
+    caption: Subjects
+    tp: keyword
+  language:
+    nameSpace: dc
+    caption: Languages
+    tp: keyword
+  source:
+    nameSpace: dc
+    caption: Sources
+    tp: keyword
   provenance:
     nameSpace: dc
     tp: text
-    caption: About
-  instructionalMethod:
-    nameSpace: dc
-    tp: text
-    caption: How to use
-  creator:
-    nameSpace: dc
-    caption: "by {value}"
-  contributor:
-    nameSpace: dc
-    caption: "and {value}"
+    caption: Provenance
   license:
     nameSpace: dc
     fieldPath: rights.license
@@ -63,44 +105,102 @@ fields:
   contact:
     nameSpace: dc
     caption: Contact details
-  place:
+  dateCreated:
     nameSpace: dc
-    fieldPath: coverage.place
-    caption: Place
-  country:
+    caption: Date created
+    tp: datetime
+    readonly: true
+  dateModified:
     nameSpace: dc
-    fieldPath: coverage.country
-    caption: Countries
-    tp: keyword
-  period:
-    nameSpace: dc
-    fieldPath: coverage.period
-    caption: Period (free text)
-  temporal:
-    nameSpace: dc
-    fieldPath: coverage.temporal
-    caption: Periods (keywords)
-    tp: keyword
-  language:
-    nameSpace: dc
-    caption: Languages
-    tp: keyword
-  source:
-    nameSpace: dc
-    caption: Sources
-    tp: keyword
-  subject:
-    nameSpace: dc
-    caption: Subjects
-    tp: keyword
-  keyword:
-    nameSpace: dc
-    caption: Keywords
+    caption: Date modified
+    tp: datetime
+    readonly: true
   datePublished:
     nameSpace: dc
     caption: Date (last) published
     tp: datetime
     readonly: true
+  dateUnPublished:
+    nameSpace: dc
+    caption: Date (last) unpublished
+    tp: datetime
+    readonly: true
+
+fieldDistribution:
+  main:
+    site:
+      - siteTitle
+      - abstract
+    project:
+      - title
+      - subtitle
+      - creator
+      - contributor
+      - dateCreated
+      - dateModified
+    edition:
+      - title
+      - subtitle
+      - creator
+      - contributor
+      - dateCreated
+      - dateModified
+  narrative:
+    - abstract
+    - description
+  box:
+    site:
+      - description
+      - provenance
+    project:
+      - abstract
+      - description
+    edition:
+      - abstract
+      - description
+      - keyword
+      - audience
+      - funder
+      - country
+      - place
+      - geo
+      - temporal
+      - period
+      - subject
+      - language
+      - source
+      - provenance
+      - license
+      - rightsholder
+      - contact
+  mandatory:
+    site:
+      - siteTitle
+      - abstract
+      - description
+      - provenance
+    project:
+      - title
+      - creator
+      - dateCreated
+      - abstract
+      - description
+    edition:
+      - title
+      - creator
+      - dateCreated
+      - abstract
+      - description
+      - audience
+      - country
+      - temporal
+      - subject
+      - language
+      - source
+      - provenance
+      - license
+      - rightsholder
+      - contact
 
 uploads:
   model:

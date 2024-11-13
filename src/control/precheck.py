@@ -13,7 +13,6 @@ from .files import (
     writeYaml,
 )
 from .helpers import showDict, htmlUnEsc
-from .generic import AttrDict
 
 
 ONLINE_RE = re.compile(r"""^https?://""", re.I)
@@ -219,42 +218,48 @@ class Precheck:
 
             good = True
 
-            pAbstract = (project.dc or AttrDict()).abstract
-
-            if not pAbstract:
-                Messages.error(
-                    "The project of this edition has no abstract", stop=False
-                )
-                good = False
-
             if not eInfo.dc:
-                Messages.error(
-                    "This edition has no metadata", stop=False
-                )
+                Messages.error("This edition has no metadata", stop=False)
                 good = False
 
             if not good:
                 return False
 
-            for metaKey in (
-                "title",
-                "abstract",
-                "description",
-                "provenance",
-                "creator",
-                "license",
-                "rightsholder",
-                "contact",
-                "language",
-                "source",
-                "subject",
-            ):
-                value = Content.getValue("edition", eInfo, metaKey)
+            for metaKey in Content.checkMetaFields("project"):
+                value = Content.getValue("project", project, metaKey, manner="logical")
+
                 if not value:
+                    if metaKey == "dateCreated":
+                        Messages.error(
+                            "Project has no date created. "
+                            "Just edit any project field to set it to today"
+                        )
+
                     Messages.error(
-                        f"This edition no {metaKey}", stop=False
+                        f"This project has no metadata field {metaKey}", stop=False
                     )
                     good = False
+
+            if good:
+                Messages.good("All required project metadata fields are present")
+
+            for metaKey in Content.checkMetaFields("edition"):
+                value = Content.getValue("edition", eInfo, metaKey, manner="logical")
+
+                if not value:
+                    if metaKey == "dateCreated":
+                        Messages.error(
+                            "Edition has no date created. "
+                            "Just edit any edition field to set it to today"
+                        )
+
+                    Messages.error(
+                        f"This edition has no metadata field {metaKey}", stop=False
+                    )
+                    good = False
+
+            if good:
+                Messages.good("All required metadata fields are present")
 
             return good
 

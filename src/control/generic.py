@@ -29,19 +29,50 @@ OP_VERSION_RE = re.compile(
     re.X,
 )
 
+TZ_RE = re.compile(r"""(?:Z|(?:[+-][0-9:]+))$""")
+
 
 def utcnow():
+    """The current moment in time in the UTC time zone.
+
+    Returns
+    -------
+    datetime
+        An aware datetime object (in the sense of: having the timezone included
+        in its value.
+    """
     return dt.now(UTC)
 
 
-def now():
+def isonow():
+    """The current moment in time as an ISO 8601 string value.
+
+    Details:
+
+    *   the precision is up to the second;
+    *   the separator between the date part and the timpe part is `T`;
+    *   the timezone is UTC, marked as `Z` directly after the time part.
+
+    Returns
+    -------
+    string
+        E.g. `2024-11-13T10:53:15Z`
+    """
+    return TZ_RE.sub("Z", utcnow().isoformat(timespec="seconds", sep="T"))
+
+
+def pseudoisonow():
     """The current moment in time as a isolike string value.
 
-    Strips everything after the decimal point,
-    (milliseconds and timezone).
-    """
+    It is like `isonow()`, but the time separators (`:`) are
+    replaced by `-`, so that the string can be included in urls.
 
-    return utcnow().isoformat().split(".")[0].replace(":", "-")
+    Returns
+    -------
+    string
+        E.g. `2024-11-13T10-53-15Z`
+    """
+    return isonow().replace(":", "-")
 
 
 def splitComp(c):
@@ -58,13 +89,13 @@ def versionCompare(v1, v2):
 
     nV2 = len(v2comps)
 
-    for (i, c1) in enumerate(v1comps):
+    for i, c1 in enumerate(v1comps):
         if i >= nV2:
             return 1
 
         c2 = v2comps[i]
         nC2 = len(c2)
-        for (j, s1) in enumerate(c1):
+        for j, s1 in enumerate(c1):
             if j >= nC2:
                 return 1
 
@@ -86,7 +117,7 @@ def attResolve(attSpec, version):
     if default is None:
         return attSpec
 
-    for (k, v) in attSpec.items():
+    for k, v in attSpec.items():
         if k == "default":
             continue
 
@@ -179,15 +210,19 @@ def deepdict(info):
     return (
         dict({k: deepdict(v) for (k, v) in info.items()})
         if tp in {dict, AttrDict}
-        else tuple(deepdict(item) for item in info)
-        if tp is tuple
-        else frozenset(deepdict(item) for item in info)
-        if tp is frozenset
-        else [deepdict(item) for item in info]
-        if tp is list
-        else {deepdict(item) for item in info}
-        if tp is set
-        else info
+        else (
+            tuple(deepdict(item) for item in info)
+            if tp is tuple
+            else (
+                frozenset(deepdict(item) for item in info)
+                if tp is frozenset
+                else (
+                    [deepdict(item) for item in info]
+                    if tp is list
+                    else {deepdict(item) for item in info} if tp is set else info
+                )
+            )
+        )
     )
 
 
@@ -218,13 +253,23 @@ def deepAttrDict(info, preferTuples=False):
             {k: deepAttrDict(v, preferTuples=preferTuples) for (k, v) in info.items()}
         )
         if tp in {dict, AttrDict}
-        else tuple(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is tuple or (tp is list and preferTuples)
-        else frozenset(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is frozenset
-        else [deepAttrDict(item, preferTuples=preferTuples) for item in info]
-        if tp is list
-        else {deepAttrDict(item, preferTuples=preferTuples) for item in info}
-        if tp is set
-        else info
+        else (
+            tuple(deepAttrDict(item, preferTuples=preferTuples) for item in info)
+            if tp is tuple or (tp is list and preferTuples)
+            else (
+                frozenset(
+                    deepAttrDict(item, preferTuples=preferTuples) for item in info
+                )
+                if tp is frozenset
+                else (
+                    [deepAttrDict(item, preferTuples=preferTuples) for item in info]
+                    if tp is list
+                    else (
+                        {deepAttrDict(item, preferTuples=preferTuples) for item in info}
+                        if tp is set
+                        else info
+                    )
+                )
+            )
+        )
     )
