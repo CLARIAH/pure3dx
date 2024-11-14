@@ -231,7 +231,7 @@ def dirRemove(path):
 def dirMove(pathSrc, pathDst):
     """Moves a directory if it exists as directory.
 
-    Refuses the operation in the target exists.
+    Refuses the operation if the target exists.
     """
     if not dirExists(pathSrc) or dirExists(pathDst):
         return False

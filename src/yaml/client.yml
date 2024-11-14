@@ -1,18 +1,3 @@
-markdown:
-  keys:
-    - abstract
-    - description
-    - provenance
-
-listKeys:
-  keys:
-    - creator
-    - contributor
-    - institution
-    - place
-    - period
-    - subject
-
 generation:
   allprojects:
     title: "Pure3D Projects"

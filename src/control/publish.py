@@ -11,7 +11,7 @@ from .files import (
     fileRemove,
     writeJson,
 )
-from .generic import deepdict, isonow
+from .generic import AttrDict, deepdict, isonow
 from .precheck import Precheck as PrecheckCls
 from .static import Static as StaticCls
 
@@ -169,6 +169,7 @@ class Publish:
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        Content = self.Content
         Precheck = self.Precheck
 
         if action not in {"add", "remove"}:
@@ -204,23 +205,27 @@ class Publish:
         pubModeDir = Settings.pubModeDir
         projectDir = f"{pubModeDir}/project"
 
-        def restore(table, record):
-            key = "isVisible" if table == "project" else "isPublished"
-            Mongo.updateRecord(
-                table,
-                {
-                    "pubNum": record.pubNum,
-                    key: record[key] or False,
-                },
-                _id=record._id,
-            )
+        orig = dict(
+            project=AttrDict(
+                condition=dict(_id=project._id),
+                updates={k: v for (k, v) in project.items() if k != "_id"},
+            ),
+            edition=AttrDict(
+                condition=dict(_id=edition._id),
+                updates={k: v for (k, v) in edition.items() if k != "_id"},
+            ),
+        )
+
+        def restore(table):
+            info = orig[table]
+            Mongo.updateRecord(table, info.updates, **info.condition)
 
         # quit early, without doing anything, if the action is not applicable
 
         good = True
 
         if action == "add":
-            thisGood = Precheck.checkEdition(project, edition._id, edition)
+            thisGood = Precheck.checkEdition(site, project, edition._id, edition)
 
             if thisGood:
                 Messages.info("Edition validation OK")
@@ -273,6 +278,10 @@ class Publish:
                 good = False
 
         if good:
+            fieldPaths = Content.fieldPaths
+            datePublishedPath = fieldPaths["datePublished"]
+            dateUnPublishedPath = fieldPaths["dateUnPublished"]
+
             thisProjectDir = f"{projectDir}/{pPubNum}"
             logmsg = None
 
@@ -282,15 +291,16 @@ class Publish:
                     stage = f"set pubnum for project to {pPubNum}"
                     update = dict(pubNum=pPubNum, isVisible=True)
                     Mongo.updateRecord("project", update, _id=project._id)
+                    project = Mongo.getRecord("project", _id=project._id)
 
                     stage = f"set pubnum for edition to {ePubNum}"
                     update = {
                         "pubNum": ePubNum,
                         "isPublished": True,
-                        "dc.datePublished": now,
-                        "dc.dateUnPublished": None,
+                        datePublishedPath: now,
                     }
                     Mongo.updateRecord("edition", update, _id=edition._id)
+                    edition = Mongo.getRecord("edition", _id=edition._id)
 
                     stage = "add site files"
                     self.addSiteFiles(site)
@@ -339,9 +349,10 @@ class Publish:
                     stage = f"unset pubnum for edition from {ePubNum} to None"
                     update = {
                         "isPublished": False,
-                        "dc.dateUnPublished": now,
+                        dateUnPublishedPath: now,
                     }
                     Mongo.updateRecord("edition", update, _id=edition._id)
+                    edition = Mongo.getRecord("edition", _id=edition._id)
 
                     stage = f"remove edition files {pPubNum}/{ePubNum}"
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -364,6 +375,7 @@ class Publish:
                         stage = f"make project with {pPubNum} invisible"
                         update = dict(isVisible=False)
                         Mongo.updateRecord("project", update, _id=project._id)
+                        project = Mongo.getRecord("project", _id=project._id)
 
                         stage = f"remove project files {pPubNum}"
                         self.removeProjectFiles(pPubNum)
@@ -412,8 +424,8 @@ class Publish:
         if good:
             lastPublished = now
         else:
-            restore("project", project)
-            restore("edition", edition)
+            restore("project")
+            restore("edition")
             lastPublished = last
 
         Mongo.updateRecord(

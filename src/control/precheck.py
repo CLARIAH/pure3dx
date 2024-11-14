@@ -42,7 +42,7 @@ class Precheck:
         self.Viewers = Viewers
         Messages.debugAdd(self)
 
-    def checkEdition(self, project, edition, eInfo, asPublished=False):
+    def checkEdition(self, site, project, edition, eInfo, asPublished=False):
         """Checks the article and media files in an editon and produces a toc.
 
         Articles and media are files and directories that the user creates through
@@ -71,12 +71,15 @@ class Precheck:
 
         Parameters
         ----------
+        site: AttrDict | void
+            The site record. If `asPublished` is passed with True, this parameter
+            is not used and can be passed as None
         project: string | ObjectId | AttrDict | int
             The id of the project in question.
         edition: string | ObjectId | AttrDict | int
             The id of the edition in question.
         asPublished: boolean, optional False
-            If False, the project and edition refer to the edition in the
+            If False, the project and edition refer to the project and edition in the
             Pure3D author app, and the toc file will be created there.
 
             If True, the project and edition are numbers that refer to the
@@ -218,45 +221,28 @@ class Precheck:
 
             good = True
 
-            if not eInfo.dc:
-                Messages.error("This edition has no metadata", stop=False)
-                good = False
+            for table, record in (
+                ("site", site),
+                ("project", project),
+                ("edition", eInfo),
+            ):
+                for metaKey in Content.checkMetaFields(table):
+                    value = Content.getValue(table, record, metaKey, manner="logical")
 
-            if not good:
-                return False
+                    if value:
+                        # Messages.good(f"{table}:{metaKey} is present")
+                        pass
+                    else:
+                        if metaKey == "dateCreated":
+                            Messages.error(
+                                f"{table} has no date created. "
+                                f"Just edit any {table} field to set it to today"
+                            )
 
-            for metaKey in Content.checkMetaFields("project"):
-                value = Content.getValue("project", project, metaKey, manner="logical")
-
-                if not value:
-                    if metaKey == "dateCreated":
                         Messages.error(
-                            "Project has no date created. "
-                            "Just edit any project field to set it to today"
+                            f"This {table} has no metadata field {metaKey}", stop=False
                         )
-
-                    Messages.error(
-                        f"This project has no metadata field {metaKey}", stop=False
-                    )
-                    good = False
-
-            if good:
-                Messages.good("All required project metadata fields are present")
-
-            for metaKey in Content.checkMetaFields("edition"):
-                value = Content.getValue("edition", eInfo, metaKey, manner="logical")
-
-                if not value:
-                    if metaKey == "dateCreated":
-                        Messages.error(
-                            "Edition has no date created. "
-                            "Just edit any edition field to set it to today"
-                        )
-
-                    Messages.error(
-                        f"This edition has no metadata field {metaKey}", stop=False
-                    )
-                    good = False
+                        good = False
 
             if good:
                 Messages.good("All required metadata fields are present")
@@ -316,7 +302,7 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f"Edition {project}/{edition}{nUnref} unreferenced files "
+                        f"Edition {project}/{edition}: {nUnref} unreferenced files "
                         "skipped from being published"
                     )
             else:

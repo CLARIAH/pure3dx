@@ -22,14 +22,17 @@ fields:
   siteTitle:
     nameSpace: dc
     fieldPath: title
+    multiple: false
     caption: "{value}"
   featured:
     caption: "featured projects {value}"
   title:
     nameSpace: dc
+    multiple: false
     caption: "{kind}: {value}"
   subtitle:
     nameSpace: dc
+    multiple: false
     caption: Subtitle
   creator:
     nameSpace: dc
@@ -45,162 +48,213 @@ fields:
     nameSpace: dc
     tp: text
     caption: Description
+  license:
+    nameSpace: dc
+    fieldPath: rights.license
+    tp: keyword
+    multiple: false
+    caption: License
+  rightsholder:
+    nameSpace: dc
+    tp: text
+    fieldPath: rights.holder
+    caption: Rights holder
+  contact:
+    nameSpace: dc
+    tp: text
+    caption: Contact details
   keyword:
     nameSpace: dc
     caption: Keywords
   audience:
     nameSpace: dc
+    tp: text
     caption: Intended audience
   funder:
     nameSpace: dc
+    tp: text
     caption: Funder
   country:
     nameSpace: dc
     fieldPath: coverage.country
+    tp: keyword
     caption: Countries
-    tp: keyword
-  place:
-    nameSpace: dc
-    fieldPath: coverage.place
-    caption: Place
-  temporal:
-    nameSpace: dc
-    fieldPath: coverage.temporal
-    caption: Temporal classification
-    tp: keyword
   geo:
     nameSpace: dc
     fieldPath: coverage.geo
+    tp: text
     caption: Geographical coordinates (latitude/longitude)
+  place:
+    nameSpace: dc
+    fieldPath: coverage.place
+    tp: text
+    caption: Place
   period:
     nameSpace: dc
     fieldPath: coverage.period
+    tp: keyword
     caption: Period
+  temporal:
+    nameSpace: dc
+    fieldPath: coverage.temporal
+    tp: text
+    caption: Temporal indication
   subject:
     nameSpace: dc
-    caption: Subjects
     tp: keyword
+    caption: Subjects
   language:
     nameSpace: dc
-    caption: Languages
     tp: keyword
+    caption: Languages
   source:
     nameSpace: dc
-    caption: Sources
     tp: keyword
+    caption: Sources
   provenance:
     nameSpace: dc
     tp: text
     caption: Provenance
-  license:
-    nameSpace: dc
-    fieldPath: rights.license
-    caption: License
-    tp: keyword
-    multiple: false
-  rightsholder:
-    nameSpace: dc
-    fieldPath: rights.holder
-    caption: Rights holder
-  contact:
-    nameSpace: dc
-    caption: Contact details
   dateCreated:
     nameSpace: dc
-    caption: Date created
     tp: datetime
     readonly: true
+    caption: Date created
   dateModified:
     nameSpace: dc
-    caption: Date modified
     tp: datetime
     readonly: true
+    caption: Date modified
   datePublished:
     nameSpace: dc
-    caption: Date (last) published
     tp: datetime
     readonly: true
+    caption: Date (last) published
   dateUnPublished:
     nameSpace: dc
-    caption: Date (last) unpublished
     tp: datetime
     readonly: true
+    caption: Date (last) unpublished
 
 fieldDistribution:
   main:
     site:
-      - siteTitle
-      - abstract
+      - siteTitle:
+          mandatory: true
+          default: Pure3D
     project:
-      - title
-      - subtitle
-      - creator
-      - contributor
-      - dateCreated
-      - dateModified
+      - title:
+          mandatory: true
+          default: Untitled project
+      - subtitle:
+          mandatory: false
+          default: ""
+      - creator:
+          mandatory: true
+          default: Unknown
+      - contributor:
+          mandatory: false
+          default: []
+      - dateCreated:
+          mandatory: true
+          default: Unknown
+      - dateModified:
+          mandatory: false
+          default: Never
     edition:
-      - title
-      - subtitle
-      - creator
-      - contributor
-      - dateCreated
-      - dateModified
+      - title:
+          mandatory: true
+          default: Untitled edition
+      - subtitle:
+          mandatory: false
+          default: ""
+      - creator:
+          mandatory: true
+          default: Unknown
+      - contributor:
+          mandatory: false
+          default: []
+      - dateCreated:
+          mandatory: true
+          default: Unknown
+      - dateModified:
+          mandatory: false
+          default: Never
   narrative:
-    - abstract
-    - description
+    site:
+      - abstract:
+          mandatory: true
+          default: Not given
+      - description:
+          mandatory: true
+          default: Not provided
+    project:
+      - abstract:
+          mandatory: true
+          default: Not given
+      - description:
+          mandatory: true
+          default: Not provided
+    edition:
+      - abstract:
+          mandatory: true
+          default: Not given
+      - description:
+          mandatory: true
+          default: Not provided
   box:
     site:
-      - description
-      - provenance
-    project:
-      - abstract
-      - description
+      - provenance:
+          mandatory: true
+          default: Not provided
+    project: []
     edition:
-      - abstract
-      - description
-      - keyword
-      - audience
-      - funder
-      - country
-      - place
-      - geo
-      - temporal
-      - period
-      - subject
-      - language
-      - source
-      - provenance
-      - license
-      - rightsholder
-      - contact
-  mandatory:
-    site:
-      - siteTitle
-      - abstract
-      - description
-      - provenance
-    project:
-      - title
-      - creator
-      - dateCreated
-      - abstract
-      - description
-    edition:
-      - title
-      - creator
-      - dateCreated
-      - abstract
-      - description
-      - audience
-      - country
-      - temporal
-      - subject
-      - language
-      - source
-      - provenance
-      - license
-      - rightsholder
-      - contact
+      - license:
+          mandatory: true
+          default: >-
+            All rights reserved.
+      - rightsholder:
+          mandatory: true
+          default: See creator
+      - contact:
+          mandatory: true
+          default: See creator
+      - keyword:
+          mandatory: false
+          default: []
+      - audience:
+          mandatory: true
+          default: Not specified
+      - funder:
+          mandatory: false
+          default: Not specified
+      - country:
+          mandatory: true
+          default: []
+      - geo:
+          mandatory: false
+          default: ""
+      - place:
+          mandatory: false
+          default: ""
+      - period:
+          mandatory: true
+          default: ""
+      - temporal:
+          mandatory: false
+          default: []
+      - subject:
+          mandatory: true
+          default: []
+      - language:
+          mandatory: true
+          default: []
+      - source:
+          mandatory: true
+          default: []
+      - provenance:
+          mandatory: true
+          default: Not given
 
 uploads:
   model:
@@ -218,21 +272,21 @@ uploads:
   iconSite:
     table: site
     accept: ".png"
-    caption: pure3d logo
     fileName: icon.png
     show: true
+    caption: pure3d logo
   iconProject:
     table: project
     accept: ".png"
-    caption: project logo
     fileName: icon.png
     show: true
+    caption: project logo
   iconEdition:
     table: edition
     accept: ".png"
-    caption: edition logo
     fileName: icon.png
     show: true
+    caption: edition logo
 
 mimeTypes:
   "model/gltf-binary":

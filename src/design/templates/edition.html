@@ -14,9 +14,15 @@
   <main class="px-4 w-full text-center my-16">
     <div class="max-w-2xl mx-auto">
       <h1 class="text-2xl mb-16 ">{{name}}</h1>
-      <p class="text-left">{{{contentdata.abstract}}}</p>
+      <p class="text-lg mt-4 mb-1">{{dc.subtitle}}</p>
+      <p class="text-left">{{{dc.abstract}}}</p>
+
+      <div>
+        {{dc.description}}
+      </div>
+
       <div class="w-full flex">
-        <a href="/{{projectFileName}}" class="{{> styles/button-basic isGrey=true}} my-8">Back to project</a>
+        <a href="/{{projectFileName}}" class="{{> styles/button-basic isGrey=true}} my-8">Up to project</a>
       </div>
     </div>
   </main>
@@ -46,38 +52,96 @@
     </div>
     <div class="bg-neutral-100 w-full md:w-1/3 p-4">
 
-      <h2 class="text-lg mt-4 mb-1" tabindex="1">Creator(s)</h2>
+      <h2 class="text-lg mt-4 mb-1" tabindex="1">Creators</h2>
       <ul>
-        {{#each contentdata.creator}}
+        {{#each dc.creator}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
-      <h2 class="text-lg mt-4 mb-1" id="rights" tabindex="2">Rights</h2>
 
+      <h2 class="text-lg mt-4 mb-1" tabindex="2">Contributors</h2>
+      <ul>
+        {{#each dc.contributor}}
+        <li class="">{{this}}</li>
+        {{/each}}
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="3">Date published</h2>
+      <ul>
+        <li class="">{{dc.datePublished}}</li>
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" id="rights" tabindex="4">Rights</h2>
       <dl class="flex flex-row flex-wrap">
         <dt class="italic w-1/3">License</dt>
-        <dd class="w-2/3">{{contentdata.rights.license}}</dd>
+        <dd class="w-2/3">{{dc.rights.license}}</dd>
         <dt class="italic w-1/3">Rights holder</dt>
-        <dd class="w-2/3">{{contentdata.rights.holder}}</dd>
+        <dd class="w-2/3">{{dc.rights.holder}}</dd>
         <dt class="italic w-1/3">Contact</dt>
-        <dd class="w-2/3">{{contentdata.contact}}</dd>
+        <dd class="w-2/3">{{dc.contact}}</dd>
       </dl>
 
-      <h2 class="text-lg mt-4 mb-1" tabindex="3">Institution(s)</h2>
+      <h2 class="text-lg mt-4 mb-1" tabindex="5">Keywords</h2>
       <ul>
-        {{#each contentdata.institution}}
+        {{#each dc.keyword}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
 
-      <h2 class="text-lg mt-4 mb-1" tabindex="4">Period</h2>
+      <h2 class="text-lg mt-4 mb-1" tabindex="6">Audience</h2>
+      {{dc.audience}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="7">Funder</h2>
+      {{dc.funder}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="8">Countries</h2>
       <ul>
-        {{#each contentdata.coverage.temporal}}
+        {{#each dc.coverage.country}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
 
-      <h2 class="text-lg mt-4 mb-1" tabindex="5">Content</h2>
+      <h2 class="text-lg mt-4 mb-1" tabindex="9">Latitude/Longitude</h2>
+      {{dc.coverage.geo}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="10">Place</h2>
+      {{dc.coverage.place}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="11">Period</h2>
+      <ul>
+        {{#each dc.coverage.period}}
+        <li class="">{{this}}</li>
+        {{/each}}
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="12">Temporal</h2>
+      {{dc.coverage.temporal}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="13">Subjects</h2>
+      <ul>
+        {{#each dc.subject}}
+        <li class="">{{this}}</li>
+        {{/each}}
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="14">Languages</h2>
+      <ul>
+        {{#each dc.language}}
+        <li class="">{{this}}</li>
+        {{/each}}
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="15">Sources</h2>
+      <ul>
+        {{#each dc.source}}
+        <li class="">{{this}}</li>
+        {{/each}}
+      </ul>
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="16">Provenance</h2>
+      {{{dc.provenance}}}
+
+      <h2 class="text-lg mt-4 mb-1" tabindex="18">Content</h2>
       {{{toc}}}
 
 

@@ -280,8 +280,6 @@ class Content(Datamodel):
 
         dcMeta = dict(
             title=title,
-            abstract="No intro",
-            description="No description",
             creator=name,
             dateCreated=isonow(),
         )
@@ -457,9 +455,6 @@ class Content(Datamodel):
 
         dcMeta = dict(
             title=title,
-            abstract="No intro",
-            description="No description",
-            provenance="No sources",
             creator=name,
             dateCreated=isonow(),
         )
@@ -520,6 +515,7 @@ class Content(Datamodel):
         """
         Auth = self.Auth
         Mongo = self.Mongo
+        fieldPaths = self.fieldPaths
 
         value = json.loads(requestData())
         permitted = Auth.authorise(table, record, action="update")
@@ -534,9 +530,8 @@ class Content(Datamodel):
         if readonly:
             return dict(stat=False, messages=[["error", f"{key} is not updatable"]])
 
-        nameSpace = F.nameSpace
-        fieldPath = F.fieldPath
         tp = F.tp
+        fieldPath = fieldPaths[key]
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
@@ -550,8 +545,7 @@ class Content(Datamodel):
             if tp == "text"
             else value if tp == "keyword" else readYaml(value, plain=True, ignore=True)
         )
-        nameSpaceRep = "" if not nameSpace else f"{nameSpace}."
-        update = {f"{nameSpaceRep}{fieldPath}": sValue}
+        update = {fieldPath: sValue}
 
         if key == "title":
             update[key] = sValue
@@ -565,16 +559,18 @@ class Content(Datamodel):
             (recordId, record) = Mongo.get(table, recordId)
 
         now = isonow()
+        dateCreatedPath = fieldPaths["dateCreated"]
+        dateModifiedPath = fieldPaths["dateModified"]
 
         if not self.getValue(
             table, record, "dateCreated", manner="logical"
         ):
             Mongo.updateRecord(
-                table, {"dc.dateCreated": now}, stop=False, _id=recordId
+                table, {dateCreatedPath: now}, stop=False, _id=recordId
             )
 
         Mongo.updateRecord(
-            table, {"dc.dateModified": now}, stop=False, _id=recordId
+            table, {dateModifiedPath: now}, stop=False, _id=recordId
         )
 
         return dict(
@@ -1259,7 +1255,7 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.Precheck.checkEdition(project, editionId, edition)
+        return Publish.Precheck.checkEdition(site, project, editionId, edition)
 
     def publish(self, record, force):
         """Publish an edition.

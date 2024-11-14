@@ -41,49 +41,79 @@ class Datamodel:
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
         self.mainLink = datamodel.mainLink
-        self.fieldsConfig = datamodel.fields
         self.fieldDistribution = datamodel.fieldDistribution
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-    def getMetaFields(self, table, kind, level=None, asPublished=False):
+        fieldsConfig = datamodel.fields
+        fieldPaths = {}
+
+        for (f, cfg) in fieldsConfig.items():
+            nameSpace = cfg.nameSpace
+            fieldPath = cfg.fieldPath or f
+            sep = "." if nameSpace and fieldPath else ""
+            fieldPaths[f] = f"{nameSpace}{sep}{fieldPath}"
+
+        self.fieldPaths = fieldPaths
+        self.fieldsConfig = fieldsConfig
+
+    def getMetaFields(self, table, kinds, level=None, asDict=False):
         """Get the list of metadata fields for in the meta box.
 
         Parameters
         ----------
         table: string
             Either `site` or `project` or `edition`
-        kind: string
-            The kind of fields to fetch: `main` or `box`
-        asPublished: boolean, optional False
-            The display of the meta box on the published app leaves out the
-            abstract and description fields, they are specified elsewhere.
+        kinds: list | string | void
+            The kinds of fields to fetch: one or more of "main", "box" or "narrative".
+            If None, all kinds are used, in the order :main", "narrative", "box".
+            If a string: it is the single kind that is being used.
         level: integer, optional None
             If not None, append @ plus level to each meta key that is delivered,
             and join the components with ` + `
             If one of the fields is `title`, its level is one lower.
+            I
+        asDict: boolean, optional False
+            If True, the `level` parameter will be ignored.
+            Returns a dictionary with the field names as keys, and the field information
+            as values.
 
         Returns
         -------
-        tuple of string
-            The meta keys in question
+        tuple of string | string
+            The meta keys in question, as a tuple if level is None, otherwise as a
+            "+"-separated string where each item is appended with a level indicator
         """
         fieldDistribution = self.fieldDistribution
-        narrative = set(fieldDistribution.narrative)
-        items = fieldDistribution[kind]
-        theseItems = items[table]
 
-        result = (
-            tuple(x for x in theseItems if not (kind == "box" and x in narrative))
-            if asPublished
-            else tuple(theseItems)
+        result = {} if asDict else []
+
+        kinds = (
+            ["main", "narrative", "box"]
+            if kinds is None
+            else [kinds] if type(kinds) is str else list(kinds)
         )
+
+        for k in kinds:
+            items = fieldDistribution[k]
+
+            for x in items[table]:
+                if asDict:
+                    (f, info) = list(x.items())[0]
+                    result[f] = info
+                else:
+                    result.append(list(x)[0])
+
         return (
             result
-            if level is None
-            else " + ".join(
-                f"{x}@{level - 1 if x == 'title' else level}" for x in result
+            if asDict
+            else (
+                tuple(result)
+                if level is None
+                else " + ".join(
+                    f"{x}@{level - 1 if x == 'title' else level}" for x in result
+                )
             )
         )
 
@@ -101,8 +131,48 @@ class Datamodel:
             The meta keys in question
         """
         fieldDistribution = self.fieldDistribution
-        items = fieldDistribution.mandatory
-        return items[table]
+
+        kinds = ("main", "narrative", "box")
+
+        result = []
+
+        for k in kinds:
+            items = fieldDistribution[k]
+
+            for x in items[table]:
+                (f, info) = list(x.items())[0]
+
+                if info.mandatory:
+                    result.append(f)
+
+        return tuple(result)
+
+    def getMarkdownFields(self):
+        """Gives the set of all fields with markdown content.
+
+        Returns
+        -------
+        set
+        """
+        fieldsConfig = self.fieldsConfig
+
+        return {f for (f, cfg) in fieldsConfig.items() if cfg.get("tp", None) == "text"}
+
+    def getListFields(self):
+        """Gives the set of all fields with list content.
+
+        Returns
+        -------
+        set
+        """
+        fieldsConfig = self.fieldsConfig
+
+        return {
+            f
+            for (f, cfg) in fieldsConfig.items()
+            if cfg.get("multiple", True)
+            and cfg.get("tp", None) not in {"text", "datetime"}
+        }
 
     def relevant(self, project=None, edition=None):
         """Get a relevant record and the table to which it belongs.
@@ -328,6 +398,7 @@ class Datamodel:
         Settings = self.Settings
         datamodel = Settings.datamodel
         fieldsConfig = datamodel.fields
+        fieldPaths = self.fieldPaths
 
         keywordLists = {
             field for (field, cfg) in fieldsConfig.items() if cfg.tp == "keyword"
@@ -342,8 +413,9 @@ class Datamodel:
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
+            fieldPath = fieldPaths[name]
             value = keywordRecord.value
-            criteria = {f"dc.{name}": value}
+            criteria = {fieldPath: value}
             recordsP = Mongo.getList("project", stop=False, **criteria)
             recordsE = Mongo.getList("project", stop=False, **criteria)
             occs = len(recordsP) + len(recordsE)
@@ -351,8 +423,10 @@ class Datamodel:
 
         if extra is not None:
             for name, values in extra.items():
+                fieldPath = fieldPaths[name]
+
                 for value in values:
-                    criteria = {f"dc.{name}": value}
+                    criteria = {fieldPath: value}
                     recordsP = Mongo.getList("project", stop=False, **criteria)
                     recordsE = Mongo.getList("project", stop=False, **criteria)
                     occs = len(recordsP) + len(recordsE)
@@ -620,7 +694,7 @@ class Field:
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -646,12 +720,36 @@ class Field:
 
         return value
 
+    def setLogical(self, record, value):
+        """Set the logical value of the field in a record.
+
+        Parameters
+        ----------
+        record: AttrDict
+            The record in which the field value is to be stored.
+            It will be modified in place.
+        value: object
+            Any value to put into the record
+
+        """
+        nameSpace = self.nameSpace
+        fieldPath = self.fieldPath
+
+        fields = fieldPath.split(".")
+
+        dataSource = record.setdefault(nameSpace, AttrDict()) if nameSpace else record
+
+        for field in fields[0:-1]:
+            dataSource = dataSource.setdefault(field, AttrDict())
+
+        dataSource[fields[-1]] = value
+
     def bare(self, record, compact=False):
         """Give the bare string value of the field in a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
             The record in which the field value is stored.
         compact: boolean, optional False
             Only relevant for datetime types: if True, omit the time, leaving only

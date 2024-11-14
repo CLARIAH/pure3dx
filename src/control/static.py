@@ -41,14 +41,22 @@ class Static:
         yamlFile = f"{yamlDir}/{CONFIG_FILE}"
         cfg = readYaml(asFile=yamlFile)
         self.cfg = cfg
-        self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.listKeys.keys)
 
         self.data = AttrDict()
         self.dbData = AttrDict()
 
-    def sanitizeDC(self, table, dc):
+    def sanitizeMeta(self, table, record):
         """Checks for missing (sub)-fields in the Dublin Core.
+
+        Any field that is missing will be supplied with a default value, most of the
+        times it will be an empty list or string, but the licence will be an
+        "All rights reserved" licence.
+        Ideally the defaults should come from configuration, but because an admin can
+        change the keywords, the defaults should then also be editable by an admin,
+        but that goes to far for now.
+
+        Strings in list fields will be converted to singleton lists,
+        and markdown texts will be converted to html.
 
         Parameters
         ----------
@@ -63,80 +71,36 @@ class Static:
         void
             The dict is changed in place.
         """
-        CONTINUE HERE
-        Make sure that all mandatory metadata fields are filled in with nullish values.
-        Adapt the template such that a box with metadata will be generated
-        if table == "site":
-            return
-        if table == "project":
-            return
-        if table == "edition":
-            k = "rights"
+        Content = self.Content
 
-            if k not in dc:
-                dc[k] = {}
+        fields = Content.getMetaFields(table, None, asDict=True)
+        listKeys = Content.getListFields()
+        markdownKeys = Content.getMarkdownFields()
 
-            for k1, default in (
-                ("license", "All rights reserved"),
-                ("holder", "Unknown"),
-            ):
-                if k1 not in dc[k]:
-                    dc[k][k1] = default
+        for key in fields:
+            F = Content.makeField(key)
 
-            return
+            value = F.logical(record)
 
-    def htmlify(self, info):
-        """Translate fields in a dict into html.
+            if value is None:
+                value = fields[key].default
 
-        Certain fields will trigger a markdown to html conversion.
+            if key in listKeys:
+                if type(value) is not list:
+                    value = [value]
 
-        Certain fields will be normalized to lists:
-        if the type of such a field is not list, it will be turned into a one-element
-        list.
-
-        There will also be generated a field whose name has the string `Comma` appended,
-        it will be a comma-separated list of the items in that field.
-
-        Parameters
-        ----------
-        info: dict
-            The input data
-
-        Returns
-        -------
-        AttrDict
-            The resulting data. NB: it is brand-new data which does not share
-            any data with the input data. Fields are either transformed from markdown
-            to HTML, or copied.
-        """
-        listKeys = self.listKeys
-        markdownKeys = self.markdownKeys
-
-        r = AttrDict()
-
-        for k, v in info.items():
-            if k in listKeys:
-                if type(v) is not list:
-                    v = [v]
-
-                r[f"{k}Comma"] = (
+            if key in markdownKeys:
+                value = (
                     ""
-                    if len(v) == 0
-                    else str(v[0])
-                    if len(v) == 1
-                    else ", ".join(str(e) for e in v[0:-1]) + f" and {v[-1]}"
+                    if value is None
+                    else (
+                        "<br>\n".join(markdown(e) for e in value)
+                        if type(value) in (list, tuple)
+                        else markdown(value)
+                    )
                 )
 
-            if k in markdownKeys:
-                v = (
-                    "<br>\n".join(markdown(e) for e in v)
-                    if type(v) is list
-                    else markdown(v)
-                )
-
-            r[k] = v
-
-        return r
+            F.setLogical(record, value)
 
     def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         """Generate html pages for a published edition.
@@ -403,21 +367,23 @@ class Static:
         eType = type(ePubNum)
         pIsInt = pType is int
         eIsInt = eType is int
-        pNo = pPubNum is None
-        eNo = ePubNum is None
+        pNum = pPubNum is None
+        eNum = ePubNum is None
         pAll = pPubNum is True
         eAll = ePubNum is True
 
         task = (
             ("site",)
-            if pNo and eNo
-            else ("project", pPubNum)
-            if pIsInt and eNo
-            else ("edition", pPubNum, ePubNum)
-            if pIsInt and eIsInt
-            else ("all",)
-            if pAll and eAll
-            else ("none",)
+            if pNum and eNum
+            else (
+                ("project", pPubNum)
+                if pIsInt and eNum
+                else (
+                    ("edition", pPubNum, ePubNum)
+                    if pIsInt and eIsInt
+                    else ("all",) if pAll and eAll else ("none",)
+                )
+            )
         )
 
         if task[0] == "none":
@@ -458,8 +424,8 @@ class Static:
 
         good = True
 
-        for kind, srcDir in (("js", jsDir), ("images", imageDir)):
-            if not updateStatic(kind, srcDir):
+        for upd, srcDir in (("js", jsDir), ("images", imageDir)):
+            if not updateStatic(upd, srcDir):
                 good = False
 
         (nvv, thisGood) = updateViewers()
@@ -544,6 +510,7 @@ class Static:
         """
         Settings = self.Settings
         Messages = self.Messages
+        Content = self.Content
         Precheck = self.Precheck
         textDir = Settings.textDir
         authorUrl = Settings.authorUrl
@@ -557,6 +524,11 @@ class Static:
 
         if kind in data:
             return data[kind]
+
+        FsiteTitle = Content.makeField("siteTitle")
+        Fabstract = Content.makeField("abstract")
+        Fdescription = Content.makeField("description")
+        Fsubject = Content.makeField("subject")
 
         def get_viewers():
             defaultViewer = Settings.viewerDefault
@@ -612,17 +584,15 @@ class Static:
             featured = self.featured
 
             info = dbData[kind]
-            dc = info.dc
-            self.sanitizeDC("site", dc)
-            dc = self.htmlify(dc)
+            self.sanitizeMeta("site", info)
 
             r = AttrDict()
             r.isHome = True
             r.template = "home.html"
             r.fileName = "index.html"
             r.authorLink = authorRoot
-            r.name = dc.title
-            r.contentdata = dc
+            r.name = FsiteTitle.logical(info)
+            r.dc = info.dc
             projects = self.getData("project", None, None)
             projectsIndex = {p.num: p for p in projects}
             projectsFeatured = []
@@ -666,17 +636,14 @@ class Static:
             result = []
 
             for num, item in info.items():
-                dc = item.dc
-                self.sanitizeDC("project", dc)
-                dc = self.htmlify(dc)
+                self.sanitizeMeta("project", item)
 
                 r = AttrDict()
                 r.name = item.title
                 r.num = num
                 r.fileName = f"project/{num}/index.html"
-                r.abstract = dc.abstract or ""
-                r.description = dc.description or ""
-                r.subjects = dc.subject
+                r.abstract = Fabstract.logical(item)
+                r.description = Fdescription.logical(item)
                 r.visible = item.isVisible or False
                 result.append(r)
 
@@ -689,19 +656,17 @@ class Static:
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    dc = item.dc
-                    self.sanitizeDC("edition", dc)
-                    dc = self.htmlify(dc)
+                    self.sanitizeMeta("edition", item)
 
                     r = AttrDict()
                     r.projectNum = pNum
-                    r.projectFileName = f"project/{pNum}.html"
+                    r.projectFileName = f"project/{pNum}/index.html"
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f"project/{pNum}/edition/{eNum}/index.html"
-                    r.abstract = dc.abstract or ""
-                    r.description = dc.description or ""
-                    r.subjects = dc.subject
+                    r.abstract = Fabstract.logical(item)
+                    r.description = Fdescription.logical(item)
+                    r.subject = Fsubject.logical(item)
                     r.published = item.isPublished or False
                     result.append(r)
 
@@ -713,38 +678,40 @@ class Static:
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
+                self.sanitizeMeta("project", pItem)
                 pId = pItem._id
-                pdc = self.htmlify(pItem.dc)
-                fileName = f"project/{pNo}/index.html"
+                pdc = pItem.dc
+                fileName = f"project/{pNum}/index.html"
 
                 pr = AttrDict()
                 pr.template = "project.html"
                 pr.fileName = fileName
-                pr.num = pNo
+                pr.num = pNum
                 pr.name = pItem.title
                 pr.authorLink = f"{authorRoot}{pId}"
                 pr.visible = pItem.isVisible or False
-                pr.contentdata = pdc
+                pr.dc = pdc
                 pr.editions = []
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    eItem = thisEInfo[eNo]
-                    edc = self.htmlify(eItem.dc)
+                for eNum in sorted(thisEInfo):
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta("edition", eItem)
+                    edc = eItem.dc
 
                     er = AttrDict()
-                    er.projectNum = pNo
-                    er.projectFileName = f"project/{pNo}/index.html"
-                    er.fileName = f"project/{pNo}/edition/{eNo}/index.html"
-                    er.num = eNo
+                    er.projectNum = pNum
+                    er.projectFileName = f"project/{pNum}/index.html"
+                    er.fileName = f"project/{pNum}/edition/{eNum}/index.html"
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.published = eItem.isPublished or False
 
                     pr.editions.append(er)
@@ -769,42 +736,45 @@ class Static:
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
                 pId = pItem._id
-                projectFileName = f"project/{pNo}/index.html"
-                projectName = pItem.get("title", pNo)
+                projectFileName = f"project/{pNum}/index.html"
+                projectName = pItem.get("title", pNum)
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    if eNumGiven is not None and eNo != eNumGiven:
+                for eNum in sorted(thisEInfo):
+                    if eNumGiven is not None and eNum != eNumGiven:
                         continue
 
-                    eItem = thisEInfo[eNo]
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta("edition", eItem)
                     eId = eItem._id
-                    edc = self.htmlify(eItem.dc)
+                    edc = eItem.dc
 
                     er = AttrDict()
                     er.template = "edition.html"
-                    er.projectNum = pNo
+                    er.projectNum = pNum
                     er.projectName = projectName
                     er.projectFileName = projectFileName
                     er.authorLink = f"{authorRoot}{pId}/{eId}"
-                    fileBase = f"project/{pNo}/edition/{eNo}/index"
-                    er.num = eNo
+                    fileBase = f"project/{pNum}/edition/{eNum}/index"
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.isPublished = eItem.ispublished or False
                     settings = eItem.settings
                     authorTool = settings.authorTool
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(pNo, eNo, eItem, asPublished=True)
+                    er.toc = Precheck.checkEdition(
+                        None, pNum, eNum, eItem, asPublished=True
+                    )
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name

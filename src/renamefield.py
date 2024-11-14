@@ -1,16 +1,30 @@
-"""Rename a metadata field Pure3D data
+import sys
+
+from pymongo import MongoClient
+
+from control.environment import var
+from control.prepareMigrate import prepare
+
+
+HELP = """\
+Rename a metadata field Pure3D data
 
 USAGE
 
-python renamefield.py [options] source origfield newfield
+python renamefield.py [options] source table pl/sg origfield newfield
 
-You have to specify the db where the renaming has to take place and the original
-field name and the new field name.
+You have to specify the db where the renaming has to take place, the table in
+that db, whether the field can have multiple values, and the original field
+name and the new field name.
 
-If there is already a field with the new name, the contents of the old field will be
-merged in, assuming that both field values are lists. If the current value(s)
-of these fields are strings, they will be converted in 1-element lists on before hand.
-The resulting field is always a list, it might be the empty list.
+For single-value fields, the value in the old field will overwrite the value in then
+new field.
+
+For multiple values, the values in the old field will be merged into the values of
+the new field.
+If the current values of old or new fields are strings, they will be converted
+in 1-element lists on before hand.  The resulting field is always a list, it
+might be the empty list.
 
 Source must be the name of a run mode of Pure3d: test, pilot, custom, or prod.
 
@@ -23,15 +37,12 @@ Options:
 
 --dry
     Report what will be changed, but do not execute the changes.
+
+Examples
+
+./renamefield.sh prod edition pl dc.subject dc.keyword --dry
+./renamefield.sh prod edition sg lastPublished dc.datePublished --dry
 """
-
-import sys
-
-from pymongo import MongoClient
-
-from control.environment import var
-from control.prepareMigrate import prepare
-
 
 MODES = set(
     """
@@ -41,14 +52,6 @@ MODES = set(
     prod
     """.strip().split()
 )
-
-HELP = """
-Rename a metadata field in Pure3D data from one name to another.
-
-USAGE
-
-python renamefield.py [--dry] src origfield newfield
-"""
 
 DRY = "... dry run ..."
 
@@ -81,7 +84,19 @@ def connect(Settings):
     return (client, set(client.list_database_names()))
 
 
-def fieldRename(Settings, srcDb, oldField, newField, dry):
+def logical(record, path):
+    fields = path.split(".")
+    dataSource = record
+
+    for field in fields[0:-1]:
+        dataSource = dataSource.get(field, None)
+        if dataSource is None:
+            break
+
+    return None if dataSource is None else dataSource.get(fields[-1], None)
+
+
+def fieldRename(Settings, srcDb, table, mult, oldField, newField, dry):
     (client, allDatabases) = connect(Settings)
 
     if client is None:
@@ -98,66 +113,71 @@ def fieldRename(Settings, srcDb, oldField, newField, dry):
 
     print(f"\t{dryRep}DB {srcDb}: rename {oldField} to {newField}")
 
-    for table in ("project", "edition"):
-        srcTable = srcConn[table]
-        records = list(srcTable.find())
-        nRecs = len(records)
-        plural = "" if nRecs == 1 else "s"
-        print(f"\t\t{dryRep} table {table} with {nRecs} record{plural} ...")
+    srcTable = srcConn[table]
+    records = list(srcTable.find())
+    nRecs = len(records)
+    plural = "" if nRecs == 1 else "s"
+    print(f"\t\t{dryRep} table {table} with {nRecs} record{plural} ...")
 
-        n = 0
-        has = 0
+    has = 0
 
-        for record in records:
-            n += 1
+    for record in records:
+        old = logical(record, oldField)
+        new = logical(record, newField)
 
-            if "dc" not in record:
+        if mult:
+            if type(old) is list and not len(old) and type(new) is list:
                 continue
-
-            has += 1
-            data = record["dc"]
-
-            if oldField in data:
-                old = data[oldField]
-
-                if type(old) is list:
-                    msgo = f"[{len(old)}]" if len(old) else "[]"
-                else:
-                    msgo = "str"
-                    old = [old]
             else:
+                if old is None:
+                    old = []
+                    msgo = "None"
+                else:
+                    if type(old) is list:
+                        msgo = f"[{len(old)}]" if len(old) else "[]"
+                    else:
+                        msgo = "str"
+                        old = [old]
+
+                if new is None:
+                    msgn = "None"
+                    new = []
+                else:
+                    if type(new) is list:
+                        msgn = f"[{len(new)}]" if len(new) else "[]"
+                    else:
+                        msgn = "str"
+                        new = [new]
+        else:
+            if old is None:
                 msgo = "None"
-                old = []
-
-            if newField in data:
-                new = data[newField]
-
-                if type(new) is list:
-                    msgn = f"[{len(new)}]" if len(new) else "[]"
-                else:
-                    msgn = "str"
-                    new = [new]
             else:
+                msgo = "str"
+
+            if new is None:
                 msgn = "None"
-                new = []
+            else:
+                msgn = "str"
 
-            newMerged = sorted(set(old) | set(new))
-            msgd = f"[{len(newMerged)}]" if len(newMerged) else "[]"
+        has += 1
 
-            print(
-                f"\t\t\t{oldField}: {msgo} + {newField}: {msgn} => {newField}: {msgd}"
+        newMerged = (
+            sorted(set(old) | set(new)) if mult else (new if old is None else old)
+        )
+        msgd = (f"[{len(newMerged)}]" if len(newMerged) else "[]") if mult else "str"
+
+        print(f"\t\t\t{oldField}: {msgo} + {newField}: {msgn} => {newField}: {msgd}")
+
+        if not dry:
+            srcTable.update_one(
+                {"_id": record["_id"]},
+                {
+                    "$set": {newField: newMerged},
+                    "$unset": {oldField: ""},
+                },
             )
 
-            if not dry:
-                srcTable.update_one(
-                    {"_id": record["_id"]},
-                    {
-                        "$set": {f"dc.{newField}": newMerged},
-                        "$unset": {f"dc.{oldField}": ""},
-                    },
-                )
-
-        print(f"\t\t{dryRep} table {table} renamed {has} of {nRecs} record{plural} ...")
+    print(f"\t\t{dryRep} table {table} renamed {has} of {nRecs} record{plural} ...")
     return good
 
 
@@ -177,11 +197,25 @@ def main(args):
 
     args = fieldArgs
 
-    if len(args) != 3:
-        print("I need exactly three arguments: db, old field and new field")
+    if len(args) != 5:
+        print(
+            "I need exactly five arguments: db, table, sg/pl, old field and new field"
+        )
         return -1
 
-    (db, oldField, newField) = args
+    (db, table, mult, oldField, newField) = args
+
+    if not isMode(db):
+        print("DB argument must be one of test pilot custom prod")
+        return -1
+
+    if mult == "sg":
+        mult = False
+    elif mult == "pl":
+        mult = True
+    else:
+        print("sg/pl argument must be one of sg pl")
+        return -1
 
     print("Arguments OK: starting field renaming")
 
@@ -191,7 +225,7 @@ def main(args):
     database = Settings.database
     srcDb = f"{database}_{db}"
 
-    if not fieldRename(Settings, srcDb, oldField, newField, dryRun):
+    if not fieldRename(Settings, srcDb, table, mult, oldField, newField, dryRun):
         return 1
 
     return 0

@@ -363,7 +363,6 @@ def appFactory(objects):
         record: string
             The record of the item to be published.
         """
-        Messages.debug("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         return Pages.precheck(record)
 
     @app.route("/publish/<string:record>")

@@ -296,9 +296,9 @@ class Pages:
             (left, right) = (None, None)
         else:
             mainFields = Content.getMetaFields("site", "main", level=2)
-            boxFields = Content.getMetaFields("site", "box", level=2)
+            otherFields = Content.getMetaFields("site", ["narrative", "box"], level=2)
             left = Content.getValues(table, record, mainFields)
-            right = Content.getValues(table, record, boxFields)
+            right = Content.getValues(table, record, otherFields)
         return self.page("about", left=left, right=right)
 
     def projects(self):
@@ -457,7 +457,7 @@ class Pages:
         editions = Content.getEditions(project)
 
         mainFields = Content.getMetaFields("project", "main", level=3)
-        boxFields = Content.getMetaFields("project", "box", level=3)
+        otherFields = Content.getMetaFields("project", ["narrative", "box"], level=3)
 
         left = (
             Content.getValues("project", project, mainFields)
@@ -468,7 +468,7 @@ class Pages:
             + editionHeading
             + editions
         )
-        right = Content.getValues("project", project, boxFields)
+        right = Content.getValues("project", project, otherFields)
         return self.page("projects", left=left, right=right)
 
     def createEdition(self, project):
@@ -578,7 +578,7 @@ class Pages:
             else Content.getScene(projectId, edition, version=version, action=action)
         )
         mainFields = Content.getMetaFields("edition", "main", level=4)
-        boxFields = Content.getMetaFields("edition", "box", level=4)
+        otherFields = Content.getMetaFields("edition", ["narrative", "box"], level=4)
 
         left = (
             breadCrumb
@@ -589,9 +589,9 @@ class Pages:
             + sceneHeading
             + sceneMaterial
         )
-        right = Content.getValues("edition", edition, boxFields) + Content.getDataFile(
-            "edition", edition, tocFile, content=True, lenient=True
-        )
+        right = Content.getValues(
+            "edition", edition, otherFields
+        ) + Content.getDataFile("edition", edition, tocFile, content=True, lenient=True)
 
         return self.page("projects", left=left, right=right)
 
