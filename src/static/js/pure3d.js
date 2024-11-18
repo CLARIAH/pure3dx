@@ -95,6 +95,94 @@ const fetchData = (url, task, destElem, data) => {
   }
 }
 
+const pubStatusWidget = () => {
+  const pubCheck = $("#pubcheck")
+  const pubStatus = $("#pubstatus")
+  const pubControl = $("#pubcontrol")
+  const pubMessages = $("#pubmessages")
+  const pubyes = "publishing"
+  const pubno = "not publishing"
+  const pubStatusLabel = "check publication processes"
+  const pubTermLabel = "terminate publication processes"
+  const pubCheckUrl = "/pubstatus"
+  const pubTermUrl = "/pubterminate"
+
+  const reportPub = messages => {
+    for (const message of messages) {
+      const [tp, msg] = message
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      pubMessages.append(html)
+    }
+    pubMessages.show()
+  }
+  const reportError = task => (jqXHR, stat) => {
+    reportPub([["error", `cannot ${task}: ${stat}`]])
+  }
+  const processCheck = response => {
+    const { status, messages, value } = response
+
+    if (status) {
+      if (value) {
+        pubStatus.html(pubyes)
+        pubControl.show()
+      } else {
+        pubStatus.html(pubno)
+        pubControl.hide()
+      }
+      pubStatus.show()
+    } else {
+      reportPub(messages)
+      pubStatus.hide()
+    }
+  }
+
+  const processTerm = response => {
+    const { status, messages } = response
+
+    if (status) {
+      pubStatus.html(pubno)
+    } else {
+      reportPub(messages)
+    }
+    pubControl.hide()
+  }
+
+  const getPub = () => {
+    $.ajax({
+      type: "GET",
+      url: pubCheckUrl,
+      processData: false,
+      contentType: true,
+      success: processCheck,
+      error: reportError(pubStatusLabel),
+    })
+  }
+  const termPub = () => {
+    $.ajax({
+      type: "GET",
+      url: pubTermUrl,
+      processData: false,
+      contentType: true,
+      success: processTerm,
+      error: reportError(pubTermLabel),
+    })
+  }
+
+  pubCheck.off("click").click(() => {
+    pubMessages.html("")
+    getPub()
+  })
+  pubControl.off("click").click(() => {
+    pubMessages.html("")
+    termPub()
+  })
+
+  pubCheck.show()
+  pubControl.hide()
+  pubStatus.hide()
+  pubMessages.hide()
+}
+
 const createUser = () => {
   const topContent = $(".myadmin")
   const userInfo = topContent.find("div.createuser")
@@ -623,7 +711,6 @@ const editWidget = editwidget => {
     readonlyContent.html(readonly)
     readonlyContent.show()
     editContent.val("")
-    console.warn("AAA", { saveValue })
     editContent.attr("origvalue", wrapVal(saveValue))
     editContent.removeClass("dirty")
     editContent.hide()
@@ -649,7 +736,6 @@ const editWidget = editwidget => {
   const handleTyping = () => {
     const value = editContent.val()
     const origValue = editContent.attr("origvalue")
-    console.warn("BBB", { value })
     if (origValue == wrapVal(value)) {
       editContent.removeClass("dirty")
       cancelButton.hide()
@@ -688,7 +774,6 @@ const editWidget = editwidget => {
   saveButton.off("click").click(() => {
     const origValue = editContent.attr("origvalue")
     const saveValue = editContent.val()
-    console.warn("CCC", { saveValue })
     if (origValue == wrapVal(saveValue)) {
       editwidgetJQ.removeClass("editing")
       readonlyContent.show()
@@ -852,6 +937,7 @@ const processMyWork = name => {
 $(() => {
   uploadControls()
   kwmanageWidgets()
+  pubStatusWidget()
   editWidgets()
   processMyWork()
   confirmInit()

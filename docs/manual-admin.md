@@ -3,6 +3,9 @@
 For background, read [architecture](architecture.md) first.
 There the concepts of **A** (authoring app) and **P** (publishing app) are explained.
 
+For an overview of the latest changes, see
+[releasenotes.md](releasenotes).
+
 ## Access Pure3D
 
 *   production:
@@ -143,7 +146,9 @@ published.
 What you see here is not a list of published projects, but some controls to do something
 to the published projects.
 
-First of all, here is where you can determine which projects are *featured*.
+##### Featured projects
+
+Here is where you can determine which projects are *featured*.
 Featured projects will be shown on the home page of the **P** app.
 
 Every project in the **P** app has a number, it is the number you see in the
@@ -153,12 +158,31 @@ URL after `project`:
 https://editions.pure3d.eu/project/7/index.html
 ```
 
-Secondly, you can regenerate the HTML pages for the **P** app. When is this needed?
+##### Regenerate pages
+
+You can regenerate the HTML pages for the **P** app. When is this needed?
 
 If you have changed the featured projects. It will only take effect after regeneration.
 
 Also, the systems manager has to do it when the **P** app gets a new layout.
 Then the HTML for everything in the **P** app has to be regenerated.
+
+##### Check publishing process status
+
+When an edition is published, static pages for that edition will be generated.
+However, also the page for the project of the edition and some other site-wide pages
+are affected.
+That is why the system does not allow for simultaneous publishing actions.
+When somebody presses a publish button while there is a publishing action being carried
+out, the user will get a message to try again in a minute.
+
+Sometimes, when something really unexpected has happened during publishing, the system
+may think it is publishing for ever, and no new publishing actions can be triggered.
+
+If this is the case, an admin can press the `check` button to verify the publishing
+processing state, and if that state reads `publishing`, the user can press the 
+`terminate` button to change the state back to `not publishing`, after which users
+can again publish their editions.
 
 #### `All projects and editions`
 
@@ -172,6 +196,49 @@ section.
 You can give users special roles with respect to projects and editions here.
 In particular, if you have created a new project, you'll find that project here and you
 can assign an organiser to it. That will set off the authoring of a new edition.
+
+#### `Manage keywords`
+
+Some metadata fields are linked to a controlled vocabulary.
+These controlled vocabularies can be edited by admins. Its members can be deleted and 
+added, but not changed.
+Only values that are not used by editions can be deleted.
+
+Nevertheless it may occur after a migration that editions have values in their fields
+that are outside the corresponding controlled vocabulary. The system accept this.
+But if you change such a value to a legal value, you can not turn back to the illegal
+value, unless you legalize that value by adding it to the controlled vocabulary list.
+
+Controlled values are stored directly in the corresponding metadata fields. So,
+the table of keywords is not needed in order to show the value that a metadata field
+has. But, as a consequence, you can not change a controlled value to something else
+and expect that all editions have that value changed automatically.
+
+When admins want to add a new value, it will be checked whether the new value is not
+a variant of any of the existing values for that list; "variant" means: only differing
+in white space and upper/lowercase.
+
+If you need to change a value, e.g. because it is misspelled, here is how:
+
+*   *if the value has not been used in any edition*:
+
+    1.  Simply delete the value from the vocab list and add the correct value.
+
+*   *if the value has been used by some editions, but not by published editions*:
+
+    1.  update the unpublished editions by removing the old value;
+    1.  delete the old value from the controlled vocab list;
+    1.  add the correct value to the controlled vocab list;
+    1.  update the unpublished editions with the new value;
+
+*   *if the value has been used by published editions*:
+
+    1.  unpublish all editions that use the missspelled value;
+    1.  update the unpublished editions by removing the old value;
+    1.  delete the old value from the controlled vocab list;
+    1.  add the correct value to the controlled vocab list;
+    1.  update the unpublished editions with the new value;
+    1.  republish the unpublished editions.
 
 #### `Manage users`
 
@@ -268,59 +335,7 @@ When a new instance of Pure3D is set up, and you start with a new database, it m
 be desirable to populate sets of keywords that are associated with certain
 metadata fields, e.g. periods, countries, languages, subjects, licences. 
 
-An initial set is stored in the yaml file *keywords.yml* and you can import it by 
-means of a shell command.
-No exisiting keywords will be deleted, the initial keywords will be added to
-the existing ones.
-
-Note that once imported, admins may add/delete keywords to the keywords table.
-When you re-import the initial set, no keywords will be deleted, so the later additions
-will be preserved, but all deleted keywords of the initial set will reappear.
-
-When you do it in a local version of the app, make sure the container for moongodb
-of the app is running:
-
-```
-k
-kset pure3d author
-```
-
-```
-k
-kset pure3d author
-kcd
-cd src
-./initkeywords.sh --dry pilot
-```
-
-(or instead of `pilot`: `test` or `custom` or `prod`).
-
-You'll see roughly what the effect of merging in the initial keywords will be.
-
-If all looks good, you can perform the action, by omitting the `--dry` argument:
-
-```
-./initkeywords.sh pilot
-```
-
-To check whether you really have the keywords, run it again with or without `--dry`
-(the operation is idempotent). You see that there are many keywords in the system now
-and that none has to be added.
-
-For the production and acceptance systems:
-
-```
-k
-kset pure3d mongodb
-ksh
-```
-
-You are now in a shell on the remote server.
-
-```
-cd src
-./initkeywords.sh --dry pilot
-./initkeywords.sh pilot
-./initkeywords.sh --dry pilot
-```
-
+The loading of the initial keyword set cannot be done from within the app, a system
+manager has to issue a command, see
+[deployment manual](https://code.huc.knaw.nl/pure3d/pure3d-config/-/blob/master/docs/deploy.md)
+(only visible with the right VPN enabled).

@@ -2,7 +2,7 @@ import re
 import json
 
 from .flask import requestData
-from .generic import AttrDict
+from .generic import AttrDict, isonow
 from .helpers import normalize
 
 
@@ -532,6 +532,67 @@ class Admin:
             [myDetails, myProjects, allProjects, allKeywords, allUsers], cls="myadmin"
         )
 
+    def pubStatus(self):
+        """Get the publication status.
+
+        Only allowed for admins and roots.
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the retrieval of the value succeeded;
+            with key `messages`: the messages if the retrieval did not succeed;
+            with key `value`: the value itself.
+        """
+        Content = self.Content
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+            status = True
+            messages = []
+            value = site.processing or False
+        else:
+            status = False
+            messages = ["error", "You are not allowed to retrieve this value"]
+            value = None
+
+        return dict(status=status, messages=messages, value=value)
+
+    def pubTerminate(self):
+        """Set the publication status to false
+
+        Only allowed for admins and roots.
+
+        This is meant for cases where a publication action has failed without
+        restoring the flag that indicates that the site is publishing.
+        It should not happen, but then: it might ...
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the setting of the value succeeded;
+            with key `messages`: the messages if the setting did not succeed;
+        """
+        Content = self.Content
+        Mongo = self.Mongo
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+
+            if site.processing:
+                Mongo.updateRecord(
+                    "site", dict(processing=False, lastPublished=isonow()), _id=site._id
+                )
+            status = True
+            messages = []
+        else:
+            status = False
+            messages = ["error", "You are not allowed to set this value"]
+
+        return dict(status=status, messages=messages)
+
     def _wrapPubProjects(self):
         """Generate HTML for the published projects in admin view.
 
@@ -553,10 +614,11 @@ class Admin:
 
         wrapped = []
         wrapped.append(H.h(1, "Published projects"))
+
         wrapped.append(H.h(2, "Featured published projects"))
         wrapped.append(Content.getValue(table, site, "featured"))
-        wrapped.append(H.h(2, "Regenerate HTML for published projects"))
 
+        wrapped.append(H.h(2, "Regenerate HTML for published projects"))
         wrapped.append(
             H.a(
                 "Regenerate",
@@ -564,6 +626,30 @@ class Admin:
                 title="Regenerate HTML for published projects",
                 cls="button large",
             )
+        )
+
+        wrapped.append(H.h(2, "Publishing process status"))
+        wrapped.append(
+            H.p(
+                [
+                    H.a(
+                        "Check",
+                        "#",
+                        id="pubcheck",
+                        title="Check status of publication processes",
+                        cls="button large",
+                    ),
+                    H.span("", id="pubstatus", cls="large"),
+                    H.a(
+                        "terminate",
+                        "#",
+                        id="pubcontrol",
+                        title="terminate publication processes",
+                        cls="button large",
+                    ),
+                ]
+            )
+            + H.div("test", id="pubmessages"),
         )
         return H.div(wrapped, id="pubprojects")
 

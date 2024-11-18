@@ -329,9 +329,8 @@ class Pages:
         if recordId is None:
             left = None
         else:
-            items = Content.getAdmin()
-            left = items
-        return self.page("admin", left=left)
+            (left, right) = Content.getAdmin()
+        return self.page("admin", left=left, right=right)
 
     def createUser(self, user):
         """Creates a new test user.
@@ -946,7 +945,7 @@ class Pages:
         response
             Either a redirect to the referred, for some
             recognized urls that correspond to not-yet
-            implemented one. Or a 404 abort for all other
+            implemented one. Or a redirect 303 for all other
             cases.
         """
         Messages = self.Messages

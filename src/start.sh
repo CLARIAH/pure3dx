@@ -46,6 +46,7 @@ if [[ "$flaskdebugarg" == "--debug" ]]; then
     pid=$!
 else
     echo "running gunicorn"
+    pwd
     gunicorn --config gunicornConfig.py --bind "$flaskhost:$flaskport" --access-logfile - index:app &
     pid=$!
 fi

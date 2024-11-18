@@ -242,7 +242,16 @@ class Content(Datamodel):
         -------
         string
         """
-        return Admin(self).wrap()
+        Settings = self.Settings
+        H = Settings.H
+        return (
+            Admin(self).wrap(),
+            H.a(
+                "Manual for admins",
+                "https://github.com/CLARIAH/pure3dx/blob/main/docs/manual-admin.md",
+                target="_blank",
+            ),
+        )
 
     def createProject(self, site):
         """Creates a new project.
@@ -562,16 +571,10 @@ class Content(Datamodel):
         dateCreatedPath = fieldPaths["dateCreated"]
         dateModifiedPath = fieldPaths["dateModified"]
 
-        if not self.getValue(
-            table, record, "dateCreated", manner="logical"
-        ):
-            Mongo.updateRecord(
-                table, {dateCreatedPath: now}, stop=False, _id=recordId
-            )
+        if not self.getValue(table, record, "dateCreated", manner="logical"):
+            Mongo.updateRecord(table, {dateCreatedPath: now}, stop=False, _id=recordId)
 
-        Mongo.updateRecord(
-            table, {dateModifiedPath: now}, stop=False, _id=recordId
-        )
+        Mongo.updateRecord(table, {dateModifiedPath: now}, stop=False, _id=recordId)
 
         return dict(
             stat=True,

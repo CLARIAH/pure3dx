@@ -86,7 +86,7 @@ class Static:
                 value = fields[key].default
 
             if key in listKeys:
-                if type(value) is not list:
+                if type(value) not in (list, tuple):
                     value = [value]
 
             if key in markdownKeys:
@@ -101,6 +101,7 @@ class Static:
                 )
 
             F.setLogical(record, value)
+        self.debug(f"{table=} {record=}")
 
     def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         """Generate html pages for a published edition.

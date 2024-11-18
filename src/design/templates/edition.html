@@ -50,22 +50,27 @@
         </div>
         
     </div>
-    <div class="bg-neutral-100 w-full md:w-1/3 p-4">
 
+    <div class="bg-neutral-100 w-full md:w-1/3 p-4">
+    {{#if dc.creator}}
       <h2 class="text-lg mt-4 mb-1" tabindex="1">Creators</h2>
       <ul>
         {{#each dc.creator}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
 
+    {{#if dc.contributor}}
       <h2 class="text-lg mt-4 mb-1" tabindex="2">Contributors</h2>
       <ul>
         {{#each dc.contributor}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
 
+    {{#if dc.datePublished}}
       <h2 class="text-lg mt-4 mb-1" tabindex="3">Date published</h2>
       <ul>
         <li class="">{{dc.datePublished}}</li>
@@ -80,49 +85,70 @@
         <dt class="italic w-1/3">Contact</dt>
         <dd class="w-2/3">{{dc.contact}}</dd>
       </dl>
+    {{/if}}
 
+    {{#if dc.keyword}}
       <h2 class="text-lg mt-4 mb-1" tabindex="5">Keywords</h2>
       <ul>
         {{#each dc.keyword}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
 
+    {{#if dc.audience}}
       <h2 class="text-lg mt-4 mb-1" tabindex="6">Audience</h2>
       {{dc.audience}}
+    {{/if}}
 
+    {{#if dc.funder}}
       <h2 class="text-lg mt-4 mb-1" tabindex="7">Funder</h2>
       {{dc.funder}}
+    {{/if}}
 
+    {{#if dc.coverage.country}}
       <h2 class="text-lg mt-4 mb-1" tabindex="8">Countries</h2>
       <ul>
         {{#each dc.coverage.country}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
 
+    {{#if dc.coverage.geo}}
       <h2 class="text-lg mt-4 mb-1" tabindex="9">Latitude/Longitude</h2>
       {{dc.coverage.geo}}
+    {{/if}}
 
+    {{#if dc.coverage.place}}
       <h2 class="text-lg mt-4 mb-1" tabindex="10">Place</h2>
       {{dc.coverage.place}}
+    {{/if}}
 
+    {{#if dc.coverage.period}}
       <h2 class="text-lg mt-4 mb-1" tabindex="11">Period</h2>
       <ul>
         {{#each dc.coverage.period}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
 
+    {{#if dc.coverage.temporal}}
       <h2 class="text-lg mt-4 mb-1" tabindex="12">Temporal</h2>
       {{dc.coverage.temporal}}
+    {{/if}}
 
+    {{#if dc.subject}}
       <h2 class="text-lg mt-4 mb-1" tabindex="13">Subjects</h2>
       <ul>
         {{#each dc.subject}}
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
+
+    {{#if dc.language}}
 
       <h2 class="text-lg mt-4 mb-1" tabindex="14">Languages</h2>
       <ul>
@@ -130,6 +156,9 @@
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
+
+    {{#if dc.source}}
 
       <h2 class="text-lg mt-4 mb-1" tabindex="15">Sources</h2>
       <ul>
@@ -137,14 +166,16 @@
         <li class="">{{this}}</li>
         {{/each}}
       </ul>
+    {{/if}}
+
+    {{#if dc.provenance}}
 
       <h2 class="text-lg mt-4 mb-1" tabindex="16">Provenance</h2>
       {{{dc.provenance}}}
+    {{/if}}
 
       <h2 class="text-lg mt-4 mb-1" tabindex="18">Content</h2>
       {{{toc}}}
-
-
     </div>
   </div>
 

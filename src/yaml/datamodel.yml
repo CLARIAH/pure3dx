@@ -160,7 +160,7 @@ fieldDistribution:
           default: Unknown
       - dateModified:
           mandatory: false
-          default: Never
+          default: ""
     edition:
       - title:
           mandatory: true
@@ -174,39 +174,45 @@ fieldDistribution:
       - contributor:
           mandatory: false
           default: []
+      - datePublished:
+          mandatory: false
+          default: ""
+      - dateUnPublished:
+          mandatory: false
+          default: ""
       - dateCreated:
           mandatory: true
           default: Unknown
       - dateModified:
           mandatory: false
-          default: Never
+          default: ""
   narrative:
     site:
       - abstract:
           mandatory: true
-          default: Not given
+          default: No site abstract
       - description:
           mandatory: true
-          default: Not provided
+          default: No site description
     project:
       - abstract:
           mandatory: true
-          default: Not given
+          default: No project abstract
       - description:
           mandatory: true
-          default: Not provided
+          default: No project description
     edition:
       - abstract:
           mandatory: true
-          default: Not given
+          default: No edition abstract
       - description:
           mandatory: true
-          default: Not provided
+          default: No edition description
   box:
     site:
       - provenance:
           mandatory: true
-          default: Not provided
+          default: No site provenance
     project: []
     edition:
       - license:
@@ -227,7 +233,7 @@ fieldDistribution:
           default: Not specified
       - funder:
           mandatory: false
-          default: Not specified
+          default: ""
       - country:
           mandatory: true
           default: []
@@ -254,7 +260,7 @@ fieldDistribution:
           default: []
       - provenance:
           mandatory: true
-          default: Not given
+          default: No edition provenance
 
 uploads:
   model:

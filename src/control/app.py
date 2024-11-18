@@ -179,6 +179,22 @@ def appFactory(objects):
         """
         return Pages.admin()
 
+    @app.route("/pubstatus")
+    def pubStatus():
+        """Retrieves the status of the publication processes.
+
+        Only for administrators.
+        """
+        return Admin(Content).pubStatus()
+
+    @app.route("/pubterminate")
+    def pubTerminate():
+        """Terminates (hanging) publication processes.
+
+        Only for administrators.
+        """
+        return Admin(Content).pubTerminate()
+
     @app.route("/user/create/<string:user>")
     def createUser(user):
         """Create a new test user.
