@@ -413,6 +413,14 @@ class Datamodel:
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
+
+            if name not in keywords:
+                # in this case, the existing keywords contain vocab lists
+                # that are not associated with a metadata field:
+                # either the metadata config has changed
+                # or the keywords come from a different instance
+                keywords[name] = {}
+
             fieldPath = fieldPaths[name]
             value = keywordRecord.value
             criteria = {fieldPath: value}

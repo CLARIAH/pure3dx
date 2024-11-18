@@ -1,5 +1,5 @@
 import os
-from .control.webdavapp import appFactory
+from control.webdavapp import appFactory
 
 flaskAppName = os.environ.get("FLASK_APP", None)
 
