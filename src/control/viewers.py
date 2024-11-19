@@ -366,6 +366,7 @@ class Viewers:
             fileBase = modeProps.fileBase
             subModes = modeProps.subModes or AttrDict()
             atts = attResolve(subModes[subMode] or AttrDict(), version)
+
             if subMode != "create":
                 atts["document"] = sceneFile
 
@@ -379,6 +380,9 @@ class Viewers:
                             tp="image/png",
                         ),
                         H.link("stylesheet", f"{viewerStaticRoot}/fonts/fonts.css"),
+                        H.link(
+                            "stylesheet", f"{viewerStaticRoot}/css/{fileBase}.{ext}.css"
+                        ) if action == "update" else "",
                         H.script(
                             "",
                             defer=True,

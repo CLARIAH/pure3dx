@@ -118,21 +118,25 @@ fields:
   dateCreated:
     nameSpace: dc
     tp: datetime
+    multiple: false
     readonly: true
     caption: Date created
   dateModified:
     nameSpace: dc
     tp: datetime
+    multiple: false
     readonly: true
     caption: Date modified
   datePublished:
     nameSpace: dc
     tp: datetime
+    multiple: false
     readonly: true
     caption: Date (last) published
   dateUnPublished:
     nameSpace: dc
     tp: datetime
+    multiple: false
     readonly: true
     caption: Date (last) unpublished
 

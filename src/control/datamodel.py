@@ -770,7 +770,12 @@ class Field:
             If the field is not present, returns the empty string, without warning.
         """
         tp = self.tp
+        # multiple = self.multiple
+
         logical = self.logical(record)
+
+        # if not multiple and type(logical) in {list, tuple}:
+        #    logical = logical[-1] if len(logical) else ""
 
         return (
             ""
