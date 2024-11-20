@@ -324,21 +324,21 @@ fields:
     mandatory:
       site: true
     default: Would you like to know more about PURE3D?
-    caption: Text at footer left on About page
+    caption: Text at footer left on News page
   newsRightText:
     nameSpace: boilerplate
     multiple: false
     mandatory:
       site: true
     default: Read more about PURE3D
-    caption: Text at footer right on About page
+    caption: Text at footer right on News page
   newsRightUrl:
     nameSpace: boilerplate
     multiple: false
     mandatory:
       site: true
     default: https://pure3d.eu/
-    caption: Url under footer right on About page
+    caption: Url under footer right on News page
   projectsLeftText:
     nameSpace: boilerplate
     multiple: false

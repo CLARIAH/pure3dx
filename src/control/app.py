@@ -435,11 +435,14 @@ def appFactory(objects):
     def generate():
         """Regenerates the static HTML for all published projects and editions.
 
-        This is not a full publishing action, no data will be exported from the
-        authoring system to the publishing system.
+        This is not a full publishing action, no data from projects and editions
+        will be exported from the authoring system to the publishing system.
+        However, the site-wide data will be exported, so that all the boilerplate texts,
+        and the fixed content pages (about and news) will show up in their updated
+        form (if any updates have been made).
 
-        The only thing that happens is that all published projects and editions
-        are wrapped in static HTML pages again.
+        Based on the earlier exported database data of published projects and editions,
+        and on actual site-wide data, all pages are wrapped in static HTML pages again.
         """
         return Pages.generate()
 

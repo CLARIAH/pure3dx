@@ -157,6 +157,7 @@ class Publish:
         Static = StaticCls(Settings, Messages, Content, Viewers, Tailwind, Handlebars)
 
         try:
+            self.addSiteFiles(site)
             good = Static.genPages(pPubNum, ePubNum, featured=featured)
 
         except Exception as e1:
