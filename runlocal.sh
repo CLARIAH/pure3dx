@@ -17,7 +17,7 @@ cd $approot
 source .env
 
 function apphost {
-    rdctl start --virtual-machine.memory-in-gb 6
+    rdctl start --application.start-in-background --virtual-machine.memory-in-gb 6
 }
 
 function appup {

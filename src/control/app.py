@@ -1,7 +1,7 @@
 """The routing definitions of the flask webapp.
 """
 
-from .flask import appMake, appStop, requestMethod, appInitializing
+from .flask import appMake, redirectStatus, requestMethod, appInitializing
 from .admin import Admin
 
 
@@ -159,11 +159,6 @@ def appFactory(objects):
     def home():
         """Present the "home" page."""
         return Pages.home()
-
-    @app.route("/about")
-    def about():
-        """Present the "about" page."""
-        return Pages.about()
 
     @app.route("/project")
     def projects():
@@ -670,7 +665,7 @@ def appFactory(objects):
             The original WebDAV request.
         """
         Messages.warning(logmsg=f"Unauthorized webdav access: {path}")
-        appStop()
+        return redirectStatus("/", False)
 
     @app.route("/<path:path>", methods=("GET", "POST") + tuple(webdavMethods))
     def remaining(path):

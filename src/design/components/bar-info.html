@@ -2,10 +2,10 @@
     <div class="flex flex-col md:flex-row gap-2 justify-between w-full text-sm ">
         
         <div class="flex gap-2 items-center py-1 px-4 w-full lg:w-3/5 justify-end">
-            <div class="">{{>icons/iconInformationCircle isFill=false twSize="6" twColor="p3D-900"}}</div>{{{infoText}}}
+            <div class="">{{>icons/iconInformationCircle isFill=false twSize="6" twColor="p3D-900"}}</div>{{{boilerplate.leftText}}}
         </div>
         <div class="w-full lg:w-2/5 bg-p3D-300 place-items-center py-4 px-8 bg-[url('/images/bg-network.png')] bg-center flex justify-center lg:justify-start">
-            <a href="/call_for_projects.html" class="{{> styles/button-basic isGrey=true hasGreyBorder=true}} ">{{{readmore}}}</a>
+            <a href="{{{boilerplate.rightUrl}}}" class="{{> styles/button-basic isGrey=true hasGreyBorder=true}} ">{{{boilerplate.rightText}}}</a>
         </div>
     </div>
 </div>

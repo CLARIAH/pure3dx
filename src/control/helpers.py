@@ -29,7 +29,7 @@ def genViewerSelector(
     for viewer, vwDefault, versions in allViewers:
         viewerRep = f"<b>{viewer}</b>" if vwDefault else viewer
         viewerRep = f"<i>{viewerRep}</i>" if viewer == origViewer else viewerRep
-        html.append(f"""<details><summary>{viewerRep}</summary>""")
+        html.append(f"""<details><summary>{viewerRep} versions</summary>""")
 
         for version, vvDefault in versions:
             versionRep = f"<b>{version}</b>" if vwDefault and vvDefault else version

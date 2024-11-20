@@ -239,9 +239,7 @@ class Precheck:
                                 f"Just edit any {table} field to set it to today"
                             )
 
-                        Messages.error(
-                            f"This {table} has no metadata field {metaKey}", stop=False
-                        )
+                        Messages.error(f"This {table} has no metadata field {metaKey}")
                         good = False
 
             if good:
@@ -316,7 +314,7 @@ class Precheck:
                     (msgKind, kindRep) = STATUS[kind]
                     if msgKind in {"error", "warning"} and n == 0:
                         msgKind = "good"
-                    Messages.message(msgKind, f"{n} {kindRep}", None, stop=False)
+                    Messages.message(msgKind, f"{n} {kindRep}", None)
 
                     if msgKind == "error":
                         good = False
@@ -429,6 +427,6 @@ class Precheck:
         if good:
             Messages.good(msg="All checks OK")
         else:
-            Messages.error(msg="Some checks failed", stop=False)
+            Messages.error(msg="Some checks failed")
 
         return good

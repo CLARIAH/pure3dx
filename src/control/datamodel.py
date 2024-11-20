@@ -41,22 +41,71 @@ class Datamodel:
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
         self.mainLink = datamodel.mainLink
-        self.fieldDistribution = datamodel.fieldDistribution
+        textsConfig = datamodel.texts
+        fieldsConfig = datamodel.fields
+        fieldDistribution = datamodel.fieldDistribution
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
 
-        fieldsConfig = datamodel.fields
         fieldPaths = {}
 
-        for (f, cfg) in fieldsConfig.items():
+        for f, cfg in fieldsConfig.items():
             nameSpace = cfg.nameSpace
             fieldPath = cfg.fieldPath or f
             sep = "." if nameSpace and fieldPath else ""
             fieldPaths[f] = f"{nameSpace}{sep}{fieldPath}"
 
-        self.fieldPaths = fieldPaths
+        self.textsConfig = textsConfig
         self.fieldsConfig = fieldsConfig
+        self.fieldDistribution = fieldDistribution
+        self.fieldPaths = fieldPaths
+
+    @staticmethod
+    def specialize(table, record):
+        """Specializes information to a table.
+
+        Field information is a mapping of keys to values.
+        When values are dicts, their keys are table names.
+        If a table is given, we can specialize for that table.
+        If the table does not occur as a key, we look if there is a key `""`,
+        and if so, we use that value. Otherwise we use None.
+
+        Parameters
+        ----------
+        table: string
+            The table to which we must specialize the record
+        record: dict | AttrDict
+            The record, of which some fields have values per table
+
+        Returns
+        -------
+        AttrDict
+            The specialized record (a new copy)
+        """
+        new = AttrDict()
+
+        for k, v in record.items():
+            if type(v) in {dict, AttrDict}:
+                new[k] = v.get(table, v.get("", None))
+            else:
+                new[k] = v
+
+        return new
+
+    def getTexts(self):
+        """Get the names and info for the fixed text pages.
+
+        The contents of these pages are stored in fields the site record,
+        the path to the field is given in the text info dict.
+
+        Returns
+        -------
+        dict
+            Keyed by the name of the text, values are keys for the corresponding
+            metadata fields in the site record where the text is stored.
+        """
+        return self.textsConfig
 
     def getMetaFields(self, table, kinds, level=None, asDict=False):
         """Get the list of metadata fields for in the meta box.
@@ -73,19 +122,20 @@ class Datamodel:
             If not None, append @ plus level to each meta key that is delivered,
             and join the components with ` + `
             If one of the fields is `title`, its level is one lower.
-            I
         asDict: boolean, optional False
             If True, the `level` parameter will be ignored.
             Returns a dictionary with the field names as keys, and the field information
-            as values.
+            as values, specialized to the given table.
 
         Returns
         -------
-        tuple of string | string
+        dict | tuple of string | string
+            Returns a dict if `asDict` is True.
             The meta keys in question, as a tuple if level is None, otherwise as a
             "+"-separated string where each item is appended with a level indicator
         """
         fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
 
         result = {} if asDict else []
 
@@ -96,14 +146,13 @@ class Datamodel:
         )
 
         for k in kinds:
-            items = fieldDistribution[k]
+            fields = fieldDistribution.get(k, {}).get(table, [])
 
-            for x in items[table]:
-                if asDict:
-                    (f, info) = list(x.items())[0]
-                    result[f] = info
-                else:
-                    result.append(list(x)[0])
+            if asDict:
+                for f in fields:
+                    result[f] = self.specialize(table, fieldsConfig.get(f, AttrDict()))
+            else:
+                result.extend(fields)
 
         return (
             result
@@ -131,16 +180,17 @@ class Datamodel:
             The meta keys in question
         """
         fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
 
         kinds = ("main", "narrative", "box")
 
         result = []
 
         for k in kinds:
-            items = fieldDistribution[k]
+            fields = fieldDistribution.get(k, {}).get(table, [])
 
-            for x in items[table]:
-                (f, info) = list(x.items())[0]
+            for f in fields:
+                info = self.specialize(table, fieldsConfig.get(f, AttrDict()))
 
                 if info.mandatory:
                     result.append(f)
@@ -409,7 +459,7 @@ class Datamodel:
         for name in keywordLists:
             keywords[name] = {}
 
-        keywordItems = Mongo.getList("keyword", stop=False)
+        keywordItems = Mongo.getList("keyword")
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
@@ -424,8 +474,8 @@ class Datamodel:
             fieldPath = fieldPaths[name]
             value = keywordRecord.value
             criteria = {fieldPath: value}
-            recordsP = Mongo.getList("project", stop=False, **criteria)
-            recordsE = Mongo.getList("project", stop=False, **criteria)
+            recordsP = Mongo.getList("project", **criteria)
+            recordsE = Mongo.getList("project", **criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
 
@@ -435,14 +485,14 @@ class Datamodel:
 
                 for value in values:
                     criteria = {fieldPath: value}
-                    recordsP = Mongo.getList("project", stop=False, **criteria)
-                    recordsE = Mongo.getList("project", stop=False, **criteria)
+                    recordsP = Mongo.getList("project", **criteria)
+                    recordsE = Mongo.getList("project", **criteria)
                     occs = len(recordsP) + len(recordsE)
                     keywords[name][value] = occs
 
         return keywords
 
-    def makeField(self, key):
+    def makeField(self, key, table):
         """Make a field object and registers it.
 
         An instance of class `control.datamodel.Field` is created,
@@ -450,13 +500,13 @@ class Datamodel:
 
         !!! note "Idempotent"
             If the Field object is already registered, nothing is done.
+            Field objects are registered under their key and table.
 
         Parameters
         ----------
         key: string
             Identifier for the field.
             The configuration for this field will be retrieved using this key.
-            The new field object will be stored under this key.
 
         Returns
         -------
@@ -468,7 +518,8 @@ class Datamodel:
 
         fieldObjects = self.fieldObjects
 
-        fieldObject = fieldObjects[key]
+        fieldObject = fieldObjects[(key, table)]
+
         if fieldObject:
             return fieldObject
 
@@ -476,28 +527,16 @@ class Datamodel:
         Mongo = self.Mongo
         fieldsConfig = self.fieldsConfig
 
-        fieldsConfig = fieldsConfig[key]
-        if fieldsConfig is None:
+        fieldConfig = fieldsConfig[key]
+
+        if fieldConfig is None:
             Messages.error(logmsg=f"Unknown field key '{key}'")
+            fieldConfig = AttrDict()
 
-        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
-        fieldObjects[key] = fieldObject
+        fieldObject = Field(Settings, Messages, Mongo, self, key, table, **fieldConfig)
+
+        fieldObjects[(key, table)] = fieldObject
         return fieldObject
-
-    def getFieldObject(self, key):
-        """Get a field object.
-
-        Parameters
-        ----------
-        key: string
-            The key of the field object
-
-        Returns
-        -------
-        object | void
-            The field object found under the given key, if present, otherwise None
-        """
-        return self.fieldObjects[key]
 
     def makeUpload(self, key, fileName=None):
         """Make a file upload object and registers it.
@@ -591,7 +630,7 @@ class Datamodel:
 
 
 class Field:
-    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, table, **kwargs):
         """Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -608,10 +647,16 @@ class Field:
         How to do this is steered by the specification of the field by keys and
         values that are stored in this object.
 
+        Some field specifications may be table dependent. If a table is passed,
+        we can get the table dependent values by means of the static method
+        `control.datamodel.Datmodel.specialize`.
+
         All field access should be guarded by the authorisation rules.
 
         Parameters
         ----------
+        table: string
+            Name of the table for which we must specialize the field information
         kwargs: dict
             Field configuration arguments.
             It certain parts of the field configuration
@@ -627,6 +672,10 @@ class Field:
         """The identifier of this field within the app.
         """
 
+        self.table = table
+        """The table for which this field is specialized.
+        """
+
         self.nameSpace = ""
         """The first key to access the field data in a record.
 
@@ -635,6 +684,8 @@ class Field:
 
         If the namespace is `""`, it is assumed that we can dig up the values without
         going into a namespace sub-record first.
+
+        **NB.: This attribute is not table dependent.**
         """
 
         self.fieldPath = key
@@ -645,6 +696,8 @@ class Field:
 
         This field selection is applied after the name space selection
         (if `nameSpace` is not the empty string).
+
+        **NB.: This attribute is not table dependent.**
         """
 
         self.tp = "string"
@@ -668,10 +721,14 @@ class Field:
         that have been made with different lists of keywords in force, we accept
         foreign keywords. However, users will not be able to apply foreign keywords
         when they edit fields.
+
+        **NB.: This attribute is not table dependent.**
         """
 
         self.multiple = True
         """Whether multiple values are allowed.
+
+        **NB.: This attribute is not table dependent.**
         """
 
         self.readonly = False
@@ -679,6 +736,20 @@ class Field:
 
         If this field is True, no user can directly change the value. Instead, the
         system will fill in this value, dependent on the completion of certain actions.
+
+        **NB.: This attribute is not table dependent.**
+        """
+
+        self.default = None
+        """A default value to deliver if the field has no value.
+
+        **NB.: This attribute may be table dependent.**
+        """
+
+        self.mandatory = False
+        """Whether a value is mandatory.
+
+        **NB.: This attribute may be table dependent.**
         """
 
         self.caption = key
@@ -691,11 +762,30 @@ class Field:
 
         If there is a placeholder, the content will replace the place holder
         in the caption.
+
+        **NB.: This attribute may be table dependent.**
         """
 
-        for arg, value in kwargs.items():
+        for arg, value in Datamodel.specialize(table, kwargs).items():
             if value is not None:
                 setattr(self, arg, value)
+
+    def specialize(self, table, record):
+        """Specializes a record to a table.
+
+        Parameters
+        ----------
+        table: string
+            The table in question
+        record: dict | AttrDict
+            The record in question
+
+        Returns
+        -------
+        AttrDict
+            The specialized record, a new copy
+        """
+        return Datamodel.specialize(table, record)
 
     def logical(self, record):
         """Give the logical value of the field in a record.
@@ -728,6 +818,11 @@ class Field:
 
         return value
 
+    def resolved(self, record):
+        default = self.default
+        logical = self.logical(record)
+        return default if logical is None else logical
+
     def setLogical(self, record, value):
         """Set the logical value of the field in a record.
 
@@ -755,6 +850,8 @@ class Field:
     def bare(self, record, compact=False):
         """Give the bare string value of the field in a record.
 
+        If the logical value of the field is None, its default will be filled in.
+
         Parameters
         ----------
         record: AttrDict
@@ -772,20 +869,23 @@ class Field:
         tp = self.tp
         # multiple = self.multiple
 
-        logical = self.logical(record)
+        resolved = self.resolved(record)
 
         # if not multiple and type(logical) in {list, tuple}:
         #    logical = logical[-1] if len(logical) else ""
 
         return (
             ""
-            if logical is None
-            else (logical.split("T")[0] + "Z") if tp == "datetime" else str(logical)
+            if resolved is None
+            else (
+                (resolved.split("T")[0] + "Z" if compact else resolved)
+                if tp == "datetime"
+                else str(resolved)
+            )
         )
 
     def formatted(
         self,
-        table,
         record,
         level=None,
         editable=False,
@@ -843,6 +943,8 @@ class Field:
 
         H = Settings.H
 
+        table = self.table
+
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return ""
@@ -854,7 +956,9 @@ class Field:
         readonly = self.readonly
 
         bare = self.bare(record)
-        logical = self.logical(record)
+        resolved = self.resolved(record)
+
+        # if table == "site" and key == "abstract":
         bareRep = bare or H.i(f"no {key}")
 
         if tp == "text":
@@ -863,12 +967,13 @@ class Field:
             readonlyContent = bare or H.i("never")
         else:
             readonlyContent = H.wrapValue(
-                logical,
+                resolved,
                 outerElem="span",
                 outerAtts=dict(cls=outerCls),
                 innerElem="span",
                 innerAtts=dict(cls=innerCls),
             )
+
         if editable and not readonly:
             keyRepUrl = "" if key is None else f"/{key}"
             saveUrl = f"/save/{table}/{recordId}{keyRepUrl}"
@@ -879,14 +984,16 @@ class Field:
             orig = (
                 bare
                 if tp == "text"
-                else "§".join(logical or []) if tp == "keyword" else writeYaml(logical)
+                else (
+                    "§".join(resolved or []) if tp == "keyword" else writeYaml(resolved)
+                )
             )
 
             if tp == "keyword":
                 valueSet = (
                     set()
-                    if logical is None
-                    else {logical} if type(logical) is str else set(logical)
+                    if resolved is None
+                    else {resolved} if type(resolved) is str else set(resolved)
                 )
                 keywords = Datamodel.getKeywords(extra={key: valueSet})[key]
                 options = (

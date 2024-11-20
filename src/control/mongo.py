@@ -4,7 +4,6 @@ from bson import ObjectId, BSON, decode_all
 from bson.json_util import dumps as dumpjs
 from pymongo import MongoClient
 
-from .flask import appStop
 from .generic import AttrDict, deepAttrDict
 from .files import dirMake, dirExists
 
@@ -223,7 +222,7 @@ class Mongo:
         recordId = record._id
         return (recordId, record)
 
-    def getRecord(self, table, warn=True, stop=True, **criteria):
+    def getRecord(self, table, warn=True, **criteria):
         """Get a single record from a table.
 
         Parameters
@@ -232,9 +231,6 @@ class Mongo:
             The name of the table from which we want to retrieve a single record.
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the search.
             Usually they will be such that there will be just one record
@@ -252,7 +248,7 @@ class Mongo:
         Messages = self.Messages
 
         (good, result) = self.execute(
-            table, "find_one", criteria, {}, warn=False, stop=stop
+            table, "find_one", criteria, {}, warn=False
         )
         if not good or result is None:
             if warn:
@@ -263,16 +259,13 @@ class Mongo:
             result = {}
         return deepAttrDict(result)
 
-    def getList(self, table, stop=True, sort=None, asDict=False, **criteria):
+    def getList(self, table, sort=None, asDict=False, **criteria):
         """Get a list of records from a table.
 
         Parameters
         ----------
         table: string
             The name of the table from which we want to retrieve records.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         sort: string | function, optional None
             Sort key. If `None`, the results will not be sorted.
             If a string, it is the name of a field by which the results
@@ -292,7 +285,7 @@ class Mongo:
             The list of records found, empty if no records are found.
             Each record is cast to an AttrDict.
         """
-        (good, result) = self.execute(table, "find", criteria, {}, stop=stop)
+        (good, result) = self.execute(table, "find", criteria, {})
         if not good:
             return []
 
@@ -312,16 +305,13 @@ class Mongo:
             else result
         )
 
-    def deleteRecord(self, table, stop=True, **criteria):
+    def deleteRecord(self, table, **criteria):
         """Deletes a single record from a table.
 
         Parameters
         ----------
         table: string
             The name of the table from which we want to delete a single record.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
             Usually they will be such that there will be just one record
@@ -334,19 +324,16 @@ class Mongo:
         boolean
             Whether the delete was successful
         """
-        (good, result) = self.execute(table, "delete_one", criteria, stop=stop)
+        (good, result) = self.execute(table, "delete_one", criteria)
         return result.deleted_count > 0 if good else False
 
-    def deleteRecords(self, table, stop=True, **criteria):
+    def deleteRecords(self, table, **criteria):
         """Delete multiple records from a table.
 
         Parameters
         ----------
         table: string
             The name of the table from which we want to delete a records.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
 
@@ -356,11 +343,11 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         """
-        (good, result) = self.execute(table, "delete_many", criteria, stop=stop)
+        (good, result) = self.execute(table, "delete_many", criteria)
         count = result.deleted_count if good else 0
         return (good, count)
 
-    def updateRecord(self, table, updates, stop=True, **criteria):
+    def updateRecord(self, table, updates, **criteria):
         """Updates a single record from a table.
 
         Parameters
@@ -371,9 +358,6 @@ class Mongo:
             The fields that must be updated with the values they must get.
             If the value `None` is specified for a field, that field will be set to
             null.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         criteria: dict
             A set of criteria to narrow down the selection.
             Usually they will be such that there will be just one record
@@ -387,20 +371,17 @@ class Mongo:
             Whether the update was successful
         """
         (good, result) = self.execute(
-            table, "update_one", criteria, {"$set": updates}, stop=stop
+            table, "update_one", criteria, {"$set": updates}
         )
         return result.modified_count > 0 if good else False
 
-    def insertRecord(self, table, stop=True, **fields):
+    def insertRecord(self, table, **fields):
         """Inserts a new record in a table.
 
         Parameters
         ----------
         table: string
             The table in which the record will be inserted.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         **fields: dict
             The field names and their contents to populate the new record with.
 
@@ -410,10 +391,10 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         """
-        (good, result) = self.execute(table, "insert_one", dict(**fields), stop=stop)
+        (good, result) = self.execute(table, "insert_one", dict(**fields))
         return result.inserted_id if good else None
 
-    def execute(self, table, command, *args, warn=True, stop=True, **kwargs):
+    def execute(self, table, command, *args, warn=True, **kwargs):
         """Executes a MongoDb command and returns the result.
 
         Parameters
@@ -429,9 +410,6 @@ class Mongo:
             Any number of additional arguments that the command requires.
         warn: boolean, optional True
             If True, warn if there is an error.
-        stop: boolean, optional True
-            If the command is not successful, stop after issuing the
-            error, do not return control.
         kwargs: list
             Any number of additional keyword arguments that the command requires.
 
@@ -466,11 +444,7 @@ class Mongo:
                 Messages.error(
                     msg="Database action",
                     logmsg=f"Executing Mongo command db.{table}.{command}: {e}",
-                    stop=stop,
                 )
-            else:
-                if stop:
-                    appStop()
             good = False
             result = None
 
@@ -500,7 +474,7 @@ class Mongo:
                 continue
             if k.endswith("Id"):
                 table = k.removesuffix("Id")
-                linkedRecord = self.getRecord(table, _id=v, warn=False, stop=False)
+                linkedRecord = self.getRecord(table, _id=v, warn=False)
                 v = linkedRecord.title
                 if v is not None:
                     newRecord[table] = v

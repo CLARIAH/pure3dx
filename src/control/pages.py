@@ -1,4 +1,4 @@
-from .flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
+from .flask import redirectStatus, renderTemplate, sendFile, getReferrer
 
 
 class Pages:
@@ -275,31 +275,22 @@ class Pages:
         response
         """
         Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            left = None
-        else:
-            mainFields = Content.getMetaFields("site", "main", level=2)
-            left = Content.getValues(table, record, mainFields)
-        return self.page("home", left=left)
+        Auth = self.Auth
+        inPower = Auth.inPower()[0]
 
-    def about(self):
-        """The site-wide about page.
-
-        Returns
-        -------
-        response
-        """
-        Content = self.Content
         (table, recordId, record) = Content.relevant()
         if recordId is None:
             (left, right) = (None, None)
         else:
-            mainFields = Content.getMetaFields("site", "main", level=2)
-            otherFields = Content.getMetaFields("site", ["narrative", "box"], level=2)
+            mainFields = Content.getMetaFields("site", ("main", "narrative"), level=2)
             left = Content.getValues(table, record, mainFields)
-            right = Content.getValues(table, record, otherFields)
-        return self.page("about", left=left, right=right)
+
+            if inPower:
+                otherFields = Content.getMetaFields("site", "box", level=4)
+                right = Content.getValues(table, record, otherFields)
+            else:
+                right = ""
+        return self.page("home", left=left, right=right)
 
     def projects(self):
         """The page with the list of projects.
@@ -358,7 +349,7 @@ class Pages:
                 msg=f"failed to create new user {user}",
             )
             for kind, msg in result.get("messages", []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = "/admin"
         return redirectStatus(newUrl, good)
@@ -388,7 +379,7 @@ class Pages:
                 msg=f"failed to delete new user {user}",
             )
             for kind, msg in result.get("messages", []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = "/admin"
         return redirectStatus(newUrl, good)
@@ -626,7 +617,6 @@ class Pages:
                 Messages.error(
                     msg=f"This edition no longer exists in {authorLabel}",
                     logmsg=f"{backPrefix}: Edition {editionIdGiven} no longer exists",
-                    stop=False,
                 )
                 newUrl = (
                     homeUrl
@@ -658,7 +648,6 @@ class Pages:
                 Messages.error(
                     msg=f"This project no longer exists in {authorLabel}",
                     logmsg=f"{backPrefix}: Project {projectIdGiven} no longer exists",
-                    stop=False,
                 )
                 newUrl = homeUrl
 
@@ -972,7 +961,7 @@ class Pages:
             return redirectStatus(back, True)
 
         Messages.warning(logmsg=f"Not found: /{path}")
-        appStop()
+        return redirectStatus("/", False)
 
     def page(self, url, left=None, right=None):
         """Workhorse function to get content on the page.
@@ -1054,7 +1043,6 @@ class Pages:
 
         TABS = (
             ("home", "Home", True, True),
-            ("about", "About", True, True),
             ("project", "3D Projects", True, True),
             (pubUrl, "Published Projects ⌲", True, True),
             ("admin", "My Work", True, True),

@@ -63,8 +63,8 @@ class Static:
         table: string
             The kind of info: site, project, or edition. This influences
             which fields should be present.
-        dc: dict
-            The Dublin Core info
+        record: dict
+            The record with metadata
 
         Returns
         -------
@@ -78,7 +78,7 @@ class Static:
         markdownKeys = Content.getMarkdownFields()
 
         for key in fields:
-            F = Content.makeField(key)
+            F = Content.makeField(key, table)
 
             value = F.logical(record)
 
@@ -101,7 +101,6 @@ class Static:
                 )
 
             F.setLogical(record, value)
-        self.debug(f"{table=} {record=}")
 
     def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         """Generate html pages for a published edition.
@@ -273,8 +272,7 @@ class Static:
                         logmsg=(
                             f"Error in register partial {partial} : "
                             f"{''.join(format_exception(e))}"
-                        ),
-                        stop=False,
+                        )
                     )
                     good = False
 
@@ -308,8 +306,7 @@ class Static:
                             logmsg=(
                                 f"Error compiling template {templateFile} : "
                                 f"{''.join(format_exception(e))}"
-                            ),
-                            stop=False,
+                            )
                         )
                         template = None
 
@@ -327,8 +324,7 @@ class Static:
                         logmsg=(
                             f"Error filling template {item.template} : "
                             f"{''.join(format_exception(e))}"
-                        ),
-                        stop=False,
+                        )
                     )
                     failure += 1
                     good = False
@@ -394,7 +390,6 @@ class Static:
                     "Page generation failed because of illegal parameter combination: "
                     f"project {pPubNum}: {pType} and edition {ePubNum}: {eType}"
                 ),
-                stop=False,
             )
             return
 
@@ -451,7 +446,7 @@ class Static:
             Messages.info(logmsg=msg)
         else:
             msg = "Page generation failed"
-            Messages.error(logmsg=msg, msg=msg, stop=False)
+            Messages.error(logmsg=msg, msg=msg)
         return good
 
     def getData(self, kind, pNumGiven, eNumGiven):
@@ -513,7 +508,6 @@ class Static:
         Messages = self.Messages
         Content = self.Content
         Precheck = self.Precheck
-        textDir = Settings.textDir
         authorUrl = Settings.authorUrl
         backPrefix = Settings.backPrefix
         authorRoot = f"{authorUrl}/{backPrefix}/"
@@ -526,10 +520,7 @@ class Static:
         if kind in data:
             return data[kind]
 
-        FsiteTitle = Content.makeField("siteTitle")
-        Fabstract = Content.makeField("abstract")
-        Fdescription = Content.makeField("description")
-        Fsubject = Content.makeField("subject")
+        texts = Content.getTexts()
 
         def get_viewers():
             defaultViewer = Settings.viewerDefault
@@ -553,46 +544,26 @@ class Static:
 
             return result
 
-        def get_textpages():
-            textFiles = dirContents(textDir)[0]
-
-            def getLinks(textFile):
-                return [
-                    dict(text=prettify(t.removesuffix(".html")), link=t)
-                    for t in textFiles
-                    if t != textFile
-                ]
-
-            result = []
-
-            for textFile in textFiles:
-                r = AttrDict()
-                r.template = "text.html"
-                r.authorLink = authorRoot
-                r.name = prettify(textFile.removesuffix(".html"))
-                r["is" + ucFirst(r.name)] = True
-                r.fileName = textFile
-                r.links = getLinks(textFile)
-
-                with open(f"{textDir}/{textFile}") as fh:
-                    r.content = fh.read()
-
-                result.append(r)
-
-            return result
-
         def get_site():
             featured = self.featured
+            Ftitle = Content.makeField("title", "site")
 
             info = dbData[kind]
             self.sanitizeMeta("site", info)
+            bp = info.boilerplate
+            self.bp = bp
 
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.homeLeftText,
+                rightText=bp.homeRightText,
+                rightUrl=bp.homeRightUrl,
+            )
             r.isHome = True
             r.template = "home.html"
             r.fileName = "index.html"
             r.authorLink = authorRoot
-            r.name = FsiteTitle.logical(info)
+            r.name = Ftitle.logical(info)
             r.dc = info.dc
             projects = self.getData("project", None, None)
             projectsIndex = {p.num: p for p in projects}
@@ -609,8 +580,43 @@ class Static:
 
             return [r]
 
+        def get_textpages():
+            info = dbData["site"]
+            print(f"XXXXXXXXXXXX {info=}")
+            bp = self.bp
+
+            result = []
+
+            for (textName, key) in texts.items():
+                F = Content.makeField(key, "site")
+
+                r = AttrDict()
+                r.boilerplate = dict(
+                    leftText=bp[f"{textName}LeftText"],
+                    rightText=bp[f"{textName}RightText"],
+                    rightUrl=bp[f"{textName}RightUrl"],
+                )
+                r.template = "text.html"
+                r.authorLink = authorRoot
+                r.name = prettify(textName)
+                r[f"is{ucFirst(r.name)}"] = True
+                r.fileName = f"{textName}.html"
+                r.content = F.formatted(info)
+                print(f"XXXXXXXXXXXX {textName=} {r.content=}")
+
+                result.append(r)
+
+            return result
+
         def get_projects():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.projectsLeftText,
+                rightText=bp.projectsRightText,
+                rightUrl=bp.projectsRightUrl,
+            )
             r.isProjects = True
             r.name = "All Projects"
             r.template = "projects.html"
@@ -621,7 +627,14 @@ class Static:
             return [r]
 
         def get_editions():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.editionsLeftText,
+                rightText=bp.editionsRightText,
+                rightUrl=bp.editionsRightUrl,
+            )
             r.isEditions = True
             r.name = "All Editions"
             r.template = "editions.html"
@@ -633,6 +646,8 @@ class Static:
 
         def get_project():
             info = dbData[kind]
+            Fabstract = Content.makeField("abstract", "project")
+            Fdescription = Content.makeField("description", "project")
 
             result = []
 
@@ -652,6 +667,9 @@ class Static:
 
         def get_edition():
             info = dbData[kind]
+            Fabstract = Content.makeField("abstract", "edition")
+            Fdescription = Content.makeField("description", "edition")
+            Fsubject = Content.makeField("subject", "edition")
 
             result = []
 
@@ -674,6 +692,8 @@ class Static:
             return result
 
         def get_projectpages():
+            bp = self.bp
+
             pInfo = dbData["project"]
             eInfo = dbData["edition"]
 
@@ -690,6 +710,11 @@ class Static:
                 fileName = f"project/{pNum}/index.html"
 
                 pr = AttrDict()
+                pr.boilerplate = dict(
+                    leftText=bp.projectLeftText,
+                    rightText=bp.projectRightText,
+                    rightUrl=bp.projectRightUrl,
+                )
                 pr.template = "project.html"
                 pr.fileName = fileName
                 pr.num = pNum
@@ -731,6 +756,7 @@ class Static:
                 )
                 for vw in viewers
             )
+            bp = self.bp
 
             pInfo = dbData["project"]
             eInfo = dbData["edition"]
@@ -758,6 +784,11 @@ class Static:
                     edc = eItem.dc
 
                     er = AttrDict()
+                    er.boilerplate = dict(
+                        leftText=bp.editionLeftText,
+                        rightText=bp.editionRightText,
+                        rightUrl=bp.editionRightUrl,
+                    )
                     er.template = "edition.html"
                     er.projectNum = pNum
                     er.projectName = projectName

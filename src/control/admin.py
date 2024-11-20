@@ -149,7 +149,7 @@ class Admin:
             allKeywords = ""
 
         return H.div(
-            [myDetails, myProjects, pubControls, allKeywords, allProjects, allUsers],
+            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
             cls="myadmin",
         )
 
@@ -983,7 +983,7 @@ class Admin:
                 messages=[["error", f"keyword '{name}':'{value}' is used {occs} x"]],
             )
 
-        good = Mongo.deleteRecord("keyword", stop=False, name=name, value=value)
+        good = Mongo.deleteRecord("keyword", name=name, value=value)
         messages = [] if good else [["warning", "no keyword has been deleted"]]
 
         return dict(stat=good, messages=messages, updated=self.wrap())
@@ -1120,7 +1120,7 @@ class Admin:
             return dict(stat=False, messages=[["error", "record does not exist"]])
 
         criteria = {"user": u, f"{table}Id": recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
+        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
 
         msg = ""
 
@@ -1247,7 +1247,7 @@ class Admin:
                 status = False
                 messages.append(("error", "name should not be empty"))
             else:
-                good = Mongo.deleteRecord("user", isSpecial=True, stop=False, user=user)
+                good = Mongo.deleteRecord("user", isSpecial=True, user=user)
 
                 if not good:
                     status = False

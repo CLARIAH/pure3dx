@@ -1,3 +1,7 @@
+texts:
+  about: description 
+  news: news
+
 tables:
   - site
   - project
@@ -19,252 +23,481 @@ linkMain:
     - user
 
 fields:
-  siteTitle:
-    nameSpace: dc
-    fieldPath: title
-    multiple: false
-    caption: "{value}"
   featured:
     caption: "featured projects {value}"
   title:
     nameSpace: dc
     multiple: false
-    caption: "{kind}: {value}"
+    mandatory: true
+    default:
+      site: Pure3D
+      project: Untitled project
+      edition: Untitled edition
+    caption: 
+      "": "{kind}: {value}"
+      site: "{value}"
   subtitle:
     nameSpace: dc
     multiple: false
+    default: ""
     caption: Subtitle
   creator:
     nameSpace: dc
+    mandatory:
+      project: true
+      edition: true
+    default: []
     caption: Creator
   contributor:
     nameSpace: dc
+    default: []
     caption: Contributors
   abstract:
     nameSpace: dc
     tp: text
+    mandatory: true
+    default:
+      site: Explore our 3D Scholarly Editions and create your own
+      project: No project abstract
+      edition: No edition abstract
     caption: Abstract
   description:
     nameSpace: dc
     tp: text
+    mandatory: true
+    default:
+      site: |-
+        # <a name="home">What is Pure3D?</a>
+        
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+        mollit anim id est laborum.
+
+        # <a name="projects">What is a Pure 3D Project?</a> 
+
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+        mollit anim id est laborum."
+
+        # <a name="editions">What is a 3D Scholarly Edition?</a>
+        
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+        mollit anim id est laborum."
+
+        # How to create a 3D Scholarly Edition in Pure3D
+
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+        mollit anim id est laborum.
+      project: No project description
+      edition: No edition description
     caption: Description
+  news:
+    nameSpace: dc
+    tp: text
+    mandatory:
+      site: true
+    default:
+      site: |-
+        It is not yet possible to build and publish 3D scholarly editions
+        through the platform. However, this feature will be tested through a
+        series of new projects that will be developed in PURE3D.  If you are a
+        3D content creator or 3D object/space holder and you are interested in
+        working with the PURE3D infrastructure, you can apply for developing
+        your project into a 3D scholarly edition. Successful applicants will
+        receive support, guidance, and funding by the PURE3D team during the
+        Fall of 2023. For more information about the Call and to make an
+        application, please visit
+        [pure3d.eu/call-for-3d-projects](https://pure3d.eu/call-for-3d-projects).
+    caption: News
   license:
     nameSpace: dc
     fieldPath: rights.license
     tp: keyword
     multiple: false
+    mandatory:
+      edition: true
+    default: All rights reserved.
     caption: License
   rightsholder:
     nameSpace: dc
-    tp: text
     fieldPath: rights.holder
+    tp: text
+    mandatory:
+      edition: true
+    default: See creator
     caption: Rights holder
   contact:
     nameSpace: dc
     tp: text
+    mandatory:
+      edition: true
+    default: See creator
     caption: Contact details
   keyword:
     nameSpace: dc
+    default: []
     caption: Keywords
   audience:
     nameSpace: dc
     tp: text
+    mandatory:
+      edition: true
+    default: []
     caption: Intended audience
   funder:
     nameSpace: dc
     tp: text
+    default: ""
     caption: Funder
   country:
     nameSpace: dc
     fieldPath: coverage.country
     tp: keyword
+    mandatory:
+      edition: true
+    default: []
     caption: Countries
   geo:
     nameSpace: dc
     fieldPath: coverage.geo
     tp: text
+    default: ""
     caption: Geographical coordinates (latitude/longitude)
   place:
     nameSpace: dc
     fieldPath: coverage.place
+    default: ""
     tp: text
     caption: Place
   period:
     nameSpace: dc
     fieldPath: coverage.period
     tp: keyword
+    mandatory:
+      edition: true
+    default: []
     caption: Period
   temporal:
     nameSpace: dc
     fieldPath: coverage.temporal
     tp: text
+    default: []
     caption: Temporal indication
   subject:
     nameSpace: dc
     tp: keyword
+    mandatory:
+      edition: true
+    default: []
     caption: Subjects
   language:
     nameSpace: dc
     tp: keyword
+    mandatory:
+      edition: true
+    default: []
     caption: Languages
   source:
     nameSpace: dc
     tp: keyword
+    mandatory:
+      edition: true
+    default: []
     caption: Sources
   provenance:
     nameSpace: dc
     tp: text
+    mandatory:
+      site: true
+      edition: true
+    default:
+      site: |-
+        ### Software development
+
+        Building Pure3D has taken place at the KNAW/HuC (Humanities Cluster).
+        
+        * [GitHub](https://github.com/CLARIAH/pure3dx)
+        * [Technical documentation](https://clariah.github.io/pure3dx/control/index.html)
+        
+        Pure3D makes use of 3D viewer software developed by others:
+        
+        * [Smithsonian Voyager](https://github.com/smithsonian/dpo-voyager)
+
+      edition: No edition provenance
     caption: Provenance
   dateCreated:
     nameSpace: dc
     tp: datetime
     multiple: false
     readonly: true
+    mandatory:
+      project: true
+      edition: true
+    default: Unknown
     caption: Date created
   dateModified:
     nameSpace: dc
     tp: datetime
     multiple: false
     readonly: true
+    default: ""
     caption: Date modified
   datePublished:
     nameSpace: dc
     tp: datetime
     multiple: false
     readonly: true
+    default: ""
     caption: Date (last) published
   dateUnPublished:
     nameSpace: dc
     tp: datetime
     multiple: false
     readonly: true
+    default: ""
     caption: Date (last) unpublished
+  homeLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: |-
+      Are you interested in publishing your work in 3D? Learn how to submit
+      your project to develop a 3D Scholary Edition
+    caption: Text at footer left on Home page
+  homeRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Publish with us
+    caption: Text at footer right on Home page
+  homeRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: /about.html#home
+    caption: Url under footer right on Home page
+  aboutLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Would you like to know more about PURE3D?
+    caption: Text at footer left on About page
+  aboutRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about PURE3D
+    caption: Text at footer right on About page
+  aboutRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: https://pure3d.eu/
+    caption: Url under footer right on About page
+  newsLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Would you like to know more about PURE3D?
+    caption: Text at footer left on About page
+  newsRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about PURE3D
+    caption: Text at footer right on About page
+  newsRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: https://pure3d.eu/
+    caption: Url under footer right on About page
+  projectsLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: A project is a collection of 3D Scholarly Editions
+    caption: Text at header left on Projects page
+  projectsRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about our projects
+    caption: Text at header right on Projects page
+  projectsRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: /about.html#projects
+    caption: Url under header right on Projects page
+  projectLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: |-
+      A project is a collection of narratives in 3D and may entail multiple 3D
+      scholary editions
+    caption: Text at header left on Project page
+  projectRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about 3D Scholary editing
+    caption: Text at header right on Project page
+  projectRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: /news.html
+    caption: Url under header right on Project page
+  editionsLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: What is a 3D Scholarly Edition?
+    caption: Text at header left on Editions page
+  editionsRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about 3D Scholary Editions
+    caption: Text at header right on Editions page
+  editionsRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: /about.html#editions
+    caption: Url under header right on Editions page
+  editionLeftText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: An edition is a narrative in 3D
+    caption: Text at header left on Edition page
+  editionRightText:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: Read more about 3D Scholary editing
+    caption: Text at header right on Edition page
+  editionRightUrl:
+    nameSpace: boilerplate
+    multiple: false
+    mandatory:
+      site: true
+    default: /news.html
+    caption: Url under header right on Edition page
 
 fieldDistribution:
   main:
     site:
-      - siteTitle:
-          mandatory: true
-          default: Pure3D
+      - title
     project:
-      - title:
-          mandatory: true
-          default: Untitled project
-      - subtitle:
-          mandatory: false
-          default: ""
-      - creator:
-          mandatory: true
-          default: Unknown
-      - contributor:
-          mandatory: false
-          default: []
-      - dateCreated:
-          mandatory: true
-          default: Unknown
-      - dateModified:
-          mandatory: false
-          default: ""
+      - title
+      - subtitle
+      - creator
+      - contributor
+      - dateCreated
+      - dateModified
     edition:
-      - title:
-          mandatory: true
-          default: Untitled edition
-      - subtitle:
-          mandatory: false
-          default: ""
-      - creator:
-          mandatory: true
-          default: Unknown
-      - contributor:
-          mandatory: false
-          default: []
-      - datePublished:
-          mandatory: false
-          default: ""
-      - dateUnPublished:
-          mandatory: false
-          default: ""
-      - dateCreated:
-          mandatory: true
-          default: Unknown
-      - dateModified:
-          mandatory: false
-          default: ""
+      - title
+      - subtitle
+      - creator
+      - contributor
+      - datePublished
+      - dateUnPublished
+      - dateCreated
+      - dateModified
   narrative:
     site:
-      - abstract:
-          mandatory: true
-          default: No site abstract
-      - description:
-          mandatory: true
-          default: No site description
+      - abstract
+      - description
+      - news
+      - provenance
     project:
-      - abstract:
-          mandatory: true
-          default: No project abstract
-      - description:
-          mandatory: true
-          default: No project description
+      - abstract
+      - description
     edition:
-      - abstract:
-          mandatory: true
-          default: No edition abstract
-      - description:
-          mandatory: true
-          default: No edition description
+      - abstract
+      - description
   box:
     site:
-      - provenance:
-          mandatory: true
-          default: No site provenance
+      - homeLeftText
+      - homeRightText
+      - homeRightUrl
+      - aboutLeftText
+      - aboutRightText
+      - aboutRightUrl
+      - newsLeftText
+      - newsRightText
+      - newsRightUrl
+      - projectsLeftText
+      - projectsRightText
+      - projectsRightUrl
+      - projectLeftText
+      - projectRightText
+      - projectRightUrl
+      - editionsLeftText
+      - editionsRightText
+      - editionsRightUrl
+      - editionLeftText
+      - editionRightText
+      - editionRightUrl
     project: []
     edition:
-      - license:
-          mandatory: true
-          default: >-
-            All rights reserved.
-      - rightsholder:
-          mandatory: true
-          default: See creator
-      - contact:
-          mandatory: true
-          default: See creator
-      - keyword:
-          mandatory: false
-          default: []
-      - audience:
-          mandatory: true
-          default: Not specified
-      - funder:
-          mandatory: false
-          default: ""
-      - country:
-          mandatory: true
-          default: []
-      - geo:
-          mandatory: false
-          default: ""
-      - place:
-          mandatory: false
-          default: ""
-      - period:
-          mandatory: true
-          default: ""
-      - temporal:
-          mandatory: false
-          default: []
-      - subject:
-          mandatory: true
-          default: []
-      - language:
-          mandatory: true
-          default: []
-      - source:
-          mandatory: true
-          default: []
-      - provenance:
-          mandatory: true
-          default: No edition provenance
+      - license
+      - rightsholder
+      - contact
+      - keyword
+      - audience
+      - funder
+      - country
+      - geo
+      - place
+      - period
+      - temporal
+      - subject
+      - language
+      - source
+      - provenance
 
 uploads:
   model:

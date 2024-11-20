@@ -92,7 +92,7 @@ class Publish:
 
         def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, stop=False, **condition)
+                itemsDb = Mongo.getList(kind, **condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -160,7 +160,7 @@ class Publish:
             good = Static.genPages(pPubNum, ePubNum, featured=featured)
 
         except Exception as e1:
-            Messages.error(logmsg="".join(format_exception(e1)), stop=False)
+            Messages.error(logmsg="".join(format_exception(e1)))
             good = False
 
         return good
@@ -173,7 +173,7 @@ class Publish:
         Precheck = self.Precheck
 
         if action not in {"add", "remove"}:
-            Messages.error(msg=f"unknown action {action}", stop=False)
+            Messages.error(msg=f"unknown action {action}")
             return
 
         processing = site.processing
@@ -243,7 +243,6 @@ class Publish:
                 Messages.error(
                     msg="Could not find a publication number for project",
                     logmsg=f"Could not find a pubnum for project {project._id}",
-                    stop=False,
                 )
                 good = False
 
@@ -251,7 +250,6 @@ class Publish:
                 Messages.error(
                     msg="Could not find a publication number for edition",
                     logmsg=f"Could not find a pubnum for {project._id}/{edition._id}",
-                    stop=False,
                 )
                 good = False
 
@@ -334,9 +332,7 @@ class Publish:
 
                 if not good:
                     Messages.error(
-                        msg=f"{againRep}Publishing of edition failed",
-                        logmsg=logmsg,
-                        stop=False,
+                        msg=f"{againRep}Publishing of edition failed", logmsg=logmsg
                     )
                     self.removeEditionFiles(pPubNum, ePubNum)
                     theseEditions = dirContents(f"{thisProjectDir}/edition")[1]
@@ -413,11 +409,7 @@ class Publish:
                     )
 
                 if not good:
-                    Messages.error(
-                        msg="Unpublishing of edition failed",
-                        logmsg=logmsg,
-                        stop=False,
-                    )
+                    Messages.error(msg="Unpublishing of edition failed", logmsg=logmsg)
 
         # finish off with unsetting the processing flag in the database
 

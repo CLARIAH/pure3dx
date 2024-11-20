@@ -5,7 +5,6 @@ from flask import (
     current_app,
     request,
     redirect,
-    # abort,
     session,
     render_template,
     make_response,
@@ -124,12 +123,6 @@ def redirectStatus(url, good):
     if url == "":
         url = "/"
     return redirect(url, code=code)
-
-
-def appStop():
-    """Stop the request and redirect to the home page."""
-    # abort(404)
-    return redirect("/", 303)
 
 
 def sessionPop(name):

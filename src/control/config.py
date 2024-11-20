@@ -547,8 +547,7 @@ class Config:
                     logmsg=(
                         f"Skipping viewer {viewerName} "
                         f"because there are no versions of it on the system"
-                    ),
-                    stop=False,
+                    )
                 )
                 continue
 

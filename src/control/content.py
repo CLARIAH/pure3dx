@@ -357,13 +357,10 @@ class Content(Datamodel):
 
         if links:
             for linkTable, linkCriteria in links.items():
-                (thisGood, count) = Mongo.deleteRecords(
-                    linkTable, stop=False, **linkCriteria
-                )
+                (thisGood, count) = Mongo.deleteRecords(linkTable, **linkCriteria)
                 if not thisGood:
                     good = False
                     Messages.error(
-                        stop=False,
                         msg=f"Error during removing link records from {linkTable}",
                         logmsg=(
                             "Cannot delete records from "
@@ -532,7 +529,7 @@ class Content(Datamodel):
         if not permitted:
             return dict(stat=False, messages=[["error", "update not allowed"]])
 
-        F = self.makeField(key)
+        F = self.makeField(key, table)
 
         readonly = F.readonly
 
@@ -559,7 +556,7 @@ class Content(Datamodel):
         if key == "title":
             update[key] = sValue
 
-        if Mongo.updateRecord(table, update, stop=False, _id=recordId) is None:
+        if Mongo.updateRecord(table, update, _id=recordId) is None:
             return dict(
                 stat=False,
                 messages=[["error", "could not update the record in the database"]],
@@ -572,14 +569,14 @@ class Content(Datamodel):
         dateModifiedPath = fieldPaths["dateModified"]
 
         if not self.getValue(table, record, "dateCreated", manner="logical"):
-            Mongo.updateRecord(table, {dateCreatedPath: now}, stop=False, _id=recordId)
+            Mongo.updateRecord(table, {dateCreatedPath: now}, _id=recordId)
 
-        Mongo.updateRecord(table, {dateModifiedPath: now}, stop=False, _id=recordId)
+        Mongo.updateRecord(table, {dateModifiedPath: now}, _id=recordId)
 
         return dict(
             stat=True,
             messages=[],
-            readonly=F.formatted(table, record, editable=False, level=None),
+            readonly=F.formatted(record, editable=False, level=None),
         )
 
     def saveRole(self, user, table, recordId):
@@ -730,7 +727,7 @@ class Content(Datamodel):
         if "read" not in actions:
             return None
 
-        F = self.makeField(key)
+        F = self.makeField(key, table)
 
         isBare = manner in {"bare", "barex"}
         compact = manner == "barex"
@@ -740,7 +737,7 @@ class Content(Datamodel):
             return F.bare(record, compact=compact) if isBare else F.logical(record)
 
         editable = Auth.authorise(table, record, action="update")
-        return F.formatted(table, record, editable=editable, level=level)
+        return F.formatted(record, editable=editable, level=level)
 
     def getValues(self, table, record, fieldSpecs):
         """Puts several pieces of metadata on the web page.
@@ -1508,7 +1505,7 @@ class Content(Datamodel):
         except Exception as e:
             msg = "Could not assemble the data for download"
             Messages.error(msg=msg, logmsg=msg)
-            Messages.error(logmsg="".join(format_exception(e)), stop=False)
+            Messages.error(logmsg="".join(format_exception(e)))
             good = False
 
         dirRemove(dst)
