@@ -582,7 +582,6 @@ class Static:
 
         def get_textpages():
             info = dbData["site"]
-            print(f"XXXXXXXXXXXX {info=}")
             bp = self.bp
 
             result = []
@@ -602,7 +601,6 @@ class Static:
                 r[f"is{ucFirst(r.name)}"] = True
                 r.fileName = f"{textName}.html"
                 r.content = F.formatted(info)
-                print(f"XXXXXXXXXXXX {textName=} {r.content=}")
 
                 result.append(r)
 

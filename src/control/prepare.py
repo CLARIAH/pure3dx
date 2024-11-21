@@ -89,28 +89,26 @@ def prepare(design=False, migrate=False, trivial=False):
         return AttrDict(Settings=Settings, Messages=Messages)
 
     Viewers = ViewersCls(Settings, Messages)
+    Mongo = MongoCls(Settings, Messages)
+    Wrap = WrapCls(Settings, Messages, Viewers)
+    Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
+    Tailwind = TailwindCls(Settings)
+    Handlebars = Compiler()
 
     if design:
-        Tailwind = TailwindCls(Settings)
-        Handlebars = Compiler()
 
         return AttrDict(
             Settings=Settings,
             Messages=Messages,
+            Content=Content,
             Viewers=Viewers,
             Tailwind=Tailwind,
             Handlebars=Handlebars,
         )
 
-    Mongo = MongoCls(Settings, Messages)
-
-    Wrap = WrapCls(Settings, Messages, Viewers)
     Backup = (
         None if Settings.runMode == "prod" else BackupCls(Settings, Messages, Mongo)
     )
-    Tailwind = TailwindCls(Settings)
-    Handlebars = Compiler()
-    Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
     Publish = PublishCls(
         Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
     )

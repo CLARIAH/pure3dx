@@ -10,6 +10,7 @@ def build(featured):
     Static = StaticCls(
         objects.Settings,
         objects.Messages,
+        objects.Content,
         objects.Viewers,
         objects.Tailwind,
         objects.Handlebars,
