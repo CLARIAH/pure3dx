@@ -24,6 +24,12 @@ linkMain:
 fields:
   featured:
     caption: "featured projects {value}"
+  blog:
+    tp: text
+    mandatory:
+      site: true
+    default: https://pure3d.eu/news/
+    caption: Blog link
   title:
     nameSpace: dc
     multiple: false
@@ -432,6 +438,7 @@ fieldDistribution:
       - description
   box:
     site:
+      - blog
       - homeLeftText
       - homeRightText
       - homeRightUrl

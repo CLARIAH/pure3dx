@@ -344,7 +344,7 @@ class Admin:
         wrapped = []
         wrapped.append(H.h(1, "Manage keywords"))
         wrapped.append(H.div(keywordMaterial))
-        return H.div(wrapped, id="allkeywords")
+        return H.div(wrapped, id="keywordcontrols")
 
     def _wrapUserControls(self):
         """Generate HTML for the user management.

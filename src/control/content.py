@@ -89,6 +89,7 @@ class Content(Datamodel):
         Wrap = self.Wrap
 
         (siteTable, siteId, site) = self.relevant()
+
         if siteId is None:
             return ""
 

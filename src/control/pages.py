@@ -981,7 +981,10 @@ class Pages:
         Backup = self.Backup
         Auth = self.Auth
 
-        navigation = self.navigation(url)
+        (siteTable, siteId, site) = Content.relevant()
+        blogUrl = Content.getValue(siteTable, site, "blog", manner="bare")
+
+        navigation = self.navigation(url, blogUrl)
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
         banner = Settings.banner
         if Backup is not None:
@@ -1015,7 +1018,7 @@ class Pages:
             iconSite=iconSite,
         )
 
-    def navigation(self, url):
+    def navigation(self, url, blogUrl):
         """Generates the navigation controls.
 
         Especially the tab bar.
@@ -1044,10 +1047,11 @@ class Pages:
         TABS = (
             ("home", "Home", True, True),
             ("project", "3D Projects", True, True),
-            (pubUrl, "Published Projects ⌲", True, True),
             ("admin", "My Work", True, True),
-            ("directory", "3D Directory", False, False),
             ("advancedsearch", "Advanced Search", False, False),
+            (None, "|", True, True),
+            (pubUrl, "Published Projects ⌲", True, True),
+            (blogUrl, "Blog ⌲", True, True),
         )
 
         search = H.span(
@@ -1080,18 +1084,25 @@ class Pages:
 
             active = "active" if url == tab else ""
 
-            if enabled:
-                elem = "a"
-                cls = active
-                href = [tab if "/" in tab else f"/{tab}"]
-                target = dict(target=published) if "/" in tab else {}
-            else:
+            if tab is None:
                 elem = "span"
-                cls = "disabled"
                 href = []
                 target = {}
+                fullCls = "large"
+            else:
+                if enabled:
+                    elem = "a"
+                    cls = active
+                    href = [tab if "/" in tab else f"/{tab}"]
+                    target = dict(target=published) if "/" in tab else {}
+                else:
+                    elem = "span"
+                    cls = "disabled"
+                    href = []
+                    target = {}
 
-            fullCls = f"button large {cls}"
+                fullCls = f"button large {cls}"
+
             divContent.append(H.elem(elem, label, *href, cls=fullCls, **target))
 
         divContent.append(search)
