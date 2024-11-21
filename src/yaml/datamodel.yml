@@ -1,6 +1,5 @@
 texts:
   about: description 
-  news: news
 
 tables:
   - site
@@ -67,7 +66,7 @@ fields:
     mandatory: true
     default:
       site: |-
-        # <a name="home">What is Pure3D?</a>
+        ## <a name="home">What is Pure3D?</a>
         
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
         tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
@@ -77,7 +76,20 @@ fields:
         occaecat cupidatat non proident, sunt in culpa qui officia deserunt
         mollit anim id est laborum.
 
-        # <a name="projects">What is a Pure 3D Project?</a> 
+        ## <a name="news">News</a>
+
+        It is not yet possible to build and publish 3D scholarly editions
+        through the platform. However, this feature will be tested through a
+        series of new projects that will be developed in PURE3D.  If you are a
+        3D content creator or 3D object/space holder and you are interested in
+        working with the PURE3D infrastructure, you can apply for developing
+        your project into a 3D scholarly edition. Successful applicants will
+        receive support, guidance, and funding by the PURE3D team during the
+        Fall of 2023. For more information about the Call and to make an
+        application, please visit the
+        [call for 3d projects](https://pure3d.eu/call-for-3d-projects).
+
+        ## <a name="projects">What is a Pure 3D Project?</a> 
 
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
         tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
@@ -87,7 +99,7 @@ fields:
         occaecat cupidatat non proident, sunt in culpa qui officia deserunt
         mollit anim id est laborum."
 
-        # <a name="editions">What is a 3D Scholarly Edition?</a>
+        ## <a name="editions">What is a 3D Scholarly Edition?</a>
         
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
         tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
@@ -97,7 +109,7 @@ fields:
         occaecat cupidatat non proident, sunt in culpa qui officia deserunt
         mollit anim id est laborum."
 
-        # How to create a 3D Scholarly Edition in Pure3D
+        ## <a name="edition">How to create a 3D Scholarly Edition in Pure3D</a>
 
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
         tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
@@ -109,24 +121,6 @@ fields:
       project: No project description
       edition: No edition description
     caption: Description
-  news:
-    nameSpace: dc
-    tp: text
-    mandatory:
-      site: true
-    default:
-      site: |-
-        It is not yet possible to build and publish 3D scholarly editions
-        through the platform. However, this feature will be tested through a
-        series of new projects that will be developed in PURE3D.  If you are a
-        3D content creator or 3D object/space holder and you are interested in
-        working with the PURE3D infrastructure, you can apply for developing
-        your project into a 3D scholarly edition. Successful applicants will
-        receive support, guidance, and funding by the PURE3D team during the
-        Fall of 2023. For more information about the Call and to make an
-        application, please visit
-        [pure3d.eu/call-for-3d-projects](https://pure3d.eu/call-for-3d-projects).
-    caption: News
   license:
     nameSpace: dc
     fieldPath: rights.license
@@ -318,27 +312,6 @@ fields:
       site: true
     default: https://pure3d.eu/
     caption: Url under footer right on About page
-  newsLeftText:
-    nameSpace: boilerplate
-    multiple: false
-    mandatory:
-      site: true
-    default: Would you like to know more about PURE3D?
-    caption: Text at footer left on News page
-  newsRightText:
-    nameSpace: boilerplate
-    multiple: false
-    mandatory:
-      site: true
-    default: Read more about PURE3D
-    caption: Text at footer right on News page
-  newsRightUrl:
-    nameSpace: boilerplate
-    multiple: false
-    mandatory:
-      site: true
-    default: https://pure3d.eu/
-    caption: Url under footer right on News page
   projectsLeftText:
     nameSpace: boilerplate
     multiple: false
@@ -381,7 +354,7 @@ fields:
     multiple: false
     mandatory:
       site: true
-    default: /news.html
+    default: /about.html#news
     caption: Url under header right on Project page
   editionsLeftText:
     nameSpace: boilerplate
@@ -423,7 +396,7 @@ fields:
     multiple: false
     mandatory:
       site: true
-    default: /news.html
+    default: /about.html#news
     caption: Url under header right on Edition page
 
 fieldDistribution:
@@ -450,7 +423,6 @@ fieldDistribution:
     site:
       - abstract
       - description
-      - news
       - provenance
     project:
       - abstract
@@ -466,9 +438,6 @@ fieldDistribution:
       - aboutLeftText
       - aboutRightText
       - aboutRightUrl
-      - newsLeftText
-      - newsRightText
-      - newsRightUrl
       - projectsLeftText
       - projectsRightText
       - projectsRightUrl

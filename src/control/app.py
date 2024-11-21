@@ -438,7 +438,7 @@ def appFactory(objects):
         This is not a full publishing action, no data from projects and editions
         will be exported from the authoring system to the publishing system.
         However, the site-wide data will be exported, so that all the boilerplate texts,
-        and the fixed content pages (about and news) will show up in their updated
+        and the fixed content page (about) will show up in their updated
         form (if any updates have been made).
 
         Based on the earlier exported database data of published projects and editions,

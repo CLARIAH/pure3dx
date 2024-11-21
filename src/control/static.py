@@ -192,7 +192,7 @@ class Static:
         )
         self.featured = featured
 
-        def updateStatic(kind, srcDr):
+        def updateStatic(fileType, srcDr):
             """Copy over static files.
 
             We are careful: instead of copying a folder, we merge, recursively,
@@ -205,12 +205,12 @@ class Static:
             We do this, because older parts of the site may depend on older
             static files.
             """
-            dstDir = f"{pubModeDir}/{kind}"
+            dstDir = f"{pubModeDir}/{fileType}"
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f"{c:>3} copied, {d:>3} deleted"
             Messages.info(
-                msg=f"{kind} {c} copied",
-                logmsg=f"{'updated':<10} {kind:<12} {report:<24} to {dstDir}",
+                msg=f"{fileType} {c} copied",
+                logmsg=f"{'updated':<10} {fileType:<12} {report:<24} to {dstDir}",
             )
             return good
 

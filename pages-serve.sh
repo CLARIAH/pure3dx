@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [[ "$1" == "" ]]; then
-    runmode=pilot
+    runmode=prod
 else
     runmode="$1"
 fi

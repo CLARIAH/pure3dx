@@ -16,7 +16,7 @@ cd src
 if [[ "$1" == "--help" ]]; then
     printf $HELP
 elif [[ "$1" == "" ]]; then
-    runmode=custom
+    runmode=prod
 else
     runmode="$1"
     shift

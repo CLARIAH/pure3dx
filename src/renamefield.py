@@ -7,7 +7,7 @@ from control.prepareMigrate import prepare
 
 
 HELP = """\
-Rename a metadata field Pure3D data
+Rename a metadata field Pure3D data or remove it.
 
 USAGE
 
@@ -42,6 +42,10 @@ Examples
 
 ./renamefield.sh prod edition pl dc.subject dc.keyword --dry
 ./renamefield.sh prod edition sg lastPublished dc.datePublished --dry
+./renamefield.sh prod site sg dc.title - --dry
+./renamefield.sh prod site sg dc.abstract - --dry
+./renamefield.sh prod site sg dc.description - --dry
+./renamefield.sh prod site sg dc.provenance - --dry
 """
 
 MODES = set(

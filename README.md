@@ -104,6 +104,11 @@ There is a lot of documentation in the
 [Python docstrings of the authoring app](https://clariah.github.io/pure3dx/control/index.html)
 which is the app that contains all the business logic.
 
+## Design development
+
+The [design guide](docs/design.md) describes the ins and outs of developing the design
+op the published pages.
+
 ## History
 
 *   2024-05-16 Pure3D went in production

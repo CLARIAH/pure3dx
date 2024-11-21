@@ -22,6 +22,23 @@ Both **P** and **A** let you navigate through projects and editions, and you
 can jump back and forth between **P** and **A** per project en per edition,
 provided that these things exist at both ends.
 
+### Logging in and out
+
+The **P** app does not require login, in fact, it does not have any facility to
+recognize (and remember) users. It is a readonly site, users cannot change data.
+
+The **A** app does not require login for its public parts, such as the home page
+and the visible projects and the published editions.
+But anyone who wants to do work on **A** must log in via a federated login.
+
+Admins can assign specific roles to users, by which they get the necessary permissions
+to perform specific tasks, such as organizing a project, editing or reviewing an
+edition.
+
+Logging out is a bit of a hassle: after pressing the logout button, nothing seems to
+happen. Only when you quit the browser, you are logged out, because then the browser
+forgets about the federated login.
+
 ## The general workflow
 
 The life cycle of an edition starts with somebody that wants to create an edition.
@@ -162,7 +179,13 @@ https://editions.pure3d.eu/project/7/index.html
 
 You can regenerate the HTML pages for the **P** app. When is this needed?
 
-If you have changed the featured projects. It will only take effect after regeneration.
+*   If you have changed the featured projects. It will only take effect after
+    regeneration.
+
+*   If you have changed boilerplate texts, such as the title, abstract, description and
+    provenance of the site itself (an admin sees these fields on the home page
+    of the authoring app; these fields will be transported to the published pages when
+    you regenerate.
 
 Also, the systems manager has to do it when the **P** app gets a new layout.
 Then the HTML for everything in the **P** app has to be regenerated.
