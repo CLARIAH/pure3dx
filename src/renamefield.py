@@ -12,6 +12,10 @@ Rename a metadata field Pure3D data or remove it.
 USAGE
 
 python renamefield.py [options] source table pl/sg origfield newfield
+python renamefield.py [options] source table pl/sg origfield -
+
+The first version moves/merges values of a field into another field.
+The second version removes a field altogether.
 
 You have to specify the db where the renaming has to take place, the table in
 that db, whether the field can have multiple values, and the original field
@@ -115,7 +119,11 @@ def fieldRename(Settings, srcDb, table, mult, oldField, newField, dry):
     srcConn = client[srcDb]
     dryRep = "(dry run) " if dry else ""
 
-    print(f"\t{dryRep}DB {srcDb}: rename {oldField} to {newField}")
+    doRemove = newField == "-"
+    actionRep = "remove" if doRemove else "rename"
+    paramRep = "" if doRemove else f" to {newField}"
+
+    print(f"\t{dryRep}DB {srcDb}: {actionRep} {oldField} {paramRep}")
 
     srcTable = srcConn[table]
     records = list(srcTable.find())
@@ -127,61 +135,75 @@ def fieldRename(Settings, srcDb, table, mult, oldField, newField, dry):
 
     for record in records:
         old = logical(record, oldField)
-        new = logical(record, newField)
 
-        if mult:
-            if type(old) is list and not len(old) and type(new) is list:
-                continue
-            else:
-                if old is None:
-                    old = []
-                    msgo = "None"
-                else:
-                    if type(old) is list:
-                        msgo = f"[{len(old)}]" if len(old) else "[]"
-                    else:
-                        msgo = "str"
-                        old = [old]
-
-                if new is None:
-                    msgn = "None"
-                    new = []
-                else:
-                    if type(new) is list:
-                        msgn = f"[{len(new)}]" if len(new) else "[]"
-                    else:
-                        msgn = "str"
-                        new = [new]
-        else:
+        if doRemove:
             if old is None:
                 msgo = "None"
+            elif type(old) is list:
+                msgo = f"[{len(old)}]" if len(old) else "[]"
             else:
                 msgo = "str"
 
-            if new is None:
-                msgn = "None"
+            has += 1
+            print(f"\t\t\t{oldField}: {msgo} => Z")
+
+            if not dry:
+                srcTable.update_one({"_id": record["_id"]}, {"$unset": {oldField: ""}})
+
+        else:
+            new = logical(record, newField)
+
+            if mult:
+                if type(old) is list and not len(old) and type(new) is list:
+                    continue
+                else:
+                    if old is None:
+                        old = []
+                        msgo = "None"
+                    else:
+                        if type(old) is list:
+                            msgo = f"[{len(old)}]" if len(old) else "[]"
+                        else:
+                            msgo = "str"
+                            old = [old]
+
+                    if new is None:
+                        msgn = "None"
+                        new = []
+                    else:
+                        if type(new) is list:
+                            msgn = f"[{len(new)}]" if len(new) else "[]"
+                        else:
+                            msgn = "str"
+                            new = [new]
             else:
-                msgn = "str"
+                if old is None:
+                    msgo = "None"
+                else:
+                    msgo = "str"
 
-        has += 1
+                if new is None:
+                    msgn = "None"
+                else:
+                    msgn = "str"
 
-        newMerged = (
-            sorted(set(old) | set(new)) if mult else (new if old is None else old)
-        )
-        msgd = (f"[{len(newMerged)}]" if len(newMerged) else "[]") if mult else "str"
-
-        print(f"\t\t\t{oldField}: {msgo} + {newField}: {msgn} => {newField}: {msgd}")
-
-        if not dry:
-            srcTable.update_one(
-                {"_id": record["_id"]},
-                {
-                    "$set": {newField: newMerged},
-                    "$unset": {oldField: ""},
-                },
+            has += 1
+            newMerged = (
+                sorted(set(old) | set(new)) if mult else (new if old is None else old)
             )
+            msgd = (f"[{len(newMerged)}]" if len(newMerged) else "[]") if mult else "str"
+            print(f"\t\t\t{oldField}: {msgo} + {newField}: {msgn} => {newField}: {msgd}")
 
-    print(f"\t\t{dryRep} table {table} renamed {has} of {nRecs} record{plural} ...")
+            if not dry:
+                srcTable.update_one(
+                    {"_id": record["_id"]},
+                    {
+                        "$set": {newField: newMerged},
+                        "$unset": {oldField: ""},
+                    },
+                )
+
+    print(f"\t\t{dryRep} table {table} {actionRep} {has} of {nRecs} record{plural} ...")
     return good
 
 
@@ -221,7 +243,9 @@ def main(args):
         print("sg/pl argument must be one of sg pl")
         return -1
 
-    print("Arguments OK: starting field renaming")
+    actionRep = "removing" if newField == "-" else "renaming"
+
+    print(f"Arguments OK: starting field {actionRep}")
 
     objects = prepare()
 
