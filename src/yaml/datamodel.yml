@@ -77,58 +77,72 @@ fields:
     mandatory: true
     default:
       site: |-
-        ## <a name="home">What is Pure3D?</a>
-        
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-        mollit anim id est laborum.
+        ## <a name="home">What is PURE3D?</a>
 
-        ## <a name="news">News</a>
+        PURE3D is a national infrastructure dedicated to the publication and
+        preservation of 3D scholarship, spearheaded by Dr. Costas Papadopoulos
+        and Prof. Susan Schreibman at Maastricht University, The Netherlands.
+        The project aims to redefine how 3D cultural heritage and scholarly
+        outputs are presented, preserved, and evaluated, fostering innovation
+        in 3D-based research across the humanities and social sciences. Unlike
+        traditional practices where 3D models are often detached from scholarly
+        narratives, PURE3D integrates these models as primary scholarly
+        outputs. By contextualising them with annotations, multimedia content,
+        and metadata, PURE3D transforms them into multimodal resources that are
+        impossible to replicate in print. This approach not only enhances
+        accessibility but also ensures that both the models and their
+        interpretative processes become part of the academic record.
 
-        It is not yet possible to build and publish 3D scholarly editions
-        through the platform. However, this feature will be tested through a
-        series of new projects that will be developed in PURE3D.  If you are a
-        3D content creator or 3D object/space holder and you are interested in
-        working with the PURE3D infrastructure, you can apply for developing
-        your project into a 3D scholarly edition. Successful applicants will
-        receive support, guidance, and funding by the PURE3D team during the
-        Fall of 2023. For more information about the Call and to make an
-        application, please visit the
-        [call for 3d projects](https://pure3d.eu/call-for-3d-projects).
+        Phase 1 (2020–2024): Funded by the Platform Digitale Infrastructuur –
+        Social Sciences & Humanities (PDI-SSH), this phase focused on
+        developing the foundational infrastructure through pilot projects.
+        These pilots informed user requirements and helped build a
+        collaborative community of researchers to co-develop, test, and use the
+        platform. Supported by NWO's Open Science Fund, a follow-up project,
+        OPER3D (2024), explores workflows for peer review and evaluation of 3D
+        scholarly editions, transforming PURE3D into a robust publication
+        infrastructure.
 
-        ## <a name="projects">What is a Pure 3D Project?</a> 
+        Future Developments (2025-2028): Funding from the Lorentz
+        Centre/eScience Center will allow the project team to investigate the
+        concept of paradata—the documentation of decision-making processes in
+        creating 3D models—and its application within PURE3D. This also
+        includes bringing together a group of 25 scholars for a workshop hosted
+        at the Lorentz Centre in September 2025. Additional support from the
+        eScience Centre throuhg the Open eScience Call will also enable the
+        infrastructure to integrate advanced analytical tools to enhance the
+        scholarly potential of 3D Scholarly Editions.
 
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-        mollit anim id est laborum."
+        To learn more about PURE3D’s mission and ongoing developments, visit
+        the [PURE3D website](https://pure3d.eu/).
+
+        ## <a name="projects">What is a PURE3D Project?</a> 
+
+        A 3D model can be turned into a 3D Scholarly Edition. However, a
+        project may have more than a single edition. Therefore, PURE3D allows
+        authors to develop a series of editions group together under a thematic
+        project. For example, our project 'Let there be light' developed by the
+        Netherlands Mijnmusem consists of several 3D Scholarly editions of
+        mining lamps. This allows for better categorisation and retrieval of
+        editions and can provide better search options in the future.  
 
         ## <a name="editions">What is a 3D Scholarly Edition?</a>
-        
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-        mollit anim id est laborum."
 
-        ## <a name="edition">How to create a 3D Scholarly Edition in Pure3D</a>
+        A 3D Scholarly Edition is an innovative form of digital publication
+        where 3D models serve as the primary "text", accompanied by rich
+        contextual, interpretative, and process-oriented information. Unlike
+        traditional scholarly outputs that separate 3D models from their
+        corresponding research narratives, 3DSEs integrate these elements into
+        a unified, interactive environment designed to enhance scholarly
+        communication and knowledge production.
 
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-        mollit anim id est laborum.
+        ## <a name="edition">Publish a 3D Scholarly Edition</a>
+
+        Are you interested in turning your 3D model into a peer-reviewed 3D
+        scholarly edition. You can find instructions for authors, submission
+        guidelines and evaluation criteria, and examples of already published
+        3D Scholarly Editions on the [PURE3D website](https://pure3d.eu/) under
+        'Publish with Us'.
       project: No project description
       edition: No edition description
     caption: Description
@@ -300,7 +314,7 @@ fields:
     multiple: false
     mandatory:
       site: true
-    default: /about.html#home
+    default: https://pure3d.eu/submission-guidelines/
     caption: Url under footer right on Home page
   aboutLeftText:
     nameSpace: boilerplate
@@ -358,14 +372,14 @@ fields:
     multiple: false
     mandatory:
       site: true
-    default: Read more about 3D Scholary editing
+    default: Read more about our projects
     caption: Text at header right on Project page
   projectRightUrl:
     nameSpace: boilerplate
     multiple: false
     mandatory:
       site: true
-    default: /about.html#news
+    default: /about.html#projects
     caption: Url under header right on Project page
   editionsLeftText:
     nameSpace: boilerplate
@@ -393,21 +407,21 @@ fields:
     multiple: false
     mandatory:
       site: true
-    default: An edition is a narrative in 3D
+    default: An edition is an object-based multimodal narrative in 3D
     caption: Text at header left on Edition page
   editionRightText:
     nameSpace: boilerplate
     multiple: false
     mandatory:
       site: true
-    default: Read more about 3D Scholary editing
+    default: Read more about 3D Scholary Editions
     caption: Text at header right on Edition page
   editionRightUrl:
     nameSpace: boilerplate
     multiple: false
     mandatory:
       site: true
-    default: /about.html#news
+    default: /about.html#editions
     caption: Url under header right on Edition page
 
 fieldDistribution:
