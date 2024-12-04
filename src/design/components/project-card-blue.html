@@ -1,0 +1,25 @@
+<a
+  href="/{{fileName}}"
+  class="w-full   group bg-[#D1E1F2] flex flex-col gap-4 text-p3D-900 justify-between rounded border-b-4 border-[#D1E1F2] hover:border-[#66CCB8] transition pb-4 break-inside-avoid-column"
+  onmouseover="showSum('{{num}}')"
+  aria-label="Go to {{name}}"
+>
+  <div class="flex justify-center"
+  >
+    <img
+      src="/project/{{num}}/icon.png"
+      class="transition object-cover  w-full"
+      alt="{{name}}"
+      loading="lazy"
+      onerror="this.onerror=null; this.src='/images/noImg.png'"
+    >
+  </div>
+
+  <div class="text-center font-bold px-4">
+    {{name}}
+  </div>
+
+  <div class="text-xs text-center text-p3D-900/75 px-4 hidden">
+    Project
+  </div>
+</a>

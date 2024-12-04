@@ -1,11 +1,28 @@
 <div class="">
     <h2 id="sumTitle">{{title}}</h2>
-    <em>{{actor}}</em>
+    <div id="sumCreator" class="text-neutral-700">{{creator}}</div>
+    
     <div class="{{> styles/image-frame}} my-8">
-        <a href="/project.html" id="sumlink1" aria-label="go to project: {{title}}"><img src="images/{{image}}" class="{{> styles/image-frame-img}}" alt="{{title}}" loading="lazy" id="sumImg"></a>
+        <a
+            id="sumlink1"
+            href="/project.html"
+            aria-label="go to project: {{title}}"
+        ><img
+            id="sumImg"
+            src="{{image}}"
+            class="{{> styles/image-frame-img}}"
+            alt="{{title}}"
+            loading="lazy"
+            id="sumImg"
+        ></a>
     </div>
     <div id="sumAbstract">{{text}}</div>
     <div class="flex justify-end my-4">
-        <a href="/project.html" class="{{> styles/button-basic isDark=true}}" id="sumlink2" aria-label="go to project: {{title}}">Go to project</a>
+        <a
+            id="sumlink2"
+            href="/project.html"
+            aria-label="go to project: {{title}}"
+            class="{{> styles/button-basic isDark=true}}"
+        >Go to project</a>
     </div>
 </div>

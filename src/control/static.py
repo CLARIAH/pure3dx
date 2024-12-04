@@ -644,6 +644,7 @@ class Static:
 
         def get_project():
             info = dbData[kind]
+            Fcreator = Content.makeField("creator", "project")
             Fabstract = Content.makeField("abstract", "project")
             Fdescription = Content.makeField("description", "project")
 
@@ -656,6 +657,7 @@ class Static:
                 r.name = item.title
                 r.num = num
                 r.fileName = f"project/{num}/index.html"
+                r.creator = Fcreator.bare(item, joined="; ")
                 r.abstract = Fabstract.logical(item)
                 r.description = Fdescription.logical(item)
                 r.visible = item.isVisible or False
@@ -665,6 +667,7 @@ class Static:
 
         def get_edition():
             info = dbData[kind]
+            Fcreator = Content.makeField("creator", "edition")
             Fabstract = Content.makeField("abstract", "edition")
             Fdescription = Content.makeField("description", "edition")
             Fsubject = Content.makeField("subject", "edition")
@@ -681,6 +684,7 @@ class Static:
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f"project/{pNum}/edition/{eNum}/index.html"
+                    r.creator = Fcreator.bare(item, joined="; ")
                     r.abstract = Fabstract.logical(item)
                     r.description = Fdescription.logical(item)
                     r.subject = Fsubject.logical(item)

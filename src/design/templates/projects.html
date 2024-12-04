@@ -1,24 +1,65 @@
 {{> general/html-header-preamble}}
+<script>
+  function showSum(elemId) {
+    console.log(elemId);
+    let elementList = document.querySelectorAll('.editSum')
+
+    elementList.forEach(elem => {
+        elem.classList.remove("flex");
+        elem.classList.add("hidden");
+    });
+    
+    document.getElementById('sum'+elemId).classList.remove("hidden");
+    document.getElementById('sum'+elemId).classList.add("flex");
+    
+}
+</script>
 </head>
-<body>
-{{> responsive-header}}
-{{> bar-gradient-color}}
-{{> bar-info}}
-<main class="">
 
-    {{> project-carousel title="Explore our 3D Projects"}}
+<body class="text-neutral-900 font-inter">
 
-    {{> bar-gradient-grey}}
+  <div class="flex flex-col justify-between min-h-screen">
+  
+      {{> responsive-header}}
+      {{> bar-gradient-color}}
+      {{> bar-info}}
+      <main class="mt-16 px-4 grow flex flex-col justify-between">
+        <div class="mx-auto">
+          <h1 class="text-2xl mb-16 text-center">Explore our 3D Projects</h1>
+        </div>
 
-    <div class="px-4 w-full max-w-xl mx-auto flex flex-col gap-16 mb-16">
-        {{>project-summary image="" title="" actor="" text=""}}
-        {{!-- {{> edition-select title=""}} --}}
+        <div class="flex gap-8 mb-10 max-w-[1800px] mx-auto grow">
+          <div class="w-full md:w-2/3">
+            <div class="w-full columns-2 md:columns-5 gap-4 space-y-4">
+                {{#each projects}}
+                    {{> project-card-blue}}
+                {{/each}}
+
+                {{!-- 
+                  flex flex-col md:flex-row justify-end gap-6 flex-wrap
+                  min-h-[330px] md:w-64 
+                  h-48
+                   --}}
+                
+
+            </div>
+
+          </div>
+          <div class="hidden md:flex md:w-1/3">
+            <div class="w-full relative">
+              {{#each projects}}
+              {{>project-summary-2 }}
+            {{/each}}
+            </div>
+           
+          </div>
+        </div>    
         
-    </div>
-
-    {{> bar-gradient-color}}
-    {{> main-footer}}
-
-</main>
+      </main>
+        {{> bar-gradient-color}}
+        {{> main-footer}}
+</div>
 
 {{> general/html-footer}}
+
+

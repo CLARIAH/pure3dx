@@ -71,6 +71,7 @@ export class Carousel {
     }
 
     document.getElementById("sumTitle").innerHTML = this.data[this.curP].name
+    document.getElementById("sumCreator").innerHTML = this.data[this.curP].creator
     document.getElementById("sumAbstract").innerHTML = this.data[this.curP].abstract
     document.getElementById("sumImg").src = `/project/${
       this.data[this.curP].num
@@ -93,15 +94,15 @@ export class Carousel {
         .map(
           (p, i) => `
           <div
-            href="${p.projectLink}"
-            class="absolute mx-auto left-0 right-0 transition-all z-0 bg-white overflow-hidden h-48" 
+            href=""
+            class="absolute mx-auto left-0 right-0 transition-all z-0 overflow-hidden h-56 bg-white" 
             id="pc${i}"
             style="width:300px; z-index:0"
             aria-label="Go to project: ${p.name}"
           >
             <img
               src="/project/${p.num}/icon.png"
-              class="w-full"
+              class="w-full border-2 border-white rounded shadow-lg"
               alt=""
               loading="lazy"
               id="pimg${i}"

@@ -1,14 +1,14 @@
 <div
-  class="editSum w-full flex-col gap-8 {{#if @first}}flex{{else}}hidden{{/if}} sticky top-4" id="sum{{projectNum}}_{{num}}">
+  class="editSum w-full flex-col gap-8 {{#if @first}}flex{{else}}hidden{{/if}} sticky top-4" id="sum{{num}}">
     <div class="w-full flex justify-center">
-            <img src="/project/{{projectNum}}/edition/{{num}}/icon.png" class="w-48 h-48 rounded-full object-cover" alt="" loading="lazy" id="editionSumImg"> 
+            <img src="/project/{{num}}/icon.png" class="w-48 h-48 rounded-full object-cover" alt="" loading="lazy" id="editionSumImg"> 
     </div>
     <div class="max-w-lg xl:w-[550px] mx-auto">
         <h2 id="editionSumTitle">{{name}}</h2>
         <em id="editionSumCreator">{{creator}}</em>
         <p id="editionSumDescription">{{abstract}}</p>
         <div class="flex justify-between my-4 gap-4">
-            <a href="/{{projectFileName}}" id="editionSumprojectLink">Go to project</a>
+            
             <a href="/{{fileName}}" class="{{> styles/button-basic isDark=true}}" id="editionSumEditionLink">Go to edition</a>
         </div>
     </div>

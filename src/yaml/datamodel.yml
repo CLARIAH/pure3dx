@@ -23,6 +23,11 @@ linkMain:
 
 fields:
   featured:
+    tp: int
+    multiple: true
+    mandatory:
+      site: true
+    default: [1, 2, 3]
     caption: "featured projects {value}"
   blog:
     tp: text

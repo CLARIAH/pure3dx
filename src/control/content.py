@@ -541,6 +541,7 @@ class Content(Datamodel):
         fieldPath = fieldPaths[key]
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return dict(
                 stat=False,
@@ -553,6 +554,8 @@ class Content(Datamodel):
             else value if tp == "keyword" else readYaml(value, plain=True, ignore=True)
         )
         update = {fieldPath: sValue}
+
+        self.debug(f"{update=}")
 
         if key == "title":
             update[key] = sValue

@@ -51,7 +51,7 @@ class Datamodel:
         fieldPaths = {}
 
         for f, cfg in fieldsConfig.items():
-            nameSpace = cfg.nameSpace
+            nameSpace = cfg.nameSpace or ""
             fieldPath = cfg.fieldPath or f
             sep = "." if nameSpace and fieldPath else ""
             fieldPaths[f] = f"{nameSpace}{sep}{fieldPath}"
@@ -847,7 +847,7 @@ class Field:
 
         dataSource[fields[-1]] = value
 
-    def bare(self, record, compact=False):
+    def bare(self, record, compact=False, joined=False):
         """Give the bare string value of the field in a record.
 
         If the logical value of the field is None, its default will be filled in.
@@ -859,6 +859,13 @@ class Field:
         compact: boolean, optional False
             Only relevant for datetime types: if True, omit the time, leaving only
             the date plus the timezone (always `Z` = UTC).
+        joined: boolean|string, optional False
+            Only relevant for fields with multiple values, but not of type text:
+            If not False, it should be a string by which the values should be joined.
+
+            For example, if the value is [2, 3], if joined is False the result is:
+            `[2, 3]`, but if joined is ";" the result is `2;3`.
+
 
         Returns
         -------
@@ -867,7 +874,7 @@ class Field:
             If the field is not present, returns the empty string, without warning.
         """
         tp = self.tp
-        # multiple = self.multiple
+        multiple = self.multiple
 
         resolved = self.resolved(record)
 
@@ -880,7 +887,14 @@ class Field:
             else (
                 (resolved.split("T")[0] + "Z" if compact else resolved)
                 if tp == "datetime"
-                else str(resolved)
+                else (
+                    str(resolved)
+                    if joined is False
+                    or tp == "text"
+                    or not multiple
+                    or type(resolved) in {str, int, bool}
+                    else joined.join(str(r) for r in resolved)
+                )
             )
         )
 
@@ -896,7 +910,7 @@ class Field:
 
         Optionally also puts a caption and/or an edit control.
 
-        The value retrieved is (recursively) wrapped in HTML, steered by additional
+        The value retrieved is (recursively) wrapped in HTML, steered by an additional
         argument, as in `control.html.HtmlElements.wrapValue`.
         be applied.
 

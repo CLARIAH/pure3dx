@@ -1,84 +1,63 @@
 {{> general/html-header-preamble}}
 </head>
-<body>
+<body class="text-neutral-900 font-inter">
 {{> responsive-header}}
 {{> bar-gradient-color}}
 {{> bar-info}}
-<div class="">
 
 
 
-  <main class="w-full text-center my-16">
-    <div class="max-w-2xl mx-auto">
-      <h1 class="text-2xl mb-16 ">{{name}}</h1>
-      <p class="text-lg mt-4 mb-1">{{dc.subtitle}}</p>
-      <p class="text-left">{{{dc.abstract}}}</p>
-      <div>
-        {{dc.description}}
-      </div>
-      <div class="w-full flex justify-end">
-        <a href="/projects.html" class="{{> styles/button-basic isGrey=true}} my-8">All projects</a>
-      </div>
+
+
+
+
+
+
+<div class="max-w-[1800px] mx-auto grow flex flex-col gap-6 justify-center my-10">
+  <h1 class="text-2xl mx-auto">{{name}}</h1>
+  <div class="text-xl mx-auto my-2">{{dc.subtitle}}</div>
+  <div class="flex flex-row max-w-4xl justify-center gap-8 mx-auto px-4 md:px-8">
+    <div class="w-full lg:w-4/5">
+      <p class="">{{{dc.abstract}}}</p> 
+      <p>{{dc.description}}</p> 
     </div>
-  </main>
-  {{> bar-gradient-grey}}
-
-  <div
-    class="px-4 py-4 w-full max-w-4xl mx-auto flex flex-col gap-16 mb-16 bg-neutral-100 rounded h-40 overflow-y-scroll">
-    <div class="flex flex-col md:flex-row flex-wrap gap-6">
-        <div class="text-sm md:w-1/3">
-            <h2 class="text-lg mt-4 mb-1" tabindex="1">Creators</h2>
-            <ul>
-                {{#each dc.creator}}
-                <li class="">{{this}}</li>
-                {{/each}}
-            </ul>
-        </div>
-
-        <div class="text-sm md:w-1/3">
-            <h2 class="text-lg mt-4 mb-1" tabindex="2">Contributors</h2>
-            <ul>
-                {{#each dc.contributor}}
-                <li class="">{{this}}</li>
-                {{/each}}
-            </ul>
-        </div>
-
-        <div>
-            <h2 class="text-lg mt-4 mb-1" tabindex="3">Date created</h2>
-            <ul>
-                <li class="">{{dc.dateCreated}}</li>
-            </ul>
-        </div>
+    <div class="hidden lg:block lg:w-1/5">
+      <img
+      src="/project/{{num}}/icon.png"
+      class="w-40 h-40 object-cover"
+      alt="{{name}}"
+      loading="lazy"
+      onerror="this.onerror=null; this.src='/images/noImg.png'"
+    >
     </div>
-
   </div>
-
-  <h2 class="px-4 py-4 w-full max-w-4xl mx-auto border border-neutral-200 rounded-t">Editions</h2>
-  <div class="px-4 py-2 w-full max-w-4xl mx-auto flex flex-col md:flex-row flex-wrap gap-x-10 mb-8 bg-neutral-200 rounded-b h-[800px] overflow-y-scroll">
-
-    {{#each editions}}
-    {{> edition-card-full}}
-    {{/each}}
-
-
-  </div>
-
-  {{> bar-gradient-color}}
-  {{> main-footer}}
-
 </div>
 
+
+<main class="w-full bg-neutral-100 mb-10">
+  <div class="max-w-[1800px] mx-auto flex flex-col xl:flex-row">
+    <div class="border-r border-neutral-300 w-full xl:w-4/5 relative  p-4">
+      <h2 class="mb-4 text-xl">Editions</h2>
+
+      <div class="w-full flex flex-col md:flex-row justify-start gap-6 flex-wrap">
+        {{#each editions}}
+        {{> edition-card-green}}
+        {{/each}}
+
+      </div>
+
+    </div>
+    <div class="w-full xl:w-1/5 p-8">
+      <div class="max-w-xl ">{{>metadata-project}}</div>
+    </div>
+  </div>
+</main>
+
+
+
+
+{{> main-footer}}
+
+
+
 {{> general/html-footer}}
-
-
-
-
-
-
-
-
-
-
-
-
