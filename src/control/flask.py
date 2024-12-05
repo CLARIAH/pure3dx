@@ -9,6 +9,7 @@ from flask import (
     render_template,
     make_response,
     send_file,
+    stream_with_context,
     flash,
     g,
 )
@@ -57,6 +58,20 @@ def renderTemplate(template, **kwargs):
         The response with as content the filled template.
     """
     return render_template(f"{template}.html", **kwargs)
+
+
+def stream(*args, **kwargs):
+    """Wraps flask's `stream_with_context` function.
+
+    When you stream data to the client by invoking a generator function to wrap
+    pieces of data into requests, as in
+    [streaming contents](https://flask.palletsprojects.com/en/stable/patterns/streaming/),
+    we want to keep the request object alive.
+
+    The request object is needed for example when you want to use the `flash` function
+    of flask.
+    """
+    return stream_with_context(*args, **kwargs)
 
 
 def flashMsg(*args, **kwargs):

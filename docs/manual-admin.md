@@ -342,7 +342,11 @@ Here is what you see (from top to button):
 
     <img src="images/tablelinks.png" width="650">
 
+#### Thumbnails
 
+Editions and projects should get thumbnails, small iconic images representative of
+the contents of the edition, and by which editions/projects can be distinguished
+easily from each other. The recommended size is 1024 x 1024 pixels.
 ### Pre-flight checking
 
 Editors should use the `check` button before publishing and then check the coloured

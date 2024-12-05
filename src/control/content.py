@@ -21,7 +21,7 @@ from .files import (
     readYaml,
 )
 from .datamodel import Datamodel
-from .flask import requestData, getReferrer, redirectStatus
+from .flask import requestData, getReferrer, redirectStatus, stream
 from .admin import Admin
 from .checkgltf import check
 
@@ -1423,6 +1423,7 @@ class Content(Datamodel):
         ------
         response
             A download response.
+            The download data will be streamed.
         """
         Settings = self.Settings
         Messages = self.Messages
@@ -1439,9 +1440,9 @@ class Content(Datamodel):
         permitted = Auth.authorise(table, record, action="read")
 
         if not permitted:
-            logmsg = f"Download not permitted: {table}: {recordId}"
-            msg = f"Download of {table} not permitted"
-            Messages.warning(logmsg=logmsg)
+            logmsg = f"DOWNLOAD {table}/{recordId}: not permitted"
+            msg = f"Download of {table}/{recordId} not permitted"
+            Messages.warning(msg=msg, logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
 
         (siteId, site, projectId, project, editionId, edition) = self.context(
@@ -1457,13 +1458,18 @@ class Content(Datamodel):
         tempBase = f"{dataDir}{sep}temp/{runMode}"
         dirMake(tempBase)
         dst = mkdtemp(dir=tempBase)
-        Messages.info(logmsg=f"CREATED TEMP DIR {dst}")
+        Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: CREATED TEMP DIR {dst}")
+
+        def deleteTmpDir():
+            dirRemove(dst)
+            Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}")
 
         good = True
 
         try:
             landing = f"{dst}/{recordId}"
             fileName = f"{table}-{recordId}.zip"
+            zipFilePath = f"{dst}/{table}-{recordId}.zip"
 
             if edition is None:
                 yamlDest = f"{landing}/project.yaml"
@@ -1485,12 +1491,11 @@ class Content(Datamodel):
                     with open(yamlDest, "w") as yh:
                         yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
 
-            zipBuffer = BytesIO()
-
-            with ZipFile(zipBuffer, "w", compression=ZIP_DEFLATED) as zipFile:
+            with ZipFile(zipFilePath, "w", compression=ZIP_DEFLATED) as zipFile:
 
                 def compress(path):
                     sep = "/" if path else ""
+
                     with os.scandir(f"{landing}{sep}{path}") as dh:
                         for entry in dh:
                             name = entry.name
@@ -1503,17 +1508,18 @@ class Content(Datamodel):
 
                 compress("")
 
-            zipData = zipBuffer.getvalue()
-            Messages.info(msg=f"{table} downloaded")
+            dirRemove(landing)
+            Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: zipped the data")
 
         except Exception as e:
-            msg = "Could not assemble the data for download"
+            msg = f"Could not zip the {table}/{recordId} data"
+            logmsg = f"DOWNLOAD {table}/{recordId}: could not zip the data"
             Messages.error(msg=msg, logmsg=msg)
             Messages.error(logmsg="".join(format_exception(e)))
+            deleteTmpDir()
+            ref = getReferrer().removeprefix("/")
+            result = redirectStatus(f"/{ref}", False)
             good = False
-
-        dirRemove(dst)
-        Messages.info(logmsg=f"DELETED TEMP DIR {dst}")
 
         if good:
             headers = {
@@ -1524,11 +1530,31 @@ class Content(Datamodel):
                 "Content-Encoding": "identity",
             }
 
-            return (zipData, headers)
+            CHUNK_SIZE = 1000000
 
-        else:
-            ref = getReferrer().removeprefix("/")
-            return redirectStatus(f"/{ref}", False)
+            def readFileChunks():
+                try:
+                    with open(zipFilePath, "rb") as fd:
+                        while 1:
+                            buf = fd.read(CHUNK_SIZE)
+
+                            if buf:
+                                yield buf
+                            else:
+                                break
+
+                except Exception as e:
+                    msg = "Could not stream the {table}/{recordId} data"
+                    logmsg = f"DOWNLOAD {table}/{recordId}: could not stream the data"
+                    Messages.error(msg=msg, logmsg=logmsg)
+                    Messages.error(logmsg="".join(format_exception(e)))
+
+                Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: streaming done")
+                deleteTmpDir()
+
+            result = (stream(readFileChunks()), headers)
+
+        return result
 
     def saveFile(self, record, key, path, fileName, targetFileName=None):
         """Saves a file in the context given by a record.

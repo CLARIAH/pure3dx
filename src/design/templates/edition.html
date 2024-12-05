@@ -39,17 +39,20 @@
 </div>
 
 
+<!--
+        class="w-full h-96 xl:h-[700px] 2xl:h-[800px]"
+        style="display: block; position: relative;"
+-->
 <main class="w-full bg-neutral-100 mb-10">
-  <div class="max-w-[1800px] mx-auto flex flex-col xl:flex-row">
-    <div class="border-r border-neutral-300 w-full xl:w-4/5 relative">
+  <div class="mx-auto flex flex-col xl:flex-row">
+    <div class="border-r border-neutral-300 w-full xl:w-3/5 relative">
       <div class="sticky top-0">
         <{{element}}
         root="/project/{{projectNum}}/edition/{{num}}/"
         resourceroot="/viewers/{{viewer}}/{{version}}/"
         document="{{sceneFile}}"
         id="viewer3d"
-        class="w-full h-96 xl:h-[700px] 2xl:h-[800px]"
-        style="display: block; position: relative;"
+        style="display: block; position: relative; height: calc(60vh - 10rem); width: 100%;"
       ></{{element}}>
       <div class="p-3">
         {{{viewerSelector}}}
@@ -58,7 +61,7 @@
       </div>
 
     </div>
-    <div class="w-full xl:w-1/5 p-8">
+    <div class="w-full xl:w-2/5 p-8">
       <div class="max-w-xl ">{{>metadata-edition}}</div>
     </div>
   </div>
