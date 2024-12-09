@@ -19,6 +19,7 @@ from .files import (
     dirRemove,
     extNm,
     readYaml,
+    fSize,
 )
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
@@ -1412,6 +1413,9 @@ class Content(Datamodel):
     def download(self, table, record):
         """Responds with a download of a project or edition.
 
+        But, before preparing the download, we examine the total uncompressed file
+        size. If that is more than 1 GB, we refuse to download and give a warning.
+
         Parameters
         ----------
         table: string
@@ -1433,7 +1437,13 @@ class Content(Datamodel):
         workingDir = Settings.workingDir
         runMode = Settings.runMode
 
+        sizeUnit = "MB"
+        sizeUnitSize = 1024 * 1024
+        sizeUnits = 1024
+        sizeLimit = sizeUnits * sizeUnitSize
+
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
@@ -1465,6 +1475,7 @@ class Content(Datamodel):
             Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}")
 
         good = True
+        ref = getReferrer().removeprefix("/")
 
         try:
             landing = f"{dst}/{recordId}"
@@ -1491,6 +1502,37 @@ class Content(Datamodel):
                     with open(yamlDest, "w") as yh:
                         yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
 
+            def sizeOf(path):
+                sep = "/" if path else ""
+                size = 0
+
+                with os.scandir(f"{landing}{sep}{path}") as dh:
+                    for entry in dh:
+                        name = entry.name
+
+                        if entry.is_file():
+                            srcFile = f"{landing}/{path}{sep}{name}"
+                            size += fSize(srcFile)
+                        elif entry.is_dir():
+                            size += sizeOf(f"{path}{sep}{name}")
+
+                return size
+
+            totalSize = sizeOf("")
+
+            if totalSize > sizeLimit:
+                totalUnits = int(round(totalSize / sizeUnitSize))
+                logmsg = (
+                    f"DOWNLOAD {table}/{recordId}: too big: "
+                    f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
+                )
+                msg = (
+                    "too big: "
+                    f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
+                )
+                Messages.error(msg=msg, logmsg=logmsg)
+                return redirectStatus(f"/{ref}", False)
+
             with ZipFile(zipFilePath, "w", compression=ZIP_DEFLATED) as zipFile:
 
                 def compress(path):
@@ -1499,12 +1541,13 @@ class Content(Datamodel):
                     with os.scandir(f"{landing}{sep}{path}") as dh:
                         for entry in dh:
                             name = entry.name
+
                             if entry.is_file():
                                 arcFile = f"{path}{sep}{name}"
                                 srcFile = f"{landing}/{arcFile}"
                                 zipFile.write(srcFile, arcFile)
                             elif entry.is_dir():
-                                compress(f"{path}/{name}")
+                                compress(f"{path}{sep}{name}")
 
                 compress("")
 
@@ -1517,7 +1560,6 @@ class Content(Datamodel):
             Messages.error(msg=msg, logmsg=msg)
             Messages.error(logmsg="".join(format_exception(e)))
             deleteTmpDir()
-            ref = getReferrer().removeprefix("/")
             result = redirectStatus(f"/{ref}", False)
             good = False
 
@@ -1530,7 +1572,7 @@ class Content(Datamodel):
                 "Content-Encoding": "identity",
             }
 
-            CHUNK_SIZE = 1000000
+            CHUNK_SIZE = 8192
 
             def readFileChunks():
                 try:

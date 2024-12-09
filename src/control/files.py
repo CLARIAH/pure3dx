@@ -45,6 +45,7 @@ scanDir = os.scandir
 walkDir = os.walk
 splitExt = os.path.splitext
 mTime = os.path.getmtime
+fSize = os.path.getsize
 
 
 def abspath(path):
