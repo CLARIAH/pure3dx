@@ -1,3 +1,29 @@
+# Release 2024-12-09
+
+There were issues with downloading projects and editions, especially when they
+were large.
+
+1.  An out-of-memory error. This was caused because the app created
+    the zip files for download *in memory*.
+
+    *Fix:* the zipfile is now created in a temporary directory.
+
+1.  The app sent the download in one massive body.
+
+    *Fix:* the zipfile is now streamed to the client.
+
+1.  The request timed out, because zipping took too long.
+
+    *Fix:* when we add files to the zip file, we do not compress glb, mp4 files etc.
+    This reduces the zipping time greatly.
+
+1.  The download fails near the end. So: the request succeeds, the server sends the
+    response, but in the end the client reports that the server has dropped the
+    connection.
+
+    *Fix:* not known yet. Instead, downloads of projects/editions whose unzipped size
+    exceeds 1 GB are prevented, and the user will get a warning about that.
+
 # Release 2024-11-18
 
 In this release we have changed the metadata schema.

@@ -71,7 +71,7 @@ def stream(*args, **kwargs):
     The request object is needed for example when you want to use the `flash` function
     of flask.
     """
-    return stream_with_context(*args, **kwargs)
+    return make_response(stream_with_context(*args, **kwargs))
 
 
 def flashMsg(*args, **kwargs):
