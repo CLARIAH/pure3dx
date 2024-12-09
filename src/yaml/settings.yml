@@ -98,3 +98,18 @@ iconTips:
   edit_assign: "assign user role(s)"
   edit_insert: "add someone or something"
   edit_link: "link someone to this"
+
+limits:
+  sizeUnit: MB
+  sizeUnitSize: 1048576
+  sizeUnits: 1024
+  sizeUnitsOptimistic: 4096
+
+dontCompress:
+  - png
+  - jpg
+  - zip
+  - glb
+  - mp3
+  - mp4
+  - wav

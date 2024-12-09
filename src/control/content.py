@@ -2,7 +2,7 @@ import os
 import json
 from io import BytesIO
 from tempfile import mkdtemp
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 from traceback import format_exception
 
 import yaml
@@ -1437,9 +1437,12 @@ class Content(Datamodel):
         workingDir = Settings.workingDir
         runMode = Settings.runMode
 
-        sizeUnit = "MB"
-        sizeUnitSize = 1024 * 1024
-        sizeUnits = 1024
+        dontCompress = set(Settings.dontCompress)
+        limits = Settings.limits
+        sizeUnit = limits.sizeUnit
+        sizeUnitSize = limits.sizeUnitSize
+        sizeUnits = limits.sizeUnits
+        # sizeUnits = limits.sizeUnitsOptimistic
         sizeLimit = sizeUnits * sizeUnitSize
 
         (recordId, record) = Mongo.get(table, record)
@@ -1459,10 +1462,42 @@ class Content(Datamodel):
             table, record
         )
 
+        ref = getReferrer().removeprefix("/")
         src = f"{workingDir}/project/{projectId}"
 
         if edition is not None:
             src += f"/edition/{editionId}"
+
+        def sizeOf(path):
+            sep = "/" if path else ""
+            size = 0
+
+            with os.scandir(f"{src}{sep}{path}") as dh:
+                for entry in dh:
+                    name = entry.name
+
+                    if entry.is_file():
+                        srcFile = f"{src}/{path}{sep}{name}"
+                        size += fSize(srcFile)
+                    elif entry.is_dir():
+                        size += sizeOf(f"{path}{sep}{name}")
+
+            return size
+
+        totalSize = sizeOf("")
+
+        if totalSize > sizeLimit:
+            totalUnits = int(round(totalSize / sizeUnitSize))
+            logmsg = (
+                f"DOWNLOAD {table}/{recordId}: too big: "
+                f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
+            )
+            msg = (
+                "too big: "
+                f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
+            )
+            Messages.error(msg=msg, logmsg=logmsg)
+            return redirectStatus(f"/{ref}", False)
 
         sep = "/" if dataDir else ""
         tempBase = f"{dataDir}{sep}temp/{runMode}"
@@ -1475,12 +1510,11 @@ class Content(Datamodel):
             Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}")
 
         good = True
-        ref = getReferrer().removeprefix("/")
 
         try:
             landing = f"{dst}/{recordId}"
             fileName = f"{table}-{recordId}.zip"
-            zipFilePath = f"{dst}/{table}-{recordId}.zip"
+            zipFilePath = f"{dst}/{fileName}"
 
             if edition is None:
                 yamlDest = f"{landing}/project.yaml"
@@ -1502,37 +1536,6 @@ class Content(Datamodel):
                     with open(yamlDest, "w") as yh:
                         yaml.dump(Mongo.consolidate(ed), yh, allow_unicode=True)
 
-            def sizeOf(path):
-                sep = "/" if path else ""
-                size = 0
-
-                with os.scandir(f"{landing}{sep}{path}") as dh:
-                    for entry in dh:
-                        name = entry.name
-
-                        if entry.is_file():
-                            srcFile = f"{landing}/{path}{sep}{name}"
-                            size += fSize(srcFile)
-                        elif entry.is_dir():
-                            size += sizeOf(f"{path}{sep}{name}")
-
-                return size
-
-            totalSize = sizeOf("")
-
-            if totalSize > sizeLimit:
-                totalUnits = int(round(totalSize / sizeUnitSize))
-                logmsg = (
-                    f"DOWNLOAD {table}/{recordId}: too big: "
-                    f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
-                )
-                msg = (
-                    "too big: "
-                    f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
-                )
-                Messages.error(msg=msg, logmsg=logmsg)
-                return redirectStatus(f"/{ref}", False)
-
             with ZipFile(zipFilePath, "w", compression=ZIP_DEFLATED) as zipFile:
 
                 def compress(path):
@@ -1543,9 +1546,13 @@ class Content(Datamodel):
                             name = entry.name
 
                             if entry.is_file():
+                                ext = extNm(name).lower()
+                                method = (
+                                    ZIP_STORED if ext in dontCompress else ZIP_DEFLATED
+                                )
                                 arcFile = f"{path}{sep}{name}"
                                 srcFile = f"{landing}/{arcFile}"
-                                zipFile.write(srcFile, arcFile)
+                                zipFile.write(srcFile, arcFile, compress_type=method)
                             elif entry.is_dir():
                                 compress(f"{path}{sep}{name}")
 
@@ -1564,12 +1571,14 @@ class Content(Datamodel):
             good = False
 
         if good:
+            zipLength = fSize(zipFilePath)
             headers = {
                 "Expires": "0",
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Content-Type": "application/zip",
                 "Content-Disposition": f'attachment; filename="{fileName}"',
-                "Content-Encoding": "identity",
+                # "Content-Encoding": "identity",
+                "Content-Length": zipLength,
             }
 
             CHUNK_SIZE = 8192
