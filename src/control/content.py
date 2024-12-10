@@ -1413,7 +1413,22 @@ class Content(Datamodel):
     def download(self, table, record):
         """Responds with a download of a project or edition.
 
-        But, before preparing the download, we examine the total uncompressed file
+        The following measures have been taken to facilitate big downloads:
+
+        1.  the zipfile is now created in a temporary directory;
+        1.  the zipfile is now streamed to the client;
+        1.  when we add files to the zip file, we do not compress glb, mp4 files etc.
+            This reduces the zipping time greatly. Without this, the request would
+            time out after 60 seconds, and the browser would fire a new request;
+
+        Still, despite these measures, the response itself may too much time.
+        What we see is that for a certain download of 1.25 GB, the request is
+        answered after 20-30 seconds with a response (200). Then streaming starts,
+        but after 3 minutes, at 1.08GB the client reports that the server has
+        disconnected. This happens in Safari, Firefox, en curl.
+
+        So, with this issue unresolved, we try to avoid it from happening.
+        Before preparing the download, we examine the total uncompressed file
         size. If that is more than 1 GB, we refuse to download and give a warning.
 
         Parameters
