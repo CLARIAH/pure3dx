@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.auth API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,11 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/auth.py#L1-L398" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/auth.py#L1-L398" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from itertools import chain
-from control.generic import AttrDict
-from control.users import Users
+from .generic import AttrDict
+from .users import Users
 
 
 class Auth(Users):
@@ -464,7 +464,7 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/auth.py#L6-L398" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/auth.py#L6-L398" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth(Users):
     def __init__(self, Settings, Messages, Mongo, Content):
@@ -918,303 +918,6 @@ So, to test whether any action is allowed, it suffices to test whether
 <code>action in result</code></p>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/auth.py#L34-L324" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def authorise(self, table, record, action=None, insertTable=None):
-    &#34;&#34;&#34;Check whether an action is allowed on data.
-
-    The &#34;create&#34; action is a bit special, because we do not have any record
-    to start with. In this case `table` and `record` should point to the
-    master record, and `insertTable` should have the table that will
-    contain the new record.
-
-    If the action is anything else, `table` and `record` refer to
-    the relevant record, and `insertTable` should not be passed.
-
-    How do the authorisation rules work?
-
-    First we consider the site-wise role of the user: guest, user, admin, or root.
-    If the action is allowed on that basis, we return True.
-
-    If not, we look whether the user has an additional role with regard
-    to the record in question, or with any of its master records.
-
-    If so, we apply the rules for those cases and see whether the action is
-    permitted.
-
-    Then we have the possibility that a record is in a certain state, e.g.
-    projects may be visible or invisible, editions may be published or
-    unpublished.
-
-    For each of these states we have separate rules, so we inspect the
-    states of the records and master records in order to select the
-    appropriate rules.
-
-    Parameters
-    ----------
-    table: string
-        the relevant table; for `create` actions it is the master table
-        of the table in which a record will be inserted.
-    record: ObjectId | AttrDict
-        The id of the record that is being accessed or the record itself;
-        for `create` actions it is the master record to which a new record
-        will be created as a detail.
-    action: string, optional None
-        The action for which permission is asked.
-    insertTable: string
-        Only relevant for &#34;create&#34; actions.
-        The detail table in which the new record will be inserted.
-
-    Returns
-    -------
-    boolean | dict
-        If an action is passed: boolean whether action is allowed.
-
-        If no action is passed: dict keyed by the allowed actions, the values
-        are true.
-        Actions with a falsy permission (False or the empty set) are not included
-        in the dict.
-        So, to test whether any action is allowed, it suffices to test whether
-        `action in result`
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Content = self.Content
-    isCreate = action == &#34;create&#34;
-
-    if (
-        insertTable is None
-        and isCreate
-        or insertTable is not None
-        and action is not None
-        and not isCreate
-    ):
-        Messages.error(
-            msg=&#34;Programming error in calculating authorization&#34;,
-            logmsg=(
-                f&#34;Wrong call to Auth.authorise with action {action} &#34;
-                f&#34;and insertTable {insertTable}&#34;
-            ),
-        )
-        # this is a programming error
-        return False if action is None else set()
-
-    Settings = self.Settings
-    Mongo = self.Mongo
-
-    detailMaster = Content.detailMaster
-
-    User = self.myDetails()
-    user = User.user
-    role = User.role
-
-    # we select the authorisation rules for this table
-
-    auth = Settings.auth
-    authRules = auth.authRules
-    tableRules = authRules.get(insertTable if isCreate else table, AttrDict())
-
-    # we need the state of the record that we want to apply the action to
-    # If the action is create, we have no record.
-    # We then use an initial state, given in the data model.
-    # For all other actions, we read the state from the record,
-    # its field is given in the data model.
-    # If there is no state info, we assume there is no state.
-
-    stateInfo = tableRules.state
-
-    state = None
-
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return {} if action is None else False
-
-    if stateInfo is not None:
-        initState = stateInfo.init
-        if isCreate:
-            state = initState
-        else:
-            stateField = stateInfo.field
-            state = record.get(stateField, None)
-            if state is None:
-                state = initState
-
-    # we select the rules for the given state, if any
-
-    rules = {
-        act: actInfo[state] if stateInfo else actInfo
-        for (act, actInfo) in tableRules.items()
-        if act != &#34;state&#34;
-    }
-
-    # for each possible action, the rules specify the roles that may perform
-    # that action.
-
-    # We collect the set of all possible roles and organize them by table
-
-    tableFromRole = auth.tableFromRole
-    userCoupled = set(auth.userCoupled)
-
-    # for each of the roles we have to determine whether the role is
-    # * site wide (table = site)
-    # * associated with a master table
-    # * associated with a detail table
-
-    # First we get the tables associated with each role
-
-    allAllowedRoles = {
-        role: tableFromRole[role]
-        for role in set(
-            chain.from_iterable(v.keys() for v in rules.values() if v is not None)
-        )
-    }
-
-    # Then we determine which of these tables are master, detail, or none of
-    # those, with respect to the table we are acting upon.
-    # Note that in case of &#34;create&#34; the table we act upon is a detail of
-    # what we passed as &#34;table&#34;
-
-    allRelatedTables = (
-        {
-            relatedTable: &#34;self&#34;
-            if relatedTable == insertTable
-            else &#34;detail&#34;
-            if detailMaster[relatedTable] == insertTable
-            else &#34;master&#34;
-            if detailMaster[insertTable] == relatedTable
-            else &#34;&#34;
-            for relatedTable in allAllowedRoles.values()
-        }
-        if isCreate
-        else {
-            relatedTable: &#34;self&#34;
-            if relatedTable == table
-            else &#34;detail&#34;
-            if detailMaster[relatedTable] == table
-            else &#34;master&#34;
-            if detailMaster[table] == relatedTable
-            else &#34;&#34;
-            for relatedTable in allAllowedRoles.values()
-        }
-    )
-
-    # for each of the relatedTables we compute whether it leads to extra roles
-    # for the current user.
-    # We look for related records in those tables to which the user is related.
-
-    userRoles = {role}
-
-    for (relatedTable, kind) in allRelatedTables.items():
-        if kind == &#34;&#34;:
-            continue
-
-        if relatedTable not in userCoupled:
-            continue
-
-        relatedIdField = f&#34;{relatedTable}Id&#34;
-        relatedCrossTable = f&#34;{relatedTable}User&#34;
-
-        if kind == &#34;self&#34;:
-            if isCreate:
-                continue
-
-            crit = {relatedIdField: recordId}
-            crossRecord = Mongo.getRecord(
-                relatedCrossTable, user=user, warn=False, **crit
-            )
-            extraRole = crossRecord.role
-
-            if extraRole is not None:
-                userRoles.add(extraRole)
-
-        elif kind == &#34;master&#34;:
-            # if the action is create the given record is the master
-            # else we find the masterId in the given record
-
-            if isCreate:
-                masterId = recordId
-            else:
-                masterId = record[relatedIdField]
-
-            # we do not need the master record itself,
-            # instead we are interested in the coupling record
-            # of the relatedTable with the user table
-            # because we find a user role there
-
-            crit = {relatedIdField: masterId}
-            crossRecord = Mongo.getRecord(
-                relatedCrossTable, user=user, warn=False, **crit
-            )
-            extraRole = crossRecord.role
-
-            if extraRole is not None:
-                userRoles.add(extraRole)
-
-        elif kind == &#34;detail&#34;:
-            # only relevant if recordId is given, because
-            # if we want to create a record, none of its details are yet there.
-
-            if isCreate:
-                continue
-
-            # look up all detail records in the detail table
-
-            idField = f&#34;{table}Id&#34;
-            crit = {idField: recordId}
-            detailRecords = Mongo.getList(relatedTable, **crit)
-            detailIds = [detailRecord._id for detailRecord in detailRecords]
-
-            # we need the cross records between these detail records and
-            # the user table, and we read the extra roles from those
-            # records
-
-            crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
-            crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
-
-            for crossRecord in crossRecords:
-                extraRole = crossRecord.role
-                if extraRole is not None:
-                    userRoles.add(extraRole)
-
-    # Now we have
-    # 1. userRoles:
-    #    the set of roles that this user has mbt to the given record
-    #    and all of its relevant master and detail records
-    # 2. rules
-    #    a dictionary mapping each possible action to the
-    #    roles a user needs to have to perform that action
-    #    The roles itself are given as a dict, keyed by the role
-    #    and valued by a boolean or a set, depending on the action.
-
-    # We compute the allowed actions resulting in a dict keyed by the action
-    # and valued by a boolean.
-
-    allowedActions = {}
-
-    for (act, requiredRoles) in rules.items():
-        if requiredRoles is None:
-            continue
-
-        permission = False
-
-        for presentRole in userRoles:
-            if requiredRoles.get(presentRole, False):
-                permission = True
-                break
-
-        if permission:
-            allowedActions[act] = True
-
-    # Finally we return the result.
-    #
-    # If no action is given, we return the allowedActions straightaway.
-    # Otherwise we lookup the given action in allowedActions, get the
-    # associated value (or provide a falsy default), and return that.
-
-    return allowedActions if action is None else allowedActions.get(action, False)</code></pre>
-</details>
 </dd>
 <dt id="control.auth.Auth.makeSafe"><code class="name flex">
 <span>def <span class="ident">makeSafe</span></span>(<span>self, table, record, action)</span>
@@ -1239,41 +942,6 @@ So, to test whether any action is allowed, it suffices to test whether
 <dt><code>string | void</code></dt>
 <dd>The resulting safe action.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/auth.py#L370-L398" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def makeSafe(self, table, record, action):
-    &#34;&#34;&#34;Changes an update action into a read action if needed.
-
-    This function &#39;demotes&#39; an &#34;update: to a &#34;read&#34; if the
-    &#34;update&#34; is not allowed.
-
-    If &#34;read&#34; itself is not allowed, None is returned.
-
-    If any other action than &#34;update&#34; or &#34;read&#34; is passed, None is returned.
-
-    Parameters
-    ----------
-    table: string
-        The table in which the record exists.
-    record: ObjectId | AttrDict
-        The id of the record or the record itself.
-    action: string
-        An intended action.
-
-    Returns
-    -------
-    string | void
-        The resulting safe action.
-    &#34;&#34;&#34;
-    if action not in {&#34;update&#34;, &#34;read&#34;}:
-        return None
-
-    actions = self.authorise(table, record)
-    return action if action in actions else &#34;read&#34; if &#34;read&#34; in actions else None</code></pre>
-</details>
 </dd>
 <dt id="control.auth.Auth.mayBackup"><code class="name flex">
 <span>def <span class="ident">mayBackup</span></span>(<span>self, project=None)</span>
@@ -1297,55 +965,6 @@ Otherwise we get the backups of this project.</dd>
 <dt><code>boolean</code></dt>
 <dd>whether the relevant backup/restore actions are allowed.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/auth.py#L326-L368" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def mayBackup(self, project=None):
-    &#34;&#34;&#34;Whether the current user is allowed to make backups.
-
-    *   Backups are not allowed in production mode, bacause the system and not the
-        users are responsible for backups.
-    *   Site-wide backups are only allowed for power users.
-    *   Project backups are only allowed for project organisers and (power users).
-
-    Parameters
-    ----------
-    project: AttrDict | ObjectId | string, optional None
-        If None, we deal with site-wide backup.
-        Otherwise we get the backups of this project.
-
-    Returns
-    -------
-    boolean
-        whether the relevant backup/restore actions are allowed.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    runProd = Settings.runProd
-
-    if runProd:
-        return False
-
-    User = self.myDetails()
-
-    if User.role in {&#34;admin&#34;, &#34;root&#34;}:
-        return True
-
-    if project is None:
-        return False
-
-    Mongo = self.Mongo
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-    if projectId is None:
-        return False
-
-    user = User.user
-    projectUser = Mongo.getRecord(
-        &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
-    )
-    return projectUser.role == &#34;organiser&#34;</code></pre>
-</details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
@@ -1357,6 +976,7 @@ Otherwise we get the backups of this project.</dd>
 <li><code><a title="control.users.Users.getInvolvedUsers" href="users.html#control.users.Users.getInvolvedUsers">getInvolvedUsers</a></code></li>
 <li><code><a title="control.users.Users.getUser" href="users.html#control.users.Users.getUser">getUser</a></code></li>
 <li><code><a title="control.users.Users.identify" href="users.html#control.users.Users.identify">identify</a></code></li>
+<li><code><a title="control.users.Users.inPower" href="users.html#control.users.Users.inPower">inPower</a></code></li>
 <li><code><a title="control.users.Users.initUser" href="users.html#control.users.Users.initUser">initUser</a></code></li>
 <li><code><a title="control.users.Users.login" href="users.html#control.users.Users.login">login</a></code></li>
 <li><code><a title="control.users.Users.logout" href="users.html#control.users.Users.logout">logout</a></code></li>
@@ -1447,7 +1067,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

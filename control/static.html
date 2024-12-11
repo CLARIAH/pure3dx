@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.static API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L1-L889" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/static.py#L1-L897" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 from copy import deepcopy
@@ -34,7 +34,7 @@ from traceback import format_exception
 
 from markdown import markdown
 
-from control.files import (
+from .files import (
     fileNm,
     dirNm,
     dirUpdate,
@@ -46,9 +46,9 @@ from control.files import (
     readYaml,
     writeJson,
 )
-from control.generic import AttrDict, deepAttrDict, deepdict
-from control.helpers import prettify, genViewerSelector, ucFirst
-from control.precheck import Precheck as PrecheckCls
+from .generic import AttrDict, deepAttrDict, deepdict
+from .helpers import prettify, genViewerSelector, ucFirst
+from .precheck import Precheck as PrecheckCls
 
 
 COMMENT_RE = re.compile(r&#34;&#34;&#34;\{\{!--.*?--}}&#34;&#34;&#34;, re.S)
@@ -56,113 +56,81 @@ CONFIG_FILE = &#34;client.yml&#34;
 
 
 class Static:
-    def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
+    def __init__(self, Settings, Messages, Content, Viewers, Tailwind, Handlebars):
         &#34;&#34;&#34;All about generating static pages.&#34;&#34;&#34;
         self.Settings = Settings
+        self.Content = Content
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages, Viewers)
+        self.Precheck = PrecheckCls(Settings, Messages, Content, Viewers)
 
         yamlDir = Settings.yamlDir
         yamlFile = f&#34;{yamlDir}/{CONFIG_FILE}&#34;
         cfg = readYaml(asFile=yamlFile)
         self.cfg = cfg
-        self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.listKeys.keys)
 
         self.data = AttrDict()
         self.dbData = AttrDict()
 
-    def sanitizeDC(self, table, dc):
+    def sanitizeMeta(self, table, record):
         &#34;&#34;&#34;Checks for missing (sub)-fields in the Dublin Core.
+
+        Any field that is missing will be supplied with a default value, most of the
+        times it will be an empty list or string, but the licence will be an
+        &#34;All rights reserved&#34; licence.
+        Ideally the defaults should come from configuration, but because an admin can
+        change the keywords, the defaults should then also be editable by an admin,
+        but that goes to far for now.
+
+        Strings in list fields will be converted to singleton lists,
+        and markdown texts will be converted to html.
 
         Parameters
         ----------
         table: string
             The kind of info: site, project, or edition. This influences
             which fields should be present.
-        dc: dict
-            The Dublin Core info
+        record: dict
+            The record with metadata
 
         Returns
         -------
         void
             The dict is changed in place.
         &#34;&#34;&#34;
-        if table == &#34;site&#34;:
-            return
-        if table == &#34;project&#34;:
-            return
-        if table == &#34;edition&#34;:
-            k = &#34;rights&#34;
+        Content = self.Content
 
-            if k not in dc:
-                dc[k] = {}
+        fields = Content.getMetaFields(table, None, asDict=True)
+        listKeys = Content.getListFields()
+        markdownKeys = Content.getMarkdownFields()
 
-            for k1, default in (
-                (&#34;license&#34;, &#34;All rights reserved&#34;),
-                (&#34;holder&#34;, &#34;Unknown&#34;),
-            ):
-                if k1 not in dc[k]:
-                    dc[k][k1] = default
+        for key in fields:
+            F = Content.makeField(key, table)
 
-            return
+            value = F.logical(record)
 
-    def htmlify(self, info):
-        &#34;&#34;&#34;Translate fields in a dict into html.
+            if value is None:
+                value = fields[key].default
 
-        Certain fields will trigger a markdown to html conversion.
+            if key in listKeys:
+                if type(value) not in (list, tuple):
+                    value = [value]
 
-        Certain fields will be normalized to lists:
-        if the type of such a field is not list, it will be turned into a one-element
-        list.
-
-        There will also be generated a field whose name has the string `Comma` appended,
-        it will be a comma-separated list of the items in that field.
-
-        Parameters
-        ----------
-        info: dict
-            The input data
-
-        Returns
-        -------
-        AttrDict
-            The resulting data. NB: it is brand-new data which does not share
-            any data with the input data. Fields are either transformed from markdown
-            to HTML, or copied.
-        &#34;&#34;&#34;
-        listKeys = self.listKeys
-        markdownKeys = self.markdownKeys
-
-        r = AttrDict()
-
-        for k, v in info.items():
-            if k in listKeys:
-                if type(v) is not list:
-                    v = [v]
-
-                r[f&#34;{k}Comma&#34;] = (
+            if key in markdownKeys:
+                value = (
                     &#34;&#34;
-                    if len(v) == 0
-                    else str(v[0])
-                    if len(v) == 1
-                    else &#34;, &#34;.join(str(e) for e in v[0:-1]) + f&#34; and {v[-1]}&#34;
+                    if value is None
+                    else (
+                        &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in value)
+                        if type(value) in (list, tuple)
+                        else markdown(value)
+                    )
                 )
 
-            if k in markdownKeys:
-                v = (
-                    &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in v)
-                    if type(v) is list
-                    else markdown(v)
-                )
-
-            r[k] = v
-
-        return r
+            F.setLogical(record, value)
 
     def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         &#34;&#34;&#34;Generate html pages for a published edition.
@@ -254,7 +222,7 @@ class Static:
         )
         self.featured = featured
 
-        def updateStatic(kind, srcDr):
+        def updateStatic(fileType, srcDr):
             &#34;&#34;&#34;Copy over static files.
 
             We are careful: instead of copying a folder, we merge, recursively,
@@ -267,12 +235,12 @@ class Static:
             We do this, because older parts of the site may depend on older
             static files.
             &#34;&#34;&#34;
-            dstDir = f&#34;{pubModeDir}/{kind}&#34;
+            dstDir = f&#34;{pubModeDir}/{fileType}&#34;
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
             Messages.info(
-                msg=f&#34;{kind} {c} copied&#34;,
-                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+                msg=f&#34;{fileType} {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {fileType:&lt;12} {report:&lt;24} to {dstDir}&#34;,
             )
             return good
 
@@ -334,8 +302,7 @@ class Static:
                         logmsg=(
                             f&#34;Error in register partial {partial} : &#34;
                             f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                        ),
-                        stop=False,
+                        )
                     )
                     good = False
 
@@ -369,8 +336,7 @@ class Static:
                             logmsg=(
                                 f&#34;Error compiling template {templateFile} : &#34;
                                 f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                            ),
-                            stop=False,
+                            )
                         )
                         template = None
 
@@ -388,8 +354,7 @@ class Static:
                         logmsg=(
                             f&#34;Error filling template {item.template} : &#34;
                             f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                        ),
-                        stop=False,
+                        )
                     )
                     failure += 1
                     good = False
@@ -429,21 +394,23 @@ class Static:
         eType = type(ePubNum)
         pIsInt = pType is int
         eIsInt = eType is int
-        pNo = pPubNum is None
-        eNo = ePubNum is None
+        pNum = pPubNum is None
+        eNum = ePubNum is None
         pAll = pPubNum is True
         eAll = ePubNum is True
 
         task = (
             (&#34;site&#34;,)
-            if pNo and eNo
-            else (&#34;project&#34;, pPubNum)
-            if pIsInt and eNo
-            else (&#34;edition&#34;, pPubNum, ePubNum)
-            if pIsInt and eIsInt
-            else (&#34;all&#34;,)
-            if pAll and eAll
-            else (&#34;none&#34;,)
+            if pNum and eNum
+            else (
+                (&#34;project&#34;, pPubNum)
+                if pIsInt and eNum
+                else (
+                    (&#34;edition&#34;, pPubNum, ePubNum)
+                    if pIsInt and eIsInt
+                    else (&#34;all&#34;,) if pAll and eAll else (&#34;none&#34;,)
+                )
+            )
         )
 
         if task[0] == &#34;none&#34;:
@@ -453,7 +420,6 @@ class Static:
                     &#34;Page generation failed because of illegal parameter combination: &#34;
                     f&#34;project {pPubNum}: {pType} and edition {ePubNum}: {eType}&#34;
                 ),
-                stop=False,
             )
             return
 
@@ -484,8 +450,8 @@ class Static:
 
         good = True
 
-        for kind, srcDir in ((&#34;js&#34;, jsDir), (&#34;images&#34;, imageDir)):
-            if not updateStatic(kind, srcDir):
+        for upd, srcDir in ((&#34;js&#34;, jsDir), (&#34;images&#34;, imageDir)):
+            if not updateStatic(upd, srcDir):
                 good = False
 
         (nvv, thisGood) = updateViewers()
@@ -510,7 +476,7 @@ class Static:
             Messages.info(logmsg=msg)
         else:
             msg = &#34;Page generation failed&#34;
-            Messages.error(logmsg=msg, msg=msg, stop=False)
+            Messages.error(logmsg=msg, msg=msg)
         return good
 
     def getData(self, kind, pNumGiven, eNumGiven):
@@ -570,8 +536,8 @@ class Static:
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
+        Content = self.Content
         Precheck = self.Precheck
-        textDir = Settings.textDir
         authorUrl = Settings.authorUrl
         backPrefix = Settings.backPrefix
         authorRoot = f&#34;{authorUrl}/{backPrefix}/&#34;
@@ -583,6 +549,8 @@ class Static:
 
         if kind in data:
             return data[kind]
+
+        texts = Content.getTexts()
 
         def get_viewers():
             defaultViewer = Settings.viewerDefault
@@ -606,49 +574,27 @@ class Static:
 
             return result
 
-        def get_textpages():
-            textFiles = dirContents(textDir)[0]
-
-            def getLinks(textFile):
-                return [
-                    dict(text=prettify(t.removesuffix(&#34;.html&#34;)), link=t)
-                    for t in textFiles
-                    if t != textFile
-                ]
-
-            result = []
-
-            for textFile in textFiles:
-                r = AttrDict()
-                r.template = &#34;text.html&#34;
-                r.authorLink = authorRoot
-                r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-                r[&#34;is&#34; + ucFirst(r.name)] = True
-                r.fileName = textFile
-                r.links = getLinks(textFile)
-
-                with open(f&#34;{textDir}/{textFile}&#34;) as fh:
-                    r.content = fh.read()
-
-                result.append(r)
-
-            return result
-
         def get_site():
             featured = self.featured
+            Ftitle = Content.makeField(&#34;title&#34;, &#34;site&#34;)
 
             info = dbData[kind]
-            dc = info.dc
-            self.sanitizeDC(&#34;site&#34;, dc)
-            dc = self.htmlify(dc)
+            self.sanitizeMeta(&#34;site&#34;, info)
+            bp = info.boilerplate
+            self.bp = bp
 
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.homeLeftText,
+                rightText=bp.homeRightText,
+                rightUrl=bp.homeRightUrl,
+            )
             r.isHome = True
             r.template = &#34;home.html&#34;
             r.fileName = &#34;index.html&#34;
             r.authorLink = authorRoot
-            r.name = dc.title
-            r.contentdata = dc
+            r.name = Ftitle.logical(info)
+            r.dc = info.dc
             projects = self.getData(&#34;project&#34;, None, None)
             projectsIndex = {p.num: p for p in projects}
             projectsFeatured = []
@@ -664,8 +610,41 @@ class Static:
 
             return [r]
 
+        def get_textpages():
+            info = dbData[&#34;site&#34;]
+            bp = self.bp
+
+            result = []
+
+            for (textName, key) in texts.items():
+                F = Content.makeField(key, &#34;site&#34;)
+
+                r = AttrDict()
+                r.boilerplate = dict(
+                    leftText=bp[f&#34;{textName}LeftText&#34;],
+                    rightText=bp[f&#34;{textName}RightText&#34;],
+                    rightUrl=bp[f&#34;{textName}RightUrl&#34;],
+                )
+                r.template = &#34;text.html&#34;
+                r.authorLink = authorRoot
+                r.name = prettify(textName)
+                r[f&#34;is{ucFirst(r.name)}&#34;] = True
+                r.fileName = f&#34;{textName}.html&#34;
+                r.content = F.formatted(info)
+
+                result.append(r)
+
+            return result
+
         def get_projects():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.projectsLeftText,
+                rightText=bp.projectsRightText,
+                rightUrl=bp.projectsRightUrl,
+            )
             r.isProjects = True
             r.name = &#34;All Projects&#34;
             r.template = &#34;projects.html&#34;
@@ -676,7 +655,14 @@ class Static:
             return [r]
 
         def get_editions():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.editionsLeftText,
+                rightText=bp.editionsRightText,
+                rightUrl=bp.editionsRightUrl,
+            )
             r.isEditions = True
             r.name = &#34;All Editions&#34;
             r.template = &#34;editions.html&#34;
@@ -688,21 +674,22 @@ class Static:
 
         def get_project():
             info = dbData[kind]
+            Fcreator = Content.makeField(&#34;creator&#34;, &#34;project&#34;)
+            Fabstract = Content.makeField(&#34;abstract&#34;, &#34;project&#34;)
+            Fdescription = Content.makeField(&#34;description&#34;, &#34;project&#34;)
 
             result = []
 
             for num, item in info.items():
-                dc = item.dc
-                self.sanitizeDC(&#34;project&#34;, dc)
-                dc = self.htmlify(dc)
+                self.sanitizeMeta(&#34;project&#34;, item)
 
                 r = AttrDict()
                 r.name = item.title
                 r.num = num
                 r.fileName = f&#34;project/{num}/index.html&#34;
-                r.abstract = dc.abstract or &#34;&#34;
-                r.description = dc.description or &#34;&#34;
-                r.subjects = dc.subject
+                r.creator = Fcreator.bare(item, joined=&#34;; &#34;)
+                r.abstract = Fabstract.logical(item)
+                r.description = Fdescription.logical(item)
                 r.visible = item.isVisible or False
                 result.append(r)
 
@@ -710,67 +697,79 @@ class Static:
 
         def get_edition():
             info = dbData[kind]
+            Fcreator = Content.makeField(&#34;creator&#34;, &#34;edition&#34;)
+            Fabstract = Content.makeField(&#34;abstract&#34;, &#34;edition&#34;)
+            Fdescription = Content.makeField(&#34;description&#34;, &#34;edition&#34;)
+            Fsubject = Content.makeField(&#34;subject&#34;, &#34;edition&#34;)
 
             result = []
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    dc = item.dc
-                    self.sanitizeDC(&#34;edition&#34;, dc)
-                    dc = self.htmlify(dc)
+                    self.sanitizeMeta(&#34;edition&#34;, item)
 
                     r = AttrDict()
                     r.projectNum = pNum
-                    r.projectFileName = f&#34;project/{pNum}.html&#34;
+                    r.projectFileName = f&#34;project/{pNum}/index.html&#34;
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                    r.abstract = dc.abstract or &#34;&#34;
-                    r.description = dc.description or &#34;&#34;
-                    r.subjects = dc.subject
+                    r.creator = Fcreator.bare(item, joined=&#34;; &#34;)
+                    r.abstract = Fabstract.logical(item)
+                    r.description = Fdescription.logical(item)
+                    r.subject = Fsubject.logical(item)
                     r.published = item.isPublished or False
                     result.append(r)
 
             return result
 
         def get_projectpages():
+            bp = self.bp
+
             pInfo = dbData[&#34;project&#34;]
             eInfo = dbData[&#34;edition&#34;]
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
+                self.sanitizeMeta(&#34;project&#34;, pItem)
                 pId = pItem._id
-                pdc = self.htmlify(pItem.dc)
-                fileName = f&#34;project/{pNo}/index.html&#34;
+                pdc = pItem.dc
+                fileName = f&#34;project/{pNum}/index.html&#34;
 
                 pr = AttrDict()
+                pr.boilerplate = dict(
+                    leftText=bp.projectLeftText,
+                    rightText=bp.projectRightText,
+                    rightUrl=bp.projectRightUrl,
+                )
                 pr.template = &#34;project.html&#34;
                 pr.fileName = fileName
-                pr.num = pNo
+                pr.num = pNum
                 pr.name = pItem.title
                 pr.authorLink = f&#34;{authorRoot}{pId}&#34;
                 pr.visible = pItem.isVisible or False
-                pr.contentdata = pdc
+                pr.dc = pdc
                 pr.editions = []
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    eItem = thisEInfo[eNo]
-                    edc = self.htmlify(eItem.dc)
+                for eNum in sorted(thisEInfo):
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta(&#34;edition&#34;, eItem)
+                    edc = eItem.dc
 
                     er = AttrDict()
-                    er.projectNum = pNo
-                    er.projectFileName = f&#34;project/{pNo}/index.html&#34;
-                    er.fileName = f&#34;project/{pNo}/edition/{eNo}/index.html&#34;
-                    er.num = eNo
+                    er.projectNum = pNum
+                    er.projectFileName = f&#34;project/{pNum}/index.html&#34;
+                    er.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.published = eItem.isPublished or False
 
                     pr.editions.append(er)
@@ -789,48 +788,57 @@ class Static:
                 )
                 for vw in viewers
             )
+            bp = self.bp
 
             pInfo = dbData[&#34;project&#34;]
             eInfo = dbData[&#34;edition&#34;]
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
                 pId = pItem._id
-                projectFileName = f&#34;project/{pNo}/index.html&#34;
-                projectName = pItem.get(&#34;title&#34;, pNo)
+                projectFileName = f&#34;project/{pNum}/index.html&#34;
+                projectName = pItem.get(&#34;title&#34;, pNum)
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    if eNumGiven is not None and eNo != eNumGiven:
+                for eNum in sorted(thisEInfo):
+                    if eNumGiven is not None and eNum != eNumGiven:
                         continue
 
-                    eItem = thisEInfo[eNo]
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta(&#34;edition&#34;, eItem)
                     eId = eItem._id
-                    edc = self.htmlify(eItem.dc)
+                    edc = eItem.dc
 
                     er = AttrDict()
+                    er.boilerplate = dict(
+                        leftText=bp.editionLeftText,
+                        rightText=bp.editionRightText,
+                        rightUrl=bp.editionRightUrl,
+                    )
                     er.template = &#34;edition.html&#34;
-                    er.projectNum = pNo
+                    er.projectNum = pNum
                     er.projectName = projectName
                     er.projectFileName = projectFileName
                     er.authorLink = f&#34;{authorRoot}{pId}/{eId}&#34;
-                    fileBase = f&#34;project/{pNo}/edition/{eNo}/index&#34;
-                    er.num = eNo
+                    fileBase = f&#34;project/{pNum}/edition/{eNum}/index&#34;
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.isPublished = eItem.ispublished or False
                     settings = eItem.settings
                     authorTool = settings.authorTool
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(pNo, eNo, eItem, asPublished=True)
+                    er.toc = Precheck.checkEdition(
+                        None, pNum, eNum, eItem, asPublished=True
+                    )
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name
@@ -930,123 +938,91 @@ class Static:
 <dl>
 <dt id="control.static.Static"><code class="flex name class">
 <span>class <span class="ident">Static</span></span>
-<span>(</span><span>Settings, Messages, Viewers, Tailwind, Handlebars)</span>
+<span>(</span><span>Settings, Messages, Content, Viewers, Tailwind, Handlebars)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All about generating static pages.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L28-L889" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/static.py#L28-L897" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Static:
-    def __init__(self, Settings, Messages, Viewers, Tailwind, Handlebars):
+    def __init__(self, Settings, Messages, Content, Viewers, Tailwind, Handlebars):
         &#34;&#34;&#34;All about generating static pages.&#34;&#34;&#34;
         self.Settings = Settings
+        self.Content = Content
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
         self.Messages = Messages
         Messages.debugAdd(self)
 
-        self.Precheck = PrecheckCls(Settings, Messages, Viewers)
+        self.Precheck = PrecheckCls(Settings, Messages, Content, Viewers)
 
         yamlDir = Settings.yamlDir
         yamlFile = f&#34;{yamlDir}/{CONFIG_FILE}&#34;
         cfg = readYaml(asFile=yamlFile)
         self.cfg = cfg
-        self.markdownKeys = set(cfg.markdown.keys)
-        self.listKeys = set(cfg.listKeys.keys)
 
         self.data = AttrDict()
         self.dbData = AttrDict()
 
-    def sanitizeDC(self, table, dc):
+    def sanitizeMeta(self, table, record):
         &#34;&#34;&#34;Checks for missing (sub)-fields in the Dublin Core.
+
+        Any field that is missing will be supplied with a default value, most of the
+        times it will be an empty list or string, but the licence will be an
+        &#34;All rights reserved&#34; licence.
+        Ideally the defaults should come from configuration, but because an admin can
+        change the keywords, the defaults should then also be editable by an admin,
+        but that goes to far for now.
+
+        Strings in list fields will be converted to singleton lists,
+        and markdown texts will be converted to html.
 
         Parameters
         ----------
         table: string
             The kind of info: site, project, or edition. This influences
             which fields should be present.
-        dc: dict
-            The Dublin Core info
+        record: dict
+            The record with metadata
 
         Returns
         -------
         void
             The dict is changed in place.
         &#34;&#34;&#34;
-        if table == &#34;site&#34;:
-            return
-        if table == &#34;project&#34;:
-            return
-        if table == &#34;edition&#34;:
-            k = &#34;rights&#34;
+        Content = self.Content
 
-            if k not in dc:
-                dc[k] = {}
+        fields = Content.getMetaFields(table, None, asDict=True)
+        listKeys = Content.getListFields()
+        markdownKeys = Content.getMarkdownFields()
 
-            for k1, default in (
-                (&#34;license&#34;, &#34;All rights reserved&#34;),
-                (&#34;holder&#34;, &#34;Unknown&#34;),
-            ):
-                if k1 not in dc[k]:
-                    dc[k][k1] = default
+        for key in fields:
+            F = Content.makeField(key, table)
 
-            return
+            value = F.logical(record)
 
-    def htmlify(self, info):
-        &#34;&#34;&#34;Translate fields in a dict into html.
+            if value is None:
+                value = fields[key].default
 
-        Certain fields will trigger a markdown to html conversion.
+            if key in listKeys:
+                if type(value) not in (list, tuple):
+                    value = [value]
 
-        Certain fields will be normalized to lists:
-        if the type of such a field is not list, it will be turned into a one-element
-        list.
-
-        There will also be generated a field whose name has the string `Comma` appended,
-        it will be a comma-separated list of the items in that field.
-
-        Parameters
-        ----------
-        info: dict
-            The input data
-
-        Returns
-        -------
-        AttrDict
-            The resulting data. NB: it is brand-new data which does not share
-            any data with the input data. Fields are either transformed from markdown
-            to HTML, or copied.
-        &#34;&#34;&#34;
-        listKeys = self.listKeys
-        markdownKeys = self.markdownKeys
-
-        r = AttrDict()
-
-        for k, v in info.items():
-            if k in listKeys:
-                if type(v) is not list:
-                    v = [v]
-
-                r[f&#34;{k}Comma&#34;] = (
+            if key in markdownKeys:
+                value = (
                     &#34;&#34;
-                    if len(v) == 0
-                    else str(v[0])
-                    if len(v) == 1
-                    else &#34;, &#34;.join(str(e) for e in v[0:-1]) + f&#34; and {v[-1]}&#34;
+                    if value is None
+                    else (
+                        &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in value)
+                        if type(value) in (list, tuple)
+                        else markdown(value)
+                    )
                 )
 
-            if k in markdownKeys:
-                v = (
-                    &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in v)
-                    if type(v) is list
-                    else markdown(v)
-                )
-
-            r[k] = v
-
-        return r
+            F.setLogical(record, value)
 
     def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
         &#34;&#34;&#34;Generate html pages for a published edition.
@@ -1138,7 +1114,7 @@ class Static:
         )
         self.featured = featured
 
-        def updateStatic(kind, srcDr):
+        def updateStatic(fileType, srcDr):
             &#34;&#34;&#34;Copy over static files.
 
             We are careful: instead of copying a folder, we merge, recursively,
@@ -1151,12 +1127,12 @@ class Static:
             We do this, because older parts of the site may depend on older
             static files.
             &#34;&#34;&#34;
-            dstDir = f&#34;{pubModeDir}/{kind}&#34;
+            dstDir = f&#34;{pubModeDir}/{fileType}&#34;
             (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
             report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
             Messages.info(
-                msg=f&#34;{kind} {c} copied&#34;,
-                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
+                msg=f&#34;{fileType} {c} copied&#34;,
+                logmsg=f&#34;{&#39;updated&#39;:&lt;10} {fileType:&lt;12} {report:&lt;24} to {dstDir}&#34;,
             )
             return good
 
@@ -1218,8 +1194,7 @@ class Static:
                         logmsg=(
                             f&#34;Error in register partial {partial} : &#34;
                             f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                        ),
-                        stop=False,
+                        )
                     )
                     good = False
 
@@ -1253,8 +1228,7 @@ class Static:
                             logmsg=(
                                 f&#34;Error compiling template {templateFile} : &#34;
                                 f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                            ),
-                            stop=False,
+                            )
                         )
                         template = None
 
@@ -1272,8 +1246,7 @@ class Static:
                         logmsg=(
                             f&#34;Error filling template {item.template} : &#34;
                             f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                        ),
-                        stop=False,
+                        )
                     )
                     failure += 1
                     good = False
@@ -1313,21 +1286,23 @@ class Static:
         eType = type(ePubNum)
         pIsInt = pType is int
         eIsInt = eType is int
-        pNo = pPubNum is None
-        eNo = ePubNum is None
+        pNum = pPubNum is None
+        eNum = ePubNum is None
         pAll = pPubNum is True
         eAll = ePubNum is True
 
         task = (
             (&#34;site&#34;,)
-            if pNo and eNo
-            else (&#34;project&#34;, pPubNum)
-            if pIsInt and eNo
-            else (&#34;edition&#34;, pPubNum, ePubNum)
-            if pIsInt and eIsInt
-            else (&#34;all&#34;,)
-            if pAll and eAll
-            else (&#34;none&#34;,)
+            if pNum and eNum
+            else (
+                (&#34;project&#34;, pPubNum)
+                if pIsInt and eNum
+                else (
+                    (&#34;edition&#34;, pPubNum, ePubNum)
+                    if pIsInt and eIsInt
+                    else (&#34;all&#34;,) if pAll and eAll else (&#34;none&#34;,)
+                )
+            )
         )
 
         if task[0] == &#34;none&#34;:
@@ -1337,7 +1312,6 @@ class Static:
                     &#34;Page generation failed because of illegal parameter combination: &#34;
                     f&#34;project {pPubNum}: {pType} and edition {ePubNum}: {eType}&#34;
                 ),
-                stop=False,
             )
             return
 
@@ -1368,8 +1342,8 @@ class Static:
 
         good = True
 
-        for kind, srcDir in ((&#34;js&#34;, jsDir), (&#34;images&#34;, imageDir)):
-            if not updateStatic(kind, srcDir):
+        for upd, srcDir in ((&#34;js&#34;, jsDir), (&#34;images&#34;, imageDir)):
+            if not updateStatic(upd, srcDir):
                 good = False
 
         (nvv, thisGood) = updateViewers()
@@ -1394,7 +1368,7 @@ class Static:
             Messages.info(logmsg=msg)
         else:
             msg = &#34;Page generation failed&#34;
-            Messages.error(logmsg=msg, msg=msg, stop=False)
+            Messages.error(logmsg=msg, msg=msg)
         return good
 
     def getData(self, kind, pNumGiven, eNumGiven):
@@ -1454,8 +1428,8 @@ class Static:
         &#34;&#34;&#34;
         Settings = self.Settings
         Messages = self.Messages
+        Content = self.Content
         Precheck = self.Precheck
-        textDir = Settings.textDir
         authorUrl = Settings.authorUrl
         backPrefix = Settings.backPrefix
         authorRoot = f&#34;{authorUrl}/{backPrefix}/&#34;
@@ -1467,6 +1441,8 @@ class Static:
 
         if kind in data:
             return data[kind]
+
+        texts = Content.getTexts()
 
         def get_viewers():
             defaultViewer = Settings.viewerDefault
@@ -1490,49 +1466,27 @@ class Static:
 
             return result
 
-        def get_textpages():
-            textFiles = dirContents(textDir)[0]
-
-            def getLinks(textFile):
-                return [
-                    dict(text=prettify(t.removesuffix(&#34;.html&#34;)), link=t)
-                    for t in textFiles
-                    if t != textFile
-                ]
-
-            result = []
-
-            for textFile in textFiles:
-                r = AttrDict()
-                r.template = &#34;text.html&#34;
-                r.authorLink = authorRoot
-                r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-                r[&#34;is&#34; + ucFirst(r.name)] = True
-                r.fileName = textFile
-                r.links = getLinks(textFile)
-
-                with open(f&#34;{textDir}/{textFile}&#34;) as fh:
-                    r.content = fh.read()
-
-                result.append(r)
-
-            return result
-
         def get_site():
             featured = self.featured
+            Ftitle = Content.makeField(&#34;title&#34;, &#34;site&#34;)
 
             info = dbData[kind]
-            dc = info.dc
-            self.sanitizeDC(&#34;site&#34;, dc)
-            dc = self.htmlify(dc)
+            self.sanitizeMeta(&#34;site&#34;, info)
+            bp = info.boilerplate
+            self.bp = bp
 
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.homeLeftText,
+                rightText=bp.homeRightText,
+                rightUrl=bp.homeRightUrl,
+            )
             r.isHome = True
             r.template = &#34;home.html&#34;
             r.fileName = &#34;index.html&#34;
             r.authorLink = authorRoot
-            r.name = dc.title
-            r.contentdata = dc
+            r.name = Ftitle.logical(info)
+            r.dc = info.dc
             projects = self.getData(&#34;project&#34;, None, None)
             projectsIndex = {p.num: p for p in projects}
             projectsFeatured = []
@@ -1548,8 +1502,41 @@ class Static:
 
             return [r]
 
+        def get_textpages():
+            info = dbData[&#34;site&#34;]
+            bp = self.bp
+
+            result = []
+
+            for (textName, key) in texts.items():
+                F = Content.makeField(key, &#34;site&#34;)
+
+                r = AttrDict()
+                r.boilerplate = dict(
+                    leftText=bp[f&#34;{textName}LeftText&#34;],
+                    rightText=bp[f&#34;{textName}RightText&#34;],
+                    rightUrl=bp[f&#34;{textName}RightUrl&#34;],
+                )
+                r.template = &#34;text.html&#34;
+                r.authorLink = authorRoot
+                r.name = prettify(textName)
+                r[f&#34;is{ucFirst(r.name)}&#34;] = True
+                r.fileName = f&#34;{textName}.html&#34;
+                r.content = F.formatted(info)
+
+                result.append(r)
+
+            return result
+
         def get_projects():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.projectsLeftText,
+                rightText=bp.projectsRightText,
+                rightUrl=bp.projectsRightUrl,
+            )
             r.isProjects = True
             r.name = &#34;All Projects&#34;
             r.template = &#34;projects.html&#34;
@@ -1560,7 +1547,14 @@ class Static:
             return [r]
 
         def get_editions():
+            bp = self.bp
+
             r = AttrDict()
+            r.boilerplate = dict(
+                leftText=bp.editionsLeftText,
+                rightText=bp.editionsRightText,
+                rightUrl=bp.editionsRightUrl,
+            )
             r.isEditions = True
             r.name = &#34;All Editions&#34;
             r.template = &#34;editions.html&#34;
@@ -1572,21 +1566,22 @@ class Static:
 
         def get_project():
             info = dbData[kind]
+            Fcreator = Content.makeField(&#34;creator&#34;, &#34;project&#34;)
+            Fabstract = Content.makeField(&#34;abstract&#34;, &#34;project&#34;)
+            Fdescription = Content.makeField(&#34;description&#34;, &#34;project&#34;)
 
             result = []
 
             for num, item in info.items():
-                dc = item.dc
-                self.sanitizeDC(&#34;project&#34;, dc)
-                dc = self.htmlify(dc)
+                self.sanitizeMeta(&#34;project&#34;, item)
 
                 r = AttrDict()
                 r.name = item.title
                 r.num = num
                 r.fileName = f&#34;project/{num}/index.html&#34;
-                r.abstract = dc.abstract or &#34;&#34;
-                r.description = dc.description or &#34;&#34;
-                r.subjects = dc.subject
+                r.creator = Fcreator.bare(item, joined=&#34;; &#34;)
+                r.abstract = Fabstract.logical(item)
+                r.description = Fdescription.logical(item)
                 r.visible = item.isVisible or False
                 result.append(r)
 
@@ -1594,67 +1589,79 @@ class Static:
 
         def get_edition():
             info = dbData[kind]
+            Fcreator = Content.makeField(&#34;creator&#34;, &#34;edition&#34;)
+            Fabstract = Content.makeField(&#34;abstract&#34;, &#34;edition&#34;)
+            Fdescription = Content.makeField(&#34;description&#34;, &#34;edition&#34;)
+            Fsubject = Content.makeField(&#34;subject&#34;, &#34;edition&#34;)
 
             result = []
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    dc = item.dc
-                    self.sanitizeDC(&#34;edition&#34;, dc)
-                    dc = self.htmlify(dc)
+                    self.sanitizeMeta(&#34;edition&#34;, item)
 
                     r = AttrDict()
                     r.projectNum = pNum
-                    r.projectFileName = f&#34;project/{pNum}.html&#34;
+                    r.projectFileName = f&#34;project/{pNum}/index.html&#34;
                     r.name = item.title
                     r.num = eNum
                     r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                    r.abstract = dc.abstract or &#34;&#34;
-                    r.description = dc.description or &#34;&#34;
-                    r.subjects = dc.subject
+                    r.creator = Fcreator.bare(item, joined=&#34;; &#34;)
+                    r.abstract = Fabstract.logical(item)
+                    r.description = Fdescription.logical(item)
+                    r.subject = Fsubject.logical(item)
                     r.published = item.isPublished or False
                     result.append(r)
 
             return result
 
         def get_projectpages():
+            bp = self.bp
+
             pInfo = dbData[&#34;project&#34;]
             eInfo = dbData[&#34;edition&#34;]
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
+                self.sanitizeMeta(&#34;project&#34;, pItem)
                 pId = pItem._id
-                pdc = self.htmlify(pItem.dc)
-                fileName = f&#34;project/{pNo}/index.html&#34;
+                pdc = pItem.dc
+                fileName = f&#34;project/{pNum}/index.html&#34;
 
                 pr = AttrDict()
+                pr.boilerplate = dict(
+                    leftText=bp.projectLeftText,
+                    rightText=bp.projectRightText,
+                    rightUrl=bp.projectRightUrl,
+                )
                 pr.template = &#34;project.html&#34;
                 pr.fileName = fileName
-                pr.num = pNo
+                pr.num = pNum
                 pr.name = pItem.title
                 pr.authorLink = f&#34;{authorRoot}{pId}&#34;
                 pr.visible = pItem.isVisible or False
-                pr.contentdata = pdc
+                pr.dc = pdc
                 pr.editions = []
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    eItem = thisEInfo[eNo]
-                    edc = self.htmlify(eItem.dc)
+                for eNum in sorted(thisEInfo):
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta(&#34;edition&#34;, eItem)
+                    edc = eItem.dc
 
                     er = AttrDict()
-                    er.projectNum = pNo
-                    er.projectFileName = f&#34;project/{pNo}/index.html&#34;
-                    er.fileName = f&#34;project/{pNo}/edition/{eNo}/index.html&#34;
-                    er.num = eNo
+                    er.projectNum = pNum
+                    er.projectFileName = f&#34;project/{pNum}/index.html&#34;
+                    er.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.published = eItem.isPublished or False
 
                     pr.editions.append(er)
@@ -1673,48 +1680,57 @@ class Static:
                 )
                 for vw in viewers
             )
+            bp = self.bp
 
             pInfo = dbData[&#34;project&#34;]
             eInfo = dbData[&#34;edition&#34;]
 
             result = []
 
-            for pNo in sorted(pInfo):
-                if pNumGiven is not None and pNo != pNumGiven:
+            for pNum in sorted(pInfo):
+                if pNumGiven is not None and pNum != pNumGiven:
                     continue
 
-                pItem = pInfo[pNo]
+                pItem = pInfo[pNum]
                 pId = pItem._id
-                projectFileName = f&#34;project/{pNo}/index.html&#34;
-                projectName = pItem.get(&#34;title&#34;, pNo)
+                projectFileName = f&#34;project/{pNum}/index.html&#34;
+                projectName = pItem.get(&#34;title&#34;, pNum)
 
-                thisEInfo = eInfo.get(pNo, {})
+                thisEInfo = eInfo.get(pNum, {})
 
-                for eNo in sorted(thisEInfo):
-                    if eNumGiven is not None and eNo != eNumGiven:
+                for eNum in sorted(thisEInfo):
+                    if eNumGiven is not None and eNum != eNumGiven:
                         continue
 
-                    eItem = thisEInfo[eNo]
+                    eItem = thisEInfo[eNum]
+                    self.sanitizeMeta(&#34;edition&#34;, eItem)
                     eId = eItem._id
-                    edc = self.htmlify(eItem.dc)
+                    edc = eItem.dc
 
                     er = AttrDict()
+                    er.boilerplate = dict(
+                        leftText=bp.editionLeftText,
+                        rightText=bp.editionRightText,
+                        rightUrl=bp.editionRightUrl,
+                    )
                     er.template = &#34;edition.html&#34;
-                    er.projectNum = pNo
+                    er.projectNum = pNum
                     er.projectName = projectName
                     er.projectFileName = projectFileName
                     er.authorLink = f&#34;{authorRoot}{pId}/{eId}&#34;
-                    fileBase = f&#34;project/{pNo}/edition/{eNo}/index&#34;
-                    er.num = eNo
+                    fileBase = f&#34;project/{pNum}/edition/{eNum}/index&#34;
+                    er.num = eNum
                     er.name = eItem.title
-                    er.contentdata = edc
+                    er.dc = edc
                     er.isPublished = eItem.ispublished or False
                     settings = eItem.settings
                     authorTool = settings.authorTool
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(pNo, eNo, eItem, asPublished=True)
+                    er.toc = Precheck.checkEdition(
+                        None, pNum, eNum, eItem, asPublished=True
+                    )
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name
@@ -1849,360 +1865,6 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
 <dt><code>boolean</code></dt>
 <dd>Whether the generation was successful.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L137-L484" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def genPages(self, pPubNum, ePubNum, featured=[1, 2, 3]):
-    &#34;&#34;&#34;Generate html pages for a published edition.
-
-    We assume the data of the projects and editions is already in place.
-    As to the viewers: we compare the viewers and versions in the
-    `data/viewers` directory with the viewers and versions in the
-    `published/viewers` directory, and we copy viewer versions that are missing
-    in the latter from the former.
-
-    Exactly what will be generated depends on the parameters.
-
-    There are the following things to generate:
-
-    *   **S**: site wide files, outside projects
-    *   **P**: project wide files, outside editions
-    *   **E**: edition pages
-
-    **S** will always be (re)generated.
-
-    If a particular project is specified, the **P** for that project will
-    also be (re)generated.
-
-    If a particular edition is specified, the **E** for that edition will
-    also be (re)generated.
-
-    Parameters
-    ----------
-    pPubNUm, ePubNUm: integer or boolean or void
-        Specifies which project and edition must be (re)generated, if they are
-        integers.
-        The integers is the numbers of the published project and edition.
-
-        The following combinations are possible:
-
-        *   `None`, `None`: only **S** is (re)generated;
-        *   `p`, `None`: **S** and **P** for project with number `p` are
-            (re)generated;
-        *   `p`, `e`: **S** and **P** and **E** are (re)generated for project
-            with number `p` and edition with number `e` within that project;
-        *   `True`, `True`: everything will be regenerated.
-
-    Returns
-    -------
-    boolean
-        Whether the generation was successful.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Settings = self.Settings
-    Tailwind = self.Tailwind
-    Handlebars = self.Handlebars
-    viewerDir = Settings.viewerDir
-    pubModeDir = Settings.pubModeDir
-    dataOutDir = f&#34;{pubModeDir}/json&#34;
-
-    templateDir = Settings.templateDir
-    partialsIn = Settings.partialsIn
-    jsDir = Settings.jsDir
-    imageDir = Settings.imageDir
-
-    partials = {}
-    compiledTemplates = {}
-
-    if type(featured) is list:
-        msg = &#34;skipping featured project &#39;{}&#39;&#34;
-        featuredParsed = set()
-
-        for f in featured:
-            if type(f) is int:
-                featuredParsed.add(f)
-            elif type(f) is str:
-                if f.isdecimal():
-                    featuredParsed.add(int(f))
-                else:
-                    Messages.warning(msg=msg.format(f))
-            else:
-                Messages.warning(msg=msg.format(f))
-
-        featured = sorted(featuredParsed)
-
-    else:
-        Messages.warning(
-            msg=&#34;The featured projects are not given as list, will be set to 1,2,3&#34;
-        )
-        featured = [1, 2, 3]
-
-    Messages.special(
-        msg=f&#34;Featured projects: {&#39;, &#39;.join(str(f) for f in featured)}&#34;
-    )
-    self.featured = featured
-
-    def updateStatic(kind, srcDr):
-        &#34;&#34;&#34;Copy over static files.
-
-        We are careful: instead of copying a folder, we merge, recursively,
-        the source folder into the destination folder, and we do not delete
-        anything from the destination.
-
-        Hence the parameters `delete=False` and `level=-1` to
-        `dirUpdate()`.
-
-        We do this, because older parts of the site may depend on older
-        static files.
-        &#34;&#34;&#34;
-        dstDir = f&#34;{pubModeDir}/{kind}&#34;
-        (good, c, d) = dirUpdate(srcDr, dstDir, level=-1, delete=False)
-        report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-        Messages.info(
-            msg=f&#34;{kind} {c} copied&#34;,
-            logmsg=f&#34;{&#39;updated&#39;:&lt;10} {kind:&lt;12} {report:&lt;24} to {dstDir}&#34;,
-        )
-        return good
-
-    def updateViewers():
-        &#34;&#34;&#34;Copy over viewer versions.
-
-        We are careful: instead of copying the folder with viewers from source to
-        destination, we merge the source viewers with the destination viewers,
-        without deleting destination viewers.
-        And per viewer, instead of copying the viewer folder from source
-        to destination, we merge the source versions of that viewer with the
-        destination versions of that viewer, without deleting destination versions.
-
-        But per version we just copy, and stop the recursive merging, because each
-        viewer version is an integral whole, and we do not support that the same
-        version of the same viewer is different between source and destination.
-        &#34;&#34;&#34;
-        srcDr = viewerDir
-        dstDir = f&#34;{pubModeDir}/viewers&#34;
-        (good, c, d) = dirUpdate(
-            srcDr, dstDir, level=2, conservative=True, delete=False
-        )
-        report = f&#34;{c:&gt;3} copied, {d:&gt;3} deleted&#34;
-        Messages.info(
-            msg=f&#34;viewers {c} copied&#34;,
-            logmsg=f&#34;{&#39;updated&#39;:&lt;10} {&#39;viewers&#39;:&lt;12} {report:&lt;24} to {dstDir}&#34;,
-        )
-
-        nViewerVersions = 0
-
-        for viewer in dirContents(dstDir)[1]:
-            nViewerVersions += len(dirContents(f&#34;{dstDir}/{viewer}&#34;)[1])
-
-        msg = f&#34;there are {nViewerVersions} viewer-version combinations&#34;
-        Messages.info(msg=msg, logmsg=msg)
-        return (nViewerVersions, good)
-
-    def registerPartials():
-        good = True
-
-        for partialFile in dirAllFiles(partialsIn):
-            pDir = dirNm(partialFile).replace(partialsIn, &#34;&#34;).strip(&#34;/&#34;)
-            pFile = fileNm(partialFile)
-
-            if pFile.startswith(&#34;.&#34;):
-                continue
-
-            pName = stripExt(pFile)
-            sep = &#34;&#34; if pDir == &#34;&#34; else &#34;/&#34;
-            partial = f&#34;{pDir}{sep}{pName}&#34;
-
-            with open(partialFile) as fh:
-                pContent = COMMENT_RE.sub(&#34;&#34;, fh.read())
-
-            try:
-                partials[partial] = Handlebars.compile(pContent)
-            except Exception as e:
-                Messages.error(
-                    logmsg=(
-                        f&#34;Error in register partial {partial} : &#34;
-                        f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                    ),
-                    stop=False,
-                )
-                good = False
-
-        report = f&#34;{len(partials):&lt;3} pieces&#34;
-        Messages.info(
-            msg=f&#34;{report} compiled&#34;,
-            logmsg=f&#34;{&#39;compiled&#39;:&lt;10} {&#39;partials&#39;:&lt;12} {report:&lt;24} to memory&#34;,
-        )
-        return good
-
-    def genTarget(target, pNum, eNum, nvv=1):
-        items = self.getData(target, pNum, eNum)
-
-        success = 0
-        failure = 0
-        good = True
-
-        for item in items:
-            templateFile = f&#34;{templateDir}/{item.template}&#34;
-
-            if templateFile in compiledTemplates:
-                template = compiledTemplates[templateFile]
-            else:
-                with open(templateFile) as fh:
-                    tContent = COMMENT_RE.sub(&#34;&#34;, fh.read())
-
-                try:
-                    template = Handlebars.compile(tContent)
-                except Exception as e:
-                    Messages.error(
-                        logmsg=(
-                            f&#34;Error compiling template {templateFile} : &#34;
-                            f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                        ),
-                        stop=False,
-                    )
-                    template = None
-
-                compiledTemplates[templateFile] = template
-
-            if template is None:
-                failure += 1
-                good = False
-                continue
-
-            try:
-                result = template(item, partials=partials)
-            except Exception as e:
-                Messages.error(
-                    logmsg=(
-                        f&#34;Error filling template {item.template} : &#34;
-                        f&#34;{&#39;&#39;.join(format_exception(e))}&#34;
-                    ),
-                    stop=False,
-                )
-                failure += 1
-                good = False
-                continue
-
-            for genDir, asData in ((pubModeDir, False), (dataOutDir, True)):
-                path = f&#34;{genDir}/{item.fileName}&#34;
-                if asData:
-                    ext = &#34;.json&#34;
-                    path = path.rsplit(&#34;.&#34;, 1)[0] + ext
-                dirPart = dirNm(path)
-                dirMake(dirPart)
-
-                if asData:
-                    writeJson(deepdict(item), asFile=path)
-                else:
-                    with open(path, &#34;w&#34;) as fh:
-                        fh.write(result)
-
-            success += 1
-
-        goodStr = f&#34;{success:&gt;3} ok&#34;
-        badStr = f&#34;{failure:&gt;3} XX&#34; if failure else &#34;&#34;
-        sep = &#34;;&#34; if failure else &#34; &#34;
-        report = f&#34;{goodStr}{sep} {badStr}&#34;
-        if target == &#34;editionpages&#34;:
-            report += (
-                f&#34; = {(success + failure) // (nvv + 1)} eds x &#34; f&#34;(1 + {nvv} v-v)&#34;
-            )
-        Messages.info(
-            msg=f&#34;generated {target} {report}&#34;,
-            logmsg=f&#34;{&#39;generated&#39;:&lt;10} {target:&lt;12} {report:&lt;24} to {pubModeDir}&#34;,
-        )
-        return good
-
-    pType = type(pPubNum)
-    eType = type(ePubNum)
-    pIsInt = pType is int
-    eIsInt = eType is int
-    pNo = pPubNum is None
-    eNo = ePubNum is None
-    pAll = pPubNum is True
-    eAll = ePubNum is True
-
-    task = (
-        (&#34;site&#34;,)
-        if pNo and eNo
-        else (&#34;project&#34;, pPubNum)
-        if pIsInt and eNo
-        else (&#34;edition&#34;, pPubNum, ePubNum)
-        if pIsInt and eIsInt
-        else (&#34;all&#34;,)
-        if pAll and eAll
-        else (&#34;none&#34;,)
-    )
-
-    if task[0] == &#34;none&#34;:
-        Messages.error(
-            msg=&#34;Page generation failed&#34;,
-            logmsg=(
-                &#34;Page generation failed because of illegal parameter combination: &#34;
-                f&#34;project {pPubNum}: {pType} and edition {ePubNum}: {eType}&#34;
-            ),
-            stop=False,
-        )
-        return
-
-    # site
-    # project p
-    # edition p e
-    # all
-    # none
-
-    kind = task[0]
-
-    targets = []
-
-    targets.append((&#34;site&#34;, None, None))
-    targets.append((&#34;textpages&#34;, None, None))
-    targets.append((&#34;projects&#34;, None, None))
-    targets.append((&#34;editions&#34;, None, None))
-
-    if kind == &#34;all&#34;:
-        targets.append((&#34;projectpages&#34;, None, None))
-        targets.append((&#34;editionpages&#34;, None, None))
-
-    elif kind in {&#34;project&#34;, &#34;edition&#34;}:
-        targets.append((&#34;projectpages&#34;, pPubNum, None))
-
-        if kind == &#34;edition&#34;:
-            targets.append((&#34;editionpages&#34;, pPubNum, ePubNum))
-
-    good = True
-
-    for kind, srcDir in ((&#34;js&#34;, jsDir), (&#34;images&#34;, imageDir)):
-        if not updateStatic(kind, srcDir):
-            good = False
-
-    (nvv, thisGood) = updateViewers()
-
-    if not thisGood:
-        good = False
-
-    if not registerPartials():
-        good = False
-
-    if not Tailwind.generate():
-        good = False
-
-    self.getDbData()
-
-    for target in targets:
-        if not genTarget(*target, nvv=nvv):
-            good = False
-
-    if good:
-        msg = &#34;All tasks successful&#34;
-        Messages.info(logmsg=msg)
-    else:
-        msg = &#34;Page generation failed&#34;
-        Messages.error(logmsg=msg, msg=msg, stop=False)
-    return good</code></pre>
-</details>
 </dd>
 <dt id="control.static.Static.getData"><code class="name flex">
 <span>def <span class="ident">getData</span></span>(<span>self, kind, pNumGiven, eNumGiven)</span>
@@ -2253,372 +1915,6 @@ restricted.</p>
 It is also stored in the member <code>data</code> of this object, under key
 <code>kind</code>. It will not be computed twice.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L486-L845" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getData(self, kind, pNumGiven, eNumGiven):
-    &#34;&#34;&#34;Prepares page data of a certain kind.
-
-    Pages are generated by filling in templates and partials on the basis of
-    JSON data. Pages may require several kinds of data.
-    For example, the index page needs data to fill in a list of projects
-    and editions. Other pages may need the same kind of data.
-    So we store the gathered data under the kinds they have been gathered.
-
-    For some kinds we may restrict the data fetching to specified items:
-    for `projectpages` and `editionpages`.
-
-    When an edition has changed, we want to restrict the regeneration of
-    pages to only those pages that need to change. And we also update things outside
-    the projects and editions.
-
-    Still, when an edition changes, the page with All editions also has to change.
-    And if the edition was the first in a project to be published, a new project
-    will be published as well, and hence the `All projects` page needs to change.
-
-    If an edition is published next to other editions in a project, the project
-    page needs to change, since it contains thumbnails of all its editions.
-
-    So, the general rule is that we will always regenerate the thumbnails and the
-    All-projects and All-edition pages, but not all of the project pages and edition
-    pages.
-
-    !!! note &#34;Not all kinds will be restricted&#34;
-        The kinds `viewers`, `textpages`, `site` will never be restricted.
-
-        The kinds `projects`, `editions` are needed for thumbnails, and are
-        never restricted.
-
-        The kinds `project`, `edition` are called by the collection of kinds
-        `project` and `edition`, and are also not restricted.
-
-        That leaves only the `projectpages` and `editionpages` needing to be
-        restricted.
-
-    Parameters
-    ----------
-    kind: string
-        The kind of data we need to prepare.
-    pNumGiven: integer or void
-        Restricts the data fetching to projects with this publication number
-    eNumGiven: integer or void
-        Restricts the data fetching to editions with this publication number
-
-    Returns
-    -------
-    dict or array
-        The data itself.
-        It is also stored in the member `data` of this object, under key
-        `kind`. It will not be computed twice.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    Messages = self.Messages
-    Precheck = self.Precheck
-    textDir = Settings.textDir
-    authorUrl = Settings.authorUrl
-    backPrefix = Settings.backPrefix
-    authorRoot = f&#34;{authorUrl}/{backPrefix}/&#34;
-
-    cfg = self.cfg
-    generation1 = cfg.generation
-    dbData = self.dbData
-    data = self.data
-
-    if kind in data:
-        return data[kind]
-
-    def get_viewers():
-        defaultViewer = Settings.viewerDefault
-
-        result = []
-
-        for viewer, viewerConfig in Settings.viewers.items():
-            versions = viewerConfig.versions
-            element = viewerConfig.modes.read.element
-            isDefault = viewer == defaultViewer
-
-            result.append(
-                AttrDict(
-                    name=viewer,
-                    element=element,
-                    isDefault=isDefault,
-                    versions=[AttrDict(name=version) for version in versions],
-                )
-            )
-            result[-1].versions[0].isDefault = True
-
-        return result
-
-    def get_textpages():
-        textFiles = dirContents(textDir)[0]
-
-        def getLinks(textFile):
-            return [
-                dict(text=prettify(t.removesuffix(&#34;.html&#34;)), link=t)
-                for t in textFiles
-                if t != textFile
-            ]
-
-        result = []
-
-        for textFile in textFiles:
-            r = AttrDict()
-            r.template = &#34;text.html&#34;
-            r.authorLink = authorRoot
-            r.name = prettify(textFile.removesuffix(&#34;.html&#34;))
-            r[&#34;is&#34; + ucFirst(r.name)] = True
-            r.fileName = textFile
-            r.links = getLinks(textFile)
-
-            with open(f&#34;{textDir}/{textFile}&#34;) as fh:
-                r.content = fh.read()
-
-            result.append(r)
-
-        return result
-
-    def get_site():
-        featured = self.featured
-
-        info = dbData[kind]
-        dc = info.dc
-        self.sanitizeDC(&#34;site&#34;, dc)
-        dc = self.htmlify(dc)
-
-        r = AttrDict()
-        r.isHome = True
-        r.template = &#34;home.html&#34;
-        r.fileName = &#34;index.html&#34;
-        r.authorLink = authorRoot
-        r.name = dc.title
-        r.contentdata = dc
-        projects = self.getData(&#34;project&#34;, None, None)
-        projectsIndex = {p.num: p for p in projects}
-        projectsFeatured = []
-
-        for p in featured:
-            if p not in projectsIndex:
-                Messages.warning(f&#34;featured project {p} does not exist&#34;)
-                continue
-
-            projectsFeatured.append(projectsIndex[p])
-
-        r.projects = projectsFeatured
-
-        return [r]
-
-    def get_projects():
-        r = AttrDict()
-        r.isProjects = True
-        r.name = &#34;All Projects&#34;
-        r.template = &#34;projects.html&#34;
-        r.fileName = &#34;projects.html&#34;
-        r.authorLink = authorRoot
-        r.projects = self.getData(&#34;project&#34;, None, None)
-
-        return [r]
-
-    def get_editions():
-        r = AttrDict()
-        r.isEditions = True
-        r.name = &#34;All Editions&#34;
-        r.template = &#34;editions.html&#34;
-        r.fileName = &#34;editions.html&#34;
-        r.authorLink = authorRoot
-        r.editions = self.getData(&#34;edition&#34;, None, None)
-
-        return [r]
-
-    def get_project():
-        info = dbData[kind]
-
-        result = []
-
-        for num, item in info.items():
-            dc = item.dc
-            self.sanitizeDC(&#34;project&#34;, dc)
-            dc = self.htmlify(dc)
-
-            r = AttrDict()
-            r.name = item.title
-            r.num = num
-            r.fileName = f&#34;project/{num}/index.html&#34;
-            r.abstract = dc.abstract or &#34;&#34;
-            r.description = dc.description or &#34;&#34;
-            r.subjects = dc.subject
-            r.visible = item.isVisible or False
-            result.append(r)
-
-        return result
-
-    def get_edition():
-        info = dbData[kind]
-
-        result = []
-
-        for pNum, eNums in info.items():
-            for eNum, item in eNums.items():
-                dc = item.dc
-                self.sanitizeDC(&#34;edition&#34;, dc)
-                dc = self.htmlify(dc)
-
-                r = AttrDict()
-                r.projectNum = pNum
-                r.projectFileName = f&#34;project/{pNum}.html&#34;
-                r.name = item.title
-                r.num = eNum
-                r.fileName = f&#34;project/{pNum}/edition/{eNum}/index.html&#34;
-                r.abstract = dc.abstract or &#34;&#34;
-                r.description = dc.description or &#34;&#34;
-                r.subjects = dc.subject
-                r.published = item.isPublished or False
-                result.append(r)
-
-        return result
-
-    def get_projectpages():
-        pInfo = dbData[&#34;project&#34;]
-        eInfo = dbData[&#34;edition&#34;]
-
-        result = []
-
-        for pNo in sorted(pInfo):
-            if pNumGiven is not None and pNo != pNumGiven:
-                continue
-
-            pItem = pInfo[pNo]
-            pId = pItem._id
-            pdc = self.htmlify(pItem.dc)
-            fileName = f&#34;project/{pNo}/index.html&#34;
-
-            pr = AttrDict()
-            pr.template = &#34;project.html&#34;
-            pr.fileName = fileName
-            pr.num = pNo
-            pr.name = pItem.title
-            pr.authorLink = f&#34;{authorRoot}{pId}&#34;
-            pr.visible = pItem.isVisible or False
-            pr.contentdata = pdc
-            pr.editions = []
-
-            thisEInfo = eInfo.get(pNo, {})
-
-            for eNo in sorted(thisEInfo):
-                eItem = thisEInfo[eNo]
-                edc = self.htmlify(eItem.dc)
-
-                er = AttrDict()
-                er.projectNum = pNo
-                er.projectFileName = f&#34;project/{pNo}/index.html&#34;
-                er.fileName = f&#34;project/{pNo}/edition/{eNo}/index.html&#34;
-                er.num = eNo
-                er.name = eItem.title
-                er.contentdata = edc
-                er.published = eItem.isPublished or False
-
-                pr.editions.append(er)
-
-            result.append(pr)
-
-        return result
-
-    def get_editionpages():
-        viewers = self.getData(&#34;viewers&#34;, None, None)
-        viewersLean = tuple(
-            (
-                vw.name,
-                vw.isDefault,
-                tuple((vv.name, vv.isDefault) for vv in vw.versions),
-            )
-            for vw in viewers
-        )
-
-        pInfo = dbData[&#34;project&#34;]
-        eInfo = dbData[&#34;edition&#34;]
-
-        result = []
-
-        for pNo in sorted(pInfo):
-            if pNumGiven is not None and pNo != pNumGiven:
-                continue
-
-            pItem = pInfo[pNo]
-            pId = pItem._id
-            projectFileName = f&#34;project/{pNo}/index.html&#34;
-            projectName = pItem.get(&#34;title&#34;, pNo)
-
-            thisEInfo = eInfo.get(pNo, {})
-
-            for eNo in sorted(thisEInfo):
-                if eNumGiven is not None and eNo != eNumGiven:
-                    continue
-
-                eItem = thisEInfo[eNo]
-                eId = eItem._id
-                edc = self.htmlify(eItem.dc)
-
-                er = AttrDict()
-                er.template = &#34;edition.html&#34;
-                er.projectNum = pNo
-                er.projectName = projectName
-                er.projectFileName = projectFileName
-                er.authorLink = f&#34;{authorRoot}{pId}/{eId}&#34;
-                fileBase = f&#34;project/{pNo}/edition/{eNo}/index&#34;
-                er.num = eNo
-                er.name = eItem.title
-                er.contentdata = edc
-                er.isPublished = eItem.ispublished or False
-                settings = eItem.settings
-                authorTool = settings.authorTool
-                origViewer = authorTool.name
-                origVersion = authorTool.name
-                er.sceneFile = authorTool.sceneFile
-                er.toc = Precheck.checkEdition(pNo, eNo, eItem, asPublished=True)
-
-                for viewerInfo in viewers:
-                    viewer = viewerInfo.name
-                    element = viewerInfo.element
-                    versions = viewerInfo.versions
-                    isDefaultViewer = viewerInfo.isDefault
-
-                    for versionInfo in versions:
-                        version = versionInfo.name
-                        isDefault = versionInfo.isDefault
-                        ver = deepAttrDict(deepcopy(deepdict(er)))
-                        ver.viewer = viewer
-                        ver.version = version
-                        ver.element = element
-                        ver.fileName = f&#34;{fileBase}-{viewer}-{version}.html&#34;
-                        isDefault = isDefaultViewer and isDefault
-
-                        viewerSelector = genViewerSelector(
-                            viewersLean,
-                            viewer,
-                            version,
-                            origViewer,
-                            origVersion,
-                            fileBase,
-                        )
-
-                        ver.viewerSelector = viewerSelector
-                        result.append(ver)
-
-                        if isDefault:
-                            ver = deepAttrDict(deepcopy(deepdict(ver)))
-                            ver.fileName = f&#34;{fileBase}.html&#34;
-                            result.append(ver)
-
-        return result
-
-    getFunc = locals().get(f&#34;get_{kind}&#34;, None)
-
-    result = getFunc() if getFunc is not None else []
-
-    data[kind] = result
-    return result</code></pre>
-</details>
 </dd>
 <dt id="control.static.Static.getDbData"><code class="name flex">
 <span>def <span class="ident">getDbData</span></span>(<span>self)</span>
@@ -2631,196 +1927,33 @@ We store them as is in member <code>dbData</code>.</p>
 in the variables of the templates.</p>
 <p>We assume this data has been exported when projects and editions got published,
 into files named <code>db.json</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L847-L889" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getDbData(self):
-    &#34;&#34;&#34;Get the raw data contained in the json export from Mongo DB.
-
-    This is the metadata of the site, the projects, and the editions.
-    We store them as is in member `dbData`.
-
-    Later we distil page data from this, i.e. the data that is ready to fill
-    in the variables of the templates.
-
-    We assume this data has been exported when projects and editions got published,
-    into files named `db.json`.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    dbFile = Settings.dbFile
-
-    dbData = self.dbData
-
-    pubModeDir = Settings.pubModeDir
-    projectDir = f&#34;{pubModeDir}/project&#34;
-
-    dbData[&#34;site&#34;] = readJson(asFile=f&#34;{pubModeDir}/{dbFile}&#34;)
-
-    rProjects = {}
-    dbData[&#34;project&#34;] = rProjects
-
-    rEditions = {}
-    dbData[&#34;edition&#34;] = rEditions
-
-    for p in dirContents(projectDir)[1]:
-        if not p.isdecimal():
-            continue
-
-        p = int(p)
-        pPath = f&#34;{projectDir}/{p}&#34;
-        rProjects[p] = readJson(asFile=f&#34;{pPath}/{dbFile}&#34;)
-
-        for e in dirContents(f&#34;{pPath}/edition&#34;)[1]:
-            if not e.isdecimal():
-                continue
-
-            e = int(e)
-            ePath = f&#34;{pPath}/edition/{e}&#34;
-            rEditions.setdefault(p, {})[e] = readJson(asFile=f&#34;{ePath}/{dbFile}&#34;)</code></pre>
-</details>
 </dd>
-<dt id="control.static.Static.htmlify"><code class="name flex">
-<span>def <span class="ident">htmlify</span></span>(<span>self, info)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Translate fields in a dict into html.</p>
-<p>Certain fields will trigger a markdown to html conversion.</p>
-<p>Certain fields will be normalized to lists:
-if the type of such a field is not list, it will be turned into a one-element
-list.</p>
-<p>There will also be generated a field whose name has the string <code>Comma</code> appended,
-it will be a comma-separated list of the items in that field.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>info</code></strong> :&ensp;<code>dict</code></dt>
-<dd>The input data</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>AttrDict</code></dt>
-<dd>The resulting data. NB: it is brand-new data which does not share
-any data with the input data. Fields are either transformed from markdown
-to HTML, or copied.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L84-L135" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def htmlify(self, info):
-    &#34;&#34;&#34;Translate fields in a dict into html.
-
-    Certain fields will trigger a markdown to html conversion.
-
-    Certain fields will be normalized to lists:
-    if the type of such a field is not list, it will be turned into a one-element
-    list.
-
-    There will also be generated a field whose name has the string `Comma` appended,
-    it will be a comma-separated list of the items in that field.
-
-    Parameters
-    ----------
-    info: dict
-        The input data
-
-    Returns
-    -------
-    AttrDict
-        The resulting data. NB: it is brand-new data which does not share
-        any data with the input data. Fields are either transformed from markdown
-        to HTML, or copied.
-    &#34;&#34;&#34;
-    listKeys = self.listKeys
-    markdownKeys = self.markdownKeys
-
-    r = AttrDict()
-
-    for k, v in info.items():
-        if k in listKeys:
-            if type(v) is not list:
-                v = [v]
-
-            r[f&#34;{k}Comma&#34;] = (
-                &#34;&#34;
-                if len(v) == 0
-                else str(v[0])
-                if len(v) == 1
-                else &#34;, &#34;.join(str(e) for e in v[0:-1]) + f&#34; and {v[-1]}&#34;
-            )
-
-        if k in markdownKeys:
-            v = (
-                &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in v)
-                if type(v) is list
-                else markdown(v)
-            )
-
-        r[k] = v
-
-    return r</code></pre>
-</details>
-</dd>
-<dt id="control.static.Static.sanitizeDC"><code class="name flex">
-<span>def <span class="ident">sanitizeDC</span></span>(<span>self, table, dc)</span>
+<dt id="control.static.Static.sanitizeMeta"><code class="name flex">
+<span>def <span class="ident">sanitizeMeta</span></span>(<span>self, table, record)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Checks for missing (sub)-fields in the Dublin Core.</p>
+<p>Any field that is missing will be supplied with a default value, most of the
+times it will be an empty list or string, but the licence will be an
+"All rights reserved" licence.
+Ideally the defaults should come from configuration, but because an admin can
+change the keywords, the defaults should then also be editable by an admin,
+but that goes to far for now.</p>
+<p>Strings in list fields will be converted to singleton lists,
+and markdown texts will be converted to html.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
 <dd>The kind of info: site, project, or edition. This influences
 which fields should be present.</dd>
-<dt><strong><code>dc</code></strong> :&ensp;<code>dict</code></dt>
-<dd>The Dublin Core info</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>dict</code></dt>
+<dd>The record with metadata</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>void</code></dt>
 <dd>The dict is changed in place.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/static.py#L49-L82" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def sanitizeDC(self, table, dc):
-    &#34;&#34;&#34;Checks for missing (sub)-fields in the Dublin Core.
-
-    Parameters
-    ----------
-    table: string
-        The kind of info: site, project, or edition. This influences
-        which fields should be present.
-    dc: dict
-        The Dublin Core info
-
-    Returns
-    -------
-    void
-        The dict is changed in place.
-    &#34;&#34;&#34;
-    if table == &#34;site&#34;:
-        return
-    if table == &#34;project&#34;:
-        return
-    if table == &#34;edition&#34;:
-        k = &#34;rights&#34;
-
-        if k not in dc:
-            dc[k] = {}
-
-        for k1, default in (
-            (&#34;license&#34;, &#34;All rights reserved&#34;),
-            (&#34;holder&#34;, &#34;Unknown&#34;),
-        ):
-            if k1 not in dc[k]:
-                dc[k][k1] = default
-
-        return</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -2894,8 +2027,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.static.Static.genPages" href="#control.static.Static.genPages">genPages</a></code></li>
 <li><code><a title="control.static.Static.getData" href="#control.static.Static.getData">getData</a></code></li>
 <li><code><a title="control.static.Static.getDbData" href="#control.static.Static.getDbData">getDbData</a></code></li>
-<li><code><a title="control.static.Static.htmlify" href="#control.static.Static.htmlify">htmlify</a></code></li>
-<li><code><a title="control.static.Static.sanitizeDC" href="#control.static.Static.sanitizeDC">sanitizeDC</a></code></li>
+<li><code><a title="control.static.Static.sanitizeMeta" href="#control.static.Static.sanitizeMeta">sanitizeMeta</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2905,7 +2037,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

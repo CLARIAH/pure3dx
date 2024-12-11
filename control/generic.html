@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.generic API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,10 +26,10 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L1-L226" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/generic.py#L1-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
-from datetime import datetime as dt
+from datetime import datetime as dt, UTC
 from functools import cmp_to_key as keyFromComparison
 
 from bson.objectid import ObjectId
@@ -59,15 +59,50 @@ OP_VERSION_RE = re.compile(
     re.X,
 )
 
+TZ_RE = re.compile(r&#34;&#34;&#34;(?:Z|(?:[+-][0-9:]+))$&#34;&#34;&#34;)
 
-def now():
+
+def utcnow():
+    &#34;&#34;&#34;The current moment in time in the UTC time zone.
+
+    Returns
+    -------
+    datetime
+        An aware datetime object (in the sense of: having the timezone included
+        in its value.
+    &#34;&#34;&#34;
+    return dt.now(UTC)
+
+
+def isonow():
+    &#34;&#34;&#34;The current moment in time as an ISO 8601 string value.
+
+    Details:
+
+    *   the precision is up to the second;
+    *   the separator between the date part and the timpe part is `T`;
+    *   the timezone is UTC, marked as `Z` directly after the time part.
+
+    Returns
+    -------
+    string
+        E.g. `2024-11-13T10:53:15Z`
+    &#34;&#34;&#34;
+    return TZ_RE.sub(&#34;Z&#34;, utcnow().isoformat(timespec=&#34;seconds&#34;, sep=&#34;T&#34;))
+
+
+def pseudoisonow():
     &#34;&#34;&#34;The current moment in time as a isolike string value.
 
-    Strips everything after the decimal point,
-    (milliseconds and timezone).
-    &#34;&#34;&#34;
+    It is like `isonow()`, but the time separators (`:`) are
+    replaced by `-`, so that the string can be included in urls.
 
-    return dt.utcnow().isoformat().split(&#34;.&#34;)[0].replace(&#34;:&#34;, &#34;-&#34;)
+    Returns
+    -------
+    string
+        E.g. `2024-11-13T10-53-15Z`
+    &#34;&#34;&#34;
+    return isonow().replace(&#34;:&#34;, &#34;-&#34;)
 
 
 def splitComp(c):
@@ -84,13 +119,13 @@ def versionCompare(v1, v2):
 
     nV2 = len(v2comps)
 
-    for (i, c1) in enumerate(v1comps):
+    for i, c1 in enumerate(v1comps):
         if i &gt;= nV2:
             return 1
 
         c2 = v2comps[i]
         nC2 = len(c2)
-        for (j, s1) in enumerate(c1):
+        for j, s1 in enumerate(c1):
             if j &gt;= nC2:
                 return 1
 
@@ -112,7 +147,7 @@ def attResolve(attSpec, version):
     if default is None:
         return attSpec
 
-    for (k, v) in attSpec.items():
+    for k, v in attSpec.items():
         if k == &#34;default&#34;:
             continue
 
@@ -205,15 +240,19 @@ def deepdict(info):
     return (
         dict({k: deepdict(v) for (k, v) in info.items()})
         if tp in {dict, AttrDict}
-        else tuple(deepdict(item) for item in info)
-        if tp is tuple
-        else frozenset(deepdict(item) for item in info)
-        if tp is frozenset
-        else [deepdict(item) for item in info]
-        if tp is list
-        else {deepdict(item) for item in info}
-        if tp is set
-        else info
+        else (
+            tuple(deepdict(item) for item in info)
+            if tp is tuple
+            else (
+                frozenset(deepdict(item) for item in info)
+                if tp is frozenset
+                else (
+                    [deepdict(item) for item in info]
+                    if tp is list
+                    else {deepdict(item) for item in info} if tp is set else info
+                )
+            )
+        )
     )
 
 
@@ -244,15 +283,25 @@ def deepAttrDict(info, preferTuples=False):
             {k: deepAttrDict(v, preferTuples=preferTuples) for (k, v) in info.items()}
         )
         if tp in {dict, AttrDict}
-        else tuple(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is tuple or (tp is list and preferTuples)
-        else frozenset(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is frozenset
-        else [deepAttrDict(item, preferTuples=preferTuples) for item in info]
-        if tp is list
-        else {deepAttrDict(item, preferTuples=preferTuples) for item in info}
-        if tp is set
-        else info
+        else (
+            tuple(deepAttrDict(item, preferTuples=preferTuples) for item in info)
+            if tp is tuple or (tp is list and preferTuples)
+            else (
+                frozenset(
+                    deepAttrDict(item, preferTuples=preferTuples) for item in info
+                )
+                if tp is frozenset
+                else (
+                    [deepAttrDict(item, preferTuples=preferTuples) for item in info]
+                    if tp is list
+                    else (
+                        {deepAttrDict(item, preferTuples=preferTuples) for item in info}
+                        if tp is set
+                        else info
+                    )
+                )
+            )
+        )
     )</code></pre>
 </details>
 </section>
@@ -268,40 +317,6 @@ def deepAttrDict(info, preferTuples=False):
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L79-L106" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def attResolve(attSpec, version):
-    default = attSpec.default
-
-    if default is None:
-        return attSpec
-
-    for (k, v) in attSpec.items():
-        if k == &#34;default&#34;:
-            continue
-
-        match = OP_VERSION_RE.match(k)
-        if not match:
-            continue
-        (op, cmpVersion) = match.group(1, 2)
-        cmp = versionCompare(version, cmpVersion)
-        if (
-            op == &#34;&lt;&#34;
-            and cmp &lt; 0
-            or op == &#34;&lt;=&#34;
-            and cmp &lt;= 0
-            or op == &#34;&gt;&#34;
-            and cmp &gt; 0
-            or op == &#34;&gt;=&#34;
-            and cmp &gt; 0
-        ):
-            return v
-
-    return default</code></pre>
-</details>
 </dd>
 <dt id="control.generic.deepAttrDict"><code class="name flex">
 <span>def <span class="ident">deepAttrDict</span></span>(<span>info, preferTuples=False)</span>
@@ -325,49 +340,6 @@ and functions.</dd>
 <dd>An <code><a title="control.generic.AttrDict" href="#control.generic.AttrDict">AttrDict</a></code> containing the same info as the input dictionary, but where
 each value of type <code>dict</code> is turned into an <code><a title="control.generic.AttrDict" href="#control.generic.AttrDict">AttrDict</a></code>.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L190-L226" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deepAttrDict(info, preferTuples=False):
-    &#34;&#34;&#34;Turn a `dict` into an `AttrDict`, recursively.
-
-    Parameters
-    ----------
-    info: any
-        The input dictionary. We assume that it is a data structure built by
-        `tuple`, `list`, `set`, `frozenset`, `dict` and atomic types such as
-        `int`, `str`, `bool`.
-        We assume there are no user defined objects in it, and no generators
-        and functions.
-    preferTuples: boolean, optional False
-        Lists are converted to tuples.
-
-    Returns
-    -------
-    AttrDict
-        An `AttrDict` containing the same info as the input dictionary, but where
-        each value of type `dict` is turned into an `AttrDict`.
-    &#34;&#34;&#34;
-    tp = type(info)
-
-    return (
-        AttrDict(
-            {k: deepAttrDict(v, preferTuples=preferTuples) for (k, v) in info.items()}
-        )
-        if tp in {dict, AttrDict}
-        else tuple(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is tuple or (tp is list and preferTuples)
-        else frozenset(deepAttrDict(item, preferTuples=preferTuples) for item in info)
-        if tp is frozenset
-        else [deepAttrDict(item, preferTuples=preferTuples) for item in info]
-        if tp is list
-        else {deepAttrDict(item, preferTuples=preferTuples) for item in info}
-        if tp is set
-        else info
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.generic.deepdict"><code class="name flex">
 <span>def <span class="ident">deepdict</span></span>(<span>info)</span>
@@ -389,149 +361,72 @@ and functions.</dd>
 <dd>A dictionary containing the same info as the input dictionary, but where
 each value of type <code><a title="control.generic.AttrDict" href="#control.generic.AttrDict">AttrDict</a></code> is turned into a <code>dict</code>.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L149-L187" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deepdict(info):
-    &#34;&#34;&#34;Turns an `AttrDict` into a `dict`, recursively.
-
-    Parameters
-    ----------
-    info: any
-        The input dictionary. We assume that it is a data structure built by
-        `tuple`, `list`, `set`, `frozenset`, `dict` and atomic types such as
-        `int`, `str`, `bool`.
-        We assume there are no user defined objects in it, and no generators
-        and functions.
-
-    Returns
-    -------
-    dict
-        A dictionary containing the same info as the input dictionary, but where
-        each value of type `AttrDict` is turned into a `dict`.
-    &#34;&#34;&#34;
-    if isinstance(info, dt):
-        return info.isoformat()
-
-    if isinstance(info, ObjectId):
-        return str(info)
-
-    tp = type(info)
-
-    return (
-        dict({k: deepdict(v) for (k, v) in info.items()})
-        if tp in {dict, AttrDict}
-        else tuple(deepdict(item) for item in info)
-        if tp is tuple
-        else frozenset(deepdict(item) for item in info)
-        if tp is frozenset
-        else [deepdict(item) for item in info]
-        if tp is list
-        else {deepdict(item) for item in info}
-        if tp is set
-        else info
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.generic.getVersionKeyFunc"><code class="name flex">
 <span>def <span class="ident">getVersionKeyFunc</span></span>(<span>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L75-L76" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getVersionKeyFunc():
-    return keyFromComparison(versionCompare)</code></pre>
-</details>
+</dd>
+<dt id="control.generic.isonow"><code class="name flex">
+<span>def <span class="ident">isonow</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The current moment in time as an ISO 8601 string value.</p>
+<p>Details:</p>
+<ul>
+<li>the precision is up to the second;</li>
+<li>the separator between the date part and the timpe part is <code>T</code>;</li>
+<li>the timezone is UTC, marked as <code>Z</code> directly after the time part.</li>
+</ul>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>E.g. <code>2024-11-13T10:53:15Z</code></dd>
+</dl></div>
 </dd>
 <dt id="control.generic.makeComps"><code class="name flex">
 <span>def <span class="ident">makeComps</span></span>(<span>v)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L47-L48" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def makeComps(v):
-    return [splitComp(c) for c in v.split(&#34;.&#34;)]</code></pre>
-</details>
 </dd>
-<dt id="control.generic.now"><code class="name flex">
-<span>def <span class="ident">now</span></span>(<span>)</span>
+<dt id="control.generic.pseudoisonow"><code class="name flex">
+<span>def <span class="ident">pseudoisonow</span></span>(<span>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The current moment in time as a isolike string value.</p>
-<p>Strips everything after the decimal point,
-(milliseconds and timezone).</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L33-L40" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def now():
-    &#34;&#34;&#34;The current moment in time as a isolike string value.
-
-    Strips everything after the decimal point,
-    (milliseconds and timezone).
-    &#34;&#34;&#34;
-
-    return dt.utcnow().isoformat().split(&#34;.&#34;)[0].replace(&#34;:&#34;, &#34;-&#34;)</code></pre>
-</details>
+<p>It is like <code><a title="control.generic.isonow" href="#control.generic.isonow">isonow()</a></code>, but the time separators (<code>:</code>) are
+replaced by <code>-</code>, so that the string can be included in urls.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>E.g. <code>2024-11-13T10-53-15Z</code></dd>
+</dl></div>
 </dd>
 <dt id="control.generic.splitComp"><code class="name flex">
 <span>def <span class="ident">splitComp</span></span>(<span>c)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L43-L44" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def splitComp(c):
-    return [m for m in VERSION_COMP_RE.findall(c) if m[0] or m[1]]</code></pre>
-</details>
+</dd>
+<dt id="control.generic.utcnow"><code class="name flex">
+<span>def <span class="ident">utcnow</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The current moment in time in the UTC time zone.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>datetime</code></dt>
+<dd>An aware datetime object (in the sense of: having the timezone included
+in its value.</dd>
+</dl></div>
 </dd>
 <dt id="control.generic.versionCompare"><code class="name flex">
 <span>def <span class="ident">versionCompare</span></span>(<span>v1, v2)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L51-L72" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def versionCompare(v1, v2):
-    v1comps = makeComps(v1)
-    v2comps = makeComps(v2)
-
-    nV2 = len(v2comps)
-
-    for (i, c1) in enumerate(v1comps):
-        if i &gt;= nV2:
-            return 1
-
-        c2 = v2comps[i]
-        nC2 = len(c2)
-        for (j, s1) in enumerate(c1):
-            if j &gt;= nC2:
-                return 1
-
-            s2 = c2[j]
-            if s1 &lt; s2:
-                return -1
-            if s1 &gt; s2:
-                return 1
-    return 0</code></pre>
-</details>
 </dd>
 </dl>
 </section>
@@ -562,7 +457,7 @@ dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute lik
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L109-L146" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/generic.py#L144-L181" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AttrDict(dict):
     &#34;&#34;&#34;Turn a dict into an object with attributes.
@@ -614,14 +509,6 @@ dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute lik
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/generic.py#L145-L146" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deepdict(self):
-    return deepdict(self)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -693,9 +580,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.generic.deepAttrDict" href="#control.generic.deepAttrDict">deepAttrDict</a></code></li>
 <li><code><a title="control.generic.deepdict" href="#control.generic.deepdict">deepdict</a></code></li>
 <li><code><a title="control.generic.getVersionKeyFunc" href="#control.generic.getVersionKeyFunc">getVersionKeyFunc</a></code></li>
+<li><code><a title="control.generic.isonow" href="#control.generic.isonow">isonow</a></code></li>
 <li><code><a title="control.generic.makeComps" href="#control.generic.makeComps">makeComps</a></code></li>
-<li><code><a title="control.generic.now" href="#control.generic.now">now</a></code></li>
+<li><code><a title="control.generic.pseudoisonow" href="#control.generic.pseudoisonow">pseudoisonow</a></code></li>
 <li><code><a title="control.generic.splitComp" href="#control.generic.splitComp">splitComp</a></code></li>
+<li><code><a title="control.generic.utcnow" href="#control.generic.utcnow">utcnow</a></code></li>
 <li><code><a title="control.generic.versionCompare" href="#control.generic.versionCompare">versionCompare</a></code></li>
 </ul>
 </li>
@@ -714,7 +603,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

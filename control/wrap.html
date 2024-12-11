@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.wrap API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,9 +26,9 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L1-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/wrap.py#L1-L380" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python"># from control.generic import AttrDict
+<pre><code class="python"># from .generic import AttrDict
 
 
 class Wrap:
@@ -97,7 +97,11 @@ class Wrap:
 
         wrapped = []
         wrapped.append(
-            H.p(self.contentButton(&#34;site&#34;, site, &#34;create&#34;, insertTable=&#34;project&#34;))
+            H.p(
+                self.contentButton(
+                    &#34;site&#34;, site, &#34;create&#34;, insertTable=&#34;project&#34;, text=&#34;New project&#34;
+                )
+            )
         )
 
         for project in projects:
@@ -117,7 +121,9 @@ class Wrap:
             statusCls = css.isVisible[stat]
 
             projectUrl = f&#34;/project/{projectId}&#34;
-            button = self.contentButton(&#34;project&#34;, project, &#34;delete&#34;, confirm=True)
+            button = self.contentButton(
+                &#34;project&#34;, project, &#34;delete&#34;, confirm=True, text=&#34;Delete project&#34;
+            )
             visual = Content.getUpload(project, &#34;iconProject&#34;)
             caption = self.getCaption(
                 visual, title, status, statusCls, button, projectUrl
@@ -165,7 +171,9 @@ class Wrap:
             statusCls = css.isPublished[stat]
 
             editionUrl = f&#34;/edition/{editionId}&#34;
-            button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
+            button = self.contentButton(
+                &#34;edition&#34;, edition, &#34;delete&#34;, confirm=True, text=&#34;Delete edition&#34;
+            )
             visual = Content.getUpload(edition, &#34;iconEdition&#34;)
             caption = self.getCaption(
                 visual, title, status, statusCls, button, editionUrl
@@ -173,7 +181,15 @@ class Wrap:
             wrapped.append(caption)
 
         wrapped.append(
-            H.p(self.contentButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
+            H.p(
+                self.contentButton(
+                    &#34;project&#34;,
+                    project,
+                    &#34;create&#34;,
+                    insertTable=&#34;edition&#34;,
+                    text=&#34;New Edition&#34;,
+                )
+            )
         )
         return H.content(*wrapped)
 
@@ -214,7 +230,9 @@ class Wrap:
         wrapped = []
 
         titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-        button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
+        button = self.contentButton(
+            &#34;edition&#34;, edition, &#34;delete&#34;, confirm=True, text=&#34;Delete scene&#34;
+        )
 
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
@@ -279,6 +297,7 @@ class Wrap:
         insertTable=None,
         key=None,
         href=None,
+        text=None,
     ):
         &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
 
@@ -348,7 +367,7 @@ class Wrap:
             if len(details):
                 disable = True
                 detailContent = []
-                for (detailTable, detailRecords) in details.items():
+                for detailTable, detailRecords in details.items():
                     nDetails = len(detailRecords)
                     plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
                     detailRep = detailTable + plural
@@ -386,7 +405,8 @@ class Wrap:
 
         fullCls = f&#34;button small {cls}&#34;
         return (
-            H.iconx(action, href=href, title=tip, cls=fullCls, **confirmAtt) + report
+            H.iconx(action, href=href, title=tip, cls=fullCls, text=text, **confirmAtt)
+            + report
         )</code></pre>
 </details>
 </section>
@@ -422,7 +442,7 @@ purposes, such as showing widgets to manage projects and editions.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L4-L360" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/wrap.py#L4-L380" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Wrap:
     def __init__(self, Settings, Messages, Viewers):
@@ -490,7 +510,11 @@ purposes, such as showing widgets to manage projects and editions.</p>
 
         wrapped = []
         wrapped.append(
-            H.p(self.contentButton(&#34;site&#34;, site, &#34;create&#34;, insertTable=&#34;project&#34;))
+            H.p(
+                self.contentButton(
+                    &#34;site&#34;, site, &#34;create&#34;, insertTable=&#34;project&#34;, text=&#34;New project&#34;
+                )
+            )
         )
 
         for project in projects:
@@ -510,7 +534,9 @@ purposes, such as showing widgets to manage projects and editions.</p>
             statusCls = css.isVisible[stat]
 
             projectUrl = f&#34;/project/{projectId}&#34;
-            button = self.contentButton(&#34;project&#34;, project, &#34;delete&#34;, confirm=True)
+            button = self.contentButton(
+                &#34;project&#34;, project, &#34;delete&#34;, confirm=True, text=&#34;Delete project&#34;
+            )
             visual = Content.getUpload(project, &#34;iconProject&#34;)
             caption = self.getCaption(
                 visual, title, status, statusCls, button, projectUrl
@@ -558,7 +584,9 @@ purposes, such as showing widgets to manage projects and editions.</p>
             statusCls = css.isPublished[stat]
 
             editionUrl = f&#34;/edition/{editionId}&#34;
-            button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
+            button = self.contentButton(
+                &#34;edition&#34;, edition, &#34;delete&#34;, confirm=True, text=&#34;Delete edition&#34;
+            )
             visual = Content.getUpload(edition, &#34;iconEdition&#34;)
             caption = self.getCaption(
                 visual, title, status, statusCls, button, editionUrl
@@ -566,7 +594,15 @@ purposes, such as showing widgets to manage projects and editions.</p>
             wrapped.append(caption)
 
         wrapped.append(
-            H.p(self.contentButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
+            H.p(
+                self.contentButton(
+                    &#34;project&#34;,
+                    project,
+                    &#34;create&#34;,
+                    insertTable=&#34;edition&#34;,
+                    text=&#34;New Edition&#34;,
+                )
+            )
         )
         return H.content(*wrapped)
 
@@ -607,7 +643,9 @@ purposes, such as showing widgets to manage projects and editions.</p>
         wrapped = []
 
         titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-        button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
+        button = self.contentButton(
+            &#34;edition&#34;, edition, &#34;delete&#34;, confirm=True, text=&#34;Delete scene&#34;
+        )
 
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
@@ -672,6 +710,7 @@ purposes, such as showing widgets to manage projects and editions.</p>
         insertTable=None,
         key=None,
         href=None,
+        text=None,
     ):
         &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
 
@@ -741,7 +780,7 @@ purposes, such as showing widgets to manage projects and editions.</p>
             if len(details):
                 disable = True
                 detailContent = []
-                for (detailTable, detailRecords) in details.items():
+                for detailTable, detailRecords in details.items():
                     nDetails = len(detailRecords)
                     plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
                     detailRep = detailTable + plural
@@ -779,7 +818,8 @@ purposes, such as showing widgets to manage projects and editions.</p>
 
         fullCls = f&#34;button small {cls}&#34;
         return (
-            H.iconx(action, href=href, title=tip, cls=fullCls, **confirmAtt) + report
+            H.iconx(action, href=href, title=tip, cls=fullCls, text=text, **confirmAtt)
+            + report
         )</code></pre>
 </details>
 <h3>Methods</h3>
@@ -791,19 +831,6 @@ purposes, such as showing widgets to manage projects and editions.</p>
 <div class="desc"><p>Give this object a handle to the Auth object.</p>
 <p>The Wrap and Auth objects need each other, so one of them must
 be given the handle to the other after initialization.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L29-L35" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addAuth(self, Auth):
-    &#34;&#34;&#34;Give this object a handle to the Auth object.
-
-    The Wrap and Auth objects need each other, so one of them must
-    be given the handle to the other after initialization.
-    &#34;&#34;&#34;
-    self.Auth = Auth</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.addContent"><code class="name flex">
 <span>def <span class="ident">addContent</span></span>(<span>self, Content)</span>
@@ -812,22 +839,9 @@ be given the handle to the other after initialization.</p></div>
 <div class="desc"><p>Give this object a handle to the Content object.</p>
 <p>The Wrap and Content objects need each other, so one of them must
 be given the handle to the other after initialization.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L37-L43" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addContent(self, Content):
-    &#34;&#34;&#34;Give this object a handle to the Content object.
-
-    The Wrap and Content objects need each other, so one of them must
-    be given the handle to the other after initialization.
-    &#34;&#34;&#34;
-    self.Content = Content</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.contentButton"><code class="name flex">
-<span>def <span class="ident">contentButton</span></span>(<span>self, table, record, action, permitted=None, confirm=False, insertTable=None, key=None, href=None)</span>
+<span>def <span class="ident">contentButton</span></span>(<span>self, table, record, action, permitted=None, confirm=False, insertTable=None, key=None, href=None, text=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Puts a button on the interface, if that makes sense.</p>
@@ -872,131 +886,6 @@ record.</dd>
 <dt><strong><code>confirm</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>Whether to ask the user for confirmation</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L242-L360" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def contentButton(
-    self,
-    table,
-    record,
-    action,
-    permitted=None,
-    confirm=False,
-    insertTable=None,
-    key=None,
-    href=None,
-):
-    &#34;&#34;&#34;Puts a button on the interface, if that makes sense.
-
-    The button, when pressed, will lead to an action on certain content.
-    It will be checked first if that action is allowed for the current user.
-    If not the button will not be shown.
-
-    !!! note &#34;Delete buttons&#34;
-        Even if a user is authorised to delete a record,
-        it is not allowed to delete master records if its detail records
-        still exist.
-        In that case, no delete button is displayed. Instead we display a count
-        of detail records.
-
-    !!! note &#34;Create buttons&#34;
-        When placing a create button, the relevant record acts as the master
-        record, to which the newly created record will be added as a detail.
-
-    Parameters
-    ----------
-    table: string
-        The relevant table.
-    record: string | ObjectId | AttrDict
-        The relevant record.
-    action: string
-        The type of action that will be performed if the button triggered.
-    permitted: boolean, optional None
-        If the permission for the action is already known before calling
-        this function, it is passed here.
-        If this parameter is None, we&#39;ll compute the permission.
-    insertTable: string, optional None
-        If the action is &#34;create&#34;, this is the table in which a record
-        get inserted. The `table` and `record` arguments are then
-        supposed to specify the *master* record of the newly inserted record.
-        Needed to determine whether a press on the button is permitted.
-    key: string, optional None
-        If present, it identifies a field that is stored inside the
-        record.
-    href: string, optional None
-        If present, contains the href attribute for the button.
-    confirm: boolean, optional False
-        Whether to ask the user for confirmation
-    &#34;&#34;&#34;
-    Auth = self.Auth
-    Content = self.Content
-
-    recordId = record._id
-
-    permitted = (
-        Auth.authorise(table, record, action=action, insertTable=insertTable)
-        if permitted is None
-        else permitted
-    )
-
-    if not permitted:
-        return &#34;&#34;
-
-    Settings = self.Settings
-    H = Settings.H
-    actions = Settings.auth.actions
-
-    disable = False
-    report = &#34;&#34;
-
-    if action == &#34;delete&#34;:
-        details = Content.getDetailRecords(table, record)
-        if len(details):
-            disable = True
-            detailContent = []
-            for (detailTable, detailRecords) in details.items():
-                nDetails = len(detailRecords)
-                plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
-                detailRep = detailTable + plural
-                detailContent.append(f&#34;&#34;&#34;{nDetails}{H.nbsp}{detailRep}&#34;&#34;&#34;)
-
-            report = H.div(
-                [
-                    H.span(thisContent, cls=&#34;dreport&#34;) + H.br()
-                    for thisContent in detailContent
-                ]
-            )
-            report = H.br() + report
-
-    actionInfo = actions.get(action, {})
-    name = actionInfo.name
-    keyRepTip = &#34;&#34; if key is None else f&#34; {key} of&#34;
-    keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
-
-    can = &#34;Cannot &#34; if disable else &#34;&#34;
-    cls = &#34;disabled &#34; if disable else &#34;&#34;
-
-    if action == &#34;create&#34;:
-        href = f&#34;/{table}/{recordId}/{insertTable}/create&#34; if href is None else href
-        tip = f&#34;{name} new {insertTable}&#34;
-    else:
-        href = f&#34;/{table}/{recordId}{keyRepUrl}/{action}&#34; if href is None else href
-        tip = f&#34;{can}{name}{keyRepTip} this {table}&#34;
-
-    confirmAtt = {}
-
-    if disable:
-        href = None
-    else:
-        confirmAtt = dict(confirm=&#34;v&#34; if confirm else &#34;x&#34;)
-
-    fullCls = f&#34;button small {cls}&#34;
-    return (
-        H.iconx(action, href=href, title=tip, cls=fullCls, **confirmAtt) + report
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.editionsMain"><code class="name flex">
 <span>def <span class="ident">editionsMain</span></span>(<span>self, project, editions)</span>
@@ -1015,61 +904,6 @@ record.</dd>
 <dt><code>string</code></dt>
 <dd>The HTML of the edition list</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L100-L148" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def editionsMain(self, project, editions):
-    &#34;&#34;&#34;Wrap the list of editions of a project for the main display.
-
-    Parameters
-    ----------
-    project: AttrDict
-        The master project record of the editions.
-    editions: list of AttrDict
-        The edition records.
-
-    Returns
-    -------
-    string
-        The HTML of the edition list
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    representations = Settings.representations
-    css = Settings.css
-    Auth = self.Auth
-    Content = self.Content
-
-    wrapped = []
-
-    for edition in editions:
-        editionId = edition._id
-        permitted = Auth.authorise(&#34;edition&#34;, record=edition, action=&#34;read&#34;)
-        if not permitted:
-            continue
-
-        title = edition.title
-        if not title:
-            title = H(&#34;no title&#34;)
-        stat = edition.isPublished or False
-        status = representations.isPublished[stat]
-        statusCls = css.isPublished[stat]
-
-        editionUrl = f&#34;/edition/{editionId}&#34;
-        button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
-        visual = Content.getUpload(edition, &#34;iconEdition&#34;)
-        caption = self.getCaption(
-            visual, title, status, statusCls, button, editionUrl
-        )
-        wrapped.append(caption)
-
-    wrapped.append(
-        H.p(self.contentButton(&#34;project&#34;, project, &#34;create&#34;, insertTable=&#34;edition&#34;))
-    )
-    return H.content(*wrapped)</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.getCaption"><code class="name flex">
 <span>def <span class="ident">getCaption</span></span>(<span>self, visual, titleText, status, statusCls, button, url)</span>
@@ -1092,39 +926,6 @@ The exact names</dd>
 <dt><strong><code>url</code></strong> :&ensp;<code>string</code></dt>
 <dd>The url to navigate to if the user clicks the caption.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L199-L225" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getCaption(self, visual, titleText, status, statusCls, button, url):
-    &#34;&#34;&#34;Produces a caption of a project or edition.
-
-    Parameters
-    ----------
-    visual: string
-        A link to an image to display in the caption.
-    titleText: string
-        The text on the caption.
-    status: string
-        The status of the project/edition: visible/hidden/published/in progress.
-        The exact names
-    statusCls: string
-        The CSS class corresponding to `status`
-    button: string
-        Control for a certain action, or empty if the user is not authorised.
-    url: string
-        The url to navigate to if the user clicks the caption.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-
-    title = H.span(titleText, cls=&#34;entrytitle&#34;)
-    content = H.a(f&#34;{visual}{title}&#34;, url, cls=&#34;entry&#34;)
-    statusBadge = H.div(status, cls=f&#34;pestatus {statusCls}&#34;)
-
-    return self.wrapCaption(content, statusBadge, button)</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.projectsMain"><code class="name flex">
 <span>def <span class="ident">projectsMain</span></span>(<span>self, site, projects)</span>
@@ -1144,66 +945,6 @@ It acts as a master record of the projects.</dd>
 <dt><code>string</code></dt>
 <dd>The HTML of the project list</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L45-L98" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def projectsMain(self, site, projects):
-    &#34;&#34;&#34;Wrap the list of projects for the main display.
-
-    Parameters
-    ----------
-    site: AttrDict
-        The record that corresponds to the site as a whole.
-        It acts as a master record of the projects.
-    projects: list of AttrDict
-        The project records.
-
-    Returns
-    -------
-    string
-        The HTML of the project list
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    representations = Settings.representations
-    css = Settings.css
-    Auth = self.Auth
-    Content = self.Content
-
-    wrapped = []
-    wrapped.append(
-        H.p(self.contentButton(&#34;site&#34;, site, &#34;create&#34;, insertTable=&#34;project&#34;))
-    )
-
-    for project in projects:
-        projectId = project._id
-        permitted = Auth.authorise(&#34;project&#34;, project, action=&#34;read&#34;)
-
-        if not permitted:
-            continue
-
-        title = project.title
-
-        if not title:
-            title = H(&#34;no title&#34;)
-
-        stat = project.isVisible or False
-        status = representations.isVisible[stat]
-        statusCls = css.isVisible[stat]
-
-        projectUrl = f&#34;/project/{projectId}&#34;
-        button = self.contentButton(&#34;project&#34;, project, &#34;delete&#34;, confirm=True)
-        visual = Content.getUpload(project, &#34;iconProject&#34;)
-        caption = self.getCaption(
-            visual, title, status, statusCls, button, projectUrl
-        )
-
-        wrapped.append(caption)
-
-    return H.content(*wrapped)</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.sceneMain"><code class="name flex">
 <span>def <span class="ident">sceneMain</span></span>(<span>self, projectId, edition, sceneFile, viewer, version, action, sceneExists)</span>
@@ -1230,86 +971,12 @@ It acts as a master record of the projects.</dd>
 <dt><code>string</code></dt>
 <dd>The HTML of the scene</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L150-L197" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def sceneMain(
-    self, projectId, edition, sceneFile, viewer, version, action, sceneExists
-):
-    &#34;&#34;&#34;Wrap the scene of an edition for the main display.
-
-    Parameters
-    ----------
-    projectId: ObjectId
-        The id of the project to which the edition belongs.
-    edition: AttrDict
-        The edition record of the scene.
-    viewer: string
-        The viewer that will be used.
-    version: string
-        The version of the chosen viewer that will be used.
-    action: string
-        The mode in which the viewer should be opened.
-    sceneExists: boolean
-        Whether the scene file exists
-
-    Returns
-    -------
-    string
-        The HTML of the scene
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    Auth = self.Auth
-    Viewers = self.Viewers
-
-    actions = Auth.authorise(&#34;edition&#34;, edition)
-    if &#34;read&#34; not in actions:
-        return &#34;&#34;
-
-    wrapped = []
-
-    titleText = H.span(sceneFile, cls=&#34;entrytitle&#34;)
-    button = self.contentButton(&#34;edition&#34;, edition, &#34;delete&#34;, confirm=True)
-
-    (frame, buttons) = Viewers.getFrame(
-        edition, actions, viewer, version, action, sceneExists
-    )
-    title = H.span(titleText, cls=&#34;entrytitle&#34;)
-    content = f&#34;&#34;&#34;{frame}{title}{buttons}&#34;&#34;&#34;
-    caption = self.wrapCaption(content, button, None, active=True)
-
-    wrapped.append(caption)
-    return H.content(*wrapped)</code></pre>
-</details>
 </dd>
 <dt id="control.wrap.Wrap.wrapCaption"><code class="name flex">
 <span>def <span class="ident">wrapCaption</span></span>(<span>self, content, statusBadge, button, active=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Assembles a caption from building blocks.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/wrap.py#L227-L240" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrapCaption(self, content, statusBadge, button, active=False):
-    &#34;&#34;&#34;Assembles a caption from building blocks.&#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-
-    activeCls = &#34;active&#34; if active else &#34;&#34;
-    rest = []
-    if statusBadge is not None:
-        rest.append(statusBadge)
-    rest.append(button)
-
-    return H.div(
-        [H.div(content, cls=f&#34;caption {activeCls}&#34;), *rest], cls=&#34;captioncontent&#34;
-    )</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1397,7 +1064,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

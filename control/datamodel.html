@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.datamodel API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,12 +26,12 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L1-L865" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L1-L1293" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from markdown import markdown
 
-from control.generic import AttrDict, now
-from control.files import fileExists, listFilesAccepted, writeYaml
+from .generic import AttrDict, pseudoisonow
+from .files import fileExists, listFilesAccepted, writeYaml
 
 
 class Datamodel:
@@ -71,10 +71,188 @@ class Datamodel:
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
         self.mainLink = datamodel.mainLink
-        self.fieldsConfig = datamodel.fields
+        textsConfig = datamodel.texts
+        fieldsConfig = datamodel.fields
+        fieldDistribution = datamodel.fieldDistribution
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
+
+        fieldPaths = {}
+
+        for f, cfg in fieldsConfig.items():
+            nameSpace = cfg.nameSpace or &#34;&#34;
+            fieldPath = cfg.fieldPath or f
+            sep = &#34;.&#34; if nameSpace and fieldPath else &#34;&#34;
+            fieldPaths[f] = f&#34;{nameSpace}{sep}{fieldPath}&#34;
+
+        self.textsConfig = textsConfig
+        self.fieldsConfig = fieldsConfig
+        self.fieldDistribution = fieldDistribution
+        self.fieldPaths = fieldPaths
+
+    @staticmethod
+    def specialize(table, record):
+        &#34;&#34;&#34;Specializes information to a table.
+
+        Field information is a mapping of keys to values.
+        When values are dicts, their keys are table names.
+        If a table is given, we can specialize for that table.
+        If the table does not occur as a key, we look if there is a key `&#34;&#34;`,
+        and if so, we use that value. Otherwise we use None.
+
+        Parameters
+        ----------
+        table: string
+            The table to which we must specialize the record
+        record: dict | AttrDict
+            The record, of which some fields have values per table
+
+        Returns
+        -------
+        AttrDict
+            The specialized record (a new copy)
+        &#34;&#34;&#34;
+        new = AttrDict()
+
+        for k, v in record.items():
+            if type(v) in {dict, AttrDict}:
+                new[k] = v.get(table, v.get(&#34;&#34;, None))
+            else:
+                new[k] = v
+
+        return new
+
+    def getTexts(self):
+        &#34;&#34;&#34;Get the names and info for the fixed text pages.
+
+        The contents of these pages are stored in fields the site record,
+        the path to the field is given in the text info dict.
+
+        Returns
+        -------
+        dict
+            Keyed by the name of the text, values are keys for the corresponding
+            metadata fields in the site record where the text is stored.
+        &#34;&#34;&#34;
+        return self.textsConfig
+
+    def getMetaFields(self, table, kinds, level=None, asDict=False):
+        &#34;&#34;&#34;Get the list of metadata fields for in the meta box.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+        kinds: list | string | void
+            The kinds of fields to fetch: one or more of &#34;main&#34;, &#34;box&#34; or &#34;narrative&#34;.
+            If None, all kinds are used, in the order :main&#34;, &#34;narrative&#34;, &#34;box&#34;.
+            If a string: it is the single kind that is being used.
+        level: integer, optional None
+            If not None, append @ plus level to each meta key that is delivered,
+            and join the components with ` + `
+            If one of the fields is `title`, its level is one lower.
+        asDict: boolean, optional False
+            If True, the `level` parameter will be ignored.
+            Returns a dictionary with the field names as keys, and the field information
+            as values, specialized to the given table.
+
+        Returns
+        -------
+        dict | tuple of string | string
+            Returns a dict if `asDict` is True.
+            The meta keys in question, as a tuple if level is None, otherwise as a
+            &#34;+&#34;-separated string where each item is appended with a level indicator
+        &#34;&#34;&#34;
+        fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
+
+        result = {} if asDict else []
+
+        kinds = (
+            [&#34;main&#34;, &#34;narrative&#34;, &#34;box&#34;]
+            if kinds is None
+            else [kinds] if type(kinds) is str else list(kinds)
+        )
+
+        for k in kinds:
+            fields = fieldDistribution.get(k, {}).get(table, [])
+
+            if asDict:
+                for f in fields:
+                    result[f] = self.specialize(table, fieldsConfig.get(f, AttrDict()))
+            else:
+                result.extend(fields)
+
+        return (
+            result
+            if asDict
+            else (
+                tuple(result)
+                if level is None
+                else &#34; + &#34;.join(
+                    f&#34;{x}@{level - 1 if x == &#39;title&#39; else level}&#34; for x in result
+                )
+            )
+        )
+
+    def checkMetaFields(self, table):
+        &#34;&#34;&#34;Get the list of metadata fields that must be present before publication.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+
+        Returns
+        -------
+        tuple of string
+            The meta keys in question
+        &#34;&#34;&#34;
+        fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
+
+        kinds = (&#34;main&#34;, &#34;narrative&#34;, &#34;box&#34;)
+
+        result = []
+
+        for k in kinds:
+            fields = fieldDistribution.get(k, {}).get(table, [])
+
+            for f in fields:
+                info = self.specialize(table, fieldsConfig.get(f, AttrDict()))
+
+                if info.mandatory:
+                    result.append(f)
+
+        return tuple(result)
+
+    def getMarkdownFields(self):
+        &#34;&#34;&#34;Gives the set of all fields with markdown content.
+
+        Returns
+        -------
+        set
+        &#34;&#34;&#34;
+        fieldsConfig = self.fieldsConfig
+
+        return {f for (f, cfg) in fieldsConfig.items() if cfg.get(&#34;tp&#34;, None) == &#34;text&#34;}
+
+    def getListFields(self):
+        &#34;&#34;&#34;Gives the set of all fields with list content.
+
+        Returns
+        -------
+        set
+        &#34;&#34;&#34;
+        fieldsConfig = self.fieldsConfig
+
+        return {
+            f
+            for (f, cfg) in fieldsConfig.items()
+            if cfg.get(&#34;multiple&#34;, True)
+            and cfg.get(&#34;tp&#34;, None) not in {&#34;text&#34;, &#34;datetime&#34;}
+        }
 
     def relevant(self, project=None, edition=None):
         &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
@@ -142,6 +320,7 @@ class Datamodel:
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return (None, None, None, None, None, None)
 
@@ -270,7 +449,80 @@ class Datamodel:
 
         return linkCriteria
 
-    def makeField(self, key):
+    def getKeywords(self, extra=None):
+        &#34;&#34;&#34;Get the lists of keywords that act as values for metadata fields.
+
+        A keyword is a string value and it belongs to a list of keywords.
+        The metadata fields that are declared with `tp: keyword` are associated
+        with a list of values: keywords.
+
+        We read the table of keywords, organize it by metadata field, and count
+        how many edition/project record use that keyword.
+
+        Parameters
+        ----------
+        extra: dict, optional None
+            If passed, it is a dictionary keyed by metadata keys and valued
+            with value sets for those metadata keys. These values must be added to
+            the respective keyword lists.
+            These are typically from existing values in metadata fields that
+            have been accepted when different keyword lists were in effect.
+
+        Returns
+        -------
+        dict
+            keyed by name of the metadata field, then by the keyword itself,
+            and valued by the number of edition/project records it occurs in.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        fieldsConfig = datamodel.fields
+        fieldPaths = self.fieldPaths
+
+        keywordLists = {
+            field for (field, cfg) in fieldsConfig.items() if cfg.tp == &#34;keyword&#34;
+        }
+
+        keywords = {}
+
+        for name in keywordLists:
+            keywords[name] = {}
+
+        keywordItems = Mongo.getList(&#34;keyword&#34;)
+
+        for keywordRecord in keywordItems:
+            name = keywordRecord.name
+
+            if name not in keywords:
+                # in this case, the existing keywords contain vocab lists
+                # that are not associated with a metadata field:
+                # either the metadata config has changed
+                # or the keywords come from a different instance
+                keywords[name] = {}
+
+            fieldPath = fieldPaths[name]
+            value = keywordRecord.value
+            criteria = {fieldPath: value}
+            recordsP = Mongo.getList(&#34;project&#34;, **criteria)
+            recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+            occs = len(recordsP) + len(recordsE)
+            keywords[name][value] = occs
+
+        if extra is not None:
+            for name, values in extra.items():
+                fieldPath = fieldPaths[name]
+
+                for value in values:
+                    criteria = {fieldPath: value}
+                    recordsP = Mongo.getList(&#34;project&#34;, **criteria)
+                    recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+                    occs = len(recordsP) + len(recordsE)
+                    keywords[name][value] = occs
+
+        return keywords
+
+    def makeField(self, key, table):
         &#34;&#34;&#34;Make a field object and registers it.
 
         An instance of class `control.datamodel.Field` is created,
@@ -278,13 +530,13 @@ class Datamodel:
 
         !!! note &#34;Idempotent&#34;
             If the Field object is already registered, nothing is done.
+            Field objects are registered under their key and table.
 
         Parameters
         ----------
         key: string
             Identifier for the field.
             The configuration for this field will be retrieved using this key.
-            The new field object will be stored under this key.
 
         Returns
         -------
@@ -296,7 +548,8 @@ class Datamodel:
 
         fieldObjects = self.fieldObjects
 
-        fieldObject = fieldObjects[key]
+        fieldObject = fieldObjects[(key, table)]
+
         if fieldObject:
             return fieldObject
 
@@ -304,28 +557,16 @@ class Datamodel:
         Mongo = self.Mongo
         fieldsConfig = self.fieldsConfig
 
-        fieldsConfig = fieldsConfig[key]
-        if fieldsConfig is None:
+        fieldConfig = fieldsConfig[key]
+
+        if fieldConfig is None:
             Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
+            fieldConfig = AttrDict()
 
-        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
-        fieldObjects[key] = fieldObject
+        fieldObject = Field(Settings, Messages, Mongo, self, key, table, **fieldConfig)
+
+        fieldObjects[(key, table)] = fieldObject
         return fieldObject
-
-    def getFieldObject(self, key):
-        &#34;&#34;&#34;Get a field object.
-
-        Parameters
-        ----------
-        key: string
-            The key of the field object
-
-        Returns
-        -------
-        object | void
-            The field object found under the given key, if present, otherwise None
-        &#34;&#34;&#34;
-        return self.fieldObjects[key]
 
     def makeUpload(self, key, fileName=None):
         &#34;&#34;&#34;Make a file upload object and registers it.
@@ -419,7 +660,7 @@ class Datamodel:
 
 
 class Field:
-    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, table, **kwargs):
         &#34;&#34;&#34;Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -436,10 +677,16 @@ class Field:
         How to do this is steered by the specification of the field by keys and
         values that are stored in this object.
 
+        Some field specifications may be table dependent. If a table is passed,
+        we can get the table dependent values by means of the static method
+        `control.datamodel.Datamodel.specialize`.
+
         All field access should be guarded by the authorisation rules.
 
         Parameters
         ----------
+        table: string
+            Name of the table for which we must specialize the field information
         kwargs: dict
             Field configuration arguments.
             It certain parts of the field configuration
@@ -455,6 +702,10 @@ class Field:
         &#34;&#34;&#34;The identifier of this field within the app.
         &#34;&#34;&#34;
 
+        self.table = table
+        &#34;&#34;&#34;The table for which this field is specialized.
+        &#34;&#34;&#34;
+
         self.nameSpace = &#34;&#34;
         &#34;&#34;&#34;The first key to access the field data in a record.
 
@@ -463,6 +714,8 @@ class Field:
 
         If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
         going into a namespace sub-record first.
+
+        **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
 
         self.fieldPath = key
@@ -473,13 +726,60 @@ class Field:
 
         This field selection is applied after the name space selection
         (if `nameSpace` is not the empty string).
+
+        **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
 
         self.tp = &#34;string&#34;
         &#34;&#34;&#34;The value type of the field.
 
-        Value types can be string, integer, but also date times, and values
-        from an other table (value lists), or structured values.
+        Value types can be string, integer, but also date-time, and values
+        from an other table (keyword).
+
+        The value &#34;keyword&#34; is used if the the field works with values from another
+        table (i.e. values from the keyword table). It is assumed that all these values
+        are strings.
+
+        If True, the value of such a field must consist of zero or more elements
+        of a prescribed list of keywords.
+
+        These lists are associated with certain metadata fields and can be managed
+        by admins in a widget on the MyWork page.
+
+        We do not enforce that the value of such a field is a member of the
+        associated list at all times. For example, if we import projects and editions
+        that have been made with different lists of keywords in force, we accept
+        foreign keywords. However, users will not be able to apply foreign keywords
+        when they edit fields.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.multiple = True
+        &#34;&#34;&#34;Whether multiple values are allowed.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.readonly = False
+        &#34;&#34;&#34;Whether the field can be edited manually by authorized users.
+
+        If this field is True, no user can directly change the value. Instead, the
+        system will fill in this value, dependent on the completion of certain actions.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.default = None
+        &#34;&#34;&#34;A default value to deliver if the field has no value.
+
+        **NB.: This attribute may be table dependent.**
+        &#34;&#34;&#34;
+
+        self.mandatory = False
+        &#34;&#34;&#34;Whether a value is mandatory.
+
+        **NB.: This attribute may be table dependent.**
         &#34;&#34;&#34;
 
         self.caption = key
@@ -492,18 +792,37 @@ class Field:
 
         If there is a placeholder, the content will replace the place holder
         in the caption.
+
+        **NB.: This attribute may be table dependent.**
         &#34;&#34;&#34;
 
-        for (arg, value) in kwargs.items():
+        for arg, value in Datamodel.specialize(table, kwargs).items():
             if value is not None:
                 setattr(self, arg, value)
+
+    def specialize(self, table, record):
+        &#34;&#34;&#34;Specializes a record to a table.
+
+        Parameters
+        ----------
+        table: string
+            The table in question
+        record: dict | AttrDict
+            The record in question
+
+        Returns
+        -------
+        AttrDict
+            The specialized record, a new copy
+        &#34;&#34;&#34;
+        return Datamodel.specialize(table, record)
 
     def logical(self, record):
         &#34;&#34;&#34;Give the logical value of the field in a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -526,15 +845,57 @@ class Field:
                 break
 
         value = None if dataSource is None else dataSource.get(fields[-1], None)
+
         return value
 
-    def bare(self, record):
-        &#34;&#34;&#34;Give the bare string value of the field in a record.
+    def resolved(self, record):
+        default = self.default
+        logical = self.logical(record)
+        return default if logical is None else logical
+
+    def setLogical(self, record, value):
+        &#34;&#34;&#34;Set the logical value of the field in a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
+            The record in which the field value is to be stored.
+            It will be modified in place.
+        value: object
+            Any value to put into the record
+
+        &#34;&#34;&#34;
+        nameSpace = self.nameSpace
+        fieldPath = self.fieldPath
+
+        fields = fieldPath.split(&#34;.&#34;)
+
+        dataSource = record.setdefault(nameSpace, AttrDict()) if nameSpace else record
+
+        for field in fields[0:-1]:
+            dataSource = dataSource.setdefault(field, AttrDict())
+
+        dataSource[fields[-1]] = value
+
+    def bare(self, record, compact=False, joined=False):
+        &#34;&#34;&#34;Give the bare string value of the field in a record.
+
+        If the logical value of the field is None, its default will be filled in.
+
+        Parameters
+        ----------
+        record: AttrDict
             The record in which the field value is stored.
+        compact: boolean, optional False
+            Only relevant for datetime types: if True, omit the time, leaving only
+            the date plus the timezone (always `Z` = UTC).
+        joined: boolean|string, optional False
+            Only relevant for fields with multiple values, but not of type text:
+            If not False, it should be a string by which the values should be joined.
+
+            For example, if the value is [2, 3], if joined is False the result is:
+            `[2, 3]`, but if joined is &#34;;&#34; the result is `2;3`.
+
 
         Returns
         -------
@@ -542,12 +903,33 @@ class Field:
             Whatever the value is that we find for that field, converted to string.
             If the field is not present, returns the empty string, without warning.
         &#34;&#34;&#34;
-        logical = self.logical(record)
-        return &#34;&#34; if logical is None else str(logical)
+        tp = self.tp
+        multiple = self.multiple
+
+        resolved = self.resolved(record)
+
+        # if not multiple and type(logical) in {list, tuple}:
+        #    logical = logical[-1] if len(logical) else &#34;&#34;
+
+        return (
+            &#34;&#34;
+            if resolved is None
+            else (
+                (resolved.split(&#34;T&#34;)[0] + &#34;Z&#34; if compact else resolved)
+                if tp == &#34;datetime&#34;
+                else (
+                    str(resolved)
+                    if joined is False
+                    or tp == &#34;text&#34;
+                    or not multiple
+                    or type(resolved) in {str, int, bool}
+                    else joined.join(str(r) for r in resolved)
+                )
+            )
+        )
 
     def formatted(
         self,
-        table,
         record,
         level=None,
         editable=False,
@@ -558,7 +940,7 @@ class Field:
 
         Optionally also puts a caption and/or an edit control.
 
-        The value retrieved is (recursively) wrapped in HTML, steered by additional
+        The value retrieved is (recursively) wrapped in HTML, steered by an additional
         argument, as in `control.html.HtmlElements.wrapValue`.
         be applied.
 
@@ -584,6 +966,8 @@ class Field:
         editable: boolean, optional False
             Whether the field is editable by the current user.
             If so, edit controls are provided.
+            But if the field has been declared as readonly in the field specs, no edit
+            controls will be provided.
         outerCls: string optional &#34;fieldouter&#34;
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not &#39;text&#39;
@@ -599,8 +983,11 @@ class Field:
         &#34;&#34;&#34;
         Settings = self.Settings
         Mongo = self.Mongo
+        Datamodel = self.Datamodel
 
         H = Settings.H
+
+        table = self.table
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
@@ -609,32 +996,65 @@ class Field:
         tp = self.tp
         caption = self.caption
         key = self.key
+        multiple = self.multiple
+        readonly = self.readonly
 
         bare = self.bare(record)
-        logical = self.logical(record)
+        resolved = self.resolved(record)
+
+        # if table == &#34;site&#34; and key == &#34;abstract&#34;:
         bareRep = bare or H.i(f&#34;no {key}&#34;)
 
         if tp == &#34;text&#34;:
             readonlyContent = markdown(bareRep, tight=False)
+        elif tp == &#34;datetime&#34; or tp == &#34;date&#34;:
+            readonlyContent = bare or H.i(&#34;never&#34;)
         else:
             readonlyContent = H.wrapValue(
-                logical,
+                resolved,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
                 innerAtts=dict(cls=innerCls),
             )
-        if editable:
+
+        if editable and not readonly:
             keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
             saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
-            updateButton = H.actionButton(&#34;edit_update&#34;)
-            cancelButton = H.actionButton(&#34;edit_cancel&#34;)
-            saveButton = H.actionButton(&#34;edit_save&#34;)
+            updateButton = H.actionButton(&#34;edit_update&#34;, tip=f&#34; for field {key}&#34;)
+            cancelButton = H.actionButton(&#34;edit_cancel&#34;, tip=f&#34; for field {key}&#34;)
+            saveButton = H.actionButton(&#34;edit_save&#34;, tip=f&#34; for field {key}&#34;)
             messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
-            orig = bare if tp == &#34;text&#34; else writeYaml(logical)
-            editableContent = H.textarea(
-                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
+            orig = (
+                bare
+                if tp == &#34;text&#34;
+                else (
+                    &#34;§&#34;.join(resolved or []) if tp == &#34;keyword&#34; else writeYaml(resolved)
+                )
             )
+
+            if tp == &#34;keyword&#34;:
+                valueSet = (
+                    set()
+                    if resolved is None
+                    else {resolved} if type(resolved) is str else set(resolved)
+                )
+                keywords = Datamodel.getKeywords(extra={key: valueSet})[key]
+                options = (
+                    [] if multiple else [(f&#34;Choose a {key} ...&#34;, &#34;&#34;, valueSet == set())]
+                ) + [(k, k, k in valueSet) for k in keywords]
+                editableContent = H.select(
+                    options,
+                    multiple=multiple,
+                    cls=&#34;editcontent&#34;,
+                    saveurl=saveUrl,
+                    origValue=orig,
+                    tp=tp,
+                )
+            else:
+                editableContent = H.textarea(
+                    &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig, tp=key
+                )
 
             content = &#34;&#34;.join(
                 [
@@ -660,11 +1080,12 @@ class Field:
 
             if level == 0:
                 elem = &#34;span&#34;
-                lv = []
+                cls = None
             else:
-                elem = &#34;h&#34;
-                lv = [level]
-            theCaption = H.elem(elem, *lv, theCaption)
+                elem = &#34;div&#34;
+                cls = f&#34;lv lv{level}&#34;
+
+            theCaption = H.elem(elem, theCaption, cls=cls)
         else:
             theCaption = &#34;&#34;
             inCaption = False
@@ -673,7 +1094,10 @@ class Field:
             theCaption if inCaption else content
         )
 
-        return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent
+        return H.div(
+            fullContent,
+            cls=&#34;editwidget&#34; if editable and not readonly else &#34;readonlywidget&#34;,
+        )
 
 
 class Upload:
@@ -761,7 +1185,7 @@ class Upload:
 
         # let attributes be filled in from the function **kwargs
 
-        for (arg, value) in kwargs.items():
+        for arg, value in kwargs.items():
             if value is not None:
                 setattr(self, arg, value)
 
@@ -796,20 +1220,22 @@ class Upload:
         projectId = (
             recordId
             if table == &#34;project&#34;
-            else record.projectId
-            if table == &#34;edition&#34;
-            else None
+            else record.projectId if table == &#34;edition&#34; else None
         )
         editionId = recordId if table == &#34;edition&#34; else None
 
         path = (
             &#34;&#34;
             if table == &#34;site&#34;
-            else f&#34;project/{projectId}&#34;
-            if table == &#34;project&#34;
-            else f&#34;project/{projectId}/edition/{editionId}&#34;
-            if table == &#34;edition&#34;
-            else None
+            else (
+                f&#34;project/{projectId}&#34;
+                if table == &#34;project&#34;
+                else (
+                    f&#34;project/{projectId}/edition/{editionId}&#34;
+                    if table == &#34;edition&#34;
+                    else None
+                )
+            )
         )
         sep = &#34;/&#34; if path else &#34;&#34;
         return f&#34;{path}{sep}&#34;
@@ -864,7 +1290,7 @@ class Upload:
             content = []
             for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
                 buster = (
-                    f&#34;?v={now()}&#34;
+                    f&#34;?v={pseudoisonow()}&#34;
                     if show and bust is not None and bust == fileNm
                     else &#34;&#34;
                 )
@@ -872,7 +1298,9 @@ class Upload:
                 content.append(item)
         else:
             buster = (
-                f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
+                f&#34;?v={pseudoisonow()}&#34;
+                if show and bust is not None and bust == fileName
+                else &#34;&#34;
             )
             fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
             exists = fileExists(fullPath)
@@ -932,7 +1360,7 @@ which deal with file uploads.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L7-L388" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L7-L629" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
@@ -971,10 +1399,188 @@ which deal with file uploads.</p>
         self.detailMaster = datamodel.detailMaster
         self.masterDetail = datamodel.masterDetail
         self.mainLink = datamodel.mainLink
-        self.fieldsConfig = datamodel.fields
+        textsConfig = datamodel.texts
+        fieldsConfig = datamodel.fields
+        fieldDistribution = datamodel.fieldDistribution
         self.uploadsConfig = datamodel.uploads
         self.fieldObjects = AttrDict()
         self.uploadObjects = AttrDict()
+
+        fieldPaths = {}
+
+        for f, cfg in fieldsConfig.items():
+            nameSpace = cfg.nameSpace or &#34;&#34;
+            fieldPath = cfg.fieldPath or f
+            sep = &#34;.&#34; if nameSpace and fieldPath else &#34;&#34;
+            fieldPaths[f] = f&#34;{nameSpace}{sep}{fieldPath}&#34;
+
+        self.textsConfig = textsConfig
+        self.fieldsConfig = fieldsConfig
+        self.fieldDistribution = fieldDistribution
+        self.fieldPaths = fieldPaths
+
+    @staticmethod
+    def specialize(table, record):
+        &#34;&#34;&#34;Specializes information to a table.
+
+        Field information is a mapping of keys to values.
+        When values are dicts, their keys are table names.
+        If a table is given, we can specialize for that table.
+        If the table does not occur as a key, we look if there is a key `&#34;&#34;`,
+        and if so, we use that value. Otherwise we use None.
+
+        Parameters
+        ----------
+        table: string
+            The table to which we must specialize the record
+        record: dict | AttrDict
+            The record, of which some fields have values per table
+
+        Returns
+        -------
+        AttrDict
+            The specialized record (a new copy)
+        &#34;&#34;&#34;
+        new = AttrDict()
+
+        for k, v in record.items():
+            if type(v) in {dict, AttrDict}:
+                new[k] = v.get(table, v.get(&#34;&#34;, None))
+            else:
+                new[k] = v
+
+        return new
+
+    def getTexts(self):
+        &#34;&#34;&#34;Get the names and info for the fixed text pages.
+
+        The contents of these pages are stored in fields the site record,
+        the path to the field is given in the text info dict.
+
+        Returns
+        -------
+        dict
+            Keyed by the name of the text, values are keys for the corresponding
+            metadata fields in the site record where the text is stored.
+        &#34;&#34;&#34;
+        return self.textsConfig
+
+    def getMetaFields(self, table, kinds, level=None, asDict=False):
+        &#34;&#34;&#34;Get the list of metadata fields for in the meta box.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+        kinds: list | string | void
+            The kinds of fields to fetch: one or more of &#34;main&#34;, &#34;box&#34; or &#34;narrative&#34;.
+            If None, all kinds are used, in the order :main&#34;, &#34;narrative&#34;, &#34;box&#34;.
+            If a string: it is the single kind that is being used.
+        level: integer, optional None
+            If not None, append @ plus level to each meta key that is delivered,
+            and join the components with ` + `
+            If one of the fields is `title`, its level is one lower.
+        asDict: boolean, optional False
+            If True, the `level` parameter will be ignored.
+            Returns a dictionary with the field names as keys, and the field information
+            as values, specialized to the given table.
+
+        Returns
+        -------
+        dict | tuple of string | string
+            Returns a dict if `asDict` is True.
+            The meta keys in question, as a tuple if level is None, otherwise as a
+            &#34;+&#34;-separated string where each item is appended with a level indicator
+        &#34;&#34;&#34;
+        fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
+
+        result = {} if asDict else []
+
+        kinds = (
+            [&#34;main&#34;, &#34;narrative&#34;, &#34;box&#34;]
+            if kinds is None
+            else [kinds] if type(kinds) is str else list(kinds)
+        )
+
+        for k in kinds:
+            fields = fieldDistribution.get(k, {}).get(table, [])
+
+            if asDict:
+                for f in fields:
+                    result[f] = self.specialize(table, fieldsConfig.get(f, AttrDict()))
+            else:
+                result.extend(fields)
+
+        return (
+            result
+            if asDict
+            else (
+                tuple(result)
+                if level is None
+                else &#34; + &#34;.join(
+                    f&#34;{x}@{level - 1 if x == &#39;title&#39; else level}&#34; for x in result
+                )
+            )
+        )
+
+    def checkMetaFields(self, table):
+        &#34;&#34;&#34;Get the list of metadata fields that must be present before publication.
+
+        Parameters
+        ----------
+        table: string
+            Either `site` or `project` or `edition`
+
+        Returns
+        -------
+        tuple of string
+            The meta keys in question
+        &#34;&#34;&#34;
+        fieldDistribution = self.fieldDistribution
+        fieldsConfig = self.fieldsConfig
+
+        kinds = (&#34;main&#34;, &#34;narrative&#34;, &#34;box&#34;)
+
+        result = []
+
+        for k in kinds:
+            fields = fieldDistribution.get(k, {}).get(table, [])
+
+            for f in fields:
+                info = self.specialize(table, fieldsConfig.get(f, AttrDict()))
+
+                if info.mandatory:
+                    result.append(f)
+
+        return tuple(result)
+
+    def getMarkdownFields(self):
+        &#34;&#34;&#34;Gives the set of all fields with markdown content.
+
+        Returns
+        -------
+        set
+        &#34;&#34;&#34;
+        fieldsConfig = self.fieldsConfig
+
+        return {f for (f, cfg) in fieldsConfig.items() if cfg.get(&#34;tp&#34;, None) == &#34;text&#34;}
+
+    def getListFields(self):
+        &#34;&#34;&#34;Gives the set of all fields with list content.
+
+        Returns
+        -------
+        set
+        &#34;&#34;&#34;
+        fieldsConfig = self.fieldsConfig
+
+        return {
+            f
+            for (f, cfg) in fieldsConfig.items()
+            if cfg.get(&#34;multiple&#34;, True)
+            and cfg.get(&#34;tp&#34;, None) not in {&#34;text&#34;, &#34;datetime&#34;}
+        }
 
     def relevant(self, project=None, edition=None):
         &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
@@ -1042,6 +1648,7 @@ which deal with file uploads.</p>
         Mongo = self.Mongo
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return (None, None, None, None, None, None)
 
@@ -1170,7 +1777,80 @@ which deal with file uploads.</p>
 
         return linkCriteria
 
-    def makeField(self, key):
+    def getKeywords(self, extra=None):
+        &#34;&#34;&#34;Get the lists of keywords that act as values for metadata fields.
+
+        A keyword is a string value and it belongs to a list of keywords.
+        The metadata fields that are declared with `tp: keyword` are associated
+        with a list of values: keywords.
+
+        We read the table of keywords, organize it by metadata field, and count
+        how many edition/project record use that keyword.
+
+        Parameters
+        ----------
+        extra: dict, optional None
+            If passed, it is a dictionary keyed by metadata keys and valued
+            with value sets for those metadata keys. These values must be added to
+            the respective keyword lists.
+            These are typically from existing values in metadata fields that
+            have been accepted when different keyword lists were in effect.
+
+        Returns
+        -------
+        dict
+            keyed by name of the metadata field, then by the keyword itself,
+            and valued by the number of edition/project records it occurs in.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Settings = self.Settings
+        datamodel = Settings.datamodel
+        fieldsConfig = datamodel.fields
+        fieldPaths = self.fieldPaths
+
+        keywordLists = {
+            field for (field, cfg) in fieldsConfig.items() if cfg.tp == &#34;keyword&#34;
+        }
+
+        keywords = {}
+
+        for name in keywordLists:
+            keywords[name] = {}
+
+        keywordItems = Mongo.getList(&#34;keyword&#34;)
+
+        for keywordRecord in keywordItems:
+            name = keywordRecord.name
+
+            if name not in keywords:
+                # in this case, the existing keywords contain vocab lists
+                # that are not associated with a metadata field:
+                # either the metadata config has changed
+                # or the keywords come from a different instance
+                keywords[name] = {}
+
+            fieldPath = fieldPaths[name]
+            value = keywordRecord.value
+            criteria = {fieldPath: value}
+            recordsP = Mongo.getList(&#34;project&#34;, **criteria)
+            recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+            occs = len(recordsP) + len(recordsE)
+            keywords[name][value] = occs
+
+        if extra is not None:
+            for name, values in extra.items():
+                fieldPath = fieldPaths[name]
+
+                for value in values:
+                    criteria = {fieldPath: value}
+                    recordsP = Mongo.getList(&#34;project&#34;, **criteria)
+                    recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+                    occs = len(recordsP) + len(recordsE)
+                    keywords[name][value] = occs
+
+        return keywords
+
+    def makeField(self, key, table):
         &#34;&#34;&#34;Make a field object and registers it.
 
         An instance of class `control.datamodel.Field` is created,
@@ -1178,13 +1858,13 @@ which deal with file uploads.</p>
 
         !!! note &#34;Idempotent&#34;
             If the Field object is already registered, nothing is done.
+            Field objects are registered under their key and table.
 
         Parameters
         ----------
         key: string
             Identifier for the field.
             The configuration for this field will be retrieved using this key.
-            The new field object will be stored under this key.
 
         Returns
         -------
@@ -1196,7 +1876,8 @@ which deal with file uploads.</p>
 
         fieldObjects = self.fieldObjects
 
-        fieldObject = fieldObjects[key]
+        fieldObject = fieldObjects[(key, table)]
+
         if fieldObject:
             return fieldObject
 
@@ -1204,28 +1885,16 @@ which deal with file uploads.</p>
         Mongo = self.Mongo
         fieldsConfig = self.fieldsConfig
 
-        fieldsConfig = fieldsConfig[key]
-        if fieldsConfig is None:
+        fieldConfig = fieldsConfig[key]
+
+        if fieldConfig is None:
             Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
+            fieldConfig = AttrDict()
 
-        fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
-        fieldObjects[key] = fieldObject
+        fieldObject = Field(Settings, Messages, Mongo, self, key, table, **fieldConfig)
+
+        fieldObjects[(key, table)] = fieldObject
         return fieldObject
-
-    def getFieldObject(self, key):
-        &#34;&#34;&#34;Get a field object.
-
-        Parameters
-        ----------
-        key: string
-            The key of the field object
-
-        Returns
-        -------
-        object | void
-            The field object found under the given key, if present, otherwise None
-        &#34;&#34;&#34;
-        return self.fieldObjects[key]
 
     def makeUpload(self, key, fileName=None):
         &#34;&#34;&#34;Make a file upload object and registers it.
@@ -1321,8 +1990,50 @@ which deal with file uploads.</p>
 <ul class="hlist">
 <li><a title="control.content.Content" href="content.html#control.content.Content">Content</a></li>
 </ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="control.datamodel.Datamodel.specialize"><code class="name flex">
+<span>def <span class="ident">specialize</span></span>(<span>table, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Specializes information to a table.</p>
+<p>Field information is a mapping of keys to values.
+When values are dicts, their keys are table names.
+If a table is given, we can specialize for that table.
+If the table does not occur as a key, we look if there is a key <code>""</code>,
+and if so, we use that value. Otherwise we use None.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The table to which we must specialize the record</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>dict | AttrDict</code></dt>
+<dd>The record, of which some fields have values per table</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>AttrDict</code></dt>
+<dd>The specialized record (a new copy)</dd>
+</dl></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
+<dt id="control.datamodel.Datamodel.checkMetaFields"><code class="name flex">
+<span>def <span class="ident">checkMetaFields</span></span>(<span>self, table)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the list of metadata fields that must be present before publication.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either <code>site</code> or <code>project</code> or <code>edition</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>tuple</code> of <code>string</code></dt>
+<dd>The meta keys in question</dd>
+</dl></div>
+</dd>
 <dt id="control.datamodel.Datamodel.context"><code class="name flex">
 <span>def <span class="ident">context</span></span>(<span>self, table, record)</span>
 </code></dt>
@@ -1342,51 +2053,6 @@ which deal with file uploads.</p>
 <dt><code>tuple</code> of <code>tuple</code></dt>
 <dd>(siteId, site, projectId, project, editionId, edition)</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L93-L131" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def context(self, table, record):
-    &#34;&#34;&#34;Get the context of a record.
-
-    Get the project and edition records to which the record belongs.
-
-    Parameters
-    ----------
-    table: string
-        The table in which the record sits.
-    record: string
-        The record.
-
-    This is the inverse of `relevant()`.
-
-    Returns
-    -------
-    tuple of tuple
-        (siteId, site, projectId, project, editionId, edition)
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return (None, None, None, None, None, None)
-
-    if table == &#34;site&#34;:
-        (editionId, edition) = (None, None)
-        (projectId, project) = (None, None)
-        (siteId, site) = (recordId, record)
-    elif table == &#34;project&#34;:
-        (editionId, edition) = (None, None)
-        (projectId, project) = (recordId, record)
-        (siteId, site) = Mongo.get(&#34;site&#34;, record.siteId)
-    elif table == &#34;edition&#34;:
-        (editionId, edition) = (recordId, record)
-        (projectId, project) = Mongo.get(&#34;project&#34;, record.projectId)
-        (siteId, site) = Mongo.get(&#34;site&#34;, project.siteId)
-
-    return (siteId, site, projectId, project, editionId, edition)</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.getDetailRecords"><code class="name flex">
 <span>def <span class="ident">getDetailRecords</span></span>(<span>self, masterTable, master)</span>
@@ -1413,93 +2079,32 @@ in those tables are the values.
 If the master record cannot be found or if there are no detail
 records, the empty dict is returned.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L133-L177" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getDetailRecords(self, masterTable, master):
-    &#34;&#34;&#34;Retrieve the detail records of a master record.
-
-    It finds all records that have a field containing an id of the
-    given master record. But not those in cross-link records.
-
-    Details are not retrieved recursively, only the direct details
-    of a master are fetched.
-
-    Parameters
-    ----------
-    masterTable: string
-        The name of the table in which the master record lives.
-    master: string | ObjectId | AttrDict
-        The master record.
-
-    Returns
-    -------
-    AttrDict
-        The list of detail records, categorized by detail table in which
-        they occur. The detail tables are the keys, the lists of records
-        in those tables are the values.
-        If the master record cannot be found or if there are no detail
-        records, the empty dict is returned.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    masterDetail = self.masterDetail
-
-    detailTable = masterDetail[masterTable]
-    if detailTable is None:
-        return AttrDict()
-
-    (masterId, master) = Mongo.get(masterTable, master)
-    if masterId is None:
-        return AttrDict()
-
-    crit = {f&#34;{masterTable}Id&#34;: masterId}
-
-    detailRecords = AttrDict()
-
-    details = Mongo.getList(detailTable, **crit)
-    if len(details):
-        detailRecords[detailTable] = details
-
-    return detailRecords</code></pre>
-</details>
 </dd>
-<dt id="control.datamodel.Datamodel.getFieldObject"><code class="name flex">
-<span>def <span class="ident">getFieldObject</span></span>(<span>self, key)</span>
+<dt id="control.datamodel.Datamodel.getKeywords"><code class="name flex">
+<span>def <span class="ident">getKeywords</span></span>(<span>self, extra=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a field object.</p>
+<div class="desc"><p>Get the lists of keywords that act as values for metadata fields.</p>
+<p>A keyword is a string value and it belongs to a list of keywords.
+The metadata fields that are declared with <code>tp: keyword</code> are associated
+with a list of values: keywords.</p>
+<p>We read the table of keywords, organize it by metadata field, and count
+how many edition/project record use that keyword.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
-<dd>The key of the field object</dd>
+<dt><strong><code>extra</code></strong> :&ensp;<code>dict</code>, optional <code>None</code></dt>
+<dd>If passed, it is a dictionary keyed by metadata keys and valued
+with value sets for those metadata keys. These values must be added to
+the respective keyword lists.
+These are typically from existing values in metadata fields that
+have been accepted when different keyword lists were in effect.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>object | void</code></dt>
-<dd>The field object found under the given key, if present, otherwise None</dd>
+<dt><code>dict</code></dt>
+<dd>keyed by name of the metadata field, then by the keyword itself,
+and valued by the number of edition/project records it occurs in.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L285-L298" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getFieldObject(self, key):
-    &#34;&#34;&#34;Get a field object.
-
-    Parameters
-    ----------
-    key: string
-        The key of the field object
-
-    Returns
-    -------
-    object | void
-        The field object found under the given key, if present, otherwise None
-    &#34;&#34;&#34;
-    return self.fieldObjects[key]</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.getLinkedCrit"><code class="name flex">
 <span>def <span class="ident">getLinkedCrit</span></span>(<span>self, table, record)</span>
@@ -1522,52 +2127,72 @@ given record.</p>
 <dd>Keys: tables in which linked records exist.
 Values: the criteria to find those linked records in that table.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L202-L241" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getLinkedCrit(self, table, record):
-    &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
-
-    It finds all cross-linked records containing an id of the
-    given record.
-
-    So no detail records.
-
-    Parameters
-    ----------
-    table: string
-        The name of the table in which the record lives.
-    record: string | ObjectId | AttrDict
-        The record.
-
-    Returns
-    -------
-    AttrDict
-        Keys: tables in which linked records exist.
-        Values: the criteria to find those linked records in that table.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    mainLink = self.mainLink
-
-    linkTables = mainLink[table]
-    if linkTables is None:
-        return AttrDict()
-
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return AttrDict()
-
-    crit = {f&#34;{table}Id&#34;: recordId}
-
-    linkCriteria = AttrDict()
-
-    for linkTable in linkTables:
-        linkCriteria[linkTable] = crit
-
-    return linkCriteria</code></pre>
-</details>
+</dd>
+<dt id="control.datamodel.Datamodel.getListFields"><code class="name flex">
+<span>def <span class="ident">getListFields</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gives the set of all fields with list content.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>set</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
+</dd>
+<dt id="control.datamodel.Datamodel.getMarkdownFields"><code class="name flex">
+<span>def <span class="ident">getMarkdownFields</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gives the set of all fields with markdown content.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>set</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
+</dd>
+<dt id="control.datamodel.Datamodel.getMetaFields"><code class="name flex">
+<span>def <span class="ident">getMetaFields</span></span>(<span>self, table, kinds, level=None, asDict=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the list of metadata fields for in the meta box.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either <code>site</code> or <code>project</code> or <code>edition</code></dd>
+<dt><strong><code>kinds</code></strong> :&ensp;<code>list | string | void</code></dt>
+<dd>The kinds of fields to fetch: one or more of "main", "box" or "narrative".
+If None, all kinds are used, in the order :main", "narrative", "box".
+If a string: it is the single kind that is being used.</dd>
+<dt><strong><code>level</code></strong> :&ensp;<code>integer</code>, optional <code>None</code></dt>
+<dd>If not None, append @ plus level to each meta key that is delivered,
+and join the components with <code>+</code>
+If one of the fields is <code>title</code>, its level is one lower.</dd>
+<dt><strong><code>asDict</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>If True, the <code>level</code> parameter will be ignored.
+Returns a dictionary with the field names as keys, and the field information
+as values, specialized to the given table.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict | tuple</code> of <code>string | string</code></dt>
+<dd>Returns a dict if <code>asDict</code> is True.
+The meta keys in question, as a tuple if level is None, otherwise as a
+"+"-separated string where each item is appended with a level indicator</dd>
+</dl></div>
+</dd>
+<dt id="control.datamodel.Datamodel.getTexts"><code class="name flex">
+<span>def <span class="ident">getTexts</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the names and info for the fixed text pages.</p>
+<p>The contents of these pages are stored in fields the site record,
+the path to the field is given in the text info dict.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>Keyed by the name of the text, values are keys for the corresponding
+metadata fields in the site record where the text is stored.</dd>
+</dl></div>
 </dd>
 <dt id="control.datamodel.Datamodel.getUploadConfig"><code class="name flex">
 <span>def <span class="ident">getUploadConfig</span></span>(<span>self, key)</span>
@@ -1585,27 +2210,6 @@ Values: the criteria to find those linked records in that table.</dd>
 <dd>The upload config found under the given key and file name, if
 present, otherwise None</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L353-L367" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getUploadConfig(self, key):
-    &#34;&#34;&#34;Get an upload config.
-
-    Parameters
-    ----------
-    key: string
-        The key of the upload config
-
-    Returns
-    -------
-    object | void
-        The upload config found under the given key and file name, if
-        present, otherwise None
-    &#34;&#34;&#34;
-    return self.uploadsConfig[key]</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.getUploadObject"><code class="name flex">
 <span>def <span class="ident">getUploadObject</span></span>(<span>self, key, fileName=None)</span>
@@ -1626,32 +2230,6 @@ If not passed, the file name is derived from the config of the key.</dd>
 <dd>The upload object found under the given key and file name, if
 present, otherwise None</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L369-L388" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getUploadObject(self, key, fileName=None):
-    &#34;&#34;&#34;Get an upload object.
-
-    Parameters
-    ----------
-    key: string
-        The key of the upload object
-    fileName: string, optional None
-        The file name of the upload object.
-        If not passed, the file name is derived from the config of the key.
-
-    Returns
-    -------
-    object | void
-        The upload object found under the given key and file name, if
-        present, otherwise None
-    &#34;&#34;&#34;
-    if fileName is None:
-        fileName = self.uploadsConfig[key].fileName
-    return self.uploadObjects[(key, fileName)]</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.getUserWork"><code class="name flex">
 <span>def <span class="ident">getUserWork</span></span>(<span>self, user)</span>
@@ -1672,37 +2250,9 @@ This function counts how many projects and editions a user is linked to.</p>
 <dt><code>integer</code></dt>
 <dd>The number of editions</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L179-L200" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getUserWork(self, user):
-    &#34;&#34;&#34;Gets the number of project and edition records of a user.
-
-    We will not delete users if the user is linked to a project or edition.
-    This function counts how many projects and editions a user is linked to.
-
-    Parameters
-    ----------
-    user: string
-        The name of the user (field `user` in the record)
-
-    Returns
-    -------
-    integer
-        The number of projects
-    integer
-        The number of editions
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
-    nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
-    return (nProjects, nEditions)</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.makeField"><code class="name flex">
-<span>def <span class="ident">makeField</span></span>(<span>self, key)</span>
+<span>def <span class="ident">makeField</span></span>(<span>self, key, table)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Make a field object and registers it.</p>
@@ -1710,14 +2260,14 @@ This function counts how many projects and editions a user is linked to.</p>
 geared to this particular field.</p>
 <div class="admonition note">
 <p class="admonition-title">Idempotent</p>
-<p>If the Field object is already registered, nothing is done.</p>
+<p>If the Field object is already registered, nothing is done.
+Field objects are registered under their key and table.</p>
 </div>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
 <dd>Identifier for the field.
-The configuration for this field will be retrieved using this key.
-The new field object will be stored under this key.</dd>
+The configuration for this field will be retrieved using this key.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1725,53 +2275,6 @@ The new field object will be stored under this key.</dd>
 <dd>The resulting Field object.
 It is also added to the <code>fieldObjects</code> member.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L243-L283" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def makeField(self, key):
-    &#34;&#34;&#34;Make a field object and registers it.
-
-    An instance of class `control.datamodel.Field` is created,
-    geared to this particular field.
-
-    !!! note &#34;Idempotent&#34;
-        If the Field object is already registered, nothing is done.
-
-    Parameters
-    ----------
-    key: string
-        Identifier for the field.
-        The configuration for this field will be retrieved using this key.
-        The new field object will be stored under this key.
-
-    Returns
-    -------
-    object
-        The resulting Field object.
-        It is also added to the `fieldObjects` member.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-
-    fieldObjects = self.fieldObjects
-
-    fieldObject = fieldObjects[key]
-    if fieldObject:
-        return fieldObject
-
-    Messages = self.Messages
-    Mongo = self.Mongo
-    fieldsConfig = self.fieldsConfig
-
-    fieldsConfig = fieldsConfig[key]
-    if fieldsConfig is None:
-        Messages.error(logmsg=f&#34;Unknown field key &#39;{key}&#39;&#34;)
-
-    fieldObject = Field(Settings, Messages, Mongo, self, key, **fieldsConfig)
-    fieldObjects[key] = fieldObject
-    return fieldObject</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.makeUpload"><code class="name flex">
 <span>def <span class="ident">makeUpload</span></span>(<span>self, key, fileName=None)</span>
@@ -1802,64 +2305,6 @@ the datamodel configuration.</dd>
 <dd>The resulting Upload object.
 It is also added to the <code>uploadObjects</code> member.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L300-L351" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def makeUpload(self, key, fileName=None):
-    &#34;&#34;&#34;Make a file upload object and registers it.
-
-    An instance of class `control.datamodel.Upload` is created,
-    geared to this particular field.
-
-    !!! note &#34;Idempotent&#34;
-        If the Upload object is already registered, nothing is done.
-
-    Parameters
-    ----------
-    key: string
-        Identifier for the upload.
-        The configuration for this upload will be retrieved using this key.
-        The new upload object will be stored under this key.
-    fileName: string, optional None
-        If present, it indicates that the uploaded file will have this prescribed
-        name.
-        A file name for an upload object may also have been specified in
-        the datamodel configuration.
-
-    Returns
-    -------
-    object
-        The resulting Upload object.
-        It is also added to the `uploadObjects` member.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-
-    uploadObjects = self.uploadObjects
-    uploadsConfig = self.uploadsConfig
-
-    if fileName is None:
-        fileName = uploadsConfig.get(key, AttrDict()).fileName
-
-    uploadObject = uploadObjects[(key, fileName)]
-    if uploadObject:
-        return uploadObject
-
-    Messages = self.Messages
-    Mongo = self.Mongo
-    uploadsConfig = self.uploadsConfig
-
-    uploadsConfig = AttrDict(**uploadsConfig[key])
-    if uploadsConfig is None:
-        Messages.error(logmsg=f&#34;Unknown upload key &#39;{key}&#39;&#34;)
-    if fileName is not None:
-        uploadsConfig[&#34;fileName&#34;] = fileName
-
-    uploadObject = Upload(Settings, Messages, Mongo, key, **uploadsConfig)
-    uploadObjects[(key, fileName)] = uploadObject
-    return uploadObject</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Datamodel.relevant"><code class="name flex">
 <span>def <span class="ident">relevant</span></span>(<span>self, project=None, edition=None)</span>
@@ -1888,61 +2333,12 @@ The edition whose record we need.</p>
 <p>If both project and edition are not None</p>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L49-L91" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def relevant(self, project=None, edition=None):
-    &#34;&#34;&#34;Get a relevant record and the table to which it belongs.
-
-    A relevant record is either a project record, or an edition record,
-    or the one and only site record.
-
-    If all optional parameters are None, we look for the site record.
-    If the project parameter is not None, we look for the project record.
-
-    This is the inverse of `context()`.
-
-    Paramenters
-    -----------
-    project: string | ObjectId | AttrDict, optional None
-        The project whose record we need.
-    edition: string | ObjectId | AttrDict, optional None
-        The edition whose record we need.
-
-    Returns
-    -------
-    tuple
-        * table: string; the table in which the record is found
-        * record id: string; the id of the record
-        * record: AttrDict; the record itself
-
-        If both project and edition are not None
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    Mongo = self.Mongo
-
-    if edition is not None:
-        table = &#34;edition&#34;
-        (recordId, record) = Mongo.get(table, edition)
-    elif project is not None:
-        table = &#34;project&#34;
-        (recordId, record) = Mongo.get(table, project)
-    else:
-        table = &#34;site&#34;
-        siteCrit = Settings.siteCrit
-        record = Mongo.getRecord(table, **siteCrit)
-        recordId = record._id
-
-    return (table, recordId, record)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
 <dt id="control.datamodel.Field"><code class="flex name class">
 <span>class <span class="ident">Field</span></span>
-<span>(</span><span>Settings, Messages, Mongo, Datamodel, key, **kwargs)</span>
+<span>(</span><span>Settings, Messages, Mongo, Datamodel, key, table, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Handle field business.</p>
@@ -1956,9 +2352,14 @@ to produce edit widgets to modify the values, and handlers to save
 values.</p>
 <p>How to do this is steered by the specification of the field by keys and
 values that are stored in this object.</p>
+<p>Some field specifications may be table dependent. If a table is passed,
+we can get the table dependent values by means of the static method
+<code><a title="control.datamodel.Datamodel.specialize" href="#control.datamodel.Datamodel.specialize">Datamodel.specialize()</a></code>.</p>
 <p>All field access should be guarded by the authorisation rules.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Name of the table for which we must specialize the field information</dd>
 <dt><strong><code>kwargs</code></strong> :&ensp;<code>dict</code></dt>
 <dd>Field configuration arguments.
 It certain parts of the field configuration
@@ -1967,10 +2368,10 @@ are not present, defaults will be provided.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L391-L646" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L632-L1070" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Field:
-    def __init__(self, Settings, Messages, Mongo, Datamodel, key, **kwargs):
+    def __init__(self, Settings, Messages, Mongo, Datamodel, key, table, **kwargs):
         &#34;&#34;&#34;Handle field business.
 
         A Field object does not correspond with an individual field in a record.
@@ -1987,10 +2388,16 @@ are not present, defaults will be provided.</dd>
         How to do this is steered by the specification of the field by keys and
         values that are stored in this object.
 
+        Some field specifications may be table dependent. If a table is passed,
+        we can get the table dependent values by means of the static method
+        `control.datamodel.Datamodel.specialize`.
+
         All field access should be guarded by the authorisation rules.
 
         Parameters
         ----------
+        table: string
+            Name of the table for which we must specialize the field information
         kwargs: dict
             Field configuration arguments.
             It certain parts of the field configuration
@@ -2006,6 +2413,10 @@ are not present, defaults will be provided.</dd>
         &#34;&#34;&#34;The identifier of this field within the app.
         &#34;&#34;&#34;
 
+        self.table = table
+        &#34;&#34;&#34;The table for which this field is specialized.
+        &#34;&#34;&#34;
+
         self.nameSpace = &#34;&#34;
         &#34;&#34;&#34;The first key to access the field data in a record.
 
@@ -2014,6 +2425,8 @@ are not present, defaults will be provided.</dd>
 
         If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
         going into a namespace sub-record first.
+
+        **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
 
         self.fieldPath = key
@@ -2024,13 +2437,60 @@ are not present, defaults will be provided.</dd>
 
         This field selection is applied after the name space selection
         (if `nameSpace` is not the empty string).
+
+        **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
 
         self.tp = &#34;string&#34;
         &#34;&#34;&#34;The value type of the field.
 
-        Value types can be string, integer, but also date times, and values
-        from an other table (value lists), or structured values.
+        Value types can be string, integer, but also date-time, and values
+        from an other table (keyword).
+
+        The value &#34;keyword&#34; is used if the the field works with values from another
+        table (i.e. values from the keyword table). It is assumed that all these values
+        are strings.
+
+        If True, the value of such a field must consist of zero or more elements
+        of a prescribed list of keywords.
+
+        These lists are associated with certain metadata fields and can be managed
+        by admins in a widget on the MyWork page.
+
+        We do not enforce that the value of such a field is a member of the
+        associated list at all times. For example, if we import projects and editions
+        that have been made with different lists of keywords in force, we accept
+        foreign keywords. However, users will not be able to apply foreign keywords
+        when they edit fields.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.multiple = True
+        &#34;&#34;&#34;Whether multiple values are allowed.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.readonly = False
+        &#34;&#34;&#34;Whether the field can be edited manually by authorized users.
+
+        If this field is True, no user can directly change the value. Instead, the
+        system will fill in this value, dependent on the completion of certain actions.
+
+        **NB.: This attribute is not table dependent.**
+        &#34;&#34;&#34;
+
+        self.default = None
+        &#34;&#34;&#34;A default value to deliver if the field has no value.
+
+        **NB.: This attribute may be table dependent.**
+        &#34;&#34;&#34;
+
+        self.mandatory = False
+        &#34;&#34;&#34;Whether a value is mandatory.
+
+        **NB.: This attribute may be table dependent.**
         &#34;&#34;&#34;
 
         self.caption = key
@@ -2043,18 +2503,37 @@ are not present, defaults will be provided.</dd>
 
         If there is a placeholder, the content will replace the place holder
         in the caption.
+
+        **NB.: This attribute may be table dependent.**
         &#34;&#34;&#34;
 
-        for (arg, value) in kwargs.items():
+        for arg, value in Datamodel.specialize(table, kwargs).items():
             if value is not None:
                 setattr(self, arg, value)
+
+    def specialize(self, table, record):
+        &#34;&#34;&#34;Specializes a record to a table.
+
+        Parameters
+        ----------
+        table: string
+            The table in question
+        record: dict | AttrDict
+            The record in question
+
+        Returns
+        -------
+        AttrDict
+            The specialized record, a new copy
+        &#34;&#34;&#34;
+        return Datamodel.specialize(table, record)
 
     def logical(self, record):
         &#34;&#34;&#34;Give the logical value of the field in a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
             The record in which the field value is stored.
 
         Returns
@@ -2077,15 +2556,57 @@ are not present, defaults will be provided.</dd>
                 break
 
         value = None if dataSource is None else dataSource.get(fields[-1], None)
+
         return value
 
-    def bare(self, record):
-        &#34;&#34;&#34;Give the bare string value of the field in a record.
+    def resolved(self, record):
+        default = self.default
+        logical = self.logical(record)
+        return default if logical is None else logical
+
+    def setLogical(self, record, value):
+        &#34;&#34;&#34;Set the logical value of the field in a record.
 
         Parameters
         ----------
-        record: string | ObjectId | AttrDict
+        record: AttrDict
+            The record in which the field value is to be stored.
+            It will be modified in place.
+        value: object
+            Any value to put into the record
+
+        &#34;&#34;&#34;
+        nameSpace = self.nameSpace
+        fieldPath = self.fieldPath
+
+        fields = fieldPath.split(&#34;.&#34;)
+
+        dataSource = record.setdefault(nameSpace, AttrDict()) if nameSpace else record
+
+        for field in fields[0:-1]:
+            dataSource = dataSource.setdefault(field, AttrDict())
+
+        dataSource[fields[-1]] = value
+
+    def bare(self, record, compact=False, joined=False):
+        &#34;&#34;&#34;Give the bare string value of the field in a record.
+
+        If the logical value of the field is None, its default will be filled in.
+
+        Parameters
+        ----------
+        record: AttrDict
             The record in which the field value is stored.
+        compact: boolean, optional False
+            Only relevant for datetime types: if True, omit the time, leaving only
+            the date plus the timezone (always `Z` = UTC).
+        joined: boolean|string, optional False
+            Only relevant for fields with multiple values, but not of type text:
+            If not False, it should be a string by which the values should be joined.
+
+            For example, if the value is [2, 3], if joined is False the result is:
+            `[2, 3]`, but if joined is &#34;;&#34; the result is `2;3`.
+
 
         Returns
         -------
@@ -2093,12 +2614,33 @@ are not present, defaults will be provided.</dd>
             Whatever the value is that we find for that field, converted to string.
             If the field is not present, returns the empty string, without warning.
         &#34;&#34;&#34;
-        logical = self.logical(record)
-        return &#34;&#34; if logical is None else str(logical)
+        tp = self.tp
+        multiple = self.multiple
+
+        resolved = self.resolved(record)
+
+        # if not multiple and type(logical) in {list, tuple}:
+        #    logical = logical[-1] if len(logical) else &#34;&#34;
+
+        return (
+            &#34;&#34;
+            if resolved is None
+            else (
+                (resolved.split(&#34;T&#34;)[0] + &#34;Z&#34; if compact else resolved)
+                if tp == &#34;datetime&#34;
+                else (
+                    str(resolved)
+                    if joined is False
+                    or tp == &#34;text&#34;
+                    or not multiple
+                    or type(resolved) in {str, int, bool}
+                    else joined.join(str(r) for r in resolved)
+                )
+            )
+        )
 
     def formatted(
         self,
-        table,
         record,
         level=None,
         editable=False,
@@ -2109,7 +2651,7 @@ are not present, defaults will be provided.</dd>
 
         Optionally also puts a caption and/or an edit control.
 
-        The value retrieved is (recursively) wrapped in HTML, steered by additional
+        The value retrieved is (recursively) wrapped in HTML, steered by an additional
         argument, as in `control.html.HtmlElements.wrapValue`.
         be applied.
 
@@ -2135,6 +2677,8 @@ are not present, defaults will be provided.</dd>
         editable: boolean, optional False
             Whether the field is editable by the current user.
             If so, edit controls are provided.
+            But if the field has been declared as readonly in the field specs, no edit
+            controls will be provided.
         outerCls: string optional &#34;fieldouter&#34;
             If given, an extra CSS class for the outer element that wraps the total
             value. Only relevant if the type is not &#39;text&#39;
@@ -2150,8 +2694,11 @@ are not present, defaults will be provided.</dd>
         &#34;&#34;&#34;
         Settings = self.Settings
         Mongo = self.Mongo
+        Datamodel = self.Datamodel
 
         H = Settings.H
+
+        table = self.table
 
         (recordId, record) = Mongo.get(table, record)
         if recordId is None:
@@ -2160,32 +2707,65 @@ are not present, defaults will be provided.</dd>
         tp = self.tp
         caption = self.caption
         key = self.key
+        multiple = self.multiple
+        readonly = self.readonly
 
         bare = self.bare(record)
-        logical = self.logical(record)
+        resolved = self.resolved(record)
+
+        # if table == &#34;site&#34; and key == &#34;abstract&#34;:
         bareRep = bare or H.i(f&#34;no {key}&#34;)
 
         if tp == &#34;text&#34;:
             readonlyContent = markdown(bareRep, tight=False)
+        elif tp == &#34;datetime&#34; or tp == &#34;date&#34;:
+            readonlyContent = bare or H.i(&#34;never&#34;)
         else:
             readonlyContent = H.wrapValue(
-                logical,
+                resolved,
                 outerElem=&#34;span&#34;,
                 outerAtts=dict(cls=outerCls),
                 innerElem=&#34;span&#34;,
                 innerAtts=dict(cls=innerCls),
             )
-        if editable:
+
+        if editable and not readonly:
             keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
             saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
-            updateButton = H.actionButton(&#34;edit_update&#34;)
-            cancelButton = H.actionButton(&#34;edit_cancel&#34;)
-            saveButton = H.actionButton(&#34;edit_save&#34;)
+            updateButton = H.actionButton(&#34;edit_update&#34;, tip=f&#34; for field {key}&#34;)
+            cancelButton = H.actionButton(&#34;edit_cancel&#34;, tip=f&#34; for field {key}&#34;)
+            saveButton = H.actionButton(&#34;edit_save&#34;, tip=f&#34; for field {key}&#34;)
             messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
-            orig = bare if tp == &#34;text&#34; else writeYaml(logical)
-            editableContent = H.textarea(
-                &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
+            orig = (
+                bare
+                if tp == &#34;text&#34;
+                else (
+                    &#34;§&#34;.join(resolved or []) if tp == &#34;keyword&#34; else writeYaml(resolved)
+                )
             )
+
+            if tp == &#34;keyword&#34;:
+                valueSet = (
+                    set()
+                    if resolved is None
+                    else {resolved} if type(resolved) is str else set(resolved)
+                )
+                keywords = Datamodel.getKeywords(extra={key: valueSet})[key]
+                options = (
+                    [] if multiple else [(f&#34;Choose a {key} ...&#34;, &#34;&#34;, valueSet == set())]
+                ) + [(k, k, k in valueSet) for k in keywords]
+                editableContent = H.select(
+                    options,
+                    multiple=multiple,
+                    cls=&#34;editcontent&#34;,
+                    saveurl=saveUrl,
+                    origValue=orig,
+                    tp=tp,
+                )
+            else:
+                editableContent = H.textarea(
+                    &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig, tp=key
+                )
 
             content = &#34;&#34;.join(
                 [
@@ -2211,11 +2791,12 @@ are not present, defaults will be provided.</dd>
 
             if level == 0:
                 elem = &#34;span&#34;
-                lv = []
+                cls = None
             else:
-                elem = &#34;h&#34;
-                lv = [level]
-            theCaption = H.elem(elem, *lv, theCaption)
+                elem = &#34;div&#34;
+                cls = f&#34;lv lv{level}&#34;
+
+            theCaption = H.elem(elem, theCaption, cls=cls)
         else:
             theCaption = &#34;&#34;
             inCaption = False
@@ -2224,7 +2805,10 @@ are not present, defaults will be provided.</dd>
             theCaption if inCaption else content
         )
 
-        return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent</code></pre>
+        return H.div(
+            fullContent,
+            cls=&#34;editwidget&#34; if editable and not readonly else &#34;readonlywidget&#34;,
+        )</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -2235,7 +2819,13 @@ are not present, defaults will be provided.</dd>
 <p>If there is no place holder, the caption will precede the content of
 the field.</p>
 <p>If there is a placeholder, the content will replace the place holder
-in the caption.</p></div>
+in the caption.</p>
+<p><strong>NB.: This attribute may be table dependent.</strong></p></div>
+</dd>
+<dt id="control.datamodel.Field.default"><code class="name">var <span class="ident">default</span></code></dt>
+<dd>
+<div class="desc"><p>A default value to deliver if the field has no value.</p>
+<p><strong>NB.: This attribute may be table dependent.</strong></p></div>
 </dd>
 <dt id="control.datamodel.Field.fieldPath"><code class="name">var <span class="ident">fieldPath</span></code></dt>
 <dd>
@@ -2243,11 +2833,22 @@ in the caption.</p></div>
 <p>A string of keys, separated by <code>.</code>, which will be used to drill down
 into a nested dict. At the end of the path we find the selected value.</p>
 <p>This field selection is applied after the name space selection
-(if <code>nameSpace</code> is not the empty string).</p></div>
+(if <code>nameSpace</code> is not the empty string).</p>
+<p><strong>NB.: This attribute is not table dependent.</strong></p></div>
 </dd>
 <dt id="control.datamodel.Field.key"><code class="name">var <span class="ident">key</span></code></dt>
 <dd>
 <div class="desc"><p>The identifier of this field within the app.</p></div>
+</dd>
+<dt id="control.datamodel.Field.mandatory"><code class="name">var <span class="ident">mandatory</span></code></dt>
+<dd>
+<div class="desc"><p>Whether a value is mandatory.</p>
+<p><strong>NB.: This attribute may be table dependent.</strong></p></div>
+</dd>
+<dt id="control.datamodel.Field.multiple"><code class="name">var <span class="ident">multiple</span></code></dt>
+<dd>
+<div class="desc"><p>Whether multiple values are allowed.</p>
+<p><strong>NB.: This attribute is not table dependent.</strong></p></div>
 </dd>
 <dt id="control.datamodel.Field.nameSpace"><code class="name">var <span class="ident">nameSpace</span></code></dt>
 <dd>
@@ -2255,26 +2856,62 @@ into a nested dict. At the end of the path we find the selected value.</p>
 <p>Example <code>dc</code> (Dublin Core). So if a record has Dublin Core
 metadata, we expect that metadata to exist under key <code>dc</code> in that record.</p>
 <p>If the namespace is <code>""</code>, it is assumed that we can dig up the values without
-going into a namespace sub-record first.</p></div>
+going into a namespace sub-record first.</p>
+<p><strong>NB.: This attribute is not table dependent.</strong></p></div>
+</dd>
+<dt id="control.datamodel.Field.readonly"><code class="name">var <span class="ident">readonly</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the field can be edited manually by authorized users.</p>
+<p>If this field is True, no user can directly change the value. Instead, the
+system will fill in this value, dependent on the completion of certain actions.</p>
+<p><strong>NB.: This attribute is not table dependent.</strong></p></div>
+</dd>
+<dt id="control.datamodel.Field.table"><code class="name">var <span class="ident">table</span></code></dt>
+<dd>
+<div class="desc"><p>The table for which this field is specialized.</p></div>
 </dd>
 <dt id="control.datamodel.Field.tp"><code class="name">var <span class="ident">tp</span></code></dt>
 <dd>
 <div class="desc"><p>The value type of the field.</p>
-<p>Value types can be string, integer, but also date times, and values
-from an other table (value lists), or structured values.</p></div>
+<p>Value types can be string, integer, but also date-time, and values
+from an other table (keyword).</p>
+<p>The value "keyword" is used if the the field works with values from another
+table (i.e. values from the keyword table). It is assumed that all these values
+are strings.</p>
+<p>If True, the value of such a field must consist of zero or more elements
+of a prescribed list of keywords.</p>
+<p>These lists are associated with certain metadata fields and can be managed
+by admins in a widget on the MyWork page.</p>
+<p>We do not enforce that the value of such a field is a member of the
+associated list at all times. For example, if we import projects and editions
+that have been made with different lists of keywords in force, we accept
+foreign keywords. However, users will not be able to apply foreign keywords
+when they edit fields.</p>
+<p><strong>NB.: This attribute is not table dependent.</strong></p></div>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
 <dt id="control.datamodel.Field.bare"><code class="name flex">
-<span>def <span class="ident">bare</span></span>(<span>self, record)</span>
+<span>def <span class="ident">bare</span></span>(<span>self, record, compact=False, joined=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Give the bare string value of the field in a record.</p>
+<p>If the logical value of the field is None, its default will be filled in.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>The record in which the field value is stored.</dd>
+<dt><strong><code>compact</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Only relevant for datetime types: if True, omit the time, leaving only
+the date plus the timezone (always <code>Z</code> = UTC).</dd>
+<dt><strong><code>joined</code></strong> :&ensp;<code>boolean|string</code>, optional <code>False</code></dt>
+<dd>
+<p>Only relevant for fields with multiple values, but not of type text:
+If not False, it should be a string by which the values should be joined.</p>
+<p>For example, if the value is [2, 3], if joined is False the result is:
+<code>[2, 3]</code>, but if joined is ";" the result is <code>2;3</code>.</p>
+</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2282,36 +2919,14 @@ from an other table (value lists), or structured values.</p></div>
 <dd>Whatever the value is that we find for that field, converted to string.
 If the field is not present, returns the empty string, without warning.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L501-L516" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def bare(self, record):
-    &#34;&#34;&#34;Give the bare string value of the field in a record.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The record in which the field value is stored.
-
-    Returns
-    -------
-    string:
-        Whatever the value is that we find for that field, converted to string.
-        If the field is not present, returns the empty string, without warning.
-    &#34;&#34;&#34;
-    logical = self.logical(record)
-    return &#34;&#34; if logical is None else str(logical)</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Field.formatted"><code class="name flex">
-<span>def <span class="ident">formatted</span></span>(<span>self, table, record, level=None, editable=False, outerCls='fieldouter', innerCls='fieldinner')</span>
+<span>def <span class="ident">formatted</span></span>(<span>self, record, level=None, editable=False, outerCls='fieldouter', innerCls='fieldinner')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Give the formatted value of the field in a record.</p>
 <p>Optionally also puts a caption and/or an edit control.</p>
-<p>The value retrieved is (recursively) wrapped in HTML, steered by additional
+<p>The value retrieved is (recursively) wrapped in HTML, steered by an additional
 argument, as in <code><a title="control.html.HtmlElements.wrapValue" href="html.html#control.html.HtmlElements.wrapValue">HtmlElements.wrapValue()</a></code>.
 be applied.</p>
 <p>If the type is 'text', multiple values will simply be concatenated
@@ -2332,7 +2947,9 @@ If None, no caption will be placed.
 If 0, the caption will be placed in a span.</dd>
 <dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>Whether the field is editable by the current user.
-If so, edit controls are provided.</dd>
+If so, edit controls are provided.
+But if the field has been declared as readonly in the field specs, no edit
+controls will be provided.</dd>
 <dt><strong><code>outerCls</code></strong> :&ensp;<code>string optional "fieldouter"</code></dt>
 <dd>If given, an extra CSS class for the outer element that wraps the total
 value. Only relevant if the type is not 'text'</dd>
@@ -2346,141 +2963,6 @@ value. Only relevant if the type is not 'text'</dd>
 <dd>Whatever the value is that we find for that field, converted to HTML.
 If the field is not present, returns the empty string, without warning.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L518-L646" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def formatted(
-    self,
-    table,
-    record,
-    level=None,
-    editable=False,
-    outerCls=&#34;fieldouter&#34;,
-    innerCls=&#34;fieldinner&#34;,
-):
-    &#34;&#34;&#34;Give the formatted value of the field in a record.
-
-    Optionally also puts a caption and/or an edit control.
-
-    The value retrieved is (recursively) wrapped in HTML, steered by additional
-    argument, as in `control.html.HtmlElements.wrapValue`.
-    be applied.
-
-    If the type is &#39;text&#39;, multiple values will simply be concatenated
-    with newlines in between, and no extra classes will be applied.
-    Instead, a markdown formatter is applied to the result.
-
-    For other types:
-
-    If the value is an iterable, each individual value is wrapped in a span
-    to which an (other) extra CSS class may be applied.
-
-    Parameters
-    ----------
-    table: string
-        The table from which the record is taken
-    record: string | ObjectId | AttrDict
-        The record in which the field value is stored.
-    level: integer, optional None
-        The heading level in which a caption will be placed.
-        If None, no caption will be placed.
-        If 0, the caption will be placed in a span.
-    editable: boolean, optional False
-        Whether the field is editable by the current user.
-        If so, edit controls are provided.
-    outerCls: string optional &#34;fieldouter&#34;
-        If given, an extra CSS class for the outer element that wraps the total
-        value. Only relevant if the type is not &#39;text&#39;
-    innerCls: string optional &#34;fieldinner&#34;
-        If given, an extra CSS class for the inner elements that wrap parts of the
-        value. Only relevant if the type is not &#39;text&#39;
-
-    Returns
-    -------
-    string:
-        Whatever the value is that we find for that field, converted to HTML.
-        If the field is not present, returns the empty string, without warning.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    Mongo = self.Mongo
-
-    H = Settings.H
-
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return &#34;&#34;
-
-    tp = self.tp
-    caption = self.caption
-    key = self.key
-
-    bare = self.bare(record)
-    logical = self.logical(record)
-    bareRep = bare or H.i(f&#34;no {key}&#34;)
-
-    if tp == &#34;text&#34;:
-        readonlyContent = markdown(bareRep, tight=False)
-    else:
-        readonlyContent = H.wrapValue(
-            logical,
-            outerElem=&#34;span&#34;,
-            outerAtts=dict(cls=outerCls),
-            innerElem=&#34;span&#34;,
-            innerAtts=dict(cls=innerCls),
-        )
-    if editable:
-        keyRepUrl = &#34;&#34; if key is None else f&#34;/{key}&#34;
-        saveUrl = f&#34;/save/{table}/{recordId}{keyRepUrl}&#34;
-        updateButton = H.actionButton(&#34;edit_update&#34;)
-        cancelButton = H.actionButton(&#34;edit_cancel&#34;)
-        saveButton = H.actionButton(&#34;edit_save&#34;)
-        messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
-        orig = bare if tp == &#34;text&#34; else writeYaml(logical)
-        editableContent = H.textarea(
-            &#34;&#34;, cls=&#34;editcontent&#34;, saveurl=saveUrl, origValue=orig
-        )
-
-        content = &#34;&#34;.join(
-            [
-                H.span(readonlyContent, cls=&#34;readonlycontent&#34;),
-                H.nbsp,
-                editableContent,
-                updateButton,
-                saveButton,
-                cancelButton,
-                messages,
-            ]
-        )
-    else:
-        content = readonlyContent
-
-    if level is not None:
-        if &#34;{value}&#34; in caption:
-            theCaption = caption.format(kind=table, value=content)
-            inCaption = True
-        else:
-            theCaption = caption
-            inCaption = False
-
-        if level == 0:
-            elem = &#34;span&#34;
-            lv = []
-        else:
-            elem = &#34;h&#34;
-            lv = [level]
-        theCaption = H.elem(elem, *lv, theCaption)
-    else:
-        theCaption = &#34;&#34;
-        inCaption = False
-
-    fullContent = (&#34;&#34; if inCaption else theCaption) + (
-        theCaption if inCaption else content
-    )
-
-    return H.div(fullContent, cls=&#34;editwidget&#34;) if editable else fullContent</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Field.logical"><code class="name flex">
 <span>def <span class="ident">logical</span></span>(<span>self, record)</span>
@@ -2489,7 +2971,7 @@ If the field is not present, returns the empty string, without warning.</dd>
 <div class="desc"><p>Give the logical value of the field in a record.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code></dt>
 <dd>The record in which the field value is stored.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2499,41 +2981,44 @@ If the field is not present, returns the empty string, without warning.</dd>
 No conversion/casting to other types will be performed.
 If the field is not present, returns None, without warning.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L471-L499" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def logical(self, record):
-    &#34;&#34;&#34;Give the logical value of the field in a record.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The record in which the field value is stored.
-
-    Returns
-    -------
-    any:
-        Whatever the value is that we find for that field.
-        No conversion/casting to other types will be performed.
-        If the field is not present, returns None, without warning.
-    &#34;&#34;&#34;
-    nameSpace = self.nameSpace
-    fieldPath = self.fieldPath
-
-    fields = fieldPath.split(&#34;.&#34;)
-
-    dataSource = record.get(nameSpace, {}) if nameSpace else record
-
-    for field in fields[0:-1]:
-        dataSource = dataSource.get(field, None)
-        if dataSource is None:
-            break
-
-    value = None if dataSource is None else dataSource.get(fields[-1], None)
-    return value</code></pre>
-</details>
+</dd>
+<dt id="control.datamodel.Field.resolved"><code class="name flex">
+<span>def <span class="ident">resolved</span></span>(<span>self, record)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="control.datamodel.Field.setLogical"><code class="name flex">
+<span>def <span class="ident">setLogical</span></span>(<span>self, record, value)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set the logical value of the field in a record.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>The record in which the field value is to be stored.
+It will be modified in place.</dd>
+<dt><strong><code>value</code></strong> :&ensp;<code>object</code></dt>
+<dd>Any value to put into the record</dd>
+</dl></div>
+</dd>
+<dt id="control.datamodel.Field.specialize"><code class="name flex">
+<span>def <span class="ident">specialize</span></span>(<span>self, table, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Specializes a record to a table.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The table in question</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>dict | AttrDict</code></dt>
+<dd>The record in question</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>AttrDict</code></dt>
+<dd>The specialized record, a new copy</dd>
+</dl></div>
 </dd>
 </dl>
 </dd>
@@ -2567,7 +3052,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L649-L865" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L1073-L1293" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Upload:
     def __init__(self, Settings, Messages, Mongo, key, **kwargs):
@@ -2654,7 +3139,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
 
         # let attributes be filled in from the function **kwargs
 
-        for (arg, value) in kwargs.items():
+        for arg, value in kwargs.items():
             if value is not None:
                 setattr(self, arg, value)
 
@@ -2689,20 +3174,22 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
         projectId = (
             recordId
             if table == &#34;project&#34;
-            else record.projectId
-            if table == &#34;edition&#34;
-            else None
+            else record.projectId if table == &#34;edition&#34; else None
         )
         editionId = recordId if table == &#34;edition&#34; else None
 
         path = (
             &#34;&#34;
             if table == &#34;site&#34;
-            else f&#34;project/{projectId}&#34;
-            if table == &#34;project&#34;
-            else f&#34;project/{projectId}/edition/{editionId}&#34;
-            if table == &#34;edition&#34;
-            else None
+            else (
+                f&#34;project/{projectId}&#34;
+                if table == &#34;project&#34;
+                else (
+                    f&#34;project/{projectId}/edition/{editionId}&#34;
+                    if table == &#34;edition&#34;
+                    else None
+                )
+            )
         )
         sep = &#34;/&#34; if path else &#34;&#34;
         return f&#34;{path}{sep}&#34;
@@ -2757,7 +3244,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
             content = []
             for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
                 buster = (
-                    f&#34;?v={now()}&#34;
+                    f&#34;?v={pseudoisonow()}&#34;
                     if show and bust is not None and bust == fileNm
                     else &#34;&#34;
                 )
@@ -2765,7 +3252,9 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
                 content.append(item)
         else:
             buster = (
-                f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
+                f&#34;?v={pseudoisonow()}&#34;
+                if show and bust is not None and bust == fileName
+                else &#34;&#34;
             )
             fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
             exists = fileExists(fullPath)
@@ -2862,91 +3351,6 @@ See <code><a title="control.html.HtmlElements.finput" href="html.html#control.ht
 <dt><code>string</code></dt>
 <dd>The name of the uploaded file(s) and/or an upload control.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L787-L865" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def formatted(self, record, mayChange=False, bust=None, wrapped=True):
-    &#34;&#34;&#34;Give the formatted value of a file field in a record.
-
-    Optionally also puts an upload control.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The record relevant to the upload
-    mayChange: boolean, optional False
-        Whether the file may be changed.
-        If so, an upload widget is supplied, wich contains a a delete button.
-    bust: string, optional None
-        If not None, the image url of the file whose name is passed in
-        `bust` is made unique by adding the current time to it.
-        This is a cache buster.
-    wrapped: boolean, optional True
-        Whether the content should be wrapped in a container element.
-        See `control.html.HtmlElements.finput()`.
-
-    Returns
-    -------
-    string
-        The name of the uploaded file(s) and/or an upload control.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    workingDir = Settings.workingDir
-
-    key = self.key
-    fileName = self.fileName
-    accept = self.accept
-    caption = self.caption
-    show = self.show
-
-    recordId = record._id
-
-    fileNameRep = &#34;-&#34; if fileName is None else fileName
-    fid = f&#34;{recordId}/{key}/{fileNameRep}&#34;
-
-    path = self.getDir(record)
-    sep = &#34;/&#34; if path else &#34;&#34;
-    fullDir = f&#34;{workingDir}{sep}{path}&#34;
-    saveUrl = f&#34;/upload/{fid}{sep}{path}&#34;
-    deleteUrl = f&#34;/deletefile/{fid}{sep}{path}&#34;.rstrip(&#34;/&#34;) + &#34;/&#34;
-
-    if fileName is None:
-        content = []
-        for fileNm in listFilesAccepted(fullDir, accept, withExt=True):
-            buster = (
-                f&#34;?v={now()}&#34;
-                if show and bust is not None and bust == fileNm
-                else &#34;&#34;
-            )
-            item = [fileNm, f&#34;/data/{path}{fileNm}{buster}&#34; if show else None]
-            content.append(item)
-    else:
-        buster = (
-            f&#34;?v={now()}&#34; if show and bust is not None and bust == fileName else &#34;&#34;
-        )
-        fullPath = (f&#34;{workingDir}{sep}{path}&#34;).rstrip(&#34;/&#34;) + f&#34;/{fileName}&#34;
-        exists = fileExists(fullPath)
-        content = (
-            fileName,
-            exists,
-            f&#34;/data/{path}{fileName}{buster}&#34; if show else None,
-        )
-
-    return H.finput(
-        content,
-        accept,
-        mayChange,
-        saveUrl,
-        deleteUrl,
-        caption,
-        wrapped=wrapped,
-        buttonCls=&#34;button small&#34;,
-        cls=f&#34;{key.lower()}&#34;,
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.datamodel.Upload.getDir"><code class="name flex">
 <span>def <span class="ident">getDir</span></span>(<span>self, record)</span>
@@ -2961,48 +3365,6 @@ If the path is non-empty, a "/" will be appended.</p>
 <dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The record relevant to the upload</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/datamodel.py#L750-L785" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getDir(self, record):
-    &#34;&#34;&#34;Give the path to the file in question.
-
-    The path can be used to build the static url and the save url.
-
-    It does not contain the file name.
-    If the path is non-empty, a &#34;/&#34; will be appended.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The record relevant to the upload
-    &#34;&#34;&#34;
-    table = self.table
-    recordId = record._id
-
-    projectId = (
-        recordId
-        if table == &#34;project&#34;
-        else record.projectId
-        if table == &#34;edition&#34;
-        else None
-    )
-    editionId = recordId if table == &#34;edition&#34; else None
-
-    path = (
-        &#34;&#34;
-        if table == &#34;site&#34;
-        else f&#34;project/{projectId}&#34;
-        if table == &#34;project&#34;
-        else f&#34;project/{projectId}/edition/{editionId}&#34;
-        if table == &#34;edition&#34;
-        else None
-    )
-    sep = &#34;/&#34; if path else &#34;&#34;
-    return f&#34;{path}{sep}&#34;</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -3073,16 +3435,22 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.datamodel.Datamodel" href="#control.datamodel.Datamodel">Datamodel</a></code></h4>
 <ul class="two-column">
+<li><code><a title="control.datamodel.Datamodel.checkMetaFields" href="#control.datamodel.Datamodel.checkMetaFields">checkMetaFields</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.context" href="#control.datamodel.Datamodel.context">context</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getDetailRecords" href="#control.datamodel.Datamodel.getDetailRecords">getDetailRecords</a></code></li>
-<li><code><a title="control.datamodel.Datamodel.getFieldObject" href="#control.datamodel.Datamodel.getFieldObject">getFieldObject</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getKeywords" href="#control.datamodel.Datamodel.getKeywords">getKeywords</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getLinkedCrit" href="#control.datamodel.Datamodel.getLinkedCrit">getLinkedCrit</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getListFields" href="#control.datamodel.Datamodel.getListFields">getListFields</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getMarkdownFields" href="#control.datamodel.Datamodel.getMarkdownFields">getMarkdownFields</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getMetaFields" href="#control.datamodel.Datamodel.getMetaFields">getMetaFields</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.getTexts" href="#control.datamodel.Datamodel.getTexts">getTexts</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getUploadConfig" href="#control.datamodel.Datamodel.getUploadConfig">getUploadConfig</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getUploadObject" href="#control.datamodel.Datamodel.getUploadObject">getUploadObject</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.getUserWork" href="#control.datamodel.Datamodel.getUserWork">getUserWork</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeField" href="#control.datamodel.Datamodel.makeField">makeField</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.makeUpload" href="#control.datamodel.Datamodel.makeUpload">makeUpload</a></code></li>
 <li><code><a title="control.datamodel.Datamodel.relevant" href="#control.datamodel.Datamodel.relevant">relevant</a></code></li>
+<li><code><a title="control.datamodel.Datamodel.specialize" href="#control.datamodel.Datamodel.specialize">specialize</a></code></li>
 </ul>
 </li>
 <li>
@@ -3090,11 +3458,19 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.datamodel.Field.bare" href="#control.datamodel.Field.bare">bare</a></code></li>
 <li><code><a title="control.datamodel.Field.caption" href="#control.datamodel.Field.caption">caption</a></code></li>
+<li><code><a title="control.datamodel.Field.default" href="#control.datamodel.Field.default">default</a></code></li>
 <li><code><a title="control.datamodel.Field.fieldPath" href="#control.datamodel.Field.fieldPath">fieldPath</a></code></li>
 <li><code><a title="control.datamodel.Field.formatted" href="#control.datamodel.Field.formatted">formatted</a></code></li>
 <li><code><a title="control.datamodel.Field.key" href="#control.datamodel.Field.key">key</a></code></li>
 <li><code><a title="control.datamodel.Field.logical" href="#control.datamodel.Field.logical">logical</a></code></li>
+<li><code><a title="control.datamodel.Field.mandatory" href="#control.datamodel.Field.mandatory">mandatory</a></code></li>
+<li><code><a title="control.datamodel.Field.multiple" href="#control.datamodel.Field.multiple">multiple</a></code></li>
 <li><code><a title="control.datamodel.Field.nameSpace" href="#control.datamodel.Field.nameSpace">nameSpace</a></code></li>
+<li><code><a title="control.datamodel.Field.readonly" href="#control.datamodel.Field.readonly">readonly</a></code></li>
+<li><code><a title="control.datamodel.Field.resolved" href="#control.datamodel.Field.resolved">resolved</a></code></li>
+<li><code><a title="control.datamodel.Field.setLogical" href="#control.datamodel.Field.setLogical">setLogical</a></code></li>
+<li><code><a title="control.datamodel.Field.specialize" href="#control.datamodel.Field.specialize">specialize</a></code></li>
+<li><code><a title="control.datamodel.Field.table" href="#control.datamodel.Field.table">table</a></code></li>
 <li><code><a title="control.datamodel.Field.tp" href="#control.datamodel.Field.tp">tp</a></code></li>
 </ul>
 </li>
@@ -3119,7 +3495,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.admin API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,11 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L1-L1252" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/admin.py#L1-L1616" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
+import json
 
-from control.generic import AttrDict
+from .flask import requestData
+from .generic import AttrDict, isonow
+from .helpers import normalize
 
 
 USERNAME_RE = re.compile(r&#34;[^a-z0-9._-]&#34;)
@@ -80,6 +83,10 @@ class Admin:
         All project and edition ids to which the current user has a relationship.
         It is a dict with keys `project` and `edition` and the values are sets
         of ids.
+
+        ### keywords
+
+        The lists of keywords in metadata fields
         &#34;&#34;&#34;
         self.Content = Content
 
@@ -121,357 +128,7 @@ class Admin:
 
         self.update()
 
-    def update(self):
-        &#34;&#34;&#34;Reread the tables of users, projects, editions.
-
-        Typically needed when you have used an admin function to perform
-        a user administration action.
-
-        This may change the permissions and hence the visiblity of projects and editions.
-        It also changes the possible user management actions in the future.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        Auth = self.Auth
-        Auth.identify()
-        User = Auth.myDetails()
-        user = User.user
-
-        self.User = User
-        self.user = user
-
-        if not user:
-            self.myRole = None
-            self.inPower = False
-            return
-
-        myRole = User.role
-        inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
-
-        self.myRole = myRole
-        self.inPower = inPower
-
-        siteRecord = Mongo.getRecord(&#34;site&#34;)
-        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
-        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
-        projectLinks = Mongo.getList(&#34;projectUser&#34;)
-        editionLinks = Mongo.getList(&#34;editionUser&#34;)
-
-        users = AttrDict({x.user: x for x in userList})
-        projects = AttrDict({x._id: x for x in projectList})
-        editions = AttrDict({x._id: x for x in editionList})
-
-        myIds = AttrDict()
-
-        self.site = siteRecord
-        self.users = users
-        self.projects = projects
-        self.editions = editions
-        self.myIds = myIds
-
-        for eRecord in editionList:
-            eId = eRecord._id
-            pId = eRecord.projectId
-            projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
-
-        for pLink in projectLinks:
-            role = pLink.role
-
-            if role:
-                u = pLink.user
-                uRecord = users[u]
-                if uRecord is None:
-                    continue
-                pId = pLink.projectId
-                pRecord = projects[pId]
-                if pRecord is None:
-                    continue
-                pRecord.setdefault(&#34;users&#34;, AttrDict())
-
-                if user == u:
-                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                    for eId in pRecord.editions or []:
-                        myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-                pRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
-
-        for eLink in editionLinks:
-            role = eLink.role
-            if role:
-                u = eLink.user
-                uRecord = users[u]
-                if uRecord is None:
-                    continue
-                eId = eLink.editionId
-                eRecord = editions[eId]
-                if eRecord is None:
-                    continue
-                pId = eRecord.projectId
-
-                if user == u:
-                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                    myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-                eRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
-
-    def authUser(self, otherUser, table=None, record=None):
-        &#34;&#34;&#34;Check whether a user may change the role of another user.
-
-        The questions are:
-
-        &#34;which *other* site-wide roles can the current user assign to the other
-        user?&#34; (when no table or record is given).
-
-        &#34;which project/edition scoped roles can the current user assign to or
-        remove from the other user
-        with respect to the relevant record in the given table?&#34;.
-
-        Note that the current site-wide role of the other user is never included
-        in the set of resulting roles.
-
-        There are also additional business rules.
-        This function will return the empty set if these rules are violated.
-
-        **Business rules**
-
-        *   Users have exactly one site-wise role.
-        *   Users may demote themselves.
-        *   Users may not promote themselves unless ... see later.
-        *   Users may have zero or one project/edition-scoped role per
-            project/edition
-        *   When assigning new site-wide or project/edition-scoped roles, these
-            roles must be valid roles for that scope.
-        *   When assigning a new site-wide role, None is not one
-            of the possible new roles:
-            you cannot change the status of an authenticated user to &#34;not
-            logged in&#34;.
-        *   When assigning project/edition scoped roles, removing such a
-            role from a user for a certain project/edition means that the
-            other user is removed from that project or edition.
-        *   Roles are ranked in power. Users with a higher role are also authorised
-            to all things for which lower roles give authorisation.
-
-            The site-wide roles are ranked as:
-
-            ```
-            root - admin - user - guest - not logged in
-            ```
-
-            The project/edition roles are ranked as:
-
-            ```
-            (project) organiser - (edition) editor - (edition) reviewer
-            ```
-
-            Site-wide power does not automatically carry over to project/edition-scoped
-            power.
-
-        *   Users cannot promote or demote people that are currently as powerful
-            as themselves.
-        *   In normal cases there is exactly one root, but:
-            *   If a situation occurs that there is no root and no admin, any authenticated
-                user my grab the role of admin.
-            *   If a situation occurs that there is no root, any admin may
-                grab the role of root.
-        *   Roots may appoint admins.
-        *   Roots and admins may change site-wide roles.
-        *   Roots and admins may appoint project organisers, but may not assign
-            edition-scoped roles.
-        *   Project organisers may appoint edition editors and reviewers.
-        *   Edition editors may appoint edition reviewers.
-        *   However, roots and admins may also be project organisers and
-            edition editors for some projects and some editions.
-        *   Normal users and guests can not administer site-wide roles.
-        *   Guests can not be put in project/edition-scoped roles.
-
-        Parameters
-        ----------
-        otherUser: string | void
-            the other user as string (eppn)
-            If None, the question is: what are the roles in which an other
-            user may be put wrt to this project/edition?
-        table: string, optional None
-            the relevant table: `project` or `edition`;
-            this is the table in which the record sits
-            relative to which the other user will be assigned a role.
-            If None, the role to be assigned is a site wide role.
-        record: ObjectId | AttrDict, optional None
-            the relevant record;
-            it is the record relative to which the other user will be
-            assigned an other role.
-            If None, the role to be assigned is a site wide role.
-
-        Returns
-        -------
-        boolean, frozenset
-            The boolean indicates whether the current user may modify the role
-            of the target user.
-
-            The frozenset is the set of assignable roles to the other user
-            by the current user with respect to the given table and record or site-wide.
-
-            If the boolean is false, the frozenset is empty.
-            But if the frozenset is empty it might be the case that the current
-            user is allowed to remove the role of the target user.
-        &#34;&#34;&#34;
-        myRole = self.myRole
-
-        if myRole in {None, &#34;guest&#34;}:
-            return (False, frozenset())
-
-        user = self.user
-        users = self.users
-        nRoots = sum(1 for u in users.values() if u.role == &#34;root&#34;)
-        nAdmins = sum(1 for u in users.values() if u.role == &#34;admin&#34;)
-        iAmInPower = self.inPower
-        otherUserRecord = users[otherUser] or AttrDict()
-        otherRole = otherUserRecord.role
-        otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
-
-        nope = (False, frozenset())
-
-        # side-wide assignments
-
-        if table is None or record is None:
-            # nobody can add site-wide users
-
-            if otherUser is None:
-                return nope
-
-            siteRolesSet = self.siteRolesSet
-
-            # if there are no admins and no roots,
-            #   any admin may promote himself to root
-            #   if there are no admins
-            #     any authenticated user may promote himself to admin
-
-            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
-
-            if nRoots == 0:
-                if user == otherUser:
-                    if nAdmins == 0:
-                        if myRole == &#34;user&#34;:
-                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
-                            return fineAdmin
-                    else:
-                        if myRole == &#34;admin&#34;:
-                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
-                            return fineRoot
-
-            # from here on, only admins and roots can change roles
-            if not iAmInPower:
-                return nope
-
-            fine = (True, remainingRoles)
-
-            # root is all powerful, only limited by other roots
-            if myRole == &#34;root&#34;:
-                if user == otherUser or otherRole != &#34;root&#34;:
-                    return fine
-                else:
-                    return nope
-
-            # from here on, myRole is admin, so &#34;root&#34; cannot be assigned
-
-            remainingRoles = frozenset(remainingRoles - {&#34;root&#34;})
-            fine = (True, remainingRoles)
-            fineNoAdmin = (True, remainingRoles - {&#34;admin&#34;})
-
-            # when the user changes his own role: can only demote
-            if user == otherUser:
-                return fineNoAdmin
-
-            # people cannot affect other more or equally powerful people
-            if otherIsInPower:
-                return nope
-
-            # people cannot promote others beyond their own level
-            return fine
-
-        # not a project or edition, or not a real record: Not allowed!
-
-        if table not in {&#34;project&#34;, &#34;edition&#34;} or record is None:
-            return nope
-
-        # project-scoped assignments
-
-        projectRolesSet = self.projectRolesSet
-        fine = (True, projectRolesSet)
-
-        if table == &#34;project&#34;:
-            # only admins and roots can assign a project-scoped role
-            if not iAmInPower:
-                return nope
-
-            # remaining cases are allowed
-            return fine
-
-        # remaining case: only edition scoped.
-
-        if table != &#34;edition&#34;:
-            return nope
-
-        # edition-scoped assignments
-
-        Mongo = self.Mongo
-        (recordId, record) = Mongo.get(table, record)
-        if recordId is None:
-            return nope
-
-        projects = self.projects
-        editionRolesSet = self.editionRolesSet
-
-        # check whether the role is a edition-scoped role
-        pRecord = projects[record.projectId]
-        pUsers = pRecord.users or AttrDict()
-        eUsers = record.users or AttrDict()
-
-        otherProjectRole = (pUsers[otherUser] or (None, None))[1]
-        otherEditionRole = (eUsers[otherUser] or (None, None))[1]
-
-        myProjectRole = (pUsers[user] or (None, None))[1]
-        myEditionRole = (eUsers[user] or (None, None))[1]
-
-        # only organisers of the parent project can (un)assign an
-        # edition editor
-
-        iAmOrganiser = &#34;organiser&#34; == myProjectRole
-        otherIsOrganiser = &#34;organiser&#34; == otherProjectRole
-        iAmEditor = &#34;editor&#34; == myEditionRole
-        otherIsEditor = &#34;editor&#34; == otherEditionRole
-
-        # what I can do to myself
-
-        fine = (True, editionRolesSet)
-        fineNoEditor = (True, editionRolesSet - {&#34;editor&#34;})
-
-        if user == otherUser:
-            if iAmOrganiser or iAmEditor:
-                return fine
-            return nope
-
-        # what I can do to others
-
-        if otherUser is None:
-            if iAmOrganiser:
-                return fine
-            if iAmEditor:
-                return fineNoEditor
-
-        if otherIsOrganiser:
-            return nope
-
-        if otherIsEditor:
-            if iAmOrganiser:
-                return fine
-            return nope
-
-        if iAmOrganiser:
-            return fine
-        if iAmEditor:
-            return fineNoEditor
-
-        return nope
+    # main WRAP function
 
     def wrap(self):
         &#34;&#34;&#34;Produce a list of projects and editions and users for root/admin usage.
@@ -498,19 +155,54 @@ class Admin:
             )
 
         projects = self.projects
-        myIds = self.myIds
-        siteRoles = self.siteRoles
-
-        User = self.User
-        inPower = self.inPower
-        user = self.user
 
         projectsAll = sorted(
-            projects.values(), key=lambda x: (1 if x.isVisible else 0, x.title, x._id)
+            projects.values(),
+            key=lambda x: (1 if x.isVisible else 0, x.title or &#34;&#34;, x._id),
         )
-        projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
-        myDetails = H.div(
+        inPower = self.inPower
+
+        myDetails = self._wrapMyDetails()
+
+        myProjects = self._wrapMyProjects(projectsAll)
+
+        if inPower:
+            pubControls = self._wrapPubControls()
+            allProjects = self._wrapAllProjects(projectsAll)
+            allKeywords = self._wrapKeywordControls()
+            allUsers = self._wrapUserControls()
+        else:
+            pubControls = &#34;&#34;
+            allProjects = &#34;&#34;
+            allUsers = &#34;&#34;
+            allKeywords = &#34;&#34;
+
+        return H.div(
+            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
+            cls=&#34;myadmin&#34;,
+        )
+
+    # specialized WRAP functions
+
+    def _wrapMyDetails(self):
+        &#34;&#34;&#34;Generate HTML for the details of the current user.
+
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        siteRoles = self.siteRoles
+        User = self.User
+
+        return H.div(
             [
                 H.h(1, &#34;My details&#34;),
                 self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
@@ -518,39 +210,37 @@ class Admin:
             id=&#34;mydetails&#34;,
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-        wrapped.append(
-            H.div([self._wrapProject(p) for p in projectsMy])
-            if len(projectsMy)
-            else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
-        )
-        myProjects = H.div(wrapped, id=&#34;myprojects&#34;)
-        allProjects = &#34;&#34;
-        allUsers = &#34;&#34;
+    def _wrapMyProjects(self, projectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of the projects of the current user.
 
-        if inPower:
-            wrapped = []
-            wrapped.append(self._wrapPubProjects())
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
 
-            wrapped.append(H.h(1, &#34;All projects and editions&#34;))
-            wrapped.append(
-                H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
-                if len(projectsAll)
-                else H.div(&#34;There are no projects and no editions&#34;)
-            )
-            allProjects = H.div(wrapped, id=&#34;allprojects&#34;)
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        myIds = self.myIds
 
-            wrapped = []
-            wrapped.append(H.h(1, &#34;Manage users&#34;))
-            wrapped.append(
-                H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
-            )
-            allUsers = H.div(wrapped, id=&#34;allusers&#34;)
+        projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
-        return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)
+        wrapped = [
+            H.h(1, &#34;My projects and editions&#34;),
+            (
+                H.div([self._wrapProject(p) for p in projectsMy])
+                if len(projectsMy)
+                else H.div(
+                    &#34;You do not have a specific role w.r.t. projects and editions.&#34;
+                )
+            ),
+        ]
+        return H.div(wrapped, id=&#34;myprojects&#34;)
 
-    def _wrapPubProjects(self):
+    def _wrapPubControls(self):
         &#34;&#34;&#34;Generate HTML for the published projects in admin view.
 
         Currently, it provides
@@ -558,14 +248,6 @@ class Admin:
         *   a control to edit the list of featured published projects in a
             rather coarse manner.
         *   a control to regenerate the static pages
-
-        Parameters
-        ----------
-        project: AttrDict
-            A project record
-        myOnly: boolean, optional False
-            Whether to show only the editions in the project that are associated
-            with the current user.
 
         Returns
         -------
@@ -579,10 +261,11 @@ class Admin:
 
         wrapped = []
         wrapped.append(H.h(1, &#34;Published projects&#34;))
+
         wrapped.append(H.h(2, &#34;Featured published projects&#34;))
         wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
-        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
 
+        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
         wrapped.append(
             H.a(
                 &#34;Regenerate&#34;,
@@ -591,7 +274,149 @@ class Admin:
                 cls=&#34;button large&#34;,
             )
         )
-        return H.div(wrapped, id=&#34;pubprojects&#34;)
+
+        wrapped.append(H.h(2, &#34;Publishing process status&#34;))
+        wrapped.append(
+            H.p(
+                [
+                    H.a(
+                        &#34;Check&#34;,
+                        &#34;#&#34;,
+                        id=&#34;pubcheck&#34;,
+                        title=&#34;Check status of publication processes&#34;,
+                        cls=&#34;button large&#34;,
+                    ),
+                    H.span(&#34;&#34;, id=&#34;pubstatus&#34;, cls=&#34;large&#34;),
+                    H.a(
+                        &#34;terminate&#34;,
+                        &#34;#&#34;,
+                        id=&#34;pubcontrol&#34;,
+                        title=&#34;terminate publication processes&#34;,
+                        cls=&#34;button large&#34;,
+                    ),
+                ]
+            )
+            + H.div(&#34;test&#34;, id=&#34;pubmessages&#34;),
+        )
+        return H.div(wrapped, id=&#34;pubcontrols&#34;)
+
+    def _wrapKeywordControls(self):
+        &#34;&#34;&#34;Generate HTML for the keyword management.
+
+        The keywords sit in a table with name `keyword`.
+        Each record corresponds to a keyword, each keyword has fields:
+
+        *   *name*: the name of the metadata field of which it is a value;
+        *   *value*: the keyword itself;
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        Content = self.Content
+
+        keywords = Content.getKeywords()
+
+        saveUrl = &#34;/save/keyword/&#34;
+        cancelButton = H.actionButton(&#34;kwmanage_cancel&#34;)
+        saveButton = H.actionButton(&#34;kwmanage_save&#34;)
+        messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+
+        def wrapKeyword(name, value, occ):
+            deleteButton = H.iconx(
+                &#34;cross&#34;,
+                title=f&#34;delete keyword {value}&#34;,
+                name=name,
+                value=value,
+                delUrl=&#34;/keyword/delete/&#34;,
+                cls=&#34;danger&#34;,
+            )
+            return H.span(
+                value + H.nbsp + (f&#34;({occ})&#34; if occ else deleteButton), cls=&#34;fieldinner&#34;
+            )
+
+        def wrapKeywordList(name, values):
+            editableContent = H.input(
+                &#34;&#34;, &#34;text&#34;, cls=&#34;editcontent show&#34;, name=name, saveurl=saveUrl
+            )
+
+            return H.details(
+                name,
+                H.div(
+                    H.div(
+                        [
+                            editableContent,
+                            saveButton,
+                            cancelButton,
+                            messages,
+                        ],
+                        cls=&#34;kwmanagewidgetinput&#34;,
+                    )
+                    + H.span(
+                        [
+                            wrapKeyword(name, value, values[value])
+                            for value in sorted(values)
+                        ],
+                        cls=&#34;fieldouter&#34;,
+                    ),
+                    cls=&#34;kwmanagewidget&#34;,
+                ),
+                f&#34;keywordlist-{name}&#34;,
+            )
+
+        keywordMaterial = H.div(
+            [wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
+            cls=&#34;skeywords&#34;,
+        )
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Manage keywords&#34;))
+        wrapped.append(H.div(keywordMaterial))
+        return H.div(wrapped, id=&#34;keywordcontrols&#34;)
+
+    def _wrapUserControls(self):
+        &#34;&#34;&#34;Generate HTML for the user management.
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        siteRoles = self.siteRoles
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Manage users&#34;))
+        wrapped.append(
+            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+        )
+        return H.div(wrapped, id=&#34;allusers&#34;)
+
+    def _wrapAllProjects(self, projectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of all projects.
+
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;All projects and editions&#34;))
+        wrapped.append(
+            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
+            if len(projectsAll)
+            else H.div(&#34;There are no projects and no editions&#34;)
+        )
+        return H.div(wrapped, id=&#34;allprojects&#34;)
 
     def _wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
@@ -627,7 +452,7 @@ class Admin:
                 for e in editions.values()
                 if not myOnly or e._id in (myIds.edition or set())
             ),
-            key=lambda x: (x.title, x._id),
+            key=lambda x: (x.title or &#34;&#34;, x._id),
         )
         title = project.title
         if not title:
@@ -649,9 +474,11 @@ class Admin:
                     cls=&#34;phead&#34;,
                 ),
                 H.div(
-                    &#34;no editions&#34;
-                    if len(theseEditions) == 0
-                    else [self._wrapEdition(e) for e in theseEditions],
+                    (
+                        &#34;no editions&#34;
+                        if len(theseEditions) == 0
+                        else [self._wrapEdition(e) for e in theseEditions]
+                    ),
                     cls=&#34;peditions&#34;,
                 ),
             ],
@@ -721,7 +548,7 @@ class Admin:
         theseUsers: dict, optional None
             If table/record is not specified, you can specify users here.
             If this parameter is also None, then all users in the system are taken.
-            Otherwise you have to specify a dict, keyed by user eppns and valued by
+            Otherwise, you have to specify a dict, keyed by user eppns and valued by
             tuples consisting of a user record and a role.
 
         Returns
@@ -754,7 +581,8 @@ class Admin:
 
         else:
             for u, (uRecord, role) in sorted(
-                theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
+                theseUsers.items(),
+                key=lambda x: (x[1][1], x[1][0].nickname or &#34;&#34;, x[0] or &#34;&#34;),
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
@@ -1004,6 +832,194 @@ class Admin:
 
         return [actualRole, widget]
 
+    # retrieval and action functions -- PUB
+
+    def pubStatus(self):
+        &#34;&#34;&#34;Get the publication status.
+
+        Only allowed for admins and roots.
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the retrieval of the value succeeded;
+            with key `messages`: the messages if the retrieval did not succeed;
+            with key `value`: the value itself.
+        &#34;&#34;&#34;
+        Content = self.Content
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+            status = True
+            messages = []
+            value = site.processing or False
+        else:
+            status = False
+            messages = [&#34;error&#34;, &#34;You are not allowed to retrieve this value&#34;]
+            value = None
+
+        return dict(status=status, messages=messages, value=value)
+
+    def pubTerminate(self):
+        &#34;&#34;&#34;Set the publication status to false
+
+        Only allowed for admins and roots.
+
+        This is meant for cases where a publication action has failed without
+        restoring the flag that indicates that the site is publishing.
+        It should not happen, but then: it might ...
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the setting of the value succeeded;
+            with key `messages`: the messages if the setting did not succeed;
+        &#34;&#34;&#34;
+        Content = self.Content
+        Mongo = self.Mongo
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+
+            if site.processing:
+                Mongo.updateRecord(
+                    &#34;site&#34;, dict(processing=False, lastPublished=isonow()), _id=site._id
+                )
+            status = True
+            messages = []
+        else:
+            status = False
+            messages = [&#34;error&#34;, &#34;You are not allowed to set this value&#34;]
+
+        return dict(status=status, messages=messages)
+
+    # retrieval and action functions -- KEYWORD
+
+    def saveKeyword(self):
+        &#34;&#34;&#34;Saves a keyword.
+
+        All keywords for all lists are stored in the table *keyword*. The keyword
+        itself is stored in field *value*, and the name of the keyword list is stored
+        in the field *name*.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Content = self.Content
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, &#34;adding a keyword is not allowed&#34;]]
+            )
+
+        keywords = Content.getKeywords()
+        specs = json.loads(requestData())
+        name = specs[&#34;name&#34;]
+        value = specs[&#34;value&#34;]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, f&#34;unknown keyword list &#39;{name}&#39;&#34;]]
+            )
+
+        keywords = keywords[name]
+
+        if value in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    [&#34;warning&#34;, f&#34;keyword list &#39;{name}&#39; already contains &#39;{value}&#39;&#34;]
+                ],
+            )
+
+        if normalize(value) in {normalize(val) for val in keywords}:
+            return dict(
+                stat=False,
+                messages=[
+                    [
+                        &#34;warning&#34;,
+                        f&#34;keyword list &#39;{name}&#39; already contains &#34;
+                        f&#34;a variant of &#39;{value}&#39;&#34;,
+                    ]
+                ],
+            )
+
+        Mongo.insertRecord(&#34;keyword&#34;, name=name, value=value)
+
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def deleteKeyword(self):
+        &#34;&#34;&#34;Deletes a keyword.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Content = self.Content
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, &#34;deleting a keyword is not allowed&#34;]]
+            )
+
+        keywords = Content.getKeywords()
+        specs = json.loads(requestData())
+        name = specs[&#34;name&#34;]
+        value = specs[&#34;value&#34;]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, f&#34;unknown keyword list &#39;{name}&#39;&#34;]]
+            )
+
+        keywords = keywords[name]
+
+        if value not in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    [&#34;warning&#34;, f&#34;keyword list &#39;{name}&#39; did not contain &#39;{value}&#39;&#34;]
+                ],
+            )
+
+        occs = keywords[value]
+
+        if occs:
+            return dict(
+                stat=False,
+                messages=[[&#34;error&#34;, f&#34;keyword &#39;{name}&#39;:&#39;{value}&#39; is used {occs} x&#34;]],
+            )
+
+        good = Mongo.deleteRecord(&#34;keyword&#34;, name=name, value=value)
+        messages = [] if good else [[&#34;warning&#34;, &#34;no keyword has been deleted&#34;]]
+
+        return dict(stat=good, messages=messages, updated=self.wrap())
+
+    # retrieval and action functions -- USERS and ROLES
+
     def saveRole(self, u, newRole, table=None, recordId=None):
         &#34;&#34;&#34;Saves a role into a user or cross table record.
 
@@ -1040,9 +1056,7 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == &#34;edition&#34;
-            else editionRoles
+            else projectRoles if table == &#34;edition&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -1052,6 +1066,8 @@ class Admin:
 
         if newRole not in otherRoles:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
+
+        msg = &#34;&#34;
 
         if table is None:
             result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
@@ -1118,9 +1134,7 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == &#34;edition&#34;
-            else editionRoles
+            else projectRoles if table == &#34;edition&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -1136,7 +1150,9 @@ class Admin:
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
         criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
+        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
+
+        msg = &#34;&#34;
 
         if crossRecord:
             result = Mongo.updateRecord(f&#34;{table}User&#34;, dict(role=newRole), **criteria)
@@ -1166,8 +1182,8 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
-            This should be different from the user names of existing users.
+            The username of the user.
+            This should be different from the usernames of existing users.
             The name may only contain the ASCII digits and lower case letters,
             plus dash, dot, and underscore.
 
@@ -1238,7 +1254,7 @@ class Admin:
         Parameters
         ----------
         user: string
-            The user name of the user.
+            The username of the user.
 
         Returns
         -------
@@ -1261,7 +1277,7 @@ class Admin:
                 status = False
                 messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
             else:
-                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
+                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, user=user)
 
                 if not good:
                     status = False
@@ -1279,7 +1295,355 @@ class Admin:
                 )
 
         self.update()
-        return dict(status=status, messages=messages)</code></pre>
+        return dict(status=status, messages=messages)
+
+    # LOGISTICS functions
+
+    def update(self):
+        &#34;&#34;&#34;Reread the tables of users, projects, editions.
+
+        Typically needed when you have used an admin function to perform
+        a user administration action.
+
+        This may change the permissions and hence the visibility of projects and editions.
+        It also changes the possible user management actions in the future.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Auth.identify()
+        User = Auth.myDetails()
+        user = User.user
+
+        self.User = User
+        self.user = user
+
+        (self.inPower, self.myRole) = Auth.inPower()
+
+        if not user:
+            return
+
+        siteRecord = Mongo.getRecord(&#34;site&#34;)
+        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
+        projectLinks = Mongo.getList(&#34;projectUser&#34;)
+        editionLinks = Mongo.getList(&#34;editionUser&#34;)
+
+        users = AttrDict({x.user: x for x in userList})
+        projects = AttrDict({x._id: x for x in projectList})
+        editions = AttrDict({x._id: x for x in editionList})
+
+        myIds = AttrDict()
+
+        self.site = siteRecord
+        self.users = users
+        self.projects = projects
+        self.editions = editions
+        self.myIds = myIds
+
+        for eRecord in editionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
+
+        for pLink in projectLinks:
+            role = pLink.role
+
+            if role:
+                u = pLink.user
+                uRecord = users[u]
+                if uRecord is None:
+                    continue
+                pId = pLink.projectId
+                pRecord = projects[pId]
+                if pRecord is None:
+                    continue
+                pRecord.setdefault(&#34;users&#34;, AttrDict())
+
+                if user == u:
+                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
+                    for eId in pRecord.editions or []:
+                        myIds.setdefault(&#34;edition&#34;, set()).add(eId)
+
+                pRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
+
+        for eLink in editionLinks:
+            role = eLink.role
+            if role:
+                u = eLink.user
+                uRecord = users[u]
+                if uRecord is None:
+                    continue
+                eId = eLink.editionId
+                eRecord = editions[eId]
+                if eRecord is None:
+                    continue
+                pId = eRecord.projectId
+
+                if user == u:
+                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
+                    myIds.setdefault(&#34;edition&#34;, set()).add(eId)
+
+                eRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
+
+    def authUser(self, otherUser, table=None, record=None):
+        &#34;&#34;&#34;Check whether a user may change the role of another user.
+
+        The questions are:
+
+        &#34;which *other* site-wide roles can the current user assign to the other
+        user?&#34; (when no table or record is given).
+
+        &#34;which project/edition scoped roles can the current user assign to or
+        remove from the other user
+        with respect to the relevant record in the given table?&#34;.
+
+        Note that the current site-wide role of the other user is never included
+        in the set of resulting roles.
+
+        There are also additional business rules.
+        This function will return the empty set if these rules are violated.
+
+        **Business rules**
+
+        *   Users have exactly one site-wise role.
+        *   Users may demote themselves.
+        *   Users may not promote themselves unless ... see later.
+        *   Users may have zero or one project/edition-scoped role per
+            project/edition
+        *   When assigning new site-wide or project/edition-scoped roles, these
+            roles must be valid roles for that scope.
+        *   When assigning a new site-wide role, None is not one
+            of the possible new roles:
+            you cannot change the status of an authenticated user to &#34;not
+            logged in&#34;.
+        *   When assigning project/edition scoped roles, removing such a
+            role from a user for a certain project/edition means that the
+            other user is removed from that project or edition.
+        *   Roles are ranked in power. Users with a higher role are also authorised
+            to all things for which lower roles give authorisation.
+
+            The site-wide roles are ranked as:
+
+            ```
+            root - admin - user - guest - not logged in
+            ```
+
+            The project/edition roles are ranked as:
+
+            ```
+            (project) organiser - (edition) editor - (edition) reviewer
+            ```
+
+            Site-wide power does not automatically carry over to project/edition-scoped
+            power.
+
+        *   Users cannot promote or demote people that are currently as powerful
+            as themselves.
+        *   In normal cases there is exactly one root, but:
+            *   If a situation occurs that there is no root and no admin, any authenticated
+                user my grab the role of admin.
+            *   If a situation occurs that there is no root, any admin may
+                grab the role of root.
+        *   Roots may appoint admins.
+        *   Roots and admins may change site-wide roles.
+        *   Roots and admins may appoint project organisers, but may not assign
+            edition-scoped roles.
+        *   Project organisers may appoint edition editors and reviewers.
+        *   Edition editors may appoint edition reviewers.
+        *   However, roots and admins may also be project organisers and
+            edition editors for some projects and some editions.
+        *   Normal users and guests can not administer site-wide roles.
+        *   Guests can not be put in project/edition-scoped roles.
+
+        Parameters
+        ----------
+        otherUser: string | void
+            the other user as string (eppn)
+            If None, the question is: what are the roles in which another
+            user may be put wrt to this project/edition?
+        table: string, optional None
+            the relevant table: `project` or `edition`;
+            this is the table in which the record sits
+            relative to which the other user will be assigned a role.
+            If None, the role to be assigned is a site wide role.
+        record: ObjectId | AttrDict, optional None
+            the relevant record;
+            it is the record relative to which the other user will be
+            assigned another role.
+            If None, the role to be assigned is a site wide role.
+
+        Returns
+        -------
+        boolean, frozenset
+            The boolean indicates whether the current user may modify the role
+            of the target user.
+
+            The frozenset is the set of assignable roles to the other user
+            by the current user with respect to the given table and record or site-wide.
+
+            If the boolean is false, the frozenset is empty.
+            But if the frozenset is empty it might be the case that the current
+            user is allowed to remove the role of the target user.
+        &#34;&#34;&#34;
+        myRole = self.myRole
+
+        if myRole in {None, &#34;guest&#34;}:
+            return False, frozenset()
+
+        user = self.user
+        users = self.users
+        nRoots = sum(1 for u in users.values() if u.role == &#34;root&#34;)
+        nAdmins = sum(1 for u in users.values() if u.role == &#34;admin&#34;)
+        iAmInPower = self.inPower
+        otherUserRecord = users[otherUser] or AttrDict()
+        otherRole = otherUserRecord.role
+        otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
+
+        nope = (False, frozenset())
+
+        # side-wide assignments
+
+        if table is None or record is None:
+            # nobody can add site-wide users
+
+            if otherUser is None:
+                return nope
+
+            siteRolesSet = self.siteRolesSet
+
+            # if there are no admins and no roots,
+            #   any admin may promote himself to root
+            #   if there are no admins
+            #     any authenticated user may promote himself to admin
+
+            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
+            if nRoots == 0:
+                if user == otherUser:
+                    if nAdmins == 0:
+                        if myRole == &#34;user&#34;:
+                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
+                            return fineAdmin
+                    else:
+                        if myRole == &#34;admin&#34;:
+                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
+                            return fineRoot
+
+            # from here on, only admins and roots can change roles
+            if not iAmInPower:
+                return nope
+
+            fine = (True, remainingRoles)
+
+            # root is all powerful, only limited by other roots
+            if myRole == &#34;root&#34;:
+                if user == otherUser or otherRole != &#34;root&#34;:
+                    return fine
+                else:
+                    return nope
+
+            # from here on, myRole is admin, so &#34;root&#34; cannot be assigned
+
+            remainingRoles = frozenset(remainingRoles - {&#34;root&#34;})
+            fine = (True, remainingRoles)
+            fineNoAdmin = (True, remainingRoles - {&#34;admin&#34;})
+
+            # when the user changes his own role: can only demote
+            if user == otherUser:
+                return fineNoAdmin
+
+            # people cannot affect other more or equally powerful people
+            if otherIsInPower:
+                return nope
+
+            # people cannot promote others beyond their own level
+            return fine
+
+        # not a project or edition, or not a real record: Not allowed!
+
+        if table not in {&#34;project&#34;, &#34;edition&#34;} or record is None:
+            return nope
+
+        # project-scoped assignments
+
+        projectRolesSet = self.projectRolesSet
+        fine = (True, projectRolesSet)
+
+        if table == &#34;project&#34;:
+            # only admins and roots can assign a project-scoped role
+            if not iAmInPower:
+                return nope
+
+            # remaining cases are allowed
+            return fine
+
+        # remaining case: only edition scoped.
+
+        if table != &#34;edition&#34;:
+            return nope
+
+        # edition-scoped assignments
+
+        Mongo = self.Mongo
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return nope
+
+        projects = self.projects
+        editionRolesSet = self.editionRolesSet
+
+        # check whether the role is an edition-scoped role
+        pRecord = projects[record.projectId]
+        pUsers = pRecord.users or AttrDict()
+        eUsers = record.users or AttrDict()
+
+        otherProjectRole = (pUsers[otherUser] or (None, None))[1]
+        otherEditionRole = (eUsers[otherUser] or (None, None))[1]
+
+        myProjectRole = (pUsers[user] or (None, None))[1]
+        myEditionRole = (eUsers[user] or (None, None))[1]
+
+        # only organisers of the parent project can (un)assign an
+        # edition editor
+
+        iAmOrganiser = &#34;organiser&#34; == myProjectRole
+        otherIsOrganiser = &#34;organiser&#34; == otherProjectRole
+        iAmEditor = &#34;editor&#34; == myEditionRole
+        otherIsEditor = &#34;editor&#34; == otherEditionRole
+
+        # what I can do to myself
+
+        fine = (True, editionRolesSet)
+        fineNoEditor = (True, editionRolesSet - {&#34;editor&#34;})
+
+        if user == otherUser:
+            if iAmOrganiser or iAmEditor:
+                return fine
+            return nope
+
+        # what I can do to others
+
+        if otherUser is None:
+            if iAmOrganiser:
+                return fine
+            if iAmEditor:
+                return fineNoEditor
+
+        if otherIsOrganiser:
+            return nope
+
+        if otherIsEditor:
+            if iAmOrganiser:
+                return fine
+            return nope
+
+        if iAmOrganiser:
+            return fine
+        if iAmEditor:
+            return fineNoEditor
+
+        return nope</code></pre>
 </details>
 </section>
 <section>
@@ -1325,11 +1689,13 @@ and valued by a tuple of the user record and his role.</p>
 <h3 id="myids">myIds</h3>
 <p>All project and edition ids to which the current user has a relationship.
 It is a dict with keys <code>project</code> and <code>edition</code> and the values are sets
-of ids.</p></div>
+of ids.</p>
+<h3 id="keywords">keywords</h3>
+<p>The lists of keywords in metadata fields</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L9-L1252" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/admin.py#L12-L1616" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Admin:
     def __init__(self, Content):
@@ -1375,6 +1741,10 @@ of ids.</p></div>
         All project and edition ids to which the current user has a relationship.
         It is a dict with keys `project` and `edition` and the values are sets
         of ids.
+
+        ### keywords
+
+        The lists of keywords in metadata fields
         &#34;&#34;&#34;
         self.Content = Content
 
@@ -1416,357 +1786,7 @@ of ids.</p></div>
 
         self.update()
 
-    def update(self):
-        &#34;&#34;&#34;Reread the tables of users, projects, editions.
-
-        Typically needed when you have used an admin function to perform
-        a user administration action.
-
-        This may change the permissions and hence the visiblity of projects and editions.
-        It also changes the possible user management actions in the future.
-        &#34;&#34;&#34;
-        Mongo = self.Mongo
-        Auth = self.Auth
-        Auth.identify()
-        User = Auth.myDetails()
-        user = User.user
-
-        self.User = User
-        self.user = user
-
-        if not user:
-            self.myRole = None
-            self.inPower = False
-            return
-
-        myRole = User.role
-        inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
-
-        self.myRole = myRole
-        self.inPower = inPower
-
-        siteRecord = Mongo.getRecord(&#34;site&#34;)
-        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
-        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
-        projectLinks = Mongo.getList(&#34;projectUser&#34;)
-        editionLinks = Mongo.getList(&#34;editionUser&#34;)
-
-        users = AttrDict({x.user: x for x in userList})
-        projects = AttrDict({x._id: x for x in projectList})
-        editions = AttrDict({x._id: x for x in editionList})
-
-        myIds = AttrDict()
-
-        self.site = siteRecord
-        self.users = users
-        self.projects = projects
-        self.editions = editions
-        self.myIds = myIds
-
-        for eRecord in editionList:
-            eId = eRecord._id
-            pId = eRecord.projectId
-            projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
-
-        for pLink in projectLinks:
-            role = pLink.role
-
-            if role:
-                u = pLink.user
-                uRecord = users[u]
-                if uRecord is None:
-                    continue
-                pId = pLink.projectId
-                pRecord = projects[pId]
-                if pRecord is None:
-                    continue
-                pRecord.setdefault(&#34;users&#34;, AttrDict())
-
-                if user == u:
-                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                    for eId in pRecord.editions or []:
-                        myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-                pRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
-
-        for eLink in editionLinks:
-            role = eLink.role
-            if role:
-                u = eLink.user
-                uRecord = users[u]
-                if uRecord is None:
-                    continue
-                eId = eLink.editionId
-                eRecord = editions[eId]
-                if eRecord is None:
-                    continue
-                pId = eRecord.projectId
-
-                if user == u:
-                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                    myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-                eRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
-
-    def authUser(self, otherUser, table=None, record=None):
-        &#34;&#34;&#34;Check whether a user may change the role of another user.
-
-        The questions are:
-
-        &#34;which *other* site-wide roles can the current user assign to the other
-        user?&#34; (when no table or record is given).
-
-        &#34;which project/edition scoped roles can the current user assign to or
-        remove from the other user
-        with respect to the relevant record in the given table?&#34;.
-
-        Note that the current site-wide role of the other user is never included
-        in the set of resulting roles.
-
-        There are also additional business rules.
-        This function will return the empty set if these rules are violated.
-
-        **Business rules**
-
-        *   Users have exactly one site-wise role.
-        *   Users may demote themselves.
-        *   Users may not promote themselves unless ... see later.
-        *   Users may have zero or one project/edition-scoped role per
-            project/edition
-        *   When assigning new site-wide or project/edition-scoped roles, these
-            roles must be valid roles for that scope.
-        *   When assigning a new site-wide role, None is not one
-            of the possible new roles:
-            you cannot change the status of an authenticated user to &#34;not
-            logged in&#34;.
-        *   When assigning project/edition scoped roles, removing such a
-            role from a user for a certain project/edition means that the
-            other user is removed from that project or edition.
-        *   Roles are ranked in power. Users with a higher role are also authorised
-            to all things for which lower roles give authorisation.
-
-            The site-wide roles are ranked as:
-
-            ```
-            root - admin - user - guest - not logged in
-            ```
-
-            The project/edition roles are ranked as:
-
-            ```
-            (project) organiser - (edition) editor - (edition) reviewer
-            ```
-
-            Site-wide power does not automatically carry over to project/edition-scoped
-            power.
-
-        *   Users cannot promote or demote people that are currently as powerful
-            as themselves.
-        *   In normal cases there is exactly one root, but:
-            *   If a situation occurs that there is no root and no admin, any authenticated
-                user my grab the role of admin.
-            *   If a situation occurs that there is no root, any admin may
-                grab the role of root.
-        *   Roots may appoint admins.
-        *   Roots and admins may change site-wide roles.
-        *   Roots and admins may appoint project organisers, but may not assign
-            edition-scoped roles.
-        *   Project organisers may appoint edition editors and reviewers.
-        *   Edition editors may appoint edition reviewers.
-        *   However, roots and admins may also be project organisers and
-            edition editors for some projects and some editions.
-        *   Normal users and guests can not administer site-wide roles.
-        *   Guests can not be put in project/edition-scoped roles.
-
-        Parameters
-        ----------
-        otherUser: string | void
-            the other user as string (eppn)
-            If None, the question is: what are the roles in which an other
-            user may be put wrt to this project/edition?
-        table: string, optional None
-            the relevant table: `project` or `edition`;
-            this is the table in which the record sits
-            relative to which the other user will be assigned a role.
-            If None, the role to be assigned is a site wide role.
-        record: ObjectId | AttrDict, optional None
-            the relevant record;
-            it is the record relative to which the other user will be
-            assigned an other role.
-            If None, the role to be assigned is a site wide role.
-
-        Returns
-        -------
-        boolean, frozenset
-            The boolean indicates whether the current user may modify the role
-            of the target user.
-
-            The frozenset is the set of assignable roles to the other user
-            by the current user with respect to the given table and record or site-wide.
-
-            If the boolean is false, the frozenset is empty.
-            But if the frozenset is empty it might be the case that the current
-            user is allowed to remove the role of the target user.
-        &#34;&#34;&#34;
-        myRole = self.myRole
-
-        if myRole in {None, &#34;guest&#34;}:
-            return (False, frozenset())
-
-        user = self.user
-        users = self.users
-        nRoots = sum(1 for u in users.values() if u.role == &#34;root&#34;)
-        nAdmins = sum(1 for u in users.values() if u.role == &#34;admin&#34;)
-        iAmInPower = self.inPower
-        otherUserRecord = users[otherUser] or AttrDict()
-        otherRole = otherUserRecord.role
-        otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
-
-        nope = (False, frozenset())
-
-        # side-wide assignments
-
-        if table is None or record is None:
-            # nobody can add site-wide users
-
-            if otherUser is None:
-                return nope
-
-            siteRolesSet = self.siteRolesSet
-
-            # if there are no admins and no roots,
-            #   any admin may promote himself to root
-            #   if there are no admins
-            #     any authenticated user may promote himself to admin
-
-            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
-
-            if nRoots == 0:
-                if user == otherUser:
-                    if nAdmins == 0:
-                        if myRole == &#34;user&#34;:
-                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
-                            return fineAdmin
-                    else:
-                        if myRole == &#34;admin&#34;:
-                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
-                            return fineRoot
-
-            # from here on, only admins and roots can change roles
-            if not iAmInPower:
-                return nope
-
-            fine = (True, remainingRoles)
-
-            # root is all powerful, only limited by other roots
-            if myRole == &#34;root&#34;:
-                if user == otherUser or otherRole != &#34;root&#34;:
-                    return fine
-                else:
-                    return nope
-
-            # from here on, myRole is admin, so &#34;root&#34; cannot be assigned
-
-            remainingRoles = frozenset(remainingRoles - {&#34;root&#34;})
-            fine = (True, remainingRoles)
-            fineNoAdmin = (True, remainingRoles - {&#34;admin&#34;})
-
-            # when the user changes his own role: can only demote
-            if user == otherUser:
-                return fineNoAdmin
-
-            # people cannot affect other more or equally powerful people
-            if otherIsInPower:
-                return nope
-
-            # people cannot promote others beyond their own level
-            return fine
-
-        # not a project or edition, or not a real record: Not allowed!
-
-        if table not in {&#34;project&#34;, &#34;edition&#34;} or record is None:
-            return nope
-
-        # project-scoped assignments
-
-        projectRolesSet = self.projectRolesSet
-        fine = (True, projectRolesSet)
-
-        if table == &#34;project&#34;:
-            # only admins and roots can assign a project-scoped role
-            if not iAmInPower:
-                return nope
-
-            # remaining cases are allowed
-            return fine
-
-        # remaining case: only edition scoped.
-
-        if table != &#34;edition&#34;:
-            return nope
-
-        # edition-scoped assignments
-
-        Mongo = self.Mongo
-        (recordId, record) = Mongo.get(table, record)
-        if recordId is None:
-            return nope
-
-        projects = self.projects
-        editionRolesSet = self.editionRolesSet
-
-        # check whether the role is a edition-scoped role
-        pRecord = projects[record.projectId]
-        pUsers = pRecord.users or AttrDict()
-        eUsers = record.users or AttrDict()
-
-        otherProjectRole = (pUsers[otherUser] or (None, None))[1]
-        otherEditionRole = (eUsers[otherUser] or (None, None))[1]
-
-        myProjectRole = (pUsers[user] or (None, None))[1]
-        myEditionRole = (eUsers[user] or (None, None))[1]
-
-        # only organisers of the parent project can (un)assign an
-        # edition editor
-
-        iAmOrganiser = &#34;organiser&#34; == myProjectRole
-        otherIsOrganiser = &#34;organiser&#34; == otherProjectRole
-        iAmEditor = &#34;editor&#34; == myEditionRole
-        otherIsEditor = &#34;editor&#34; == otherEditionRole
-
-        # what I can do to myself
-
-        fine = (True, editionRolesSet)
-        fineNoEditor = (True, editionRolesSet - {&#34;editor&#34;})
-
-        if user == otherUser:
-            if iAmOrganiser or iAmEditor:
-                return fine
-            return nope
-
-        # what I can do to others
-
-        if otherUser is None:
-            if iAmOrganiser:
-                return fine
-            if iAmEditor:
-                return fineNoEditor
-
-        if otherIsOrganiser:
-            return nope
-
-        if otherIsEditor:
-            if iAmOrganiser:
-                return fine
-            return nope
-
-        if iAmOrganiser:
-            return fine
-        if iAmEditor:
-            return fineNoEditor
-
-        return nope
+    # main WRAP function
 
     def wrap(self):
         &#34;&#34;&#34;Produce a list of projects and editions and users for root/admin usage.
@@ -1793,19 +1813,54 @@ of ids.</p></div>
             )
 
         projects = self.projects
-        myIds = self.myIds
-        siteRoles = self.siteRoles
-
-        User = self.User
-        inPower = self.inPower
-        user = self.user
 
         projectsAll = sorted(
-            projects.values(), key=lambda x: (1 if x.isVisible else 0, x.title, x._id)
+            projects.values(),
+            key=lambda x: (1 if x.isVisible else 0, x.title or &#34;&#34;, x._id),
         )
-        projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
-        myDetails = H.div(
+        inPower = self.inPower
+
+        myDetails = self._wrapMyDetails()
+
+        myProjects = self._wrapMyProjects(projectsAll)
+
+        if inPower:
+            pubControls = self._wrapPubControls()
+            allProjects = self._wrapAllProjects(projectsAll)
+            allKeywords = self._wrapKeywordControls()
+            allUsers = self._wrapUserControls()
+        else:
+            pubControls = &#34;&#34;
+            allProjects = &#34;&#34;
+            allUsers = &#34;&#34;
+            allKeywords = &#34;&#34;
+
+        return H.div(
+            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
+            cls=&#34;myadmin&#34;,
+        )
+
+    # specialized WRAP functions
+
+    def _wrapMyDetails(self):
+        &#34;&#34;&#34;Generate HTML for the details of the current user.
+
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        siteRoles = self.siteRoles
+        User = self.User
+
+        return H.div(
             [
                 H.h(1, &#34;My details&#34;),
                 self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
@@ -1813,39 +1868,37 @@ of ids.</p></div>
             id=&#34;mydetails&#34;,
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-        wrapped.append(
-            H.div([self._wrapProject(p) for p in projectsMy])
-            if len(projectsMy)
-            else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
-        )
-        myProjects = H.div(wrapped, id=&#34;myprojects&#34;)
-        allProjects = &#34;&#34;
-        allUsers = &#34;&#34;
+    def _wrapMyProjects(self, projectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of the projects of the current user.
 
-        if inPower:
-            wrapped = []
-            wrapped.append(self._wrapPubProjects())
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
 
-            wrapped.append(H.h(1, &#34;All projects and editions&#34;))
-            wrapped.append(
-                H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
-                if len(projectsAll)
-                else H.div(&#34;There are no projects and no editions&#34;)
-            )
-            allProjects = H.div(wrapped, id=&#34;allprojects&#34;)
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        myIds = self.myIds
 
-            wrapped = []
-            wrapped.append(H.h(1, &#34;Manage users&#34;))
-            wrapped.append(
-                H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
-            )
-            allUsers = H.div(wrapped, id=&#34;allusers&#34;)
+        projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
-        return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)
+        wrapped = [
+            H.h(1, &#34;My projects and editions&#34;),
+            (
+                H.div([self._wrapProject(p) for p in projectsMy])
+                if len(projectsMy)
+                else H.div(
+                    &#34;You do not have a specific role w.r.t. projects and editions.&#34;
+                )
+            ),
+        ]
+        return H.div(wrapped, id=&#34;myprojects&#34;)
 
-    def _wrapPubProjects(self):
+    def _wrapPubControls(self):
         &#34;&#34;&#34;Generate HTML for the published projects in admin view.
 
         Currently, it provides
@@ -1853,14 +1906,6 @@ of ids.</p></div>
         *   a control to edit the list of featured published projects in a
             rather coarse manner.
         *   a control to regenerate the static pages
-
-        Parameters
-        ----------
-        project: AttrDict
-            A project record
-        myOnly: boolean, optional False
-            Whether to show only the editions in the project that are associated
-            with the current user.
 
         Returns
         -------
@@ -1874,10 +1919,11 @@ of ids.</p></div>
 
         wrapped = []
         wrapped.append(H.h(1, &#34;Published projects&#34;))
+
         wrapped.append(H.h(2, &#34;Featured published projects&#34;))
         wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
-        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
 
+        wrapped.append(H.h(2, &#34;Regenerate HTML for published projects&#34;))
         wrapped.append(
             H.a(
                 &#34;Regenerate&#34;,
@@ -1886,7 +1932,149 @@ of ids.</p></div>
                 cls=&#34;button large&#34;,
             )
         )
-        return H.div(wrapped, id=&#34;pubprojects&#34;)
+
+        wrapped.append(H.h(2, &#34;Publishing process status&#34;))
+        wrapped.append(
+            H.p(
+                [
+                    H.a(
+                        &#34;Check&#34;,
+                        &#34;#&#34;,
+                        id=&#34;pubcheck&#34;,
+                        title=&#34;Check status of publication processes&#34;,
+                        cls=&#34;button large&#34;,
+                    ),
+                    H.span(&#34;&#34;, id=&#34;pubstatus&#34;, cls=&#34;large&#34;),
+                    H.a(
+                        &#34;terminate&#34;,
+                        &#34;#&#34;,
+                        id=&#34;pubcontrol&#34;,
+                        title=&#34;terminate publication processes&#34;,
+                        cls=&#34;button large&#34;,
+                    ),
+                ]
+            )
+            + H.div(&#34;test&#34;, id=&#34;pubmessages&#34;),
+        )
+        return H.div(wrapped, id=&#34;pubcontrols&#34;)
+
+    def _wrapKeywordControls(self):
+        &#34;&#34;&#34;Generate HTML for the keyword management.
+
+        The keywords sit in a table with name `keyword`.
+        Each record corresponds to a keyword, each keyword has fields:
+
+        *   *name*: the name of the metadata field of which it is a value;
+        *   *value*: the keyword itself;
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        Content = self.Content
+
+        keywords = Content.getKeywords()
+
+        saveUrl = &#34;/save/keyword/&#34;
+        cancelButton = H.actionButton(&#34;kwmanage_cancel&#34;)
+        saveButton = H.actionButton(&#34;kwmanage_save&#34;)
+        messages = H.div(&#34;&#34;, cls=&#34;editmsgs&#34;)
+
+        def wrapKeyword(name, value, occ):
+            deleteButton = H.iconx(
+                &#34;cross&#34;,
+                title=f&#34;delete keyword {value}&#34;,
+                name=name,
+                value=value,
+                delUrl=&#34;/keyword/delete/&#34;,
+                cls=&#34;danger&#34;,
+            )
+            return H.span(
+                value + H.nbsp + (f&#34;({occ})&#34; if occ else deleteButton), cls=&#34;fieldinner&#34;
+            )
+
+        def wrapKeywordList(name, values):
+            editableContent = H.input(
+                &#34;&#34;, &#34;text&#34;, cls=&#34;editcontent show&#34;, name=name, saveurl=saveUrl
+            )
+
+            return H.details(
+                name,
+                H.div(
+                    H.div(
+                        [
+                            editableContent,
+                            saveButton,
+                            cancelButton,
+                            messages,
+                        ],
+                        cls=&#34;kwmanagewidgetinput&#34;,
+                    )
+                    + H.span(
+                        [
+                            wrapKeyword(name, value, values[value])
+                            for value in sorted(values)
+                        ],
+                        cls=&#34;fieldouter&#34;,
+                    ),
+                    cls=&#34;kwmanagewidget&#34;,
+                ),
+                f&#34;keywordlist-{name}&#34;,
+            )
+
+        keywordMaterial = H.div(
+            [wrapKeywordList(name, keywords[name]) for name in sorted(keywords)],
+            cls=&#34;skeywords&#34;,
+        )
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Manage keywords&#34;))
+        wrapped.append(H.div(keywordMaterial))
+        return H.div(wrapped, id=&#34;keywordcontrols&#34;)
+
+    def _wrapUserControls(self):
+        &#34;&#34;&#34;Generate HTML for the user management.
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+        siteRoles = self.siteRoles
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;Manage users&#34;))
+        wrapped.append(
+            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+        )
+        return H.div(wrapped, id=&#34;allusers&#34;)
+
+    def _wrapAllProjects(self, projectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of all projects.
+
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+
+        wrapped = []
+        wrapped.append(H.h(1, &#34;All projects and editions&#34;))
+        wrapped.append(
+            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
+            if len(projectsAll)
+            else H.div(&#34;There are no projects and no editions&#34;)
+        )
+        return H.div(wrapped, id=&#34;allprojects&#34;)
 
     def _wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
@@ -1922,7 +2110,7 @@ of ids.</p></div>
                 for e in editions.values()
                 if not myOnly or e._id in (myIds.edition or set())
             ),
-            key=lambda x: (x.title, x._id),
+            key=lambda x: (x.title or &#34;&#34;, x._id),
         )
         title = project.title
         if not title:
@@ -1944,9 +2132,11 @@ of ids.</p></div>
                     cls=&#34;phead&#34;,
                 ),
                 H.div(
-                    &#34;no editions&#34;
-                    if len(theseEditions) == 0
-                    else [self._wrapEdition(e) for e in theseEditions],
+                    (
+                        &#34;no editions&#34;
+                        if len(theseEditions) == 0
+                        else [self._wrapEdition(e) for e in theseEditions]
+                    ),
                     cls=&#34;peditions&#34;,
                 ),
             ],
@@ -2016,7 +2206,7 @@ of ids.</p></div>
         theseUsers: dict, optional None
             If table/record is not specified, you can specify users here.
             If this parameter is also None, then all users in the system are taken.
-            Otherwise you have to specify a dict, keyed by user eppns and valued by
+            Otherwise, you have to specify a dict, keyed by user eppns and valued by
             tuples consisting of a user record and a role.
 
         Returns
@@ -2049,7 +2239,8 @@ of ids.</p></div>
 
         else:
             for u, (uRecord, role) in sorted(
-                theseUsers.items(), key=lambda x: (x[1][1], x[1][0].nickname, x[0])
+                theseUsers.items(),
+                key=lambda x: (x[1][1], x[1][0].nickname or &#34;&#34;, x[0] or &#34;&#34;),
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
@@ -2299,6 +2490,194 @@ of ids.</p></div>
 
         return [actualRole, widget]
 
+    # retrieval and action functions -- PUB
+
+    def pubStatus(self):
+        &#34;&#34;&#34;Get the publication status.
+
+        Only allowed for admins and roots.
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the retrieval of the value succeeded;
+            with key `messages`: the messages if the retrieval did not succeed;
+            with key `value`: the value itself.
+        &#34;&#34;&#34;
+        Content = self.Content
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+            status = True
+            messages = []
+            value = site.processing or False
+        else:
+            status = False
+            messages = [&#34;error&#34;, &#34;You are not allowed to retrieve this value&#34;]
+            value = None
+
+        return dict(status=status, messages=messages, value=value)
+
+    def pubTerminate(self):
+        &#34;&#34;&#34;Set the publication status to false
+
+        Only allowed for admins and roots.
+
+        This is meant for cases where a publication action has failed without
+        restoring the flag that indicates that the site is publishing.
+        It should not happen, but then: it might ...
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the setting of the value succeeded;
+            with key `messages`: the messages if the setting did not succeed;
+        &#34;&#34;&#34;
+        Content = self.Content
+        Mongo = self.Mongo
+        inPower = self.inPower
+
+        if inPower:
+            (table, siteId, site) = Content.relevant()
+
+            if site.processing:
+                Mongo.updateRecord(
+                    &#34;site&#34;, dict(processing=False, lastPublished=isonow()), _id=site._id
+                )
+            status = True
+            messages = []
+        else:
+            status = False
+            messages = [&#34;error&#34;, &#34;You are not allowed to set this value&#34;]
+
+        return dict(status=status, messages=messages)
+
+    # retrieval and action functions -- KEYWORD
+
+    def saveKeyword(self):
+        &#34;&#34;&#34;Saves a keyword.
+
+        All keywords for all lists are stored in the table *keyword*. The keyword
+        itself is stored in field *value*, and the name of the keyword list is stored
+        in the field *name*.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Content = self.Content
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, &#34;adding a keyword is not allowed&#34;]]
+            )
+
+        keywords = Content.getKeywords()
+        specs = json.loads(requestData())
+        name = specs[&#34;name&#34;]
+        value = specs[&#34;value&#34;]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, f&#34;unknown keyword list &#39;{name}&#39;&#34;]]
+            )
+
+        keywords = keywords[name]
+
+        if value in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    [&#34;warning&#34;, f&#34;keyword list &#39;{name}&#39; already contains &#39;{value}&#39;&#34;]
+                ],
+            )
+
+        if normalize(value) in {normalize(val) for val in keywords}:
+            return dict(
+                stat=False,
+                messages=[
+                    [
+                        &#34;warning&#34;,
+                        f&#34;keyword list &#39;{name}&#39; already contains &#34;
+                        f&#34;a variant of &#39;{value}&#39;&#34;,
+                    ]
+                ],
+            )
+
+        Mongo.insertRecord(&#34;keyword&#34;, name=name, value=value)
+
+        return dict(stat=True, messages=[], updated=self.wrap())
+
+    def deleteKeyword(self):
+        &#34;&#34;&#34;Deletes a keyword.
+
+        The name and value are given by the request.
+
+        Returns
+        -------
+        dict
+            Contains the following keys:
+
+            * `status`: whether the save action was successful
+            * `messages`: messages issued during the process
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Content = self.Content
+
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, &#34;deleting a keyword is not allowed&#34;]]
+            )
+
+        keywords = Content.getKeywords()
+        specs = json.loads(requestData())
+        name = specs[&#34;name&#34;]
+        value = specs[&#34;value&#34;]
+
+        if name not in keywords:
+            return dict(
+                stat=False, messages=[[&#34;error&#34;, f&#34;unknown keyword list &#39;{name}&#39;&#34;]]
+            )
+
+        keywords = keywords[name]
+
+        if value not in keywords:
+            return dict(
+                stat=False,
+                messages=[
+                    [&#34;warning&#34;, f&#34;keyword list &#39;{name}&#39; did not contain &#39;{value}&#39;&#34;]
+                ],
+            )
+
+        occs = keywords[value]
+
+        if occs:
+            return dict(
+                stat=False,
+                messages=[[&#34;error&#34;, f&#34;keyword &#39;{name}&#39;:&#39;{value}&#39; is used {occs} x&#34;]],
+            )
+
+        good = Mongo.deleteRecord(&#34;keyword&#34;, name=name, value=value)
+        messages = [] if good else [[&#34;warning&#34;, &#34;no keyword has been deleted&#34;]]
+
+        return dict(stat=good, messages=messages, updated=self.wrap())
+
+    # retrieval and action functions -- USERS and ROLES
+
     def saveRole(self, u, newRole, table=None, recordId=None):
         &#34;&#34;&#34;Saves a role into a user or cross table record.
 
@@ -2335,9 +2714,7 @@ of ids.</p></div>
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == &#34;edition&#34;
-            else editionRoles
+            else projectRoles if table == &#34;edition&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -2347,6 +2724,8 @@ of ids.</p></div>
 
         if newRole not in otherRoles:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
+
+        msg = &#34;&#34;
 
         if table is None:
             result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
@@ -2413,9 +2792,7 @@ of ids.</p></div>
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles
-            if table == &#34;edition&#34;
-            else editionRoles
+            else projectRoles if table == &#34;edition&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -2431,7 +2808,9 @@ of ids.</p></div>
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
         criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
+        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
+
+        msg = &#34;&#34;
 
         if crossRecord:
             result = Mongo.updateRecord(f&#34;{table}User&#34;, dict(role=newRole), **criteria)
@@ -2461,8 +2840,8 @@ of ids.</p></div>
         Parameters
         ----------
         user: string
-            The user name of the user.
-            This should be different from the user names of existing users.
+            The username of the user.
+            This should be different from the usernames of existing users.
             The name may only contain the ASCII digits and lower case letters,
             plus dash, dot, and underscore.
 
@@ -2533,7 +2912,7 @@ of ids.</p></div>
         Parameters
         ----------
         user: string
-            The user name of the user.
+            The username of the user.
 
         Returns
         -------
@@ -2556,7 +2935,7 @@ of ids.</p></div>
                 status = False
                 messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
             else:
-                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
+                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, user=user)
 
                 if not good:
                     status = False
@@ -2574,7 +2953,355 @@ of ids.</p></div>
                 )
 
         self.update()
-        return dict(status=status, messages=messages)</code></pre>
+        return dict(status=status, messages=messages)
+
+    # LOGISTICS functions
+
+    def update(self):
+        &#34;&#34;&#34;Reread the tables of users, projects, editions.
+
+        Typically needed when you have used an admin function to perform
+        a user administration action.
+
+        This may change the permissions and hence the visibility of projects and editions.
+        It also changes the possible user management actions in the future.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Auth = self.Auth
+        Auth.identify()
+        User = Auth.myDetails()
+        user = User.user
+
+        self.User = User
+        self.user = user
+
+        (self.inPower, self.myRole) = Auth.inPower()
+
+        if not user:
+            return
+
+        siteRecord = Mongo.getRecord(&#34;site&#34;)
+        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
+        projectLinks = Mongo.getList(&#34;projectUser&#34;)
+        editionLinks = Mongo.getList(&#34;editionUser&#34;)
+
+        users = AttrDict({x.user: x for x in userList})
+        projects = AttrDict({x._id: x for x in projectList})
+        editions = AttrDict({x._id: x for x in editionList})
+
+        myIds = AttrDict()
+
+        self.site = siteRecord
+        self.users = users
+        self.projects = projects
+        self.editions = editions
+        self.myIds = myIds
+
+        for eRecord in editionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
+
+        for pLink in projectLinks:
+            role = pLink.role
+
+            if role:
+                u = pLink.user
+                uRecord = users[u]
+                if uRecord is None:
+                    continue
+                pId = pLink.projectId
+                pRecord = projects[pId]
+                if pRecord is None:
+                    continue
+                pRecord.setdefault(&#34;users&#34;, AttrDict())
+
+                if user == u:
+                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
+                    for eId in pRecord.editions or []:
+                        myIds.setdefault(&#34;edition&#34;, set()).add(eId)
+
+                pRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
+
+        for eLink in editionLinks:
+            role = eLink.role
+            if role:
+                u = eLink.user
+                uRecord = users[u]
+                if uRecord is None:
+                    continue
+                eId = eLink.editionId
+                eRecord = editions[eId]
+                if eRecord is None:
+                    continue
+                pId = eRecord.projectId
+
+                if user == u:
+                    myIds.setdefault(&#34;project&#34;, set()).add(pId)
+                    myIds.setdefault(&#34;edition&#34;, set()).add(eId)
+
+                eRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
+
+    def authUser(self, otherUser, table=None, record=None):
+        &#34;&#34;&#34;Check whether a user may change the role of another user.
+
+        The questions are:
+
+        &#34;which *other* site-wide roles can the current user assign to the other
+        user?&#34; (when no table or record is given).
+
+        &#34;which project/edition scoped roles can the current user assign to or
+        remove from the other user
+        with respect to the relevant record in the given table?&#34;.
+
+        Note that the current site-wide role of the other user is never included
+        in the set of resulting roles.
+
+        There are also additional business rules.
+        This function will return the empty set if these rules are violated.
+
+        **Business rules**
+
+        *   Users have exactly one site-wise role.
+        *   Users may demote themselves.
+        *   Users may not promote themselves unless ... see later.
+        *   Users may have zero or one project/edition-scoped role per
+            project/edition
+        *   When assigning new site-wide or project/edition-scoped roles, these
+            roles must be valid roles for that scope.
+        *   When assigning a new site-wide role, None is not one
+            of the possible new roles:
+            you cannot change the status of an authenticated user to &#34;not
+            logged in&#34;.
+        *   When assigning project/edition scoped roles, removing such a
+            role from a user for a certain project/edition means that the
+            other user is removed from that project or edition.
+        *   Roles are ranked in power. Users with a higher role are also authorised
+            to all things for which lower roles give authorisation.
+
+            The site-wide roles are ranked as:
+
+            ```
+            root - admin - user - guest - not logged in
+            ```
+
+            The project/edition roles are ranked as:
+
+            ```
+            (project) organiser - (edition) editor - (edition) reviewer
+            ```
+
+            Site-wide power does not automatically carry over to project/edition-scoped
+            power.
+
+        *   Users cannot promote or demote people that are currently as powerful
+            as themselves.
+        *   In normal cases there is exactly one root, but:
+            *   If a situation occurs that there is no root and no admin, any authenticated
+                user my grab the role of admin.
+            *   If a situation occurs that there is no root, any admin may
+                grab the role of root.
+        *   Roots may appoint admins.
+        *   Roots and admins may change site-wide roles.
+        *   Roots and admins may appoint project organisers, but may not assign
+            edition-scoped roles.
+        *   Project organisers may appoint edition editors and reviewers.
+        *   Edition editors may appoint edition reviewers.
+        *   However, roots and admins may also be project organisers and
+            edition editors for some projects and some editions.
+        *   Normal users and guests can not administer site-wide roles.
+        *   Guests can not be put in project/edition-scoped roles.
+
+        Parameters
+        ----------
+        otherUser: string | void
+            the other user as string (eppn)
+            If None, the question is: what are the roles in which another
+            user may be put wrt to this project/edition?
+        table: string, optional None
+            the relevant table: `project` or `edition`;
+            this is the table in which the record sits
+            relative to which the other user will be assigned a role.
+            If None, the role to be assigned is a site wide role.
+        record: ObjectId | AttrDict, optional None
+            the relevant record;
+            it is the record relative to which the other user will be
+            assigned another role.
+            If None, the role to be assigned is a site wide role.
+
+        Returns
+        -------
+        boolean, frozenset
+            The boolean indicates whether the current user may modify the role
+            of the target user.
+
+            The frozenset is the set of assignable roles to the other user
+            by the current user with respect to the given table and record or site-wide.
+
+            If the boolean is false, the frozenset is empty.
+            But if the frozenset is empty it might be the case that the current
+            user is allowed to remove the role of the target user.
+        &#34;&#34;&#34;
+        myRole = self.myRole
+
+        if myRole in {None, &#34;guest&#34;}:
+            return False, frozenset()
+
+        user = self.user
+        users = self.users
+        nRoots = sum(1 for u in users.values() if u.role == &#34;root&#34;)
+        nAdmins = sum(1 for u in users.values() if u.role == &#34;admin&#34;)
+        iAmInPower = self.inPower
+        otherUserRecord = users[otherUser] or AttrDict()
+        otherRole = otherUserRecord.role
+        otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
+
+        nope = (False, frozenset())
+
+        # side-wide assignments
+
+        if table is None or record is None:
+            # nobody can add site-wide users
+
+            if otherUser is None:
+                return nope
+
+            siteRolesSet = self.siteRolesSet
+
+            # if there are no admins and no roots,
+            #   any admin may promote himself to root
+            #   if there are no admins
+            #     any authenticated user may promote himself to admin
+
+            remainingRoles = frozenset(siteRolesSet - {None, otherRole})
+
+            if nRoots == 0:
+                if user == otherUser:
+                    if nAdmins == 0:
+                        if myRole == &#34;user&#34;:
+                            fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
+                            return fineAdmin
+                    else:
+                        if myRole == &#34;admin&#34;:
+                            fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
+                            return fineRoot
+
+            # from here on, only admins and roots can change roles
+            if not iAmInPower:
+                return nope
+
+            fine = (True, remainingRoles)
+
+            # root is all powerful, only limited by other roots
+            if myRole == &#34;root&#34;:
+                if user == otherUser or otherRole != &#34;root&#34;:
+                    return fine
+                else:
+                    return nope
+
+            # from here on, myRole is admin, so &#34;root&#34; cannot be assigned
+
+            remainingRoles = frozenset(remainingRoles - {&#34;root&#34;})
+            fine = (True, remainingRoles)
+            fineNoAdmin = (True, remainingRoles - {&#34;admin&#34;})
+
+            # when the user changes his own role: can only demote
+            if user == otherUser:
+                return fineNoAdmin
+
+            # people cannot affect other more or equally powerful people
+            if otherIsInPower:
+                return nope
+
+            # people cannot promote others beyond their own level
+            return fine
+
+        # not a project or edition, or not a real record: Not allowed!
+
+        if table not in {&#34;project&#34;, &#34;edition&#34;} or record is None:
+            return nope
+
+        # project-scoped assignments
+
+        projectRolesSet = self.projectRolesSet
+        fine = (True, projectRolesSet)
+
+        if table == &#34;project&#34;:
+            # only admins and roots can assign a project-scoped role
+            if not iAmInPower:
+                return nope
+
+            # remaining cases are allowed
+            return fine
+
+        # remaining case: only edition scoped.
+
+        if table != &#34;edition&#34;:
+            return nope
+
+        # edition-scoped assignments
+
+        Mongo = self.Mongo
+        (recordId, record) = Mongo.get(table, record)
+        if recordId is None:
+            return nope
+
+        projects = self.projects
+        editionRolesSet = self.editionRolesSet
+
+        # check whether the role is an edition-scoped role
+        pRecord = projects[record.projectId]
+        pUsers = pRecord.users or AttrDict()
+        eUsers = record.users or AttrDict()
+
+        otherProjectRole = (pUsers[otherUser] or (None, None))[1]
+        otherEditionRole = (eUsers[otherUser] or (None, None))[1]
+
+        myProjectRole = (pUsers[user] or (None, None))[1]
+        myEditionRole = (eUsers[user] or (None, None))[1]
+
+        # only organisers of the parent project can (un)assign an
+        # edition editor
+
+        iAmOrganiser = &#34;organiser&#34; == myProjectRole
+        otherIsOrganiser = &#34;organiser&#34; == otherProjectRole
+        iAmEditor = &#34;editor&#34; == myEditionRole
+        otherIsEditor = &#34;editor&#34; == otherEditionRole
+
+        # what I can do to myself
+
+        fine = (True, editionRolesSet)
+        fineNoEditor = (True, editionRolesSet - {&#34;editor&#34;})
+
+        if user == otherUser:
+            if iAmOrganiser or iAmEditor:
+                return fine
+            return nope
+
+        # what I can do to others
+
+        if otherUser is None:
+            if iAmOrganiser:
+                return fine
+            if iAmEditor:
+                return fineNoEditor
+
+        if otherIsOrganiser:
+            return nope
+
+        if otherIsEditor:
+            if iAmOrganiser:
+                return fine
+            return nope
+
+        if iAmOrganiser:
+            return fine
+        if iAmEditor:
+            return fineNoEditor
+
+        return nope</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -2645,7 +3372,7 @@ edition editors for some projects and some editions.</li>
 <dl>
 <dt><strong><code>otherUser</code></strong> :&ensp;<code>string | void</code></dt>
 <dd>the other user as string (eppn)
-If None, the question is: what are the roles in which an other
+If None, the question is: what are the roles in which another
 user may be put wrt to this project/edition?</dd>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>the relevant table: <code>project</code> or <code>edition</code>;
@@ -2655,7 +3382,7 @@ If None, the role to be assigned is a site wide role.</dd>
 <dt><strong><code>record</code></strong> :&ensp;<code>ObjectId | AttrDict</code>, optional <code>None</code></dt>
 <dd>the relevant record;
 it is the record relative to which the other user will be
-assigned an other role.
+assigned another role.
 If None, the role to be assigned is a site wide role.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2671,270 +3398,6 @@ But if the frozenset is empty it might be the case that the current
 user is allowed to remove the role of the target user.</p>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L187-L444" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def authUser(self, otherUser, table=None, record=None):
-    &#34;&#34;&#34;Check whether a user may change the role of another user.
-
-    The questions are:
-
-    &#34;which *other* site-wide roles can the current user assign to the other
-    user?&#34; (when no table or record is given).
-
-    &#34;which project/edition scoped roles can the current user assign to or
-    remove from the other user
-    with respect to the relevant record in the given table?&#34;.
-
-    Note that the current site-wide role of the other user is never included
-    in the set of resulting roles.
-
-    There are also additional business rules.
-    This function will return the empty set if these rules are violated.
-
-    **Business rules**
-
-    *   Users have exactly one site-wise role.
-    *   Users may demote themselves.
-    *   Users may not promote themselves unless ... see later.
-    *   Users may have zero or one project/edition-scoped role per
-        project/edition
-    *   When assigning new site-wide or project/edition-scoped roles, these
-        roles must be valid roles for that scope.
-    *   When assigning a new site-wide role, None is not one
-        of the possible new roles:
-        you cannot change the status of an authenticated user to &#34;not
-        logged in&#34;.
-    *   When assigning project/edition scoped roles, removing such a
-        role from a user for a certain project/edition means that the
-        other user is removed from that project or edition.
-    *   Roles are ranked in power. Users with a higher role are also authorised
-        to all things for which lower roles give authorisation.
-
-        The site-wide roles are ranked as:
-
-        ```
-        root - admin - user - guest - not logged in
-        ```
-
-        The project/edition roles are ranked as:
-
-        ```
-        (project) organiser - (edition) editor - (edition) reviewer
-        ```
-
-        Site-wide power does not automatically carry over to project/edition-scoped
-        power.
-
-    *   Users cannot promote or demote people that are currently as powerful
-        as themselves.
-    *   In normal cases there is exactly one root, but:
-        *   If a situation occurs that there is no root and no admin, any authenticated
-            user my grab the role of admin.
-        *   If a situation occurs that there is no root, any admin may
-            grab the role of root.
-    *   Roots may appoint admins.
-    *   Roots and admins may change site-wide roles.
-    *   Roots and admins may appoint project organisers, but may not assign
-        edition-scoped roles.
-    *   Project organisers may appoint edition editors and reviewers.
-    *   Edition editors may appoint edition reviewers.
-    *   However, roots and admins may also be project organisers and
-        edition editors for some projects and some editions.
-    *   Normal users and guests can not administer site-wide roles.
-    *   Guests can not be put in project/edition-scoped roles.
-
-    Parameters
-    ----------
-    otherUser: string | void
-        the other user as string (eppn)
-        If None, the question is: what are the roles in which an other
-        user may be put wrt to this project/edition?
-    table: string, optional None
-        the relevant table: `project` or `edition`;
-        this is the table in which the record sits
-        relative to which the other user will be assigned a role.
-        If None, the role to be assigned is a site wide role.
-    record: ObjectId | AttrDict, optional None
-        the relevant record;
-        it is the record relative to which the other user will be
-        assigned an other role.
-        If None, the role to be assigned is a site wide role.
-
-    Returns
-    -------
-    boolean, frozenset
-        The boolean indicates whether the current user may modify the role
-        of the target user.
-
-        The frozenset is the set of assignable roles to the other user
-        by the current user with respect to the given table and record or site-wide.
-
-        If the boolean is false, the frozenset is empty.
-        But if the frozenset is empty it might be the case that the current
-        user is allowed to remove the role of the target user.
-    &#34;&#34;&#34;
-    myRole = self.myRole
-
-    if myRole in {None, &#34;guest&#34;}:
-        return (False, frozenset())
-
-    user = self.user
-    users = self.users
-    nRoots = sum(1 for u in users.values() if u.role == &#34;root&#34;)
-    nAdmins = sum(1 for u in users.values() if u.role == &#34;admin&#34;)
-    iAmInPower = self.inPower
-    otherUserRecord = users[otherUser] or AttrDict()
-    otherRole = otherUserRecord.role
-    otherIsInPower = otherRole in {&#34;admin&#34;, &#34;root&#34;}
-
-    nope = (False, frozenset())
-
-    # side-wide assignments
-
-    if table is None or record is None:
-        # nobody can add site-wide users
-
-        if otherUser is None:
-            return nope
-
-        siteRolesSet = self.siteRolesSet
-
-        # if there are no admins and no roots,
-        #   any admin may promote himself to root
-        #   if there are no admins
-        #     any authenticated user may promote himself to admin
-
-        remainingRoles = frozenset(siteRolesSet - {None, otherRole})
-
-        if nRoots == 0:
-            if user == otherUser:
-                if nAdmins == 0:
-                    if myRole == &#34;user&#34;:
-                        fineAdmin = (True, frozenset([&#34;admin&#34;]) | remainingRoles)
-                        return fineAdmin
-                else:
-                    if myRole == &#34;admin&#34;:
-                        fineRoot = (True, frozenset([&#34;root&#34;]) | remainingRoles)
-                        return fineRoot
-
-        # from here on, only admins and roots can change roles
-        if not iAmInPower:
-            return nope
-
-        fine = (True, remainingRoles)
-
-        # root is all powerful, only limited by other roots
-        if myRole == &#34;root&#34;:
-            if user == otherUser or otherRole != &#34;root&#34;:
-                return fine
-            else:
-                return nope
-
-        # from here on, myRole is admin, so &#34;root&#34; cannot be assigned
-
-        remainingRoles = frozenset(remainingRoles - {&#34;root&#34;})
-        fine = (True, remainingRoles)
-        fineNoAdmin = (True, remainingRoles - {&#34;admin&#34;})
-
-        # when the user changes his own role: can only demote
-        if user == otherUser:
-            return fineNoAdmin
-
-        # people cannot affect other more or equally powerful people
-        if otherIsInPower:
-            return nope
-
-        # people cannot promote others beyond their own level
-        return fine
-
-    # not a project or edition, or not a real record: Not allowed!
-
-    if table not in {&#34;project&#34;, &#34;edition&#34;} or record is None:
-        return nope
-
-    # project-scoped assignments
-
-    projectRolesSet = self.projectRolesSet
-    fine = (True, projectRolesSet)
-
-    if table == &#34;project&#34;:
-        # only admins and roots can assign a project-scoped role
-        if not iAmInPower:
-            return nope
-
-        # remaining cases are allowed
-        return fine
-
-    # remaining case: only edition scoped.
-
-    if table != &#34;edition&#34;:
-        return nope
-
-    # edition-scoped assignments
-
-    Mongo = self.Mongo
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return nope
-
-    projects = self.projects
-    editionRolesSet = self.editionRolesSet
-
-    # check whether the role is a edition-scoped role
-    pRecord = projects[record.projectId]
-    pUsers = pRecord.users or AttrDict()
-    eUsers = record.users or AttrDict()
-
-    otherProjectRole = (pUsers[otherUser] or (None, None))[1]
-    otherEditionRole = (eUsers[otherUser] or (None, None))[1]
-
-    myProjectRole = (pUsers[user] or (None, None))[1]
-    myEditionRole = (eUsers[user] or (None, None))[1]
-
-    # only organisers of the parent project can (un)assign an
-    # edition editor
-
-    iAmOrganiser = &#34;organiser&#34; == myProjectRole
-    otherIsOrganiser = &#34;organiser&#34; == otherProjectRole
-    iAmEditor = &#34;editor&#34; == myEditionRole
-    otherIsEditor = &#34;editor&#34; == otherEditionRole
-
-    # what I can do to myself
-
-    fine = (True, editionRolesSet)
-    fineNoEditor = (True, editionRolesSet - {&#34;editor&#34;})
-
-    if user == otherUser:
-        if iAmOrganiser or iAmEditor:
-            return fine
-        return nope
-
-    # what I can do to others
-
-    if otherUser is None:
-        if iAmOrganiser:
-            return fine
-        if iAmEditor:
-            return fineNoEditor
-
-    if otherIsOrganiser:
-        return nope
-
-    if otherIsEditor:
-        if iAmOrganiser:
-            return fine
-        return nope
-
-    if iAmOrganiser:
-        return fine
-    if iAmEditor:
-        return fineNoEditor
-
-    return nope</code></pre>
-</details>
 </dd>
 <dt id="control.admin.Admin.createUser"><code class="name flex">
 <span>def <span class="ident">createUser</span></span>(<span>self, user)</span>
@@ -2947,8 +3410,8 @@ The current user must be an admin or root.</p>
 <dl>
 <dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
 <dd>
-<p>The user name of the user.
-This should be different from the user names of existing users.
+<p>The username of the user.
+This should be different from the usernames of existing users.
 The name may only contain the ASCII digits and lower case letters,
 plus dash, dot, and underscore.</p>
 <p>Spaces will be replaced by dots; all other illegal characters by
@@ -2966,81 +3429,24 @@ underscores.</p>
 </ul>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L1130-L1198" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def createUser(self, user):
-    &#34;&#34;&#34;Creates new user.
-
-    This action is only valid in test, pilot or custom mode.
-    The current user must be an admin or root.
-
-    Parameters
-    ----------
-    user: string
-        The user name of the user.
-        This should be different from the user names of existing users.
-        The name may only contain the ASCII digits and lower case letters,
-        plus dash, dot, and underscore.
-
-        Spaces will be replaced by dots; all other illegal characters by
-        underscores.
-
-    Returns
-    -------
-    dict
-        Contains the following keys:
-
-        * `status`: whether the create action was successful
-        * `messages`: messages issued during the process
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Settings = self.Settings
-    runProd = Settings.runProd
-    inPower = self.inPower
-
-    status = True
-    messages = []
-
-    if inPower and not runProd:
-        if len(user) == 0:
-            status = False
-            messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
-
-        else:
-            name = USERNAME_RE.sub(&#34;_&#34;, user.lower().replace(&#34; &#34;, &#34;.&#34;))
-            if name != user:
-                messages.append((&#34;warning&#34;, f&#34;user {user} to be saved as {name}&#34;))
-
-            userLong = f&#34;{name:0&gt;16}&#34;
-            userInfo = dict(
-                nickname=name,
-                user=userLong,
-                role=&#34;user&#34;,
-                isSpecial=True,
-            )
-            userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
-
-            if not userId:
-                status = False
-                messages.append(
-                    (&#34;error&#34;, f&#34;could not add {name} to the user table&#34;)
-                )
-    else:
-        status = False
-
-        if not inPower:
-            messages.append((&#34;error&#34;, &#34;adding a user needs admin privileges&#34;))
-        if runProd:
-            messages.append(
-                (&#34;error&#34;, &#34;adding a user not allowed in production mode&#34;)
-            )
-
-    self.update()
-    return dict(status=status, messages=messages, name=user)</code></pre>
-</details>
+</dd>
+<dt id="control.admin.Admin.deleteKeyword"><code class="name flex">
+<span>def <span class="ident">deleteKeyword</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes a keyword.</p>
+<p>The name and value are given by the request.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the save action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+</ul>
+</dd>
+</dl></div>
 </dd>
 <dt id="control.admin.Admin.deleteUser"><code class="name flex">
 <span>def <span class="ident">deleteUser</span></span>(<span>self, user)</span>
@@ -3054,7 +3460,7 @@ edition.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>user</code></strong> :&ensp;<code>string</code></dt>
-<dd>The user name of the user.</dd>
+<dd>The username of the user.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -3067,65 +3473,6 @@ edition.</p>
 </ul>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L1200-L1252" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deleteUser(self, user):
-    &#34;&#34;&#34;Deletes a test user.
-
-    This action is only valid in test, pilot or custom mode.
-    The current user must be an admin or root.
-    The user to be deleted should be a test user, not linked to any project or
-    edition.
-
-    Parameters
-    ----------
-    user: string
-        The user name of the user.
-
-    Returns
-    -------
-    dict
-        Contains the following keys:
-
-        * `status`: whether the create action was successful
-        * `messages`: messages issued during the process
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Settings = self.Settings
-    runProd = Settings.runProd
-    inPower = self.inPower
-
-    status = True
-    messages = []
-
-    if inPower and not runProd:
-        if len(user) == 0:
-            status = False
-            messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
-        else:
-            good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, stop=False, user=user)
-
-            if not good:
-                status = False
-                messages.append(
-                    (&#34;error&#34;, f&#34;could not delete {user} from the user table&#34;)
-                )
-    else:
-        status = False
-
-        if not inPower:
-            messages.append((&#34;error&#34;, &#34;deleting a user needs admin privileges&#34;))
-        if runProd:
-            messages.append(
-                (&#34;error&#34;, &#34;deleting a user not allowed in production mode&#34;)
-            )
-
-    self.update()
-    return dict(status=status, messages=messages)</code></pre>
-</details>
 </dd>
 <dt id="control.admin.Admin.linkUser"><code class="name flex">
 <span>def <span class="ident">linkUser</span></span>(<span>self, u, newRole, table, recordId)</span>
@@ -3160,87 +3507,57 @@ will be updated, otherwise a new link will be created.</p>
 </ul>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L1054-L1128" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def linkUser(self, u, newRole, table, recordId):
-    &#34;&#34;&#34;Links a user in certain role to a project/edition record.
-
-    It will be checked whether the new role is valid, and whether the user
-    has permission to perform this role assignment.
-
-    If the user is already linked to that project/edition, his role
-    will be updated, otherwise a new link will be created.
-
-    Parameters
-    ----------
-    u: string
-        The eppn of the target user.
-    newRole: string
-        The new role for the target user.
-    table: string
-        Either `project` or `edition`.
-    recordId: ObjectId
-        The id of a project or edition, corresponding to the
-        `table` parameter.
-
-    Returns
-    -------
-    dict
-        with keys:
-
-        * `stat`: indicates whether the save may proceed;
-        * `messages`: list of messages for the user,
-        * `updated`: new content for the user managment div.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    siteRoles = self.siteRoles
-    projectRoles = self.projectRoles
-    editionRoles = self.editionRoles
-    itemRoles = (
-        siteRoles
-        if table is None
-        else projectRoles
-        if table == &#34;edition&#34;
-        else editionRoles
-    )
-    newRoleRep = itemRoles[newRole]
-
-    (editable, otherRoles) = self.authUser(None, table=table, record=recordId)
-    if not editable:
-        return dict(stat=False, messages=[[&#34;error&#34;, &#34;update not allowed&#34;]])
-
-    if newRole not in otherRoles:
-        return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
-
-    (recordId, record) = Mongo.get(table, recordId)
-    if recordId is None:
-        return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
-
-    criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-    crossRecord = Mongo.getRecord(table, warn=False, stop=False, **criteria)
-
-    if crossRecord:
-        result = Mongo.updateRecord(f&#34;{table}User&#34;, dict(role=newRole), **criteria)
-        if not result:
-            msg = (
-                &#34;could not change this user&#39;s role to &#34;
-                f&#34;{newRoleRep} wrt. the {table}&#34;
-            )
-    else:
-        fields = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId, &#34;role&#34;: newRole}
-        result = Mongo.insertRecord(f&#34;{table}User&#34;, **fields)
-        if not result:
-            msg = f&#34;could not link this user to {table} as {newRoleRep}&#34;
-
-    if not result:
-        return dict(stat=False, messages=[[&#34;error&#34;, msg]])
-
-    self.update()
-    return dict(stat=True, messages=[], updated=self.wrap())</code></pre>
-</details>
+</dd>
+<dt id="control.admin.Admin.pubStatus"><code class="name flex">
+<span>def <span class="ident">pubStatus</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the publication status.</p>
+<p>Only allowed for admins and roots.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>With key <code>status</code>: whether the retrieval of the value succeeded;
+with key <code>messages</code>: the messages if the retrieval did not succeed;
+with key <code>value</code>: the value itself.</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.pubTerminate"><code class="name flex">
+<span>def <span class="ident">pubTerminate</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set the publication status to false</p>
+<p>Only allowed for admins and roots.</p>
+<p>This is meant for cases where a publication action has failed without
+restoring the flag that indicates that the site is publishing.
+It should not happen, but then: it might &hellip;</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>With key <code>status</code>: whether the setting of the value succeeded;
+with key <code>messages</code>: the messages if the setting did not succeed;</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.saveKeyword"><code class="name flex">
+<span>def <span class="ident">saveKeyword</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Saves a keyword.</p>
+<p>All keywords for all lists are stored in the table <em>keyword</em>. The keyword
+itself is stored in field <em>value</em>, and the name of the keyword list is stored
+in the field <em>name</em>.</p>
+<p>The name and value are given by the request.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>
+<p>Contains the following keys:</p>
+<ul>
+<li><code>status</code>: whether the save action was successful</li>
+<li><code>messages</code>: messages issued during the process</li>
+</ul>
+</dd>
+</dl></div>
 </dd>
 <dt id="control.admin.Admin.saveRole"><code class="name flex">
 <span>def <span class="ident">saveRole</span></span>(<span>self, u, newRole, table=None, recordId=None)</span>
@@ -3275,88 +3592,6 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 </ul>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L977-L1052" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def saveRole(self, u, newRole, table=None, recordId=None):
-    &#34;&#34;&#34;Saves a role into a user or cross table record.
-
-    It will be checked whether the new role is valid, and whether the user
-    has permission to perform this role assignment.
-
-    Parameters
-    ----------
-    u: string
-        The eppn of the user.
-    newRole: string | void
-        The new role for the target user. None means: the target user will
-        lose his role.
-    table: string
-        Either None or `project` or `edition`, indicates what users we
-        are listing: site-wide users or users related to a project or to an edition.
-    recordId: ObjectId or None
-        Either None or the id of a project or edition, corresponding to the
-        `table` parameter.
-
-    Returns
-    -------
-    dict
-        with keys:
-
-        * `stat`: indicates whether the save may proceed;
-        * `messages`: list of messages for the user,
-        * `updated`: new content for the user managment div.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    siteRoles = self.siteRoles
-    projectRoles = self.projectRoles
-    editionRoles = self.editionRoles
-    itemRoles = (
-        siteRoles
-        if table is None
-        else projectRoles
-        if table == &#34;edition&#34;
-        else editionRoles
-    )
-    newRoleRep = itemRoles[newRole]
-
-    (editable, otherRoles) = self.authUser(u, table=table, record=recordId)
-    if not editable:
-        return dict(stat=False, messages=[[&#34;error&#34;, &#34;update not allowed&#34;]])
-
-    if newRole not in otherRoles:
-        return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
-
-    if table is None:
-        result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
-    else:
-        (recordId, record) = Mongo.get(table, recordId)
-        if recordId is None:
-            return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
-
-        criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-        if newRole is None:
-            result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
-            if not result:
-                msg = f&#34;could not unlink this user from the {table}&#34;
-        else:
-            result = Mongo.updateRecord(
-                f&#34;{table}User&#34;, dict(role=newRole), **criteria
-            )
-            if not result:
-                msg = (
-                    &#34;could not change this user&#39;s role to &#34;
-                    f&#34;{newRoleRep} wrt. the {table}&#34;
-                )
-
-    if not result:
-        return dict(stat=False, messages=[[&#34;error&#34;, msg]])
-
-    self.update()
-    return dict(stat=True, messages=[], updated=self.wrap())</code></pre>
-</details>
 </dd>
 <dt id="control.admin.Admin.update"><code class="name flex">
 <span>def <span class="ident">update</span></span>(<span>self)</span>
@@ -3365,106 +3600,8 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 <div class="desc"><p>Reread the tables of users, projects, editions.</p>
 <p>Typically needed when you have used an admin function to perform
 a user administration action.</p>
-<p>This may change the permissions and hence the visiblity of projects and editions.
+<p>This may change the permissions and hence the visibility of projects and editions.
 It also changes the possible user management actions in the future.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L94-L185" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def update(self):
-    &#34;&#34;&#34;Reread the tables of users, projects, editions.
-
-    Typically needed when you have used an admin function to perform
-    a user administration action.
-
-    This may change the permissions and hence the visiblity of projects and editions.
-    It also changes the possible user management actions in the future.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Auth = self.Auth
-    Auth.identify()
-    User = Auth.myDetails()
-    user = User.user
-
-    self.User = User
-    self.user = user
-
-    if not user:
-        self.myRole = None
-        self.inPower = False
-        return
-
-    myRole = User.role
-    inPower = myRole in {&#34;root&#34;, &#34;admin&#34;}
-
-    self.myRole = myRole
-    self.inPower = inPower
-
-    siteRecord = Mongo.getRecord(&#34;site&#34;)
-    userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
-    projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
-    editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
-    projectLinks = Mongo.getList(&#34;projectUser&#34;)
-    editionLinks = Mongo.getList(&#34;editionUser&#34;)
-
-    users = AttrDict({x.user: x for x in userList})
-    projects = AttrDict({x._id: x for x in projectList})
-    editions = AttrDict({x._id: x for x in editionList})
-
-    myIds = AttrDict()
-
-    self.site = siteRecord
-    self.users = users
-    self.projects = projects
-    self.editions = editions
-    self.myIds = myIds
-
-    for eRecord in editionList:
-        eId = eRecord._id
-        pId = eRecord.projectId
-        projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
-
-    for pLink in projectLinks:
-        role = pLink.role
-
-        if role:
-            u = pLink.user
-            uRecord = users[u]
-            if uRecord is None:
-                continue
-            pId = pLink.projectId
-            pRecord = projects[pId]
-            if pRecord is None:
-                continue
-            pRecord.setdefault(&#34;users&#34;, AttrDict())
-
-            if user == u:
-                myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                for eId in pRecord.editions or []:
-                    myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-            pRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)
-
-    for eLink in editionLinks:
-        role = eLink.role
-        if role:
-            u = eLink.user
-            uRecord = users[u]
-            if uRecord is None:
-                continue
-            eId = eLink.editionId
-            eRecord = editions[eId]
-            if eRecord is None:
-                continue
-            pId = eRecord.projectId
-
-            if user == u:
-                myIds.setdefault(&#34;project&#34;, set()).add(pId)
-                myIds.setdefault(&#34;edition&#34;, set()).add(eId)
-
-            eRecord.setdefault(&#34;users&#34;, AttrDict())[u] = (uRecord, role)</code></pre>
-</details>
 </dd>
 <dt id="control.admin.Admin.wrap"><code class="name flex">
 <span>def <span class="ident">wrap</span></span>(<span>self)</span>
@@ -3478,88 +3615,6 @@ with their associated users and roles.</p>
 users and items, they will be editable.</p>
 <p>The second overview is for admin/roots only.
 It shows a list of users and their site-wide roles, which can be changed.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/admin.py#L446-L521" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrap(self):
-    &#34;&#34;&#34;Produce a list of projects and editions and users for root/admin usage.
-
-    The first overview shows all projects and editions
-    with their associated users and roles.
-
-    Only items that are relevant to the user are shown.
-
-    If the user is authorised to change associations between
-    users and items, they will be editable.
-
-    The second overview is for admin/roots only.
-    It shows a list of users and their site-wide roles, which can be changed.
-
-    &#34;&#34;&#34;
-    H = self.H
-    user = self.user
-
-    if not user:
-        H = self.H
-        return H.p(
-            &#34;Log in to view the projects and editions that you are working on.&#34;
-        )
-
-    projects = self.projects
-    myIds = self.myIds
-    siteRoles = self.siteRoles
-
-    User = self.User
-    inPower = self.inPower
-    user = self.user
-
-    projectsAll = sorted(
-        projects.values(), key=lambda x: (1 if x.isVisible else 0, x.title, x._id)
-    )
-    projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
-
-    myDetails = H.div(
-        [
-            H.h(1, &#34;My details&#34;),
-            self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
-        ],
-        id=&#34;mydetails&#34;,
-    )
-
-    wrapped = []
-    wrapped.append(H.h(1, &#34;My projects and editions&#34;))
-    wrapped.append(
-        H.div([self._wrapProject(p) for p in projectsMy])
-        if len(projectsMy)
-        else H.div(&#34;You do not have a specific role w.r.t. projects and editions.&#34;)
-    )
-    myProjects = H.div(wrapped, id=&#34;myprojects&#34;)
-    allProjects = &#34;&#34;
-    allUsers = &#34;&#34;
-
-    if inPower:
-        wrapped = []
-        wrapped.append(self._wrapPubProjects())
-
-        wrapped.append(H.h(1, &#34;All projects and editions&#34;))
-        wrapped.append(
-            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
-            if len(projectsAll)
-            else H.div(&#34;There are no projects and no editions&#34;)
-        )
-        allProjects = H.div(wrapped, id=&#34;allprojects&#34;)
-
-        wrapped = []
-        wrapped.append(H.h(1, &#34;Manage users&#34;))
-        wrapped.append(
-            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
-        )
-        allUsers = H.div(wrapped, id=&#34;allusers&#34;)
-
-    return H.div([myDetails, myProjects, allProjects, allUsers], cls=&#34;myadmin&#34;)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -3632,8 +3687,12 @@ setTimeout(() => input.focus(), 100);
 <ul class="two-column">
 <li><code><a title="control.admin.Admin.authUser" href="#control.admin.Admin.authUser">authUser</a></code></li>
 <li><code><a title="control.admin.Admin.createUser" href="#control.admin.Admin.createUser">createUser</a></code></li>
+<li><code><a title="control.admin.Admin.deleteKeyword" href="#control.admin.Admin.deleteKeyword">deleteKeyword</a></code></li>
 <li><code><a title="control.admin.Admin.deleteUser" href="#control.admin.Admin.deleteUser">deleteUser</a></code></li>
 <li><code><a title="control.admin.Admin.linkUser" href="#control.admin.Admin.linkUser">linkUser</a></code></li>
+<li><code><a title="control.admin.Admin.pubStatus" href="#control.admin.Admin.pubStatus">pubStatus</a></code></li>
+<li><code><a title="control.admin.Admin.pubTerminate" href="#control.admin.Admin.pubTerminate">pubTerminate</a></code></li>
+<li><code><a title="control.admin.Admin.saveKeyword" href="#control.admin.Admin.saveKeyword">saveKeyword</a></code></li>
 <li><code><a title="control.admin.Admin.saveRole" href="#control.admin.Admin.saveRole">saveRole</a></code></li>
 <li><code><a title="control.admin.Admin.update" href="#control.admin.Admin.update">update</a></code></li>
 <li><code><a title="control.admin.Admin.wrap" href="#control.admin.Admin.wrap">wrap</a></code></li>
@@ -3646,7 +3705,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

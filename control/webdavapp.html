@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.webdavapp API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,13 +26,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/webdavapp.py#L1-L151" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/webdavapp.py#L1-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from wsgidav.wsgidav_app import WsgiDAVApp
 
-from control.prepare import prepare
-from control.app import appFactory as appFactoryMain
-from control.flask import appMake
+from .prepare import prepare
+from .app import appFactory as appFactoryMain
+from .flask import appMake
 
 
 def getWebdavApp(objects):
@@ -217,72 +217,12 @@ requests will almost surely block the whole application.</p>
 However, the app does not run in debug mode then, so tracing errors becomes
 more difficult then.</p>
 </div></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/webdavapp.py#L111-L151" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def appFactory():
-    &#34;&#34;&#34;Make a WebDAV enabled app.
-
-    * Combine the main app with an other wsgi app that can handle
-    WebDAV requests.
-
-    There is a Python module that offers a wsgi app out of the box
-    that can talk WebDAV, we configure it in `getWebdavApp()`.
-
-    The `dispatchWebdav()` function combines the current app with this
-    WebDAV app at a deep level, before requests are fed to either app.
-
-    !!! note &#34;Authorisation&#34;
-        Authorisation of WebDAV requests happens in the main app.
-        See `dispatchWebdav()`.
-
-    !!! caution &#34;Requirements for the server&#34;
-        When this Flask app runs and the Voyager software is run in edit mode,
-        the client will fire a sequence  of webdav requests to the server.
-
-        When the app is served by the default Flask development server, these
-        requests will almost surely block the whole application.
-
-        The solution is to run the app through a task runner like Gunicorn.
-        However, the app does not run in debug mode then, so tracing errors becomes
-        more difficult then.
-    &#34;&#34;&#34;
-
-    trivial = False
-
-    objects = prepare(trivial=trivial)
-
-    if trivial:
-        app = appFactoryMain(objects)
-    else:
-        origApp = appFactoryMain(objects)
-        app = appFactoryMaster()
-
-        app.wsgi_app = dispatchWebdav(origApp, &#34;/webdav/&#34;, getWebdavApp(objects))
-
-    return app</code></pre>
-</details>
 </dd>
 <dt id="control.webdavapp.appFactoryMaster"><code class="name flex">
 <span>def <span class="ident">appFactoryMaster</span></span>(<span>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Factory function for the master flask app.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/webdavapp.py#L102-L108" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def appFactoryMaster():
-    &#34;&#34;&#34;Factory function for the master flask app.
-    &#34;&#34;&#34;
-    app = appMake(__name__)
-    # At the setting below does not seem to have any effect
-    # app.config[&#34;MAX_CONTENT_LENGTH&#34;] = 16 * 1024 * 1024
-    return app</code></pre>
-</details>
 </dd>
 <dt id="control.webdavapp.dispatchWebdav"><code class="name flex">
 <span>def <span class="ident">dispatchWebdav</span></span>(<span>app, webdavPrefix, webdavApp)</span>
@@ -324,81 +264,6 @@ respond with a 404 to such requests.</p>
 </dl>
 <p>webdavApp:
 A WEBDav server.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/webdavapp.py#L31-L99" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def dispatchWebdav(app, webdavPrefix, webdavApp):
-    &#34;&#34;&#34;Combines the main app with the webdavapp.
-
-    A WSGI app is essentially a function that takes a request
-    environment and a start-response function and produces a response.
-
-    We combine two wsgi apps by defining a new WSGI function
-    out of the WSGI functions of the component apps.
-    We call this function the dispatcher.
-
-    The combined function works so that requests with urls starting
-    with a certain prefix are dispatched to the webdav app,
-    while all other requests are handled by the main app.
-
-    However, we must do proper authorisation for the calls that
-    are sent to the webdav app. But the business-logic for
-    authorisation is in the main app, while we want to leave
-    the code of the webdav app untouched.
-
-    We solve this by making the dispatcher so that it
-    feeds every WebDAV request to the main app first.
-    We mark those requests by prepending `/auth` in front of the
-    original url.
-
-    The main app is programmed to react to such requests by
-    returning a boolean to the dispatcher, instead of sending a
-    response to the client.
-    See `control.pages.Pages.authWebdav`.
-    The dispatcher interprets this boolean as telling whether the
-    request is authorized.
-    If so, it sends the original request to the webdav app.
-    If not, it prepends `/cannot` to the original url and sends
-    the request to the main app, which is programmed to
-    respond with a 404 to such requests.
-
-    Parameters
-    ----------
-    app: object
-        The original flask app.
-    webdavPrefix: string
-        Initial part of the url that is used as trigger to divert to the WEBDav app.
-    webdavApp:
-        A WEBDav server.
-    &#34;&#34;&#34;
-
-    def wsgi_function(environ, start_response):
-        &#34;&#34;&#34;Internal function for to deliver as result.
-        &#34;&#34;&#34;
-        url = environ.get(&#34;PATH_INFO&#34;, &#34;&#34;)
-        aimedAtWebdav = url.startswith(webdavPrefix)
-
-        if aimedAtWebdav:
-            theApp = webdavApp
-            environ[&#34;PATH_INFO&#34;] = f&#34;/auth{url}&#34;
-            with app.request_context(environ) as ctx:
-                ctx.push()
-                authorized = app.dispatch_request()
-                ctx.pop()
-            if authorized:
-                environ[&#34;PATH_INFO&#34;] = url
-                theApp = webdavApp
-            else:
-                environ[&#34;PATH_INFO&#34;] = f&#34;/cannot{url}&#34;
-                theApp = app.wsgi_app
-        else:
-            theApp = app.wsgi_app
-        return theApp(environ, start_response)
-
-    return wsgi_function</code></pre>
-</details>
 </dd>
 <dt id="control.webdavapp.getWebdavApp"><code class="name flex">
 <span>def <span class="ident">getWebdavApp</span></span>(<span>objects)</span>
@@ -408,33 +273,6 @@ A WEBDav server.</p></div>
 <p>We get the WebDAV app ready-made from
 <a href="https://wsgidav.readthedocs.io/en/latest/">WsgiDav</a>,
 and configure it here.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/webdavapp.py#L8-L28" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getWebdavApp(objects):
-    &#34;&#34;&#34;Configure a webapp that provides WebDAV.
-
-    We get the WebDAV app ready-made from
-    [WsgiDav](https://wsgidav.readthedocs.io/en/latest/),
-    and configure it here.
-    &#34;&#34;&#34;
-    Settings = objects.Settings
-
-    webdavConfig = {
-        &#34;provider_mapping&#34;: {
-            &#34;/webdav/&#34;: {
-                &#34;root&#34;: Settings.workingDir,
-                &#34;readonly&#34;: False,
-            },
-        },
-        &#34;simple_dc&#34;: {&#34;user_mapping&#34;: {&#34;*&#34;: True}},
-        &#34;verbose&#34;: 1,
-    }
-
-    return WsgiDAVApp(webdavConfig)</code></pre>
-</details>
 </dd>
 </dl>
 </section>
@@ -513,7 +351,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

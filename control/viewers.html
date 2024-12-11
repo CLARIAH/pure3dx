@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.viewers API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,11 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L1-L482" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/viewers.py#L1-L483" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 
-from control.generic import AttrDict, attResolve
+from .generic import AttrDict, attResolve
 
 
 class Viewers:
@@ -396,6 +396,7 @@ class Viewers:
             fileBase = modeProps.fileBase
             subModes = modeProps.subModes or AttrDict()
             atts = attResolve(subModes[subMode] or AttrDict(), version)
+
             if subMode != &#34;create&#34;:
                 atts[&#34;document&#34;] = sceneFile
 
@@ -411,7 +412,7 @@ class Viewers:
                         H.link(&#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/fonts/fonts.css&#34;),
                         H.link(
                             &#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/css/{fileBase}.{ext}.css&#34;
-                        ),
+                        ) if action == &#34;update&#34; else &#34;&#34;,
                         H.script(
                             &#34;&#34;,
                             defer=True,
@@ -489,7 +490,7 @@ class Viewers:
 
         Parameters
         ----------
-        urlBase: string
+        viewerUrlBase: string
             The first part of the root url, depending
             on the project and edition.
         action: string
@@ -541,7 +542,7 @@ and has the methods to invoke them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L6-L482" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/viewers.py#L6-L483" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Viewers:
     def __init__(self, Settings, Messages):
@@ -906,6 +907,7 @@ and has the methods to invoke them.</p>
             fileBase = modeProps.fileBase
             subModes = modeProps.subModes or AttrDict()
             atts = attResolve(subModes[subMode] or AttrDict(), version)
+
             if subMode != &#34;create&#34;:
                 atts[&#34;document&#34;] = sceneFile
 
@@ -921,7 +923,7 @@ and has the methods to invoke them.</p>
                         H.link(&#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/fonts/fonts.css&#34;),
                         H.link(
                             &#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/css/{fileBase}.{ext}.css&#34;
-                        ),
+                        ) if action == &#34;update&#34; else &#34;&#34;,
                         H.script(
                             &#34;&#34;,
                             defer=True,
@@ -999,7 +1001,7 @@ and has the methods to invoke them.</p>
 
         Parameters
         ----------
-        urlBase: string
+        viewerUrlBase: string
             The first part of the root url, depending
             on the project and edition.
         action: string
@@ -1030,19 +1032,6 @@ and has the methods to invoke them.</p>
 <div class="desc"><p>Give this object a handle to the Auth object.</p>
 <p>The Viewers and Auth objects need each other, so one of them must
 be given the handle to the other after initialization.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L30-L36" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addAuth(self, Auth):
-    &#34;&#34;&#34;Give this object a handle to the Auth object.
-
-    The Viewers and Auth objects need each other, so one of them must
-    be given the handle to the other after initialization.
-    &#34;&#34;&#34;
-    self.Auth = Auth</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.check"><code class="name flex">
 <span>def <span class="ident">check</span></span>(<span>self, viewer, version)</span>
@@ -1069,47 +1058,6 @@ of that viewer is taken, if there is a default version,
 otherwise the latest supported version.
 If the viewer is not supported, None is returned.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L38-L72" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def check(self, viewer, version):
-    &#34;&#34;&#34;Checks whether a viewer version exists.
-
-    Given a viewer and a version, it is looked up whether the code
-    is present.
-    If not, reasonable defaults returned instead by default.
-
-    Parameters
-    ----------
-    viewer: string
-        The viewer in question.
-    version: string
-        The version of the viewer in question.
-
-    Returns
-    -------
-    string | void
-        The version is returned unmodified if that viewer
-        version is supported.
-        If the viewer is supported, but not the version, the default version
-        of that viewer is taken, if there is a default version,
-        otherwise the latest supported version.
-        If the viewer is not supported, None is returned.
-    &#34;&#34;&#34;
-    viewers = self.viewers
-
-    if viewer not in viewers:
-        return None
-
-    viewerInfo = viewers[viewer]
-    versions = viewerInfo.versions
-    defaultVersion = viewerInfo.defaultVersion
-    if version not in versions:
-        version = defaultVersion
-    return version</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.genHtml"><code class="name flex">
 <span>def <span class="ident">genHtml</span></span>(<span>self, urlBase, sceneFile, viewer, version, action, subMode)</span>
@@ -1140,97 +1088,6 @@ The root url will be completed with the <code>action</code> and the <code>viewer
 <dt><code>string</code></dt>
 <dd>The HTML for the iframe.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L322-L406" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def genHtml(self, urlBase, sceneFile, viewer, version, action, subMode):
-    &#34;&#34;&#34;Generates the HTML for the viewer page that is loaded in an iframe.
-
-    When a scene is loaded in a viewer, it happens in an iframe.
-    Here we generate the complete HTML for such an iframe.
-
-    Parameters
-    ----------
-    urlBase: string
-        The first part of the root url that is given to the viewer.
-        The viewer code uses this to retrieve additional information.
-        The root url will be completed with the `action` and the `viewer`.
-    sceneFile: string
-        The name of the scene file in the file system.
-    viewer: string
-        The chosen viewer.
-    version: string
-        The chosen version of the viewer.
-    action: string
-        The chosen mode in which the viewer is launched (`read` or `update`).
-    subMode: string | None
-        The sub mode in which the viewer is to be used (`update` or `create`).
-
-    Returns
-    -------
-    string
-        The HTML for the iframe.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    debugMode = Settings.debugMode
-    viewerUrlBase = Settings.viewerUrlBase
-    viewers = self.viewers
-
-    ext = &#34;dev&#34; if debugMode else &#34;min&#34;
-
-    viewerStaticRoot = self.getStaticRoot(viewerUrlBase, action, viewer, version)
-
-    viewerRoot = self.getRoot(urlBase, action, viewer)
-
-    if viewer == &#34;voyager&#34;:
-        modes = viewers[viewer].modes
-        modeProps = modes[action]
-        element = modeProps.element
-        fileBase = modeProps.fileBase
-        subModes = modeProps.subModes or AttrDict()
-        atts = attResolve(subModes[subMode] or AttrDict(), version)
-        if subMode != &#34;create&#34;:
-            atts[&#34;document&#34;] = sceneFile
-
-        return H.content(
-            H.head(
-                [
-                    H.meta(charset=&#34;utf-8&#34;),
-                    H.link(
-                        &#34;shortcut icon&#34;,
-                        f&#34;{viewerStaticRoot}/favicon.png&#34;,
-                        tp=&#34;image/png&#34;,
-                    ),
-                    H.link(&#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/fonts/fonts.css&#34;),
-                    H.link(
-                        &#34;stylesheet&#34;, f&#34;{viewerStaticRoot}/css/{fileBase}.{ext}.css&#34;
-                    ),
-                    H.script(
-                        &#34;&#34;,
-                        defer=True,
-                        src=f&#34;{viewerStaticRoot}/js/{fileBase}.{ext}.js&#34;,
-                    ),
-                ]
-            ),
-            H.body(
-                H.elem(
-                    element,
-                    &#34;&#34;,
-                    root=viewerRoot,
-                    resourceroot=f&#34;{viewerStaticRoot}/&#34;,
-                    **atts,
-                )
-            ),
-        )
-    else:
-        return H.content(
-            H.head(H.meta(charset=&#34;utf-8&#34;)),
-            H.body(H.p(f&#34;Unsupported viewer: {viewer}&#34;)),
-        )</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.getFrame"><code class="name flex">
 <span>def <span class="ident">getFrame</span></span>(<span>self, edition, actions, viewer, versionActive, actionActive, sceneExists)</span>
@@ -1264,231 +1121,6 @@ if any, otherwise None</dd>
 <dt><code>string</code></dt>
 <dd>The HTML that represents the buttons.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L102-L320" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getFrame(
-    self, edition, actions, viewer, versionActive, actionActive, sceneExists
-):
-    &#34;&#34;&#34;Produces a set of buttons to launch 3D viewers for a scene.
-
-    Make sure that if there is no scene file present, no viewer will be opened.
-
-    Parameters
-    ----------
-    edition: AttrDict
-        The edition in question.
-    actions: iterable of string
-        The actions for which we have to create buttons.
-        Typically `read` and possibly also `update`.
-        Actions that are not recognized as viewer actions
-        will be filtered out, such as `create` and `delete`.
-    viewer: string
-        The viewer in which the scene is currently loaded.
-    versionActive: string | void
-        The version of the viewer in which the scene is currently loaded,
-        if any, otherwise None
-    actionActive: string | void
-        The mode in which the scene is currently loaded in the viewer
-        (`read` or `update`),
-        if any, otherwise None
-    sceneExists: boolean
-        Whether the scene file exists.
-
-    Returns
-    -------
-    string
-        The HTML that represents the buttons.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    actionInfo = self.viewerActions
-    viewers = self.viewers
-
-    filteredActions = {a for a in actions if a in actionInfo and a != &#34;create&#34;}
-    versionActive = self.check(viewer, versionActive)
-
-    editionId = edition._id
-    if editionId is None:
-        return (&#34;&#34;, &#34;&#34;)
-
-    create = &#34;/update&#34; if sceneExists else &#34;/create&#34;
-
-    src = f&#34;/viewer/{versionActive}/{actionActive}/{editionId}{create}&#34;
-    frame = H.div(
-        H.div(H.iframe(src, cls=&#34;previewer&#34;), cls=&#34;surround&#34;), cls=&#34;model&#34;
-    )
-
-    def getViewerButtons(vw):
-        &#34;&#34;&#34;Internal function.
-
-        Returns
-        -------
-        string
-            HTML for the buttons to launch a viewer.
-        &#34;&#34;&#34;
-        openAtt = vw == viewer
-
-        versions = viewers[vw].versions
-        if len(versions) == 1:
-            version = versions[0]
-            return H.table(
-                [
-                    getVersionButtons(
-                        version,
-                        version == versionActive,
-                        versionAmount=len(versions),
-                        withViewer=True,
-                        withVersion=True,
-                        # withViewer=not pilotMode,
-                        # withVersion=not pilotMode,
-                    )
-                ],
-                [],
-                cls=&#34;vwv&#34;,
-            )
-
-        (latest, previous) = (versions[0:1], versions[1:])
-
-        openAtt = vw == viewer and len(previous) and versionActive in previous
-
-        return H.details(
-            H.table(
-                [
-                    getVersionButtons(
-                        version,
-                        version == versionActive,
-                        versionAmount=len(versions),
-                        withViewer=True,
-                    )
-                    for version in latest
-                ],
-                [],
-                cls=&#34;vwv&#34;,
-            ),
-            H.table(
-                [],
-                [
-                    getVersionButtons(
-                        version, version == versionActive, withViewer=False
-                    )
-                    for version in previous
-                ],
-                cls=&#34;vwv&#34;,
-            ),
-            f&#34;vwbuttons-{editionId}&#34;,
-            cls=&#34;vw&#34;,
-            open=openAtt,
-        )
-
-    def getVersionButtons(
-        version, active, versionAmount=None, withViewer=False, withVersion=True
-    ):
-        &#34;&#34;&#34;Internal function.
-
-        Parameters
-        ----------
-        version: string
-            The version of the viewer.
-        active: boolean
-            Whether that version of that viewer is currently active.
-        versionAmount: int, optional None
-            If passed, contains the number of versions and displays it.
-        withViewer: boolean, optional False
-            Whether to show the viewer name in the first column.
-        withVersion: boolean, optional True
-            Whether to show the version in the second column.
-
-        Returns
-        -------
-        string
-            HTML for the buttons to launch a specific version of a viewer.
-        &#34;&#34;&#34;
-        activeRowCls = &#34;activer&#34; if active else &#34;&#34;
-
-        plural = &#34;&#34; if versionAmount == 2 else &#34;s&#34;
-        title = (
-            f&#34;click to show previous {versionAmount - 1} {viewer} version{plural}&#34;
-            if versionAmount and versionAmount &gt; 1
-            else f&#34;no previous {viewer} versions&#34;
-        )
-
-        return (
-            [
-                (viewer if withViewer else H.nbsp, dict(cls=&#34;vwc&#34;, title=title)),
-                (
-                    version if withVersion else H.nbsp,
-                    dict(cls=&#34;vvl vwc&#34;, title=title),
-                ),
-            ]
-            + [
-                getActionButton(
-                    version, action, disabled=active and action == actionActive
-                )
-                for action in sorted(filteredActions)
-            ],
-            dict(cls=activeRowCls),
-        )
-
-    def getActionButton(version, action, disabled=False):
-        &#34;&#34;&#34;Internal function.
-
-        Parameters
-        ----------
-        version: string
-            The version of the viewer.
-        action: string
-            Whether to launch the viewer for `read` or for `update`.
-        disabled: boolean, optional Fasle
-            Whether to show the button as disabled
-
-        Returns
-        -------
-        string
-            HTML for the buttons to launch a specific version of a viewer
-            for a specific action.
-        &#34;&#34;&#34;
-        atts = {}
-
-        href = None if disabled else f&#34;/edition/{editionId}/{version}/{action}&#34;
-
-        if action == &#34;update&#34;:
-            viewerHref = f&#34;/viewer/{version}/{action}/{editionId}{create}&#34;
-            atts[&#34;onclick&#34;] = dedent(
-                f&#34;&#34;&#34;
-                window.open(
-                    &#39;{viewerHref}&#39;,
-                    &#39;newwindow&#39;,
-                    width=window.innerWidth,
-                    height=window.innerHeight
-                );
-                return false;
-                &#34;&#34;&#34;
-            )
-
-        titleFragment = &#34;a new window&#34; if action == &#34;update&#34; else &#34;place&#34;
-
-        createMode = action == &#34;update&#34; and not sceneExists
-        action = &#34;create&#34; if createMode else action
-        thisActionInfo = actionInfo.get(action, AttrDict())
-        name = thisActionInfo.name
-        atts[&#34;title&#34;] = f&#34;{name} scene in {titleFragment}&#34;
-
-        disabledCls = &#34;disabled&#34; if disabled else &#34;&#34;
-        activeCellCls = &#34;activec&#34; if disabled else &#34;&#34;
-        cls = f&#34;button vwb {disabledCls}&#34;
-
-        return (
-            H.iconx(action, text=name, href=href, cls=cls, **atts),
-            dict(cls=f&#34;vwc {activeCellCls}&#34;),
-        )
-
-    allButtons = H.div([getViewerButtons(vw) for vw in viewers])
-
-    return (frame if sceneExists else &#34;&#34;, allButtons)</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.getRoot"><code class="name flex">
 <span>def <span class="ident">getRoot</span></span>(<span>self, urlBase, action, viewer)</span>
@@ -1520,53 +1152,6 @@ and voyager-story to a root url starting with <code>/webdav</code>.</p>
 in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L408-L448" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getRoot(self, urlBase, action, viewer):
-    &#34;&#34;&#34;Composes the root url for a viewer.
-
-    The root url is passed to a viewer instance as the url that
-    the viewer can use to fetch its data.
-    It is not meant for the static data that is part of the viewer software,
-    but for the model related data that the viewer is going to display.
-
-    See `getStaticRoot()` for the url meant for getting parts of the
-    viewer software.
-
-    Parameters
-    ----------
-    urlBase: string
-        The first part of the root url, depending
-        on the project and edition.
-    action: string
-        The mode in which the viewer is opened.
-        Depending on the mode, the viewer code may communicate with the server
-        with different urls.
-        For example, for the voyager,
-        the `read` mode (voyager-explorer) uses ordinary HTTP requests,
-        but the `update` mode (voyager-story) uses WebDAV requests.
-
-        So this app points voyager-explorer to a root url starting with `/data`,
-        and voyager-story to a root url starting with `/webdav`.
-
-        These prefixes of the urls can be configured per viewer
-        in the viewer configuration in `yaml/viewers.yml`.
-    &#34;&#34;&#34;
-    viewers = self.viewers
-
-    if viewer not in viewers:
-        return None
-
-    modes = viewers[viewer].modes
-
-    thisMode = modes[action] or modes.read
-    prefix = thisMode.prefix
-
-    return f&#34;{prefix}/{urlBase}&#34;</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.getStaticRoot"><code class="name flex">
 <span>def <span class="ident">getStaticRoot</span></span>(<span>self, viewerUrlBase, action, viewer, version)</span>
@@ -1580,7 +1165,7 @@ viewer software that it needs to get from the server.</p>
 <p>See <code>getRoot()</code> for the url meant for getting model-related data.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>urlBase</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>viewerUrlBase</code></strong> :&ensp;<code>string</code></dt>
 <dd>The first part of the root url, depending
 on the project and edition.</dd>
 <dt><strong><code>action</code></strong> :&ensp;<code>string</code></dt>
@@ -1597,45 +1182,6 @@ and voyager-story to a root url starting with <code>/webdav</code>.</p>
 in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L450-L482" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getStaticRoot(self, viewerUrlBase, action, viewer, version):
-    &#34;&#34;&#34;Composes the static root url for a viewer.
-
-    The static root url is passed to a viewer instance as the url that the
-    viewer can use to fetch its assets.
-    It is not meant for the model related data, but for the parts of the
-    viewer software that it needs to get from the server.
-
-    See `getRoot()` for the url meant for getting model-related data.
-
-    Parameters
-    ----------
-    urlBase: string
-        The first part of the root url, depending
-        on the project and edition.
-    action: string
-        The mode in which the viewer is opened.
-        Depending on the mode, the viewer code may communicate with the server
-        with different urls.
-        For example, for the voyager,
-        the `read` mode (voyager-explorer) uses ordinary HTTP requests,
-        but the `update` mode (voyager-story) uses WebDAV requests.
-
-        So this app points voyager-explorer to a root url starting with `/data`,
-        and voyager-story to a root url starting with `/webdav`.
-
-        These prefixes of the urls can be configured per viewer
-        in the viewer configuration in `yaml/viewers.yml`.
-    &#34;&#34;&#34;
-    if not self.check(viewer, version):
-        return None
-
-    return f&#34;{viewerUrlBase}/{viewer}/{version}&#34;</code></pre>
-</details>
 </dd>
 <dt id="control.viewers.Viewers.getViewInfo"><code class="name flex">
 <span>def <span class="ident">getViewInfo</span></span>(<span>self, edition)</span>
@@ -1657,39 +1203,6 @@ in the viewer configuration in <code>yaml/viewers.yml</code>.</p>
 </ul>
 </dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/viewers.py#L74-L100" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getViewInfo(self, edition):
-    &#34;&#34;&#34;Gets viewer-related info that an edition is made with.
-
-    Parameters
-    ----------
-    edition: AttrDict
-        The edition record.
-
-    Returns
-    -------
-    tuple of string
-        * The name of the viewer
-        * The name of the scene
-
-    &#34;&#34;&#34;
-    viewerDefault = self.viewerDefault
-
-    editionId = edition._id
-    if editionId is None:
-        return (viewerDefault, None)
-
-    editionSettings = edition.settings or AttrDict()
-    authorTool = editionSettings.authorTool or AttrDict()
-    viewer = authorTool.name or viewerDefault
-    sceneFile = authorTool.sceneFile
-
-    return (viewer, sceneFile)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1776,7 +1289,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

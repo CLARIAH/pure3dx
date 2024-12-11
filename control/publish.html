@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.publish API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,12 +26,12 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L1-L464" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/publish.py#L1-L513" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from datetime import datetime as dt
-from traceback import format_exception
+<pre><code class="python">from traceback import format_exception
+from .mongo import Mongo
 
-from control.files import (
+from .files import (
     dirContents,
     dirMake,
     dirRemove,
@@ -41,14 +41,14 @@ from control.files import (
     fileRemove,
     writeJson,
 )
-from control.generic import deepdict
-from control.precheck import Precheck as PrecheckCls
-from control.static import Static as StaticCls
+from .generic import AttrDict, deepdict, isonow
+from .precheck import Precheck as PrecheckCls
+from .static import Static as StaticCls
 
 
 class Publish:
     def __init__(
-        self, Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+        self, Settings, Messages, Viewers, Mongo: Mongo, Content, Tailwind, Handlebars
     ):
         &#34;&#34;&#34;Publishing content as static pages.
 
@@ -77,7 +77,9 @@ class Publish:
         Content.addPublish(self)
 
         self.Precheck = (
-            None if Content is None else PrecheckCls(Settings, Messages, Viewers)
+            None
+            if Content is None
+            else PrecheckCls(Settings, Messages, Content, Viewers)
         )
 
     def getPubNums(self, project, edition):
@@ -91,6 +93,24 @@ class Publish:
         When we look for those numbers, we look in the database records,
         and we look on the filesystem, and we take the number one higher than
         the maximum number used in the database and on the file system.
+
+        **N.B.:** This practice has the flaw that numbers used for publishing projects
+        and editions may get reused when you unpublish and/or delete published editions.
+
+        We store the used publishing numbers for projects and editions in the
+        `site` record, as a dictionary named pubNums, keyed by project numbers, and
+        valued by the maximum edition pubNum for that project.
+
+        The `pubNums` dictionary will never lose keys, and its values will
+        never be lowered when projects or editions are removed.
+
+        So new projects and editions always get numbers that have never been used before
+        for publishing.
+
+        We also copy the `pubNum` field of a project or edition into the field
+        `pubNumLast` when we unpublish such an item, thereby nulling the `pubNum` field.
+        When we republish the item, its `pubNumLast` is restored to the `pubNum`
+        field.
         &#34;&#34;&#34;
         Mongo = self.Mongo
         Settings = self.Settings
@@ -100,9 +120,9 @@ class Publish:
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
 
-        def getNum(kind, item, pubNumLast, condition, itemsDir):
+        def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, stop=False, **condition)
+                itemsDb = Mongo.getList(kind, **condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -116,21 +136,40 @@ class Publish:
 
             return pubNum
 
-        kind = &#34;project&#34;
-        item = project
-        pubNumLast = pPubNumLast
-        condition = {}
-        itemsDir = projectDir
+        if pPubNumLast is None:
+            # because there is only 1 site in the database,
+            # we can retrieve it without paramaters
+            site = Mongo.getRecord(&#34;site&#34;)
 
-        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+            if &#34;publishedProjectCount&#34; in site:
+                pPubNum = site[&#34;publishedProjectCount&#34;] + 1
+            else:
+                # Determine project publish number the old way,
+                # to make sure no two project have the same pubNum
+                pPubNum = getNum(&#34;project&#34;, pPubNumLast, {}, projectDir)
 
-        kind = &#34;edition&#34;
-        item = edition
-        pubNumLast = ePubNumLast
-        condition = dict(projectId=project._id)
-        itemsDir = f&#34;{projectDir}/{pPubNum}/edition&#34;
+            Mongo.updateRecord(&#34;site&#34;, {&#34;publishedProjectCount&#34;: pPubNum})
 
-        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+        else:
+            pPubNum = pPubNumLast
+
+        if ePubNumLast is None:
+            if &#34;publishedEditionCount&#34; in project:
+                ePubNum = project[&#34;publishedEditionCount&#34;] + 1
+            else:
+                # use get num for existing projects
+                kind = &#34;edition&#34;
+                pubNumLast = ePubNumLast
+                condition = dict(projectId=project._id)
+                itemsDir = f&#34;{projectDir}/{pPubNum}/edition&#34;
+
+                ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
+
+            Mongo.updateRecord(
+                &#34;project&#34;, {&#34;publishedEditionCount&#34;: ePubNum}, _id=project._id
+            )
+        else:
+            ePubNum = ePubNumLast
 
         return (pPubNum, ePubNum)
 
@@ -145,13 +184,14 @@ class Publish:
         site = Content.relevant()[-1]
         featured = Content.getValue(&#34;site&#34;, site, &#34;featured&#34;, manner=&#34;logical&#34;)
 
-        Static = StaticCls(Settings, Messages, Viewers, Tailwind, Handlebars)
+        Static = StaticCls(Settings, Messages, Content, Viewers, Tailwind, Handlebars)
 
         try:
+            self.addSiteFiles(site)
             good = Static.genPages(pPubNum, ePubNum, featured=featured)
 
         except Exception as e1:
-            Messages.error(logmsg=&#34;&#34;.join(format_exception(e1)), stop=False)
+            Messages.error(logmsg=&#34;&#34;.join(format_exception(e1)))
             good = False
 
         return good
@@ -160,10 +200,11 @@ class Publish:
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        Content = self.Content
         Precheck = self.Precheck
 
         if action not in {&#34;add&#34;, &#34;remove&#34;}:
-            Messages.error(msg=f&#34;unknown action {action}&#34;, stop=False)
+            Messages.error(msg=f&#34;unknown action {action}&#34;)
             return
 
         processing = site.processing
@@ -184,7 +225,7 @@ class Publish:
         # this will prevent other publishing actions while this action is running
 
         last = site.lastPublished
-        now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
+        now = isonow()
 
         Mongo.updateRecord(
             &#34;site&#34;, dict(processing=True, lastPublished=now), _id=site._id
@@ -195,24 +236,27 @@ class Publish:
         pubModeDir = Settings.pubModeDir
         projectDir = f&#34;{pubModeDir}/project&#34;
 
-        def restore(table, record):
-            key = &#34;isVisible&#34; if table == &#34;project&#34; else &#34;isPublished&#34;
-            Mongo.updateRecord(
-                table,
-                {
-                    &#34;pubNum&#34;: record.pubNum,
-                    &#34;lastPublished&#34;: record.lastPublished,
-                    key: record[key] or False,
-                },
-                _id=record._id,
-            )
+        orig = dict(
+            project=AttrDict(
+                condition=dict(_id=project._id),
+                updates={k: v for (k, v) in project.items() if k != &#34;_id&#34;},
+            ),
+            edition=AttrDict(
+                condition=dict(_id=edition._id),
+                updates={k: v for (k, v) in edition.items() if k != &#34;_id&#34;},
+            ),
+        )
+
+        def restore(table):
+            info = orig[table]
+            Mongo.updateRecord(table, info.updates, **info.condition)
 
         # quit early, without doing anything, if the action is not applicable
 
         good = True
 
         if action == &#34;add&#34;:
-            thisGood = Precheck.checkEdition(project, edition._id, edition)
+            thisGood = Precheck.checkEdition(site, project, edition._id, edition)
 
             if thisGood:
                 Messages.info(&#34;Edition validation OK&#34;)
@@ -230,7 +274,6 @@ class Publish:
                 Messages.error(
                     msg=&#34;Could not find a publication number for project&#34;,
                     logmsg=f&#34;Could not find a pubnum for project {project._id}&#34;,
-                    stop=False,
                 )
                 good = False
 
@@ -238,7 +281,6 @@ class Publish:
                 Messages.error(
                     msg=&#34;Could not find a publication number for edition&#34;,
                     logmsg=f&#34;Could not find a pubnum for {project._id}/{edition._id}&#34;,
-                    stop=False,
                 )
                 good = False
 
@@ -265,18 +307,29 @@ class Publish:
                 good = False
 
         if good:
+            fieldPaths = Content.fieldPaths
+            datePublishedPath = fieldPaths[&#34;datePublished&#34;]
+            dateUnPublishedPath = fieldPaths[&#34;dateUnPublished&#34;]
+
             thisProjectDir = f&#34;{projectDir}/{pPubNum}&#34;
             logmsg = None
 
             if action == &#34;add&#34;:
+                againRep = &#34;Re-&#34; if again else &#34;&#34;
                 try:
                     stage = f&#34;set pubnum for project to {pPubNum}&#34;
-                    update = dict(pubNum=pPubNum, lastPublished=now, isVisible=True)
+                    update = dict(pubNum=pPubNum, isVisible=True)
                     Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
+                    project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
 
                     stage = f&#34;set pubnum for edition to {ePubNum}&#34;
-                    update = dict(pubNum=ePubNum, lastPublished=now, isPublished=True)
+                    update = {
+                        &#34;pubNum&#34;: ePubNum,
+                        &#34;isPublished&#34;: True,
+                        datePublishedPath: now,
+                    }
                     Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
+                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
 
                     stage = &#34;add site files&#34;
                     self.addSiteFiles(site)
@@ -291,9 +344,9 @@ class Publish:
 
                     if self.generatePages(pPubNum, ePubNum):
                         Messages.info(
-                            msg=f&#34;Published edition to {pPubNum}/{ePubNum}&#34;,
+                            msg=f&#34;{againRep}Published edition to {pPubNum}/{ePubNum}&#34;,
                             logmsg=(
-                                f&#34;Published {project._id}/{edition._id} &#34;
+                                f&#34;{againRep}Published {project._id}/{edition._id} &#34;
                                 f&#34;as {pPubNum}/{ePubNum}&#34;
                             ),
                         )
@@ -303,16 +356,14 @@ class Publish:
                 except Exception as e:
                     good = False
                     logmsg = (
-                        f&#34;Publishing {project._id}/{edition._id} &#34;
+                        f&#34;{againRep}Publishing {project._id}/{edition._id} &#34;
                         f&#34;as {pPubNum}/{ePubNum} failed with error {e}&#34;
                         f&#34;at stage &#39;{stage}&#39;&#34;
                     )
 
                 if not good:
                     Messages.error(
-                        msg=&#34;Publishing of edition failed&#34;,
-                        logmsg=logmsg,
-                        stop=False,
+                        msg=f&#34;{againRep}Publishing of edition failed&#34;, logmsg=logmsg
                     )
                     self.removeEditionFiles(pPubNum, ePubNum)
                     theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
@@ -323,8 +374,12 @@ class Publish:
             elif action == &#34;remove&#34;:
                 try:
                     stage = f&#34;unset pubnum for edition from {ePubNum} to None&#34;
-                    update = dict(pubNum=None, isPublished=False)
+                    update = {
+                        &#34;isPublished&#34;: False,
+                        dateUnPublishedPath: now,
+                    }
                     Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
+                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
 
                     stage = f&#34;remove edition files {pPubNum}/{ePubNum}&#34;
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -344,15 +399,13 @@ class Publish:
                     theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
 
                     if len(theseEditions) == 0:
-                        stage = f&#34;unset pubnum for project from {pPubNum} to None&#34;
-                        update = dict(pubNum=None, isVisible=False)
+                        stage = f&#34;make project with {pPubNum} invisible&#34;
+                        update = dict(isVisible=False)
                         Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
+                        project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
 
                         stage = f&#34;remove project files {pPubNum}&#34;
                         self.removeProjectFiles(pPubNum)
-
-                        pPubNumNew = None
-
                     else:
                         Messages.info(
                             msg=(
@@ -387,19 +440,15 @@ class Publish:
                     )
 
                 if not good:
-                    Messages.error(
-                        msg=&#34;Unpublishing of edition failed&#34;,
-                        logmsg=logmsg,
-                        stop=False,
-                    )
+                    Messages.error(msg=&#34;Unpublishing of edition failed&#34;, logmsg=logmsg)
 
         # finish off with unsetting the processing flag in the database
 
         if good:
             lastPublished = now
         else:
-            restore(&#34;project&#34;, project)
-            restore(&#34;edition&#34;, edition)
+            restore(&#34;project&#34;)
+            restore(&#34;edition&#34;)
             lastPublished = last
 
         Mongo.updateRecord(
@@ -420,7 +469,7 @@ class Publish:
             fileCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;project&#34;, &#34;meta&#34;}:
+            if x in {&#34;project&#34;, &#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
@@ -444,7 +493,7 @@ class Publish:
             fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;edition&#34;, &#34;meta&#34;}:
+            if x in {&#34;edition&#34;, &#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
@@ -472,7 +521,7 @@ class Publish:
             fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;meta&#34;}:
+            if x in {&#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
@@ -505,7 +554,7 @@ class Publish:
 <dl>
 <dt id="control.publish.Publish"><code class="flex name class">
 <span>class <span class="ident">Publish</span></span>
-<span>(</span><span>Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars)</span>
+<span>(</span><span>Settings, Messages, Viewers, Mongo: <a title="control.mongo.Mongo" href="mongo.html#control.mongo.Mongo">Mongo</a>, Content, Tailwind, Handlebars)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Publishing content as static pages.</p>
@@ -525,11 +574,11 @@ class Publish:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L19-L464" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/publish.py#L19-L513" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Publish:
     def __init__(
-        self, Settings, Messages, Viewers, Mongo, Content, Tailwind, Handlebars
+        self, Settings, Messages, Viewers, Mongo: Mongo, Content, Tailwind, Handlebars
     ):
         &#34;&#34;&#34;Publishing content as static pages.
 
@@ -558,7 +607,9 @@ class Publish:
         Content.addPublish(self)
 
         self.Precheck = (
-            None if Content is None else PrecheckCls(Settings, Messages, Viewers)
+            None
+            if Content is None
+            else PrecheckCls(Settings, Messages, Content, Viewers)
         )
 
     def getPubNums(self, project, edition):
@@ -572,6 +623,24 @@ class Publish:
         When we look for those numbers, we look in the database records,
         and we look on the filesystem, and we take the number one higher than
         the maximum number used in the database and on the file system.
+
+        **N.B.:** This practice has the flaw that numbers used for publishing projects
+        and editions may get reused when you unpublish and/or delete published editions.
+
+        We store the used publishing numbers for projects and editions in the
+        `site` record, as a dictionary named pubNums, keyed by project numbers, and
+        valued by the maximum edition pubNum for that project.
+
+        The `pubNums` dictionary will never lose keys, and its values will
+        never be lowered when projects or editions are removed.
+
+        So new projects and editions always get numbers that have never been used before
+        for publishing.
+
+        We also copy the `pubNum` field of a project or edition into the field
+        `pubNumLast` when we unpublish such an item, thereby nulling the `pubNum` field.
+        When we republish the item, its `pubNumLast` is restored to the `pubNum`
+        field.
         &#34;&#34;&#34;
         Mongo = self.Mongo
         Settings = self.Settings
@@ -581,9 +650,9 @@ class Publish:
         pPubNumLast = project.pubNum
         ePubNumLast = edition.pubNum
 
-        def getNum(kind, item, pubNumLast, condition, itemsDir):
+        def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, stop=False, **condition)
+                itemsDb = Mongo.getList(kind, **condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -597,21 +666,40 @@ class Publish:
 
             return pubNum
 
-        kind = &#34;project&#34;
-        item = project
-        pubNumLast = pPubNumLast
-        condition = {}
-        itemsDir = projectDir
+        if pPubNumLast is None:
+            # because there is only 1 site in the database,
+            # we can retrieve it without paramaters
+            site = Mongo.getRecord(&#34;site&#34;)
 
-        pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+            if &#34;publishedProjectCount&#34; in site:
+                pPubNum = site[&#34;publishedProjectCount&#34;] + 1
+            else:
+                # Determine project publish number the old way,
+                # to make sure no two project have the same pubNum
+                pPubNum = getNum(&#34;project&#34;, pPubNumLast, {}, projectDir)
 
-        kind = &#34;edition&#34;
-        item = edition
-        pubNumLast = ePubNumLast
-        condition = dict(projectId=project._id)
-        itemsDir = f&#34;{projectDir}/{pPubNum}/edition&#34;
+            Mongo.updateRecord(&#34;site&#34;, {&#34;publishedProjectCount&#34;: pPubNum})
 
-        ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
+        else:
+            pPubNum = pPubNumLast
+
+        if ePubNumLast is None:
+            if &#34;publishedEditionCount&#34; in project:
+                ePubNum = project[&#34;publishedEditionCount&#34;] + 1
+            else:
+                # use get num for existing projects
+                kind = &#34;edition&#34;
+                pubNumLast = ePubNumLast
+                condition = dict(projectId=project._id)
+                itemsDir = f&#34;{projectDir}/{pPubNum}/edition&#34;
+
+                ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
+
+            Mongo.updateRecord(
+                &#34;project&#34;, {&#34;publishedEditionCount&#34;: ePubNum}, _id=project._id
+            )
+        else:
+            ePubNum = ePubNumLast
 
         return (pPubNum, ePubNum)
 
@@ -626,13 +714,14 @@ class Publish:
         site = Content.relevant()[-1]
         featured = Content.getValue(&#34;site&#34;, site, &#34;featured&#34;, manner=&#34;logical&#34;)
 
-        Static = StaticCls(Settings, Messages, Viewers, Tailwind, Handlebars)
+        Static = StaticCls(Settings, Messages, Content, Viewers, Tailwind, Handlebars)
 
         try:
+            self.addSiteFiles(site)
             good = Static.genPages(pPubNum, ePubNum, featured=featured)
 
         except Exception as e1:
-            Messages.error(logmsg=&#34;&#34;.join(format_exception(e1)), stop=False)
+            Messages.error(logmsg=&#34;&#34;.join(format_exception(e1)))
             good = False
 
         return good
@@ -641,10 +730,11 @@ class Publish:
         Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
+        Content = self.Content
         Precheck = self.Precheck
 
         if action not in {&#34;add&#34;, &#34;remove&#34;}:
-            Messages.error(msg=f&#34;unknown action {action}&#34;, stop=False)
+            Messages.error(msg=f&#34;unknown action {action}&#34;)
             return
 
         processing = site.processing
@@ -665,7 +755,7 @@ class Publish:
         # this will prevent other publishing actions while this action is running
 
         last = site.lastPublished
-        now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
+        now = isonow()
 
         Mongo.updateRecord(
             &#34;site&#34;, dict(processing=True, lastPublished=now), _id=site._id
@@ -676,24 +766,27 @@ class Publish:
         pubModeDir = Settings.pubModeDir
         projectDir = f&#34;{pubModeDir}/project&#34;
 
-        def restore(table, record):
-            key = &#34;isVisible&#34; if table == &#34;project&#34; else &#34;isPublished&#34;
-            Mongo.updateRecord(
-                table,
-                {
-                    &#34;pubNum&#34;: record.pubNum,
-                    &#34;lastPublished&#34;: record.lastPublished,
-                    key: record[key] or False,
-                },
-                _id=record._id,
-            )
+        orig = dict(
+            project=AttrDict(
+                condition=dict(_id=project._id),
+                updates={k: v for (k, v) in project.items() if k != &#34;_id&#34;},
+            ),
+            edition=AttrDict(
+                condition=dict(_id=edition._id),
+                updates={k: v for (k, v) in edition.items() if k != &#34;_id&#34;},
+            ),
+        )
+
+        def restore(table):
+            info = orig[table]
+            Mongo.updateRecord(table, info.updates, **info.condition)
 
         # quit early, without doing anything, if the action is not applicable
 
         good = True
 
         if action == &#34;add&#34;:
-            thisGood = Precheck.checkEdition(project, edition._id, edition)
+            thisGood = Precheck.checkEdition(site, project, edition._id, edition)
 
             if thisGood:
                 Messages.info(&#34;Edition validation OK&#34;)
@@ -711,7 +804,6 @@ class Publish:
                 Messages.error(
                     msg=&#34;Could not find a publication number for project&#34;,
                     logmsg=f&#34;Could not find a pubnum for project {project._id}&#34;,
-                    stop=False,
                 )
                 good = False
 
@@ -719,7 +811,6 @@ class Publish:
                 Messages.error(
                     msg=&#34;Could not find a publication number for edition&#34;,
                     logmsg=f&#34;Could not find a pubnum for {project._id}/{edition._id}&#34;,
-                    stop=False,
                 )
                 good = False
 
@@ -746,18 +837,29 @@ class Publish:
                 good = False
 
         if good:
+            fieldPaths = Content.fieldPaths
+            datePublishedPath = fieldPaths[&#34;datePublished&#34;]
+            dateUnPublishedPath = fieldPaths[&#34;dateUnPublished&#34;]
+
             thisProjectDir = f&#34;{projectDir}/{pPubNum}&#34;
             logmsg = None
 
             if action == &#34;add&#34;:
+                againRep = &#34;Re-&#34; if again else &#34;&#34;
                 try:
                     stage = f&#34;set pubnum for project to {pPubNum}&#34;
-                    update = dict(pubNum=pPubNum, lastPublished=now, isVisible=True)
+                    update = dict(pubNum=pPubNum, isVisible=True)
                     Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
+                    project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
 
                     stage = f&#34;set pubnum for edition to {ePubNum}&#34;
-                    update = dict(pubNum=ePubNum, lastPublished=now, isPublished=True)
+                    update = {
+                        &#34;pubNum&#34;: ePubNum,
+                        &#34;isPublished&#34;: True,
+                        datePublishedPath: now,
+                    }
                     Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
+                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
 
                     stage = &#34;add site files&#34;
                     self.addSiteFiles(site)
@@ -772,9 +874,9 @@ class Publish:
 
                     if self.generatePages(pPubNum, ePubNum):
                         Messages.info(
-                            msg=f&#34;Published edition to {pPubNum}/{ePubNum}&#34;,
+                            msg=f&#34;{againRep}Published edition to {pPubNum}/{ePubNum}&#34;,
                             logmsg=(
-                                f&#34;Published {project._id}/{edition._id} &#34;
+                                f&#34;{againRep}Published {project._id}/{edition._id} &#34;
                                 f&#34;as {pPubNum}/{ePubNum}&#34;
                             ),
                         )
@@ -784,16 +886,14 @@ class Publish:
                 except Exception as e:
                     good = False
                     logmsg = (
-                        f&#34;Publishing {project._id}/{edition._id} &#34;
+                        f&#34;{againRep}Publishing {project._id}/{edition._id} &#34;
                         f&#34;as {pPubNum}/{ePubNum} failed with error {e}&#34;
                         f&#34;at stage &#39;{stage}&#39;&#34;
                     )
 
                 if not good:
                     Messages.error(
-                        msg=&#34;Publishing of edition failed&#34;,
-                        logmsg=logmsg,
-                        stop=False,
+                        msg=f&#34;{againRep}Publishing of edition failed&#34;, logmsg=logmsg
                     )
                     self.removeEditionFiles(pPubNum, ePubNum)
                     theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
@@ -804,8 +904,12 @@ class Publish:
             elif action == &#34;remove&#34;:
                 try:
                     stage = f&#34;unset pubnum for edition from {ePubNum} to None&#34;
-                    update = dict(pubNum=None, isPublished=False)
+                    update = {
+                        &#34;isPublished&#34;: False,
+                        dateUnPublishedPath: now,
+                    }
                     Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
+                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
 
                     stage = f&#34;remove edition files {pPubNum}/{ePubNum}&#34;
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -825,15 +929,13 @@ class Publish:
                     theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
 
                     if len(theseEditions) == 0:
-                        stage = f&#34;unset pubnum for project from {pPubNum} to None&#34;
-                        update = dict(pubNum=None, isVisible=False)
+                        stage = f&#34;make project with {pPubNum} invisible&#34;
+                        update = dict(isVisible=False)
                         Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
+                        project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
 
                         stage = f&#34;remove project files {pPubNum}&#34;
                         self.removeProjectFiles(pPubNum)
-
-                        pPubNumNew = None
-
                     else:
                         Messages.info(
                             msg=(
@@ -868,19 +970,15 @@ class Publish:
                     )
 
                 if not good:
-                    Messages.error(
-                        msg=&#34;Unpublishing of edition failed&#34;,
-                        logmsg=logmsg,
-                        stop=False,
-                    )
+                    Messages.error(msg=&#34;Unpublishing of edition failed&#34;, logmsg=logmsg)
 
         # finish off with unsetting the processing flag in the database
 
         if good:
             lastPublished = now
         else:
-            restore(&#34;project&#34;, project)
-            restore(&#34;edition&#34;, edition)
+            restore(&#34;project&#34;)
+            restore(&#34;edition&#34;)
             lastPublished = last
 
         Mongo.updateRecord(
@@ -901,7 +999,7 @@ class Publish:
             fileCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;project&#34;, &#34;meta&#34;}:
+            if x in {&#34;project&#34;, &#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
@@ -925,7 +1023,7 @@ class Publish:
             fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;edition&#34;, &#34;meta&#34;}:
+            if x in {&#34;edition&#34;, &#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
@@ -953,7 +1051,7 @@ class Publish:
             fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
 
         for x in dirs:
-            if x in {&#34;meta&#34;}:
+            if x in {&#34;db&#34;}:
                 continue
 
             dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
@@ -981,139 +1079,24 @@ class Publish:
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L424-L450" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addEditionFiles(self, project, pPubNum, edition, ePubNum):
-    Settings = self.Settings
-    workingDir = Settings.workingDir
-    pubModeDir = Settings.pubModeDir
-    tocFile = Settings.tocFile
-    dbFile = Settings.dbFile
-
-    inDir = f&#34;{workingDir}/project/{project._id}/edition/{edition._id}&#34;
-    outDir = f&#34;{pubModeDir}/project/{pPubNum}/edition/{ePubNum}&#34;
-    dirMake(outDir)
-    tocPath = f&#34;{outDir}/{tocFile}&#34;
-
-    if fileExists(tocPath):
-        fileRemove(tocPath)
-
-    (files, dirs) = dirContents(inDir)
-
-    for x in files:
-        fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
-
-    for x in dirs:
-        if x in {&#34;meta&#34;}:
-            continue
-
-        dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
-
-    writeJson(deepdict(edition), asFile=f&#34;{outDir}/{dbFile}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.addProjectFiles"><code class="name flex">
 <span>def <span class="ident">addProjectFiles</span></span>(<span>self, project, pPubNum)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L401-L422" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addProjectFiles(self, project, pPubNum):
-    Settings = self.Settings
-    workingDir = Settings.workingDir
-    pubModeDir = Settings.pubModeDir
-    dbFile = Settings.dbFile
-
-    inDir = f&#34;{workingDir}/project/{project._id}&#34;
-    outDir = f&#34;{pubModeDir}/project/{pPubNum}&#34;
-    dirMake(outDir)
-
-    (files, dirs) = dirContents(inDir)
-
-    for x in files:
-        fileCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
-
-    for x in dirs:
-        if x in {&#34;edition&#34;, &#34;meta&#34;}:
-            continue
-
-        dirCopy(f&#34;{inDir}/{x}&#34;, f&#34;{outDir}/{x}&#34;)
-
-    writeJson(deepdict(project), asFile=f&#34;{outDir}/{dbFile}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.addSiteFiles"><code class="name flex">
 <span>def <span class="ident">addSiteFiles</span></span>(<span>self, site)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L379-L399" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def addSiteFiles(self, site):
-    Settings = self.Settings
-    workingDir = Settings.workingDir
-    pubModeDir = Settings.pubModeDir
-    dbFile = Settings.dbFile
-
-    dirMake(pubModeDir)
-
-    (files, dirs) = dirContents(workingDir)
-
-    for x in files:
-        fileCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
-
-    for x in dirs:
-        if x in {&#34;project&#34;, &#34;meta&#34;}:
-            continue
-
-        dirCopy(f&#34;{workingDir}/{x}&#34;, f&#34;{pubModeDir}/{x}&#34;)
-
-    dirMake(f&#34;{pubModeDir}/project&#34;)
-    writeJson(deepdict(site), asFile=f&#34;{pubModeDir}/{dbFile}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.generatePages"><code class="name flex">
 <span>def <span class="ident">generatePages</span></span>(<span>self, pPubNum, ePubNum)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L107-L127" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def generatePages(self, pPubNum, ePubNum):
-    Settings = self.Settings
-    Messages = self.Messages
-    Viewers = self.Viewers
-    Content = self.Content
-    Tailwind = self.Tailwind
-    Handlebars = self.Handlebars
-
-    site = Content.relevant()[-1]
-    featured = Content.getValue(&#34;site&#34;, site, &#34;featured&#34;, manner=&#34;logical&#34;)
-
-    Static = StaticCls(Settings, Messages, Viewers, Tailwind, Handlebars)
-
-    try:
-        good = Static.genPages(pPubNum, ePubNum, featured=featured)
-
-    except Exception as e1:
-        Messages.error(logmsg=&#34;&#34;.join(format_exception(e1)), stop=False)
-        good = False
-
-    return good</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.getPubNums"><code class="name flex">
 <span>def <span class="ident">getPubNums</span></span>(<span>self, project, edition)</span>
@@ -1126,363 +1109,38 @@ otherwise we pick an unused number for the project;
 and within the project an unused edition number.</p>
 <p>When we look for those numbers, we look in the database records,
 and we look on the filesystem, and we take the number one higher than
-the maximum number used in the database and on the file system.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L53-L105" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def getPubNums(self, project, edition):
-    &#34;&#34;&#34;Determine project and edition publication numbers.
-
-    Those numbers are inside the project and edition records in the database
-    if the project/edition has been published before;
-    otherwise we pick an unused number for the project;
-    and within the project an unused edition number.
-
-    When we look for those numbers, we look in the database records,
-    and we look on the filesystem, and we take the number one higher than
-    the maximum number used in the database and on the file system.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Settings = self.Settings
-    pubModeDir = Settings.pubModeDir
-    projectDir = f&#34;{pubModeDir}/project&#34;
-
-    pPubNumLast = project.pubNum
-    ePubNumLast = edition.pubNum
-
-    def getNum(kind, item, pubNumLast, condition, itemsDir):
-        if pubNumLast is None:
-            itemsDb = Mongo.getList(kind, stop=False, **condition)
-            nDb = len(itemsDb)
-            maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
-
-            itemsFile = [int(n) for n in dirContents(itemsDir)[1] if n.isdecimal()]
-            nFile = len(itemsFile)
-
-            maxFile = 0 if nFile == 0 else max(itemsFile)
-            pubNum = max((maxDb, maxFile)) + 1
-        else:
-            pubNum = pubNumLast
-
-        return pubNum
-
-    kind = &#34;project&#34;
-    item = project
-    pubNumLast = pPubNumLast
-    condition = {}
-    itemsDir = projectDir
-
-    pPubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
-
-    kind = &#34;edition&#34;
-    item = edition
-    pubNumLast = ePubNumLast
-    condition = dict(projectId=project._id)
-    itemsDir = f&#34;{projectDir}/{pPubNum}/edition&#34;
-
-    ePubNum = getNum(kind, item, pubNumLast, condition, itemsDir)
-
-    return (pPubNum, ePubNum)</code></pre>
-</details>
+the maximum number used in the database and on the file system.</p>
+<p><strong>N.B.:</strong> This practice has the flaw that numbers used for publishing projects
+and editions may get reused when you unpublish and/or delete published editions.</p>
+<p>We store the used publishing numbers for projects and editions in the
+<code>site</code> record, as a dictionary named pubNums, keyed by project numbers, and
+valued by the maximum edition pubNum for that project.</p>
+<p>The <code>pubNums</code> dictionary will never lose keys, and its values will
+never be lowered when projects or editions are removed.</p>
+<p>So new projects and editions always get numbers that have never been used before
+for publishing.</p>
+<p>We also copy the <code>pubNum</code> field of a project or edition into the field
+<code>pubNumLast</code> when we unpublish such an item, thereby nulling the <code>pubNum</code> field.
+When we republish the item, its <code>pubNumLast</code> is restored to the <code>pubNum</code>
+field.</p></div>
 </dd>
 <dt id="control.publish.Publish.removeEditionFiles"><code class="name flex">
 <span>def <span class="ident">removeEditionFiles</span></span>(<span>self, pPubNum, ePubNum)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L459-L464" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def removeEditionFiles(self, pPubNum, ePubNum):
-    Settings = self.Settings
-    pubModeDir = Settings.pubModeDir
-
-    outDir = f&#34;{pubModeDir}/project/{pPubNum}/edition/{ePubNum}&#34;
-    dirRemove(outDir)</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.removeProjectFiles"><code class="name flex">
 <span>def <span class="ident">removeProjectFiles</span></span>(<span>self, pPubNum)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L452-L457" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def removeProjectFiles(self, pPubNum):
-    Settings = self.Settings
-    pubModeDir = Settings.pubModeDir
-
-    outDir = f&#34;{pubModeDir}/project/{pPubNum}&#34;
-    dirRemove(outDir)</code></pre>
-</details>
 </dd>
 <dt id="control.publish.Publish.updateEdition"><code class="name flex">
 <span>def <span class="ident">updateEdition</span></span>(<span>self, site, project, edition, action, force=False, again=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/publish.py#L129-L377" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def updateEdition(self, site, project, edition, action, force=False, again=False):
-    Settings = self.Settings
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Precheck = self.Precheck
-
-    if action not in {&#34;add&#34;, &#34;remove&#34;}:
-        Messages.error(msg=f&#34;unknown action {action}&#34;, stop=False)
-        return
-
-    processing = site.processing
-
-    # quit early if another processing action is taking place
-
-    if processing:
-        Messages.warning(
-            msg=&#34;Site is being published. Try again a minute later&#34;,
-            logmsg=(
-                f&#34;Refusing to publish {project._id}/{edition._id} &#34;
-                &#34;while site is being republished&#34;
-            ),
-        )
-        return
-
-    # put a flag in the database that the site is publishing
-    # this will prevent other publishing actions while this action is running
-
-    last = site.lastPublished
-    now = dt.utcnow().isoformat(timespec=&#34;seconds&#34;).replace(&#34;:&#34;, &#34;-&#34;)
-
-    Mongo.updateRecord(
-        &#34;site&#34;, dict(processing=True, lastPublished=now), _id=site._id
-    )
-
-    # make sure that if something fails, the publishing flag will be reset
-
-    pubModeDir = Settings.pubModeDir
-    projectDir = f&#34;{pubModeDir}/project&#34;
-
-    def restore(table, record):
-        key = &#34;isVisible&#34; if table == &#34;project&#34; else &#34;isPublished&#34;
-        Mongo.updateRecord(
-            table,
-            {
-                &#34;pubNum&#34;: record.pubNum,
-                &#34;lastPublished&#34;: record.lastPublished,
-                key: record[key] or False,
-            },
-            _id=record._id,
-        )
-
-    # quit early, without doing anything, if the action is not applicable
-
-    good = True
-
-    if action == &#34;add&#34;:
-        thisGood = Precheck.checkEdition(project, edition._id, edition)
-
-        if thisGood:
-            Messages.info(&#34;Edition validation OK&#34;)
-        else:
-            Messages.info(&#34;Edition validation not OK&#34;)
-            good = False
-
-            if force:
-                Messages.info(&#34;Continuing nevertheless&#34;)
-                good = True
-
-        (pPubNum, ePubNum) = self.getPubNums(project, edition)
-
-        if pPubNum is None:
-            Messages.error(
-                msg=&#34;Could not find a publication number for project&#34;,
-                logmsg=f&#34;Could not find a pubnum for project {project._id}&#34;,
-                stop=False,
-            )
-            good = False
-
-        if ePubNum is None:
-            Messages.error(
-                msg=&#34;Could not find a publication number for edition&#34;,
-                logmsg=f&#34;Could not find a pubnum for {project._id}/{edition._id}&#34;,
-                stop=False,
-            )
-            good = False
-
-        # if all went well, pPubNum and ePubNum are defined
-
-    elif action == &#34;remove&#34;:
-        pPubNum = project.pubNum
-        ePubNum = edition.pubNum
-        pPubNumNew = pPubNum
-        ePubNumNew = ePubNum
-
-        if pPubNum is None:
-            Messages.warning(
-                msg=&#34;Project is not a published one and cannot be unpublished&#34;,
-                logmsg=f&#34;Project {project._id} has no pubnum&#34;,
-            )
-            good = False
-
-        if ePubNum is None:
-            Messages.warning(
-                msg=&#34;Edition is not a published one and cannot be unpublished&#34;,
-                logmsg=f&#34;Edition {project._id}/{edition._id} has no pubnum&#34;,
-            )
-            good = False
-
-    if good:
-        thisProjectDir = f&#34;{projectDir}/{pPubNum}&#34;
-        logmsg = None
-
-        if action == &#34;add&#34;:
-            try:
-                stage = f&#34;set pubnum for project to {pPubNum}&#34;
-                update = dict(pubNum=pPubNum, lastPublished=now, isVisible=True)
-                Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-
-                stage = f&#34;set pubnum for edition to {ePubNum}&#34;
-                update = dict(pubNum=ePubNum, lastPublished=now, isPublished=True)
-                Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-
-                stage = &#34;add site files&#34;
-                self.addSiteFiles(site)
-
-                stage = f&#34;add project files to {pPubNum}&#34;
-                self.addProjectFiles(project, pPubNum)
-
-                stage = f&#34;add edition files to {pPubNum}/{ePubNum}&#34;
-                self.addEditionFiles(project, pPubNum, edition, ePubNum)
-
-                stage = f&#34;generate static pages for {pPubNum}/{ePubNum}&#34;
-
-                if self.generatePages(pPubNum, ePubNum):
-                    Messages.info(
-                        msg=f&#34;Published edition to {pPubNum}/{ePubNum}&#34;,
-                        logmsg=(
-                            f&#34;Published {project._id}/{edition._id} &#34;
-                            f&#34;as {pPubNum}/{ePubNum}&#34;
-                        ),
-                    )
-                else:
-                    good = False
-
-            except Exception as e:
-                good = False
-                logmsg = (
-                    f&#34;Publishing {project._id}/{edition._id} &#34;
-                    f&#34;as {pPubNum}/{ePubNum} failed with error {e}&#34;
-                    f&#34;at stage &#39;{stage}&#39;&#34;
-                )
-
-            if not good:
-                Messages.error(
-                    msg=&#34;Publishing of edition failed&#34;,
-                    logmsg=logmsg,
-                    stop=False,
-                )
-                self.removeEditionFiles(pPubNum, ePubNum)
-                theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
-
-                if len(theseEditions) == 0:
-                    self.removeProjectFiles(pPubNum)
-
-        elif action == &#34;remove&#34;:
-            try:
-                stage = f&#34;unset pubnum for edition from {ePubNum} to None&#34;
-                update = dict(pubNum=None, isPublished=False)
-                Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-
-                stage = f&#34;remove edition files {pPubNum}/{ePubNum}&#34;
-                self.removeEditionFiles(pPubNum, ePubNum)
-                Messages.info(
-                    msg=f&#34;Unpublished edition {pPubNum}/{ePubNum}&#34;,
-                    logmsg=(
-                        f&#34;Unpublished edition {pPubNum}/{ePubNum} = &#34;
-                        f&#34;{project._id}/{edition._id}&#34;
-                    ),
-                )
-                ePubNumNew = None
-
-                # check whether there are other published editions in this project
-                # on the file system
-
-                stage = f&#34;check remaining editions in project {pPubNum}&#34;
-                theseEditions = dirContents(f&#34;{thisProjectDir}/edition&#34;)[1]
-
-                if len(theseEditions) == 0:
-                    stage = f&#34;unset pubnum for project from {pPubNum} to None&#34;
-                    update = dict(pubNum=None, isVisible=False)
-                    Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-
-                    stage = f&#34;remove project files {pPubNum}&#34;
-                    self.removeProjectFiles(pPubNum)
-
-                    pPubNumNew = None
-
-                else:
-                    Messages.info(
-                        msg=(
-                            f&#34;Project {pPubNum} still has {len(theseEditions)} &#34;
-                            &#34;published editions&#34;
-                        ),
-                    )
-
-                pNumRep = (
-                    pPubNum if pPubNumNew == pPubNum else f&#34;{pPubNum}=&gt;{pPubNumNew}&#34;
-                )
-                eNumRep = (
-                    ePubNum if ePubNumNew == ePubNum else f&#34;{ePubNum}=&gt;{ePubNumNew}&#34;
-                )
-
-                stage = f&#34;regenerate static pages for {pNumRep}/{eNumRep}&#34;
-
-                if self.generatePages(pPubNum, ePubNum):
-                    Messages.info(
-                        msg=f&#34;Unpublished project {pPubNum}&#34;,
-                        logmsg=(f&#34;Unpublished project {pPubNum} = {project._id}&#34;),
-                    )
-                else:
-                    good = False
-
-            except Exception as e:
-                good = False
-                logmsg = (
-                    f&#34;Unpublishing edition {pPubNum}/{ePubNum} = &#34;
-                    f&#34;{project._id}/{edition._id} failed with error {e}.&#34;
-                    f&#34;at stage &#39;{stage}&#39;&#34;
-                )
-
-            if not good:
-                Messages.error(
-                    msg=&#34;Unpublishing of edition failed&#34;,
-                    logmsg=logmsg,
-                    stop=False,
-                )
-
-    # finish off with unsetting the processing flag in the database
-
-    if good:
-        lastPublished = now
-    else:
-        restore(&#34;project&#34;, project)
-        restore(&#34;edition&#34;, edition)
-        lastPublished = last
-
-    Mongo.updateRecord(
-        &#34;site&#34;, dict(processing=False, lastPublished=lastPublished), _id=site._id
-    )</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1570,7 +1228,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

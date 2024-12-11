@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.tailwind API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/tailwind.py#L1-L164" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/tailwind.py#L1-L164" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import platform
@@ -37,8 +37,8 @@ from urllib.request import urlopen
 from shutil import copyfileobj
 import certifi
 
-from control.helpers import console, run
-from control.files import fileExists, initTree
+from .helpers import console, run
+from .files import fileExists, initTree
 
 
 TAILWIND_CFG = &#34;tailwind.config.js&#34;
@@ -212,7 +212,7 @@ class Tailwind:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/tailwind.py#L25-L164" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/tailwind.py#L25-L164" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Tailwind:
     def __init__(self, Settings):
@@ -417,158 +417,12 @@ add <code>w-4</code> and <code>h-4</code> and <code>fill-blue-700</code> to the
 safelist.</p>
 </li>
 </ul></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/tailwind.py#L89-L164" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def generate(self, verbose=False):
-    &#34;&#34;&#34;Generate the css file.
-
-    Issues:
-
-    The following CSS definitions are found in the content of `_dist`,
-    but not in the content of `components`, `js`, and `templates`.
-
-    We investigate these cases and explain what we do about it.
-
-    *   `.container` `@media`
-        The `container` class is triggered by the occurrence of the word
-        `container` in the HTML content in one of the article files.
-        This is a false positive, it was better if tailwind had not found this.
-        Luckily, we loose these false positives if we generate on the basis of
-        the templates.
-        The `@media` definitions accompany the `container` definition.
-
-    *   `.visible`, `fixed`, `table`, `ring`
-
-        Each of these are analogous to `container`: if the word `visible`
-        occurrs in HTML content, its CSS class definition is inserted in
-        the generated CSS.
-
-    *   `order-2,3,4,5,6,7`
-        This is a case of a generated class, one of the templates contains
-        `order-{{@index}}` where index varies.
-        We solve this by putting
-        [all possible `order-` classes](https://tailwindcss.com/docs/order)
-        in the
-        [safelist](https://tailwindcss.com/docs/content-configuration#safelisting-classes).
-
-    *   `.h-4` `.w-4` `.fill-blue-700`
-        This is also a case of generated classes, in many of the icon templates:
-
-        ```
-        class=&#34;
-        w-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
-        h-{{#if twSize}}{{twSize}}{{else}}6{{/if}}
-        {{#if twColor}}fill-{{twColor}}{{/if}}`
-        &#34;
-        ```
-
-        The `p3d-project` and `p3d-edition` templates define the variables
-        `twSize` and `twColor` as follows:
-
-        ```
-        &lt;a
-            href=&#34;all-projects.html&#34;
-            class=&#34;flex flex-row items-center justify-start mb-2 md:mb-0&#34;
-        &gt;
-            {{&gt;icons/iconChevronLeft isFill=true twSize=&#34;4&#34; twColor=&#34;blue-700&#34;}}
-            All projects
-        &lt;/a&gt;
-        ```
-
-        So far, only these values (`4` resp `blue-700` are specified, to we
-        add `w-4` and `h-4` and `fill-blue-700` to the
-        safelist.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    binDir = Settings.binDir
-    binPath = self.binPath
-    cfgOut = f&#34;{binDir}/{TAILWIND_CFG}&#34;
-    cssIn = Settings.cssIn
-    cssOut = Settings.cssOut
-    cmdLine = f&#34;&#34;&#34;{binPath}  -c {cfgOut} -i {cssIn} -o {cssOut}&#34;&#34;&#34;
-    good, stdOut, stdErr = run(cmdLine)
-
-    if verbose or not good:
-        console(stdOut)
-        console(stdErr)
-
-    console(f&#34;{&#39;tailwind&#39;:&lt;10} {&#39;css&#39;:&lt;12} {&#39;&#39;:&lt;24} to {cssOut}&#34;)
-
-    return good</code></pre>
-</details>
 </dd>
 <dt id="control.tailwind.Tailwind.install"><code class="name flex">
 <span>def <span class="ident">install</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/tailwind.py#L30-L87" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def install(self):
-    Settings = self.Settings
-    srcDir = Settings.srcDir
-    binDir = Settings.binDir
-    initTree(binDir, fresh=False)
-    distDirs = [Settings.partialsIn, Settings.templateDir, Settings.jsDir]
-
-    configInPath = f&#34;{srcDir}/{TAILWIND_CFG}&#34;
-    configOutPath = f&#34;{binDir}/{TAILWIND_CFG}&#34;
-
-    osName = platform.system().lower().replace(&#34;darwin&#34;, &#34;macos&#34;)
-    assert osName in [&#34;linux&#34;, &#34;macos&#34;]
-    arch = platform.machine().lower()
-    target = TARGETS[arch].format(osName)
-    binName = f&#34;tailwindcss-{target}&#34;
-    binPath = f&#34;{binDir}/{binName}&#34;
-
-    self.binPath = binPath
-    v = (
-        &#34;latest/download&#34;
-        if TAILWIND_VERSION == &#34;latest&#34;
-        else f&#34;download/{TAILWIND_VERSION}&#34;
-    )
-    url = f&#34;https://github.com/tailwindlabs/tailwindcss/releases/{v}/{binName}&#34;
-
-    if not fileExists(binPath):
-        console(f&#34;Downloading {binName} from {url} ...&#34;)
-        certifi_context = ssl.create_default_context(cafile=certifi.where())
-
-        with urlopen(url, context=certifi_context) as instream, open(
-            binPath, &#34;wb&#34;
-        ) as outfile:
-            copyfileobj(instream, outfile)
-
-        os.chmod(binPath, os.stat(binPath).st_mode | stat.S_IEXEC)
-        console(&#34;done&#34;)
-
-    if True or not fileExists(configOutPath):
-        with open(configInPath) as fh:
-            text = fh.read()
-
-        contentRe = re.compile(r&#34;&#34;&#34;\b(content:\s*\[).*?(\],)&#34;&#34;&#34;)
-
-        fileSpecs = [
-            (f&#34;{distDir}/**/*.&#34; + &#34;{html,js}&#34;) for distDir in distDirs
-        ]
-
-        fileSpecRep = &#34;, &#34;.join(f&#39;&#34;{fileSpec}&#34;&#39; for fileSpec in fileSpecs)
-
-        def contentRepl(match):
-            (pre, post) = match.group(1, 2)
-
-            return f&#34;&#34;&#34;{pre}{fileSpecRep}{post}&#34;&#34;&#34;
-
-        text = contentRe.sub(contentRepl, text)
-
-        with open(configOutPath, &#34;w&#34;) as fh:
-            fh.write(text)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -650,7 +504,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.pages API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,9 +26,9 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L1-L1132" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/pages.py#L1-L1110" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from control.flask import redirectStatus, renderTemplate, sendFile, appStop, getReferrer
+<pre><code class="python">from .flask import redirectStatus, renderTemplate, sendFile, getReferrer
 
 
 class Pages:
@@ -305,45 +305,22 @@ class Pages:
         response
         &#34;&#34;&#34;
         Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            left = None
-        else:
-            left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-        return self.page(&#34;home&#34;, left=left)
+        Auth = self.Auth
+        inPower = Auth.inPower()[0]
 
-    def about(self):
-        &#34;&#34;&#34;The site-wide about page.
-
-        Returns
-        -------
-        response
-        &#34;&#34;&#34;
-        Content = self.Content
         (table, recordId, record) = Content.relevant()
         if recordId is None:
             (left, right) = (None, None)
         else:
-            left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-            right = Content.getValues(table, record, &#34;description@2 + provenance@2&#34;)
-        return self.page(&#34;about&#34;, left=left, right=right)
+            mainFields = Content.getMetaFields(&#34;site&#34;, (&#34;main&#34;, &#34;narrative&#34;), level=2)
+            left = Content.getValues(table, record, mainFields)
 
-    def surprise(self):
-        &#34;&#34;&#34;The &#34;surprise me!&#34; page.
-
-        Returns
-        -------
-        response
-        &#34;&#34;&#34;
-        Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            (left, right) = (None, None)
-        else:
-            surpriseMe = Content.getSurprise()
-            left = Content.getValues(table, record, &#34;siteTitle@1&#34;)
-            right = surpriseMe
-        return self.page(&#34;surpriseme&#34;, left=left, right=right)
+            if inPower:
+                otherFields = Content.getMetaFields(&#34;site&#34;, &#34;box&#34;, level=4)
+                right = Content.getValues(table, record, otherFields)
+            else:
+                right = &#34;&#34;
+        return self.page(&#34;home&#34;, left=left, right=right)
 
     def projects(self):
         &#34;&#34;&#34;The page with the list of projects.
@@ -358,7 +335,7 @@ class Pages:
             left = None
         else:
             projects = Content.getProjects()
-            left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + projects
+            left = projects
         return self.page(&#34;projects&#34;, left=left)
 
     def admin(self):
@@ -373,9 +350,8 @@ class Pages:
         if recordId is None:
             left = None
         else:
-            items = Content.getAdmin()
-            left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-        return self.page(&#34;admin&#34;, left=left)
+            (left, right) = Content.getAdmin()
+        return self.page(&#34;admin&#34;, left=left, right=right)
 
     def createUser(self, user):
         &#34;&#34;&#34;Creates a new test user.
@@ -403,7 +379,7 @@ class Pages:
                 msg=f&#34;failed to create new user {user}&#34;,
             )
             for kind, msg in result.get(&#34;messages&#34;, []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = &#34;/admin&#34;
         return redirectStatus(newUrl, good)
@@ -433,7 +409,7 @@ class Pages:
                 msg=f&#34;failed to delete new user {user}&#34;,
             )
             for kind, msg in result.get(&#34;messages&#34;, []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = &#34;/admin&#34;
         return redirectStatus(newUrl, good)
@@ -499,18 +475,12 @@ class Pages:
         backups = &#34;&#34; if runProd else Backup.getBackups(project=project)
         editionHeading = H.h(3, &#34;Editions&#34;)
         editions = Content.getEditions(project)
+
+        mainFields = Content.getMetaFields(&#34;project&#34;, &#34;main&#34;, level=3)
+        otherFields = Content.getMetaFields(&#34;project&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=3)
+
         left = (
-            Content.getValues(
-                &#34;project&#34;,
-                project,
-                &#34; + &#34;.join(
-                    &#34;&#34;&#34;
-                    title@3
-                    creator@0
-                    contributor@0
-                    &#34;&#34;&#34;.strip().split()
-                ),
-            )
+            Content.getValues(&#34;project&#34;, project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -518,21 +488,7 @@ class Pages:
             + editionHeading
             + editions
         )
-        right = Content.getValues(
-            &#34;project&#34;,
-            project,
-            &#34; + &#34;.join(
-                &#34;&#34;&#34;
-                abstract@4
-                description@4
-                provenance@4
-                instructionalMethod@4
-                period@4
-                place@4
-                subject@4
-                &#34;&#34;&#34;.strip().split()
-            ),
-        )
+        right = Content.getValues(&#34;project&#34;, project, otherFields)
         return self.page(&#34;projects&#34;, left=left, right=right)
 
     def createEdition(self, project):
@@ -641,9 +597,12 @@ class Pages:
             if False and action is None
             else Content.getScene(projectId, edition, version=version, action=action)
         )
+        mainFields = Content.getMetaFields(&#34;edition&#34;, &#34;main&#34;, level=4)
+        otherFields = Content.getMetaFields(&#34;edition&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=4)
+
         left = (
             breadCrumb
-            + Content.getValues(&#34;edition&#34;, edition, &#34;title@4&#34;)
+            + Content.getValues(&#34;edition&#34;, edition, mainFields)
             + publishButton
             + actionHeading
             + downloadButton
@@ -651,9 +610,7 @@ class Pages:
             + sceneMaterial
         )
         right = Content.getValues(
-            &#34;edition&#34;,
-            edition,
-            &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
+            &#34;edition&#34;, edition, otherFields
         ) + Content.getDataFile(&#34;edition&#34;, edition, tocFile, content=True, lenient=True)
 
         return self.page(&#34;projects&#34;, left=left, right=right)
@@ -690,7 +647,6 @@ class Pages:
                 Messages.error(
                     msg=f&#34;This edition no longer exists in {authorLabel}&#34;,
                     logmsg=f&#34;{backPrefix}: Edition {editionIdGiven} no longer exists&#34;,
-                    stop=False,
                 )
                 newUrl = (
                     homeUrl
@@ -722,7 +678,6 @@ class Pages:
                 Messages.error(
                     msg=f&#34;This project no longer exists in {authorLabel}&#34;,
                     logmsg=f&#34;{backPrefix}: Project {projectIdGiven} no longer exists&#34;,
-                    stop=False,
                 )
                 newUrl = homeUrl
 
@@ -943,7 +898,7 @@ class Pages:
             record, key, path, fileName, targetFileName=targetFileName
         )
 
-    def authWebdav(self, edition, method, path, action):
+    def authWebdav(self, project, edition, method, path, action):
         &#34;&#34;&#34;Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -953,6 +908,8 @@ class Pages:
 
         Parameters
         ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
         edition: string | ObjectId | AttrDict
             The edition in question.
         path: string
@@ -972,6 +929,10 @@ class Pages:
 
         User = Auth.myDetails()
         user = User.user
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+        if projectId is None:
+            return False
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
         if editionId is None:
@@ -1003,7 +964,7 @@ class Pages:
         response
             Either a redirect to the referred, for some
             recognized urls that correspond to not-yet
-            implemented one. Or a 404 abort for all other
+            implemented one. Or a redirect 303 for all other
             cases.
         &#34;&#34;&#34;
         Messages = self.Messages
@@ -1030,7 +991,7 @@ class Pages:
             return redirectStatus(back, True)
 
         Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
-        appStop()
+        return redirectStatus(&#34;/&#34;, False)
 
     def page(self, url, left=None, right=None):
         &#34;&#34;&#34;Workhorse function to get content on the page.
@@ -1050,7 +1011,10 @@ class Pages:
         Backup = self.Backup
         Auth = self.Auth
 
-        navigation = self.navigation(url)
+        (siteTable, siteId, site) = Content.relevant()
+        blogUrl = Content.getValue(siteTable, site, &#34;blog&#34;, manner=&#34;bare&#34;)
+
+        navigation = self.navigation(url, blogUrl)
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
         banner = Settings.banner
         if Backup is not None:
@@ -1084,7 +1048,7 @@ class Pages:
             iconSite=iconSite,
         )
 
-    def navigation(self, url):
+    def navigation(self, url, blogUrl):
         &#34;&#34;&#34;Generates the navigation controls.
 
         Especially the tab bar.
@@ -1112,25 +1076,32 @@ class Pages:
 
         TABS = (
             (&#34;home&#34;, &#34;Home&#34;, True, True),
-            (&#34;about&#34;, &#34;About&#34;, True, True),
             (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-            (pubUrl, &#34;Published Projects ⌲&#34;, True, True),
             (&#34;admin&#34;, &#34;My Work&#34;, True, True),
-            (&#34;directory&#34;, &#34;3D Directory&#34;, False, False),
-            (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, False),
             (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, False),
+            (None, &#34;|&#34;, True, True),
+            (pubUrl, &#34;Published Projects ⌲&#34;, True, True),
+            (blogUrl, &#34;Blog ⌲&#34;, True, True),
         )
 
         search = H.span(
             [
                 H.input(
-                    &#34;search&#34;,
                     &#34;&#34;,
+                    &#34;search&#34;,
                     name=&#34;search&#34;,
                     placeholder=&#34;search item&#34;,
                     cls=&#34;button disabled&#34;,
+                    disabled=&#34;&#34;,
+                    style=&#34;display:none&#34;,
                 ),
-                H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
+                H.input(
+                    &#34;Search&#34;,
+                    &#34;submit&#34;,
+                    cls=&#34;button disabled&#34;,
+                    disabled=&#34;&#34;,
+                    style=&#34;display:none&#34;,
+                ),
             ],
             cls=&#34;search-bar&#34;,
         )
@@ -1143,18 +1114,25 @@ class Pages:
 
             active = &#34;active&#34; if url == tab else &#34;&#34;
 
-            if enabled:
-                elem = &#34;a&#34;
-                cls = active
-                href = [tab if &#34;/&#34; in tab else f&#34;/{tab}&#34;]
-                target = dict(target=published) if &#34;/&#34; in tab else {}
-            else:
+            if tab is None:
                 elem = &#34;span&#34;
-                cls = &#34;disabled&#34;
                 href = []
                 target = {}
+                fullCls = &#34;large&#34;
+            else:
+                if enabled:
+                    elem = &#34;a&#34;
+                    cls = active
+                    href = [tab if &#34;/&#34; in tab else f&#34;/{tab}&#34;]
+                    target = dict(target=published) if &#34;/&#34; in tab else {}
+                else:
+                    elem = &#34;span&#34;
+                    cls = &#34;disabled&#34;
+                    href = []
+                    target = {}
 
-            fullCls = f&#34;button large {cls}&#34;
+                fullCls = f&#34;button large {cls}&#34;
+
             divContent.append(H.elem(elem, label, *href, cls=fullCls, **target))
 
         divContent.append(search)
@@ -1204,7 +1182,7 @@ If so, it the return value will be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L4-L1132" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/pages.py#L4-L1110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Pages:
     def __init__(self, Settings, Viewers, Messages, Mongo, Content, Backup, Auth):
@@ -1480,45 +1458,22 @@ If so, it the return value will be documented.</p>
         response
         &#34;&#34;&#34;
         Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            left = None
-        else:
-            left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-        return self.page(&#34;home&#34;, left=left)
+        Auth = self.Auth
+        inPower = Auth.inPower()[0]
 
-    def about(self):
-        &#34;&#34;&#34;The site-wide about page.
-
-        Returns
-        -------
-        response
-        &#34;&#34;&#34;
-        Content = self.Content
         (table, recordId, record) = Content.relevant()
         if recordId is None:
             (left, right) = (None, None)
         else:
-            left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-            right = Content.getValues(table, record, &#34;description@2 + provenance@2&#34;)
-        return self.page(&#34;about&#34;, left=left, right=right)
+            mainFields = Content.getMetaFields(&#34;site&#34;, (&#34;main&#34;, &#34;narrative&#34;), level=2)
+            left = Content.getValues(table, record, mainFields)
 
-    def surprise(self):
-        &#34;&#34;&#34;The &#34;surprise me!&#34; page.
-
-        Returns
-        -------
-        response
-        &#34;&#34;&#34;
-        Content = self.Content
-        (table, recordId, record) = Content.relevant()
-        if recordId is None:
-            (left, right) = (None, None)
-        else:
-            surpriseMe = Content.getSurprise()
-            left = Content.getValues(table, record, &#34;siteTitle@1&#34;)
-            right = surpriseMe
-        return self.page(&#34;surpriseme&#34;, left=left, right=right)
+            if inPower:
+                otherFields = Content.getMetaFields(&#34;site&#34;, &#34;box&#34;, level=4)
+                right = Content.getValues(table, record, otherFields)
+            else:
+                right = &#34;&#34;
+        return self.page(&#34;home&#34;, left=left, right=right)
 
     def projects(self):
         &#34;&#34;&#34;The page with the list of projects.
@@ -1533,7 +1488,7 @@ If so, it the return value will be documented.</p>
             left = None
         else:
             projects = Content.getProjects()
-            left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + projects
+            left = projects
         return self.page(&#34;projects&#34;, left=left)
 
     def admin(self):
@@ -1548,9 +1503,8 @@ If so, it the return value will be documented.</p>
         if recordId is None:
             left = None
         else:
-            items = Content.getAdmin()
-            left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-        return self.page(&#34;admin&#34;, left=left)
+            (left, right) = Content.getAdmin()
+        return self.page(&#34;admin&#34;, left=left, right=right)
 
     def createUser(self, user):
         &#34;&#34;&#34;Creates a new test user.
@@ -1578,7 +1532,7 @@ If so, it the return value will be documented.</p>
                 msg=f&#34;failed to create new user {user}&#34;,
             )
             for kind, msg in result.get(&#34;messages&#34;, []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = &#34;/admin&#34;
         return redirectStatus(newUrl, good)
@@ -1608,7 +1562,7 @@ If so, it the return value will be documented.</p>
                 msg=f&#34;failed to delete new user {user}&#34;,
             )
             for kind, msg in result.get(&#34;messages&#34;, []):
-                Messages.message(kind, msg, stop=False)
+                Messages.message(kind, msg)
 
         newUrl = &#34;/admin&#34;
         return redirectStatus(newUrl, good)
@@ -1674,18 +1628,12 @@ If so, it the return value will be documented.</p>
         backups = &#34;&#34; if runProd else Backup.getBackups(project=project)
         editionHeading = H.h(3, &#34;Editions&#34;)
         editions = Content.getEditions(project)
+
+        mainFields = Content.getMetaFields(&#34;project&#34;, &#34;main&#34;, level=3)
+        otherFields = Content.getMetaFields(&#34;project&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=3)
+
         left = (
-            Content.getValues(
-                &#34;project&#34;,
-                project,
-                &#34; + &#34;.join(
-                    &#34;&#34;&#34;
-                    title@3
-                    creator@0
-                    contributor@0
-                    &#34;&#34;&#34;.strip().split()
-                ),
-            )
+            Content.getValues(&#34;project&#34;, project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -1693,21 +1641,7 @@ If so, it the return value will be documented.</p>
             + editionHeading
             + editions
         )
-        right = Content.getValues(
-            &#34;project&#34;,
-            project,
-            &#34; + &#34;.join(
-                &#34;&#34;&#34;
-                abstract@4
-                description@4
-                provenance@4
-                instructionalMethod@4
-                period@4
-                place@4
-                subject@4
-                &#34;&#34;&#34;.strip().split()
-            ),
-        )
+        right = Content.getValues(&#34;project&#34;, project, otherFields)
         return self.page(&#34;projects&#34;, left=left, right=right)
 
     def createEdition(self, project):
@@ -1816,9 +1750,12 @@ If so, it the return value will be documented.</p>
             if False and action is None
             else Content.getScene(projectId, edition, version=version, action=action)
         )
+        mainFields = Content.getMetaFields(&#34;edition&#34;, &#34;main&#34;, level=4)
+        otherFields = Content.getMetaFields(&#34;edition&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=4)
+
         left = (
             breadCrumb
-            + Content.getValues(&#34;edition&#34;, edition, &#34;title@4&#34;)
+            + Content.getValues(&#34;edition&#34;, edition, mainFields)
             + publishButton
             + actionHeading
             + downloadButton
@@ -1826,9 +1763,7 @@ If so, it the return value will be documented.</p>
             + sceneMaterial
         )
         right = Content.getValues(
-            &#34;edition&#34;,
-            edition,
-            &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
+            &#34;edition&#34;, edition, otherFields
         ) + Content.getDataFile(&#34;edition&#34;, edition, tocFile, content=True, lenient=True)
 
         return self.page(&#34;projects&#34;, left=left, right=right)
@@ -1865,7 +1800,6 @@ If so, it the return value will be documented.</p>
                 Messages.error(
                     msg=f&#34;This edition no longer exists in {authorLabel}&#34;,
                     logmsg=f&#34;{backPrefix}: Edition {editionIdGiven} no longer exists&#34;,
-                    stop=False,
                 )
                 newUrl = (
                     homeUrl
@@ -1897,7 +1831,6 @@ If so, it the return value will be documented.</p>
                 Messages.error(
                     msg=f&#34;This project no longer exists in {authorLabel}&#34;,
                     logmsg=f&#34;{backPrefix}: Project {projectIdGiven} no longer exists&#34;,
-                    stop=False,
                 )
                 newUrl = homeUrl
 
@@ -2118,7 +2051,7 @@ If so, it the return value will be documented.</p>
             record, key, path, fileName, targetFileName=targetFileName
         )
 
-    def authWebdav(self, edition, method, path, action):
+    def authWebdav(self, project, edition, method, path, action):
         &#34;&#34;&#34;Authorises a webdav request.
 
         When a viewer makes a WebDAV request to the server,
@@ -2128,6 +2061,8 @@ If so, it the return value will be documented.</p>
 
         Parameters
         ----------
+        project: string | ObjectId | AttrDict
+            The project in question.
         edition: string | ObjectId | AttrDict
             The edition in question.
         path: string
@@ -2147,6 +2082,10 @@ If so, it the return value will be documented.</p>
 
         User = Auth.myDetails()
         user = User.user
+
+        (projectId, project) = Mongo.get(&#34;project&#34;, project)
+        if projectId is None:
+            return False
 
         (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
         if editionId is None:
@@ -2178,7 +2117,7 @@ If so, it the return value will be documented.</p>
         response
             Either a redirect to the referred, for some
             recognized urls that correspond to not-yet
-            implemented one. Or a 404 abort for all other
+            implemented one. Or a redirect 303 for all other
             cases.
         &#34;&#34;&#34;
         Messages = self.Messages
@@ -2205,7 +2144,7 @@ If so, it the return value will be documented.</p>
             return redirectStatus(back, True)
 
         Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
-        appStop()
+        return redirectStatus(&#34;/&#34;, False)
 
     def page(self, url, left=None, right=None):
         &#34;&#34;&#34;Workhorse function to get content on the page.
@@ -2225,7 +2164,10 @@ If so, it the return value will be documented.</p>
         Backup = self.Backup
         Auth = self.Auth
 
-        navigation = self.navigation(url)
+        (siteTable, siteId, site) = Content.relevant()
+        blogUrl = Content.getValue(siteTable, site, &#34;blog&#34;, manner=&#34;bare&#34;)
+
+        navigation = self.navigation(url, blogUrl)
         (specialLoginWidget, loginWidget) = Auth.wrapLogin()
         banner = Settings.banner
         if Backup is not None:
@@ -2259,7 +2201,7 @@ If so, it the return value will be documented.</p>
             iconSite=iconSite,
         )
 
-    def navigation(self, url):
+    def navigation(self, url, blogUrl):
         &#34;&#34;&#34;Generates the navigation controls.
 
         Especially the tab bar.
@@ -2287,25 +2229,32 @@ If so, it the return value will be documented.</p>
 
         TABS = (
             (&#34;home&#34;, &#34;Home&#34;, True, True),
-            (&#34;about&#34;, &#34;About&#34;, True, True),
             (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-            (pubUrl, &#34;Published Projects ⌲&#34;, True, True),
             (&#34;admin&#34;, &#34;My Work&#34;, True, True),
-            (&#34;directory&#34;, &#34;3D Directory&#34;, False, False),
-            (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, False),
             (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, False),
+            (None, &#34;|&#34;, True, True),
+            (pubUrl, &#34;Published Projects ⌲&#34;, True, True),
+            (blogUrl, &#34;Blog ⌲&#34;, True, True),
         )
 
         search = H.span(
             [
                 H.input(
-                    &#34;search&#34;,
                     &#34;&#34;,
+                    &#34;search&#34;,
                     name=&#34;search&#34;,
                     placeholder=&#34;search item&#34;,
                     cls=&#34;button disabled&#34;,
+                    disabled=&#34;&#34;,
+                    style=&#34;display:none&#34;,
                 ),
-                H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
+                H.input(
+                    &#34;Search&#34;,
+                    &#34;submit&#34;,
+                    cls=&#34;button disabled&#34;,
+                    disabled=&#34;&#34;,
+                    style=&#34;display:none&#34;,
+                ),
             ],
             cls=&#34;search-bar&#34;,
         )
@@ -2318,18 +2267,25 @@ If so, it the return value will be documented.</p>
 
             active = &#34;active&#34; if url == tab else &#34;&#34;
 
-            if enabled:
-                elem = &#34;a&#34;
-                cls = active
-                href = [tab if &#34;/&#34; in tab else f&#34;/{tab}&#34;]
-                target = dict(target=published) if &#34;/&#34; in tab else {}
-            else:
+            if tab is None:
                 elem = &#34;span&#34;
-                cls = &#34;disabled&#34;
                 href = []
                 target = {}
+                fullCls = &#34;large&#34;
+            else:
+                if enabled:
+                    elem = &#34;a&#34;
+                    cls = active
+                    href = [tab if &#34;/&#34; in tab else f&#34;/{tab}&#34;]
+                    target = dict(target=published) if &#34;/&#34; in tab else {}
+                else:
+                    elem = &#34;span&#34;
+                    cls = &#34;disabled&#34;
+                    href = []
+                    target = {}
 
-            fullCls = f&#34;button large {cls}&#34;
+                fullCls = f&#34;button large {cls}&#34;
+
             divContent.append(H.elem(elem, label, *href, cls=fullCls, **target))
 
         divContent.append(search)
@@ -2338,38 +2294,6 @@ If so, it the return value will be documented.</p>
 </details>
 <h3>Methods</h3>
 <dl>
-<dt id="control.pages.Pages.about"><code class="name flex">
-<span>def <span class="ident">about</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>The site-wide about page.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>response</code></dt>
-<dd>&nbsp;</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L285-L299" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def about(self):
-    &#34;&#34;&#34;The site-wide about page.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        (left, right) = (None, None)
-    else:
-        left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-        right = Content.getValues(table, record, &#34;description@2 + provenance@2&#34;)
-    return self.page(&#34;about&#34;, left=left, right=right)</code></pre>
-</details>
-</dd>
 <dt id="control.pages.Pages.admin"><code class="name flex">
 <span>def <span class="ident">admin</span></span>(<span>self)</span>
 </code></dt>
@@ -2380,30 +2304,9 @@ If so, it the return value will be documented.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L334-L348" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def admin(self):
-    &#34;&#34;&#34;The page with the list of projects, editions, and users.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        left = None
-    else:
-        items = Content.getAdmin()
-        left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + items
-    return self.page(&#34;admin&#34;, left=left)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.authWebdav"><code class="name flex">
-<span>def <span class="ident">authWebdav</span></span>(<span>self, edition, method, path, action)</span>
+<span>def <span class="ident">authWebdav</span></span>(<span>self, project, edition, method, path, action)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Authorises a webdav request.</p>
@@ -2412,6 +2315,8 @@ that request is first checked here for authorisation.</p>
 <p>See <code><a title="control.webdavapp.dispatchWebdav" href="webdavapp.html#control.webdavapp.dispatchWebdav">dispatchWebdav()</a></code>.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The project in question.</dd>
 <dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The edition in question.</dd>
 <dt><strong><code>path</code></strong> :&ensp;<code>string</code></dt>
@@ -2425,58 +2330,6 @@ that request is first checked here for authorisation.</p>
 <dt><code>boolean</code></dt>
 <dd>Whether the action is permitted on ths data by the current user.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L916-L961" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def authWebdav(self, edition, method, path, action):
-    &#34;&#34;&#34;Authorises a webdav request.
-
-    When a viewer makes a WebDAV request to the server,
-    that request is first checked here for authorisation.
-
-    See `control.webdavapp.dispatchWebdav()`.
-
-    Parameters
-    ----------
-    edition: string | ObjectId | AttrDict
-        The edition in question.
-    path: string
-        The path relative to the directory of the edition.
-    action: string
-        The operation that the WebDAV request wants to do on the data
-        (`read` or `update`).
-
-    Returns
-    -------
-    boolean
-        Whether the action is permitted on ths data by the current user.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Auth = self.Auth
-
-    User = Auth.myDetails()
-    user = User.user
-
-    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-    if editionId is None:
-        return False
-
-    permitted = Auth.authorise(&#34;edition&#34;, record=edition, action=action)
-
-    if not permitted:
-        User = Auth.myDetails()
-        user = User.user
-        name = User.nickname
-
-        Messages.info(
-            logmsg=f&#34;WEBDav unauthorised by user {name} ({user})&#34;
-            f&#34; on edition {editionId} path {path}&#34;
-        )
-    return permitted</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.createEdition"><code class="name flex">
 <span>def <span class="ident">createEdition</span></span>(<span>self, project)</span>
@@ -2504,56 +2357,6 @@ that request is first checked here for authorisation.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L508-L551" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def createEdition(self, project):
-    &#34;&#34;&#34;Inserts an edition into a project and shows the new edition.
-
-    The current user is linked to this edition as editor.
-
-    After the operation:
-
-    *   *success*: goes to new edition url, good status
-    *   *failure*: goes to project url, error status
-
-    Returns
-    -------
-    response
-    Parameters
-    ----------
-    project: string | ObjectId | AttrDict
-        The project to which the edition belongs.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Content = self.Content
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-    if projectId is None:
-        return redirectStatus(&#34;/home&#34;, False)
-
-    editionId = Content.createEdition(project)
-
-    if editionId is None:
-        Messages.warning(
-            logmsg=&#34;Could not create new edition&#34;,
-            msg=&#34;failed to create new edition&#34;,
-        )
-        newUrl = f&#34;/project/{projectId}&#34;
-    else:
-        Messages.info(
-            logmsg=f&#34;Created edition {editionId}&#34;, msg=&#34;new edition created&#34;
-        )
-        newUrl = f&#34;/edition/{editionId}&#34;
-    return redirectStatus(newUrl, editionId is not None)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.createProject"><code class="name flex">
 <span>def <span class="ident">createProject</span></span>(<span>self, site)</span>
@@ -2576,46 +2379,6 @@ that request is first checked here for authorisation.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L411-L444" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def createProject(self, site):
-    &#34;&#34;&#34;Creates a project and shows the new project.
-
-    The current user is linked to this project as organiser.
-
-    After the operation:
-
-    *   *success*: goes to new project url, good status
-    *   *failure*: goes to all projects url, error status
-
-    Returns
-    -------
-    response
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Content = self.Content
-    projectId = Content.createProject(site)
-
-    if projectId is None:
-        Messages.warning(
-            logmsg=&#34;Could not create new project&#34;,
-            msg=&#34;failed to create new project&#34;,
-        )
-        newUrl = &#34;/project&#34;
-    else:
-        Messages.info(
-            logmsg=f&#34;Created project {projectId}&#34;, msg=&#34;new project created&#34;
-        )
-        newUrl = f&#34;/project/{projectId}&#34;
-
-    return redirectStatus(newUrl, projectId is not None)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.createUser"><code class="name flex">
 <span>def <span class="ident">createUser</span></span>(<span>self, user)</span>
@@ -2632,42 +2395,6 @@ that request is first checked here for authorisation.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L350-L379" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def createUser(self, user):
-    &#34;&#34;&#34;Creates a new test user.
-
-    After the operation:
-
-    *   *success*: goes to admin url, good status
-    *   *failure*: goes to admin url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Content = self.Content
-    result = Content.createUser(user)
-
-    good = result.get(&#34;status&#34;, False)
-    if good:
-        user = result[&#34;name&#34;]
-        Messages.info(logmsg=f&#34;Created user {user}&#34;, msg=f&#34;user {user} created&#34;)
-    else:
-        Messages.warning(
-            logmsg=f&#34;Could not create new user {user}&#34;,
-            msg=f&#34;failed to create new user {user}&#34;,
-        )
-        for kind, msg in result.get(&#34;messages&#34;, []):
-            Messages.message(kind, msg, stop=False)
-
-    newUrl = &#34;/admin&#34;
-    return redirectStatus(newUrl, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.delBackup"><code class="name flex">
 <span>def <span class="ident">delBackup</span></span>(<span>self, backup, project=None)</span>
@@ -2691,49 +2418,6 @@ that request is first checked here for authorisation.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L232-L268" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def delBackup(self, backup, project=None):
-    &#34;&#34;&#34;Deletes a backup.
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Parameters
-    ----------
-    backup: string
-        The name of the backup as stored in the backups directory on the server.
-    project: string, optional None
-        If given, deletes a backup of the given project.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Backup = self.Backup
-    Auth = self.Auth
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    back = f&#34;/{ref}&#34;
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Deleting a backup is not allowed&#34;,
-            logmsg=(&#34;Deleting a backup is not allowed&#34;),
-        )
-        return redirectStatus(back, False)
-    good = Backup.delBackup(backup, project=project)
-    return redirectStatus(back, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.deleteFile"><code class="name flex">
 <span>def <span class="ident">deleteFile</span></span>(<span>self, record, key, path, targetFileName=None)</span>
@@ -2757,41 +2441,6 @@ that request is first checked here for authorisation.</p>
 <dd>With json data containing a status, msg, and content members.
 The content is new content to display the upload widget with.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L886-L914" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deleteFile(self, record, key, path, targetFileName=None):
-    &#34;&#34;&#34;Delete a file.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The context record of the upload.
-    key: string
-        The key of the upload.
-    path: string
-        The location of the file.
-    targetFileName: string, optional None
-        The name of the file.
-
-    Returns
-    -------
-    response
-        With json data containing a status, msg, and content members.
-        The content is new content to display the upload widget with.
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    parts = path.rstrip(&#34;/&#34;).rsplit(&#34;/&#34;, 1)
-    fileName = parts[-1]
-    path = parts[0] if len(parts) == 2 else &#34;&#34;
-
-    return Content.deleteFile(
-        record, key, path, fileName, targetFileName=targetFileName
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.deleteItem"><code class="name flex">
 <span>def <span class="ident">deleteItem</span></span>(<span>self, table, record)</span>
@@ -2815,56 +2464,6 @@ The content is new content to display the upload widget with.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L707-L750" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deleteItem(self, table, record):
-    &#34;&#34;&#34;Deletes an item, project or edition.
-
-    After the operation:
-
-    *   *success*: goes to all-projects url or master project url, good status
-    *   *failure*: goes to back referrer url, error status
-
-    Parameters
-    ----------
-    table: string
-        The kind of item: `project` or `edition`.
-    record: string | ObjectId | AttrDict
-        The item in question.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Content = self.Content
-
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    back = f&#34;/{ref}&#34;
-
-    (recordId, record) = Mongo.get(table, record)
-    if recordId is None:
-        return redirectStatus(back, False)
-
-    result = Content.deleteItem(table, record)
-
-    if result:
-        Messages.info(logmsg=f&#34;Deleted {table} {recordId}&#34;, msg=f&#34;{table} deleted&#34;)
-        back = &#34;/project&#34;
-        if table == &#34;edition&#34;:
-            projectId = record.projectId
-            back += f&#34;/{projectId}&#34;
-    else:
-        Messages.warning(
-            logmsg=f&#34;Could not delete {table} {recordId}&#34;,
-            msg=f&#34;failed to delete {table}&#34;,
-        )
-    return redirectStatus(back, True)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.deleteUser"><code class="name flex">
 <span>def <span class="ident">deleteUser</span></span>(<span>self, user)</span>
@@ -2881,41 +2480,6 @@ The content is new content to display the upload widget with.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L381-L409" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def deleteUser(self, user):
-    &#34;&#34;&#34;Deletes a test user.
-
-    After the operation:
-
-    *   *success*: goes to admin url, good status
-    *   *failure*: goes to admin url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Content = self.Content
-    result = Content.deleteUser(user)
-
-    good = result.get(&#34;status&#34;, False)
-    if good:
-        Messages.info(logmsg=f&#34;Deleted user {user}&#34;, msg=f&#34;user {user} deleted&#34;)
-    else:
-        Messages.warning(
-            logmsg=f&#34;Could not delete user {user}&#34;,
-            msg=f&#34;failed to delete new user {user}&#34;,
-        )
-        for kind, msg in result.get(&#34;messages&#34;, []):
-            Messages.message(kind, msg, stop=False)
-
-    newUrl = &#34;/admin&#34;
-    return redirectStatus(newUrl, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.edition"><code class="name flex">
 <span>def <span class="ident">edition</span></span>(<span>self, edition, version=None, action=None)</span>
@@ -2944,89 +2508,6 @@ From the edition record we can find the project too.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L553-L629" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def edition(self, edition, version=None, action=None):
-    &#34;&#34;&#34;The landing page of an edition, possibly with a scene marked as active.
-
-    An edition knows the scene it should display and the viewer that was
-    used to create the scene.
-
-    If action is not None, its value determines which viewer will be loaded
-    in the 3D viewer.
-    It is dependent on the parameters and/or defaults
-    in which viewer/version/mode.
-
-    If version is not None, this will override the default version.
-
-    Parameters
-    ----------
-    edition: string | ObjectId | AttrDict
-        The editionin quesion.
-        From the edition record we can find the project too.
-    version: string, optional None
-        The viewer version to use.
-    action: string, optional None
-        The mode in which the viewer is to be used (`read` or `update`).
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    Viewers = self.Viewers
-    Content = self.Content
-    Mongo = self.Mongo
-    Auth = self.Auth
-
-    tocFile = Settings.tocFile
-
-    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-    if edition is None:
-        return redirectStatus(&#34;/project&#34;, True)
-
-    projectId = edition.projectId
-    (projectId, project) = Mongo.get(&#34;project&#34;, projectId)
-    if project is None:
-        return redirectStatus(&#34;/project&#34;, True)
-
-    (viewer, sceneFile) = Viewers.getViewInfo(edition)
-
-    breadCrumb = Content.breadCrumb(project)
-    publishButton = Content.getPublishInfo(&#34;edition&#34;, edition)
-    actionHeading = H.h(3, &#34;Actions&#34;)
-    downloadButton = Content.getDownload(&#34;edition&#34;, edition)
-
-    if action is None:
-        action = &#34;read&#34;
-    action = Auth.makeSafe(&#34;edition&#34;, edition, action)
-    sceneHeading = H.h(3, &#34;Scene&#34;)
-    sceneMaterial = (
-        &#34;&#34;
-        if False and action is None
-        else Content.getScene(projectId, edition, version=version, action=action)
-    )
-    left = (
-        breadCrumb
-        + Content.getValues(&#34;edition&#34;, edition, &#34;title@4&#34;)
-        + publishButton
-        + actionHeading
-        + downloadButton
-        + sceneHeading
-        + sceneMaterial
-    )
-    right = Content.getValues(
-        &#34;edition&#34;,
-        edition,
-        &#34;abstract@5 + description@5 + provenance@5 + instructionalMethod@5&#34;,
-    ) + Content.getDataFile(&#34;edition&#34;, edition, tocFile, content=True, lenient=True)
-
-    return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.fileData"><code class="name flex">
 <span>def <span class="ident">fileData</span></span>(<span>self, path, project=None, edition=None)</span>
@@ -3061,50 +2542,6 @@ is to be found.</dd>
 file plus headers derived from the path.
 If the file does not exist, a 404 is returned.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L816-L853" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def fileData(self, path, project=None, edition=None):
-    &#34;&#34;&#34;Data content requested directly from the file repository.
-
-    This is
-
-    * the material requested by the viewers:
-      the scene json itself and additional resources,
-      that are part of the user contributed content that is under
-      control of the viewer: annotations, media, etc.
-    * icons for the site, projects, and editions
-
-    Parameters
-    ----------
-    path: string
-        Path on the file system under the data directory
-        where the resource resides.
-        The path is relative to the project, and, if given, the edition.
-    project: string | ObjectId | AttrDict
-        The id of a project under which the resource is to be found.
-        If None, it is site-wide material.
-    edition: string | ObjectId | AttrDict
-        If not None, the name of an edition under which the resource
-        is to be found.
-
-    Returns
-    -------
-    response
-        The response consists of the contents of the
-        file plus headers derived from the path.
-        If the file does not exist, a 404 is returned.
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant(project=project, edition=edition)
-    if recordId is None:
-        return &#34;&#34;
-
-    dataPath = Content.getDataFile(table, record, path)
-    return sendFile(dataPath)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.fromPub"><code class="name flex">
 <span>def <span class="ident">fromPub</span></span>(<span>self, projectIdGiven, editionIdGiven)</span>
@@ -3112,87 +2549,6 @@ If the file does not exist, a 404 is returned.</dd>
 <dd>
 <div class="desc"><p>Redirect to a project or edition or the home page.</p>
 <p>If the edition or project does not exist, show a friendly message.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L631-L705" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def fromPub(self, projectIdGiven, editionIdGiven):
-    &#34;&#34;&#34;Redirect to a project or edition or the home page.
-
-    If the edition or project does not exist, show a friendly message.
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Messages = self.Messages
-    Settings = self.Settings
-    backPrefix = Settings.backPrefix
-    authorLabel = Settings.authorLabel
-
-    homeUrl = &#34;/&#34;
-
-    if projectIdGiven is None and editionIdGiven is None:
-        return redirectStatus(homeUrl, True)
-
-    projectIdVerified = None
-    editionIdVerified = None
-
-    if editionIdGiven is not None:
-        (editionIdVerified, editionVerified) = Mongo.get(&#34;edition&#34;, editionIdGiven)
-        if editionVerified is not None:
-            projectIdVerifiedFromEdition = editionVerified.projectId
-
-    if projectIdGiven is not None:
-        (projectIdVerified, projectVerified) = Mongo.get(&#34;project&#34;, projectIdGiven)
-
-    if editionIdGiven is not None:
-        if editionIdVerified is None:
-            Messages.error(
-                msg=f&#34;This edition no longer exists in {authorLabel}&#34;,
-                logmsg=f&#34;{backPrefix}: Edition {editionIdGiven} no longer exists&#34;,
-                stop=False,
-            )
-            newUrl = (
-                homeUrl
-                if projectIdVerified is None
-                else f&#34;/project/{projectIdVerified}&#34;
-            )
-
-        else:
-            if projectIdGiven and projectIdVerified != projectIdVerifiedFromEdition:
-                Messages.warning(
-                    msg=(
-                        &#34;Found the edition but in a different project &#34;
-                        f&#34;in {authorLabel}&#34;
-                    ),
-                    logmsg=(
-                        f&#34;{backPrefix}: Edition {editionIdGiven} does not&#34;
-                        f&#34;belong to project {projectIdGiven}&#34;
-                    ),
-                )
-            else:
-                Messages.good(
-                    msg=(&#34;Found the edition and project &#34; f&#34;in {authorLabel}&#34;),
-                )
-
-            newUrl = f&#34;/edition/{editionIdVerified}&#34;
-
-    else:  # now projectIdGiven is not None
-        if projectIdVerified is None:
-            Messages.error(
-                msg=f&#34;This project no longer exists in {authorLabel}&#34;,
-                logmsg=f&#34;{backPrefix}: Project {projectIdGiven} no longer exists&#34;,
-                stop=False,
-            )
-            newUrl = homeUrl
-
-        else:
-            Messages.good(
-                msg=(&#34;Found the project &#34; f&#34;in {authorLabel}&#34;),
-            )
-            newUrl = f&#34;/project/{projectIdVerified}&#34;
-
-    return redirectStatus(newUrl, True)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.generate"><code class="name flex">
 <span>def <span class="ident">generate</span></span>(<span>self)</span>
@@ -3209,29 +2565,6 @@ If the file does not exist, a 404 is returned.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L142-L158" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def generate(self):
-    &#34;&#34;&#34;Regenerate the static HTML pages for the whole published site.
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    good = Content.generate()
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.home"><code class="name flex">
 <span>def <span class="ident">home</span></span>(<span>self)</span>
@@ -3243,26 +2576,6 @@ If the file does not exist, a 404 is returned.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L270-L283" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def home(self):
-    &#34;&#34;&#34;The site-wide home page.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        left = None
-    else:
-        left = Content.getValues(table, record, &#34;siteTitle@1 + abstract@2&#34;)
-    return self.page(&#34;home&#34;, left=left)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.mkBackup"><code class="name flex">
 <span>def <span class="ident">mkBackup</span></span>(<span>self, project=None)</span>
@@ -3284,47 +2597,9 @@ If the file does not exist, a 404 is returned.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L160-L191" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def mkBackup(self, project=None):
-    &#34;&#34;&#34;Backup: Save file and database data in a backup directory.
-
-    Parameters
-    ----------
-    project: string, optional None
-        If given, only backs up the given project.
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Backup = self.Backup
-    Auth = self.Auth
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Making a backup is not allowed&#34;,
-            logmsg=(&#34;Making a backup is not allowed&#34;),
-        )
-        ref = getReferrer().removeprefix(&#34;/&#34;)
-        return redirectStatus(f&#34;/{ref}&#34;, False)
-
-    good = Backup.mkBackup(project=project)
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.navigation"><code class="name flex">
-<span>def <span class="ident">navigation</span></span>(<span>self, url)</span>
+<span>def <span class="ident">navigation</span></span>(<span>self, url, blogUrl)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates the navigation controls.</p>
@@ -3340,88 +2615,6 @@ tabs can be made active.</dd>
 <dt><code>string</code></dt>
 <dd>The HTML of the navigation.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L1057-L1132" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def navigation(self, url):
-    &#34;&#34;&#34;Generates the navigation controls.
-
-    Especially the tab bar.
-
-    Parameters
-    ----------
-    url: string
-        Initial part of the url on the basis of which one of the
-        tabs can be made active.
-
-    Returns
-    -------
-    string
-        The HTML of the navigation.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    pubUrl = Settings.pubUrl
-    published = Settings.published
-
-    # 1st column: url
-    # 2nd column: interface string
-    # 3rd column: True: enabled, False: disabled
-    # 4th column: implemented
-
-    TABS = (
-        (&#34;home&#34;, &#34;Home&#34;, True, True),
-        (&#34;about&#34;, &#34;About&#34;, True, True),
-        (&#34;project&#34;, &#34;3D Projects&#34;, True, True),
-        (pubUrl, &#34;Published Projects ⌲&#34;, True, True),
-        (&#34;admin&#34;, &#34;My Work&#34;, True, True),
-        (&#34;directory&#34;, &#34;3D Directory&#34;, False, False),
-        (&#34;surpriseme&#34;, &#34;Surprise Me&#34;, True, False),
-        (&#34;advancedsearch&#34;, &#34;Advanced Search&#34;, False, False),
-    )
-
-    search = H.span(
-        [
-            H.input(
-                &#34;search&#34;,
-                &#34;&#34;,
-                name=&#34;search&#34;,
-                placeholder=&#34;search item&#34;,
-                cls=&#34;button disabled&#34;,
-            ),
-            H.input(&#34;submit&#34;, &#34;Search&#34;, cls=&#34;button disabled&#34;),
-        ],
-        cls=&#34;search-bar&#34;,
-    )
-
-    divContent = []
-
-    for tab, label, enabled, implemented in TABS:
-        if not implemented:
-            continue
-
-        active = &#34;active&#34; if url == tab else &#34;&#34;
-
-        if enabled:
-            elem = &#34;a&#34;
-            cls = active
-            href = [tab if &#34;/&#34; in tab else f&#34;/{tab}&#34;]
-            target = dict(target=published) if &#34;/&#34; in tab else {}
-        else:
-            elem = &#34;span&#34;
-            cls = &#34;disabled&#34;
-            href = []
-            target = {}
-
-        fullCls = f&#34;button large {cls}&#34;
-        divContent.append(H.elem(elem, label, *href, cls=fullCls, **target))
-
-    divContent.append(search)
-
-    return H.div(divContent, cls=&#34;tabs&#34;)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.page"><code class="name flex">
 <span>def <span class="ident">page</span></span>(<span>self, url, left=None, right=None)</span>
@@ -3438,63 +2631,6 @@ This part is used to make one of the tabs on the web page active.</dd>
 <dt><strong><code>right</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>Content for the right column of the page.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L1005-L1055" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def page(self, url, left=None, right=None):
-    &#34;&#34;&#34;Workhorse function to get content on the page.
-
-    Parameters
-    ----------
-    url: string
-        Initial part of the url that triggered the page function.
-        This part is used to make one of the tabs on the web page active.
-    left: string, optional None
-        Content for the left column of the page.
-    right: string, optional None
-        Content for the right column of the page.
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    Content = self.Content
-    Backup = self.Backup
-    Auth = self.Auth
-
-    navigation = self.navigation(url)
-    (specialLoginWidget, loginWidget) = Auth.wrapLogin()
-    banner = Settings.banner
-    if Backup is not None:
-        banner = banner.replace(&#34;«backups»&#34;, Backup.getBackups(project=None))
-
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        return renderTemplate(
-            &#34;index&#34;,
-            banner=banner,
-            versionInfo=Settings.versionInfo,
-            navigation=navigation,
-            materialLeft=left or &#34;&#34;,
-            materialRight=right or &#34;&#34;,
-            specialLoginWidget=specialLoginWidget,
-            loginWidget=loginWidget,
-            iconSite=&#34;&#34;,
-        )
-
-    iconSite = Content.getUpload(record, &#34;iconSite&#34;)
-
-    return renderTemplate(
-        &#34;index&#34;,
-        banner=banner,
-        versionInfo=Settings.versionInfo,
-        navigation=navigation,
-        materialLeft=left or &#34;&#34;,
-        materialRight=right or &#34;&#34;,
-        specialLoginWidget=specialLoginWidget,
-        loginWidget=loginWidget,
-        iconSite=iconSite,
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.precheck"><code class="name flex">
 <span>def <span class="ident">precheck</span></span>(<span>self, edition)</span>
@@ -3515,35 +2651,6 @@ articles and media files, and these will be shown on the edition page.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L45-L67" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def precheck(self, edition):
-    &#34;&#34;&#34;Check the articles of an edition prior to publishing.
-
-    Parameters
-    ----------
-    edition: string
-        the edition
-
-    After the operation:
-
-    Goes back to the referrer url.
-    The check operation will have generated a table of contents for the
-    articles and media files, and these will be shown on the edition page.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    good = Content.precheck(edition)
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.project"><code class="name flex">
 <span>def <span class="ident">project</span></span>(<span>self, project)</span>
@@ -3560,73 +2667,6 @@ articles and media files, and these will be shown on the edition page.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L446-L506" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def project(self, project):
-    &#34;&#34;&#34;The landing page of a project.
-
-    Parameters
-    ----------
-    project: string | ObjectId | AttrDict
-        The project in question.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    H = Settings.H
-    Mongo = self.Mongo
-    Content = self.Content
-    Backup = self.Backup
-    runProd = Settings.runProd
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-    publishInfo = Content.getPublishInfo(&#34;project&#34;, project)
-    actionHeading = H.h(3, &#34;Actions&#34;)
-    downloadButton = Content.getDownload(&#34;project&#34;, project)
-    backups = &#34;&#34; if runProd else Backup.getBackups(project=project)
-    editionHeading = H.h(3, &#34;Editions&#34;)
-    editions = Content.getEditions(project)
-    left = (
-        Content.getValues(
-            &#34;project&#34;,
-            project,
-            &#34; + &#34;.join(
-                &#34;&#34;&#34;
-                title@3
-                creator@0
-                contributor@0
-                &#34;&#34;&#34;.strip().split()
-            ),
-        )
-        + publishInfo
-        + actionHeading
-        + downloadButton
-        + backups
-        + editionHeading
-        + editions
-    )
-    right = Content.getValues(
-        &#34;project&#34;,
-        project,
-        &#34; + &#34;.join(
-            &#34;&#34;&#34;
-            abstract@4
-            description@4
-            provenance@4
-            instructionalMethod@4
-            period@4
-            place@4
-            subject@4
-            &#34;&#34;&#34;.strip().split()
-        ),
-    )
-    return self.page(&#34;projects&#34;, left=left, right=right)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.projects"><code class="name flex">
 <span>def <span class="ident">projects</span></span>(<span>self)</span>
@@ -3638,27 +2678,6 @@ articles and media files, and these will be shown on the edition page.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L318-L332" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def projects(self):
-    &#34;&#34;&#34;The page with the list of projects.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        left = None
-    else:
-        projects = Content.getProjects()
-        left = Content.getValues(table, record, &#34;siteTitle@2&#34;) + projects
-    return self.page(&#34;projects&#34;, left=left)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.publish"><code class="name flex">
 <span>def <span class="ident">publish</span></span>(<span>self, edition, force)</span>
@@ -3682,36 +2701,6 @@ articles and media files, and these will be shown on the edition page.</p>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L69-L92" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def publish(self, edition, force):
-    &#34;&#34;&#34;Publish an edition as static pages.
-
-    Parameters
-    ----------
-    edition: string
-        the edition
-    force: boolean
-        If True, ignore when some checks fail
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    good = Content.publish(edition, force)
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.remaining"><code class="name flex">
 <span>def <span class="ident">remaining</span></span>(<span>self, path)</span>
@@ -3728,56 +2717,9 @@ articles and media files, and these will be shown on the edition page.</p>
 <dt><code>response</code></dt>
 <dd>Either a redirect to the referred, for some
 recognized urls that correspond to not-yet
-implemented one. Or a 404 abort for all other
+implemented one. Or a redirect 303 for all other
 cases.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L963-L1003" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def remaining(self, path):
-    &#34;&#34;&#34;When the url of the request is not recognized.
-
-    Parameters
-    ----------
-    path: string
-        The url (without leading /) that is not recognized.
-
-    Returns
-    -------
-    response
-        Either a redirect to the referred, for some
-        recognized urls that correspond to not-yet
-        implemented one. Or a 404 abort for all other
-        cases.
-    &#34;&#34;&#34;
-    Messages = self.Messages
-
-    def splitUrl(url):
-        &#34;&#34;&#34;Auxiliary inner function.&#34;&#34;&#34;
-        url = url.strip(&#34;/&#34;)
-        parts = url.rsplit(&#34;/&#34;, 1)
-        lastPart = parts[-1]
-        firstPart = parts[0] if len(parts) &gt; 1 else &#34;&#34;
-        firstPart = f&#34;/{firstPart}&#34;
-        return (firstPart, lastPart)
-
-    (firstPath, lastPath) = splitUrl(path)
-
-    if lastPath in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;}:
-        Messages.warning(
-            logmsg=f&#34;Not yet implemented /{lastPath}: /{path}&#34;,
-            msg=f&#34;Not yet implemented: /{lastPath}&#34;,
-        )
-        ref = getReferrer()
-        (firstRef, lastRef) = splitUrl(ref)
-        back = firstRef if lastRef in {&#34;read&#34;, &#34;update&#34;, &#34;delete&#34;} else f&#34;/{ref}&#34;
-        return redirectStatus(back, True)
-
-    Messages.warning(logmsg=f&#34;Not found: /{path}&#34;)
-    appStop()</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.republish"><code class="name flex">
 <span>def <span class="ident">republish</span></span>(<span>self, edition, force)</span>
@@ -3801,36 +2743,6 @@ cases.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L94-L117" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def republish(self, edition, force):
-    &#34;&#34;&#34;Re-publish an edition as static pages.
-
-    Parameters
-    ----------
-    edition: string
-        the edition
-    force: boolean
-        If True, ignore when some checks fail
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    good = Content.republish(edition, force)
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.restoreBackup"><code class="name flex">
 <span>def <span class="ident">restoreBackup</span></span>(<span>self, backup, project=None)</span>
@@ -3858,83 +2770,6 @@ cases.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L193-L230" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def restoreBackup(self, backup, project=None):
-    &#34;&#34;&#34;Restore from a backup. Make a new backup first.
-
-    After the operation:
-
-    *   *success*:
-        *   site-wide restore: goes to logout url, good status
-        *   project-specific restore: goes to project url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Parameters
-    ----------
-    backup: string
-        The name of the backup as stored in the backups directory on the server.
-    project: string, optional None
-        If given, restores the given project.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Messages = self.Messages
-    Mongo = self.Mongo
-    Backup = self.Backup
-    Auth = self.Auth
-
-    (projectId, project) = Mongo.get(&#34;project&#34;, project)
-
-    if not Auth.mayBackup(project=project):
-        Messages.warning(
-            msg=&#34;Restoring from a backup is not allowed&#34;,
-            logmsg=(&#34;Restoring from a backup is not allowed&#34;),
-        )
-        ref = getReferrer().removeprefix(&#34;/&#34;)
-        return redirectStatus(f&#34;/{ref}&#34;, False)
-    good = Backup.restoreBackup(backup, project=project)
-    back = &#34;/alogout&#34; if project is None else f&#34;/project/{projectId}&#34;
-    return redirectStatus(back, good)</code></pre>
-</details>
-</dd>
-<dt id="control.pages.Pages.surprise"><code class="name flex">
-<span>def <span class="ident">surprise</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>The "surprise me!" page.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>response</code></dt>
-<dd>&nbsp;</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L301-L316" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def surprise(self):
-    &#34;&#34;&#34;The &#34;surprise me!&#34; page.
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-    (table, recordId, record) = Content.relevant()
-    if recordId is None:
-        (left, right) = (None, None)
-    else:
-        surpriseMe = Content.getSurprise()
-        left = Content.getValues(table, record, &#34;siteTitle@1&#34;)
-        right = surpriseMe
-    return self.page(&#34;surpriseme&#34;, left=left, right=right)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.unpublish"><code class="name flex">
 <span>def <span class="ident">unpublish</span></span>(<span>self, edition)</span>
@@ -3956,34 +2791,6 @@ cases.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L119-L140" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def unpublish(self, edition):
-    &#34;&#34;&#34;Unpublish an edition from the static pages.
-
-    Parameters
-    ----------
-    edition: string
-        the edition
-
-    After the operation:
-
-    *   *success*: goes back to referrer url, good status
-    *   *failure*: goes back to referrer url, error status
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    good = Content.unpublish(edition)
-    ref = getReferrer().removeprefix(&#34;/&#34;)
-    return redirectStatus(f&#34;/{ref}&#34;, good)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.upload"><code class="name flex">
 <span>def <span class="ident">upload</span></span>(<span>self, record, key, path, targetFileName=None)</span>
@@ -4008,42 +2815,6 @@ if is None, the file will be saved with the name from the request.</dd>
 <dd>With json data containing a status and a content member.
 The content is new content to display the upload widget with.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L855-L884" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def upload(self, record, key, path, targetFileName=None):
-    &#34;&#34;&#34;Upload a file.
-
-    Parameters
-    ----------
-    record: string | ObjectId | AttrDict
-        The context record of the upload
-    key: string
-        The key of the upload
-    path: string
-        The save location for the file
-    targetFileName: string, optional None
-        The name of the file as which the uploaded file will be saved;
-        if is None, the file will be saved with the name from the request.
-
-    Returns
-    -------
-    response
-        With json data containing a status and a content member.
-        The content is new content to display the upload widget with.
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    parts = path.rstrip(&#34;/&#34;).rsplit(&#34;/&#34;, 1)
-    fileName = parts[-1]
-    path = parts[0] if len(parts) == 2 else &#34;&#34;
-
-    return Content.saveFile(
-        record, key, path, fileName, targetFileName=targetFileName
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.viewerFrame"><code class="name flex">
 <span>def <span class="ident">viewerFrame</span></span>(<span>self, edition, version, action, subMode)</span>
@@ -4066,51 +2837,6 @@ The content is new content to display the upload widget with.</dd>
 <dt><code>response</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L752-L790" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def viewerFrame(self, edition, version, action, subMode):
-    &#34;&#34;&#34;The page loaded in an iframe where a 3D viewer operates.
-
-    Parameters
-    ----------
-    edition: string | ObjectId | AttrDict
-        The edition that is shown.
-    version: string | None
-        The version to use.
-    action: string | None
-        The mode in which the viewer is to be used (`read` or `update`).
-    subMode: string | None
-        The sub mode in which the viewer is to be used (`update` or `create`).
-
-    Returns
-    -------
-    response
-    &#34;&#34;&#34;
-    Mongo = self.Mongo
-    Viewers = self.Viewers
-    Auth = self.Auth
-
-    (editionId, edition) = Mongo.get(&#34;edition&#34;, edition)
-    if editionId is None:
-        return renderTemplate(&#34;viewer&#34;, viewerCode=&#34;&#34;)
-
-    (viewer, sceneFile) = Viewers.getViewInfo(edition)
-    projectId = edition.projectId
-
-    urlBase = f&#34;project/{projectId}/edition/{editionId}/&#34;
-
-    action = Auth.makeSafe(&#34;edition&#34;, edition, action)
-
-    viewerCode = (
-        &#34;&#34;
-        if action is None or sceneFile is None
-        else Viewers.genHtml(urlBase, sceneFile, viewer, version, action, subMode)
-    )
-    return renderTemplate(&#34;viewer&#34;, viewerCode=viewerCode)</code></pre>
-</details>
 </dd>
 <dt id="control.pages.Pages.viewerResource"><code class="name flex">
 <span>def <span class="ident">viewerResource</span></span>(<span>self, path)</span>
@@ -4132,35 +2858,6 @@ where the resource resides.</dd>
 file plus headers derived from the path.
 If the file does not exist, a 404 is returned.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/pages.py#L792-L814" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def viewerResource(self, path):
-    &#34;&#34;&#34;Components requested by viewers.
-
-    This is the javascript code, the css, and other resources
-    that are part of the 3D viewer software.
-
-    Parameters
-    ----------
-    path: string
-        Path on the file system under the viewers base directory
-        where the resource resides.
-
-    Returns
-    -------
-    response
-        The response consists of the contents of the
-        file plus headers derived from the path.
-        If the file does not exist, a 404 is returned.
-    &#34;&#34;&#34;
-    Content = self.Content
-
-    dataPath = Content.getViewerFile(path)
-    return sendFile(dataPath)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -4231,7 +2928,6 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.pages.Pages" href="#control.pages.Pages">Pages</a></code></h4>
 <ul class="two-column">
-<li><code><a title="control.pages.Pages.about" href="#control.pages.Pages.about">about</a></code></li>
 <li><code><a title="control.pages.Pages.admin" href="#control.pages.Pages.admin">admin</a></code></li>
 <li><code><a title="control.pages.Pages.authWebdav" href="#control.pages.Pages.authWebdav">authWebdav</a></code></li>
 <li><code><a title="control.pages.Pages.createEdition" href="#control.pages.Pages.createEdition">createEdition</a></code></li>
@@ -4256,7 +2952,6 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.pages.Pages.remaining" href="#control.pages.Pages.remaining">remaining</a></code></li>
 <li><code><a title="control.pages.Pages.republish" href="#control.pages.Pages.republish">republish</a></code></li>
 <li><code><a title="control.pages.Pages.restoreBackup" href="#control.pages.Pages.restoreBackup">restoreBackup</a></code></li>
-<li><code><a title="control.pages.Pages.surprise" href="#control.pages.Pages.surprise">surprise</a></code></li>
 <li><code><a title="control.pages.Pages.unpublish" href="#control.pages.Pages.unpublish">unpublish</a></code></li>
 <li><code><a title="control.pages.Pages.upload" href="#control.pages.Pages.upload">upload</a></code></li>
 <li><code><a title="control.pages.Pages.viewerFrame" href="#control.pages.Pages.viewerFrame">viewerFrame</a></code></li>
@@ -4270,7 +2965,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

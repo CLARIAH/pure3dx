@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.precheck API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,14 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/precheck.py#L1-L392" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/precheck.py#L1-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import collections
 from urllib.parse import unquote_plus as uq
 from unicodedata import normalize as un
 
-from control.files import (
+from .files import (
     dirNm,
     dirContents,
     dirRemove,
@@ -42,7 +42,7 @@ from control.files import (
     readJson,
     writeYaml,
 )
-from control.helpers import showDict, htmlUnEsc
+from .helpers import showDict, htmlUnEsc
 
 
 ONLINE_RE = re.compile(r&#34;&#34;&#34;^https?://&#34;&#34;&#34;, re.I)
@@ -64,14 +64,15 @@ SKIP = set(
 
 
 class Precheck:
-    def __init__(self, Settings, Messages, Viewers):
+    def __init__(self, Settings, Messages, Content, Viewers):
         &#34;&#34;&#34;All about checking the files of an edition prior to publishing.&#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
+        self.Content = Content
         self.Viewers = Viewers
         Messages.debugAdd(self)
 
-    def checkEdition(self, project, edition, eInfo, asPublished=False):
+    def checkEdition(self, site, project, edition, eInfo, asPublished=False):
         &#34;&#34;&#34;Checks the article and media files in an editon and produces a toc.
 
         Articles and media are files and directories that the user creates through
@@ -100,12 +101,15 @@ class Precheck:
 
         Parameters
         ----------
+        site: AttrDict | void
+            The site record. If `asPublished` is passed with True, this parameter
+            is not used and can be passed as None
         project: string | ObjectId | AttrDict | int
             The id of the project in question.
         edition: string | ObjectId | AttrDict | int
             The id of the edition in question.
         asPublished: boolean, optional False
-            If False, the project and edition refer to the edition in the
+            If False, the project and edition refer to the project and edition in the
             Pure3D author app, and the toc file will be created there.
 
             If True, the project and edition are numbers that refer to the
@@ -120,6 +124,7 @@ class Precheck:
             it returns whether the edition passed all checks.
         &#34;&#34;&#34;
         Viewers = self.Viewers
+        Content = self.Content
         Messages = self.Messages
         Settings = self.Settings
         H = Settings.H
@@ -240,6 +245,38 @@ class Precheck:
             for name in dirs:
                 checkFiles(path + (name,))
 
+        def checkMeta():
+            if asPublished:
+                return True
+
+            good = True
+
+            for table, record in (
+                (&#34;site&#34;, site),
+                (&#34;project&#34;, project),
+                (&#34;edition&#34;, eInfo),
+            ):
+                for metaKey in Content.checkMetaFields(table):
+                    value = Content.getValue(table, record, metaKey, manner=&#34;logical&#34;)
+
+                    if value:
+                        # Messages.good(f&#34;{table}:{metaKey} is present&#34;)
+                        pass
+                    else:
+                        if metaKey == &#34;dateCreated&#34;:
+                            Messages.error(
+                                f&#34;{table} has no date created. &#34;
+                                f&#34;Just edit any {table} field to set it to today&#34;
+                            )
+
+                        Messages.error(f&#34;This {table} has no metadata field {metaKey}&#34;)
+                        good = False
+
+            if good:
+                Messages.good(&#34;All required metadata fields are present&#34;)
+
+            return good
+
         def checkLinks():
             for kind, thisFileList in filesFound.items():
                 for target in thisFileList:
@@ -262,9 +299,12 @@ class Precheck:
                     kind = (
                         &#34;articles&#34;
                         if targetPath.endswith(&#34;.html&#34;)
-                        else &#34;models&#34;
-                        if targetPath.endswith(&#34;.glb&#34;) or targetPath.endswith(&#34;gltf&#34;)
-                        else &#34;media&#34;
+                        else (
+                            &#34;models&#34;
+                            if targetPath.endswith(&#34;.glb&#34;)
+                            or targetPath.endswith(&#34;gltf&#34;)
+                            else &#34;media&#34;
+                        )
                     )
                     filesReferenced[targetPath][sourcePath] += 1
                 else:
@@ -290,7 +330,7 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
+                        f&#34;Edition {project}/{edition}: {nUnref} unreferenced files &#34;
                         &#34;skipped from being published&#34;
                     )
             else:
@@ -304,7 +344,7 @@ class Precheck:
                     (msgKind, kindRep) = STATUS[kind]
                     if msgKind in {&#34;error&#34;, &#34;warning&#34;} and n == 0:
                         msgKind = &#34;good&#34;
-                    Messages.message(msgKind, f&#34;{n} {kindRep}&#34;, None, stop=False)
+                    Messages.message(msgKind, f&#34;{n} {kindRep}&#34;, None)
 
                     if msgKind == &#34;error&#34;:
                         good = False
@@ -403,7 +443,7 @@ class Precheck:
 
         sceneInfo = checkScene()
         checkFiles(())
-        good = checkLinks()
+        good = checkMeta() and checkLinks()
         allTocs = wrapReport()
 
         if asPublished:
@@ -417,7 +457,7 @@ class Precheck:
         if good:
             Messages.good(msg=&#34;All checks OK&#34;)
         else:
-            Messages.error(msg=&#34;Some checks failed&#34;, stop=False)
+            Messages.error(msg=&#34;Some checks failed&#34;)
 
         return good</code></pre>
 </details>
@@ -433,24 +473,25 @@ class Precheck:
 <dl>
 <dt id="control.precheck.Precheck"><code class="flex name class">
 <span>class <span class="ident">Precheck</span></span>
-<span>(</span><span>Settings, Messages, Viewers)</span>
+<span>(</span><span>Settings, Messages, Content, Viewers)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>All about checking the files of an edition prior to publishing.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/precheck.py#L36-L392" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/precheck.py#L36-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Precheck:
-    def __init__(self, Settings, Messages, Viewers):
+    def __init__(self, Settings, Messages, Content, Viewers):
         &#34;&#34;&#34;All about checking the files of an edition prior to publishing.&#34;&#34;&#34;
         self.Settings = Settings
         self.Messages = Messages
+        self.Content = Content
         self.Viewers = Viewers
         Messages.debugAdd(self)
 
-    def checkEdition(self, project, edition, eInfo, asPublished=False):
+    def checkEdition(self, site, project, edition, eInfo, asPublished=False):
         &#34;&#34;&#34;Checks the article and media files in an editon and produces a toc.
 
         Articles and media are files and directories that the user creates through
@@ -479,12 +520,15 @@ class Precheck:
 
         Parameters
         ----------
+        site: AttrDict | void
+            The site record. If `asPublished` is passed with True, this parameter
+            is not used and can be passed as None
         project: string | ObjectId | AttrDict | int
             The id of the project in question.
         edition: string | ObjectId | AttrDict | int
             The id of the edition in question.
         asPublished: boolean, optional False
-            If False, the project and edition refer to the edition in the
+            If False, the project and edition refer to the project and edition in the
             Pure3D author app, and the toc file will be created there.
 
             If True, the project and edition are numbers that refer to the
@@ -499,6 +543,7 @@ class Precheck:
             it returns whether the edition passed all checks.
         &#34;&#34;&#34;
         Viewers = self.Viewers
+        Content = self.Content
         Messages = self.Messages
         Settings = self.Settings
         H = Settings.H
@@ -619,6 +664,38 @@ class Precheck:
             for name in dirs:
                 checkFiles(path + (name,))
 
+        def checkMeta():
+            if asPublished:
+                return True
+
+            good = True
+
+            for table, record in (
+                (&#34;site&#34;, site),
+                (&#34;project&#34;, project),
+                (&#34;edition&#34;, eInfo),
+            ):
+                for metaKey in Content.checkMetaFields(table):
+                    value = Content.getValue(table, record, metaKey, manner=&#34;logical&#34;)
+
+                    if value:
+                        # Messages.good(f&#34;{table}:{metaKey} is present&#34;)
+                        pass
+                    else:
+                        if metaKey == &#34;dateCreated&#34;:
+                            Messages.error(
+                                f&#34;{table} has no date created. &#34;
+                                f&#34;Just edit any {table} field to set it to today&#34;
+                            )
+
+                        Messages.error(f&#34;This {table} has no metadata field {metaKey}&#34;)
+                        good = False
+
+            if good:
+                Messages.good(&#34;All required metadata fields are present&#34;)
+
+            return good
+
         def checkLinks():
             for kind, thisFileList in filesFound.items():
                 for target in thisFileList:
@@ -641,9 +718,12 @@ class Precheck:
                     kind = (
                         &#34;articles&#34;
                         if targetPath.endswith(&#34;.html&#34;)
-                        else &#34;models&#34;
-                        if targetPath.endswith(&#34;.glb&#34;) or targetPath.endswith(&#34;gltf&#34;)
-                        else &#34;media&#34;
+                        else (
+                            &#34;models&#34;
+                            if targetPath.endswith(&#34;.glb&#34;)
+                            or targetPath.endswith(&#34;gltf&#34;)
+                            else &#34;media&#34;
+                        )
                     )
                     filesReferenced[targetPath][sourcePath] += 1
                 else:
@@ -669,7 +749,7 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
+                        f&#34;Edition {project}/{edition}: {nUnref} unreferenced files &#34;
                         &#34;skipped from being published&#34;
                     )
             else:
@@ -683,7 +763,7 @@ class Precheck:
                     (msgKind, kindRep) = STATUS[kind]
                     if msgKind in {&#34;error&#34;, &#34;warning&#34;} and n == 0:
                         msgKind = &#34;good&#34;
-                    Messages.message(msgKind, f&#34;{n} {kindRep}&#34;, None, stop=False)
+                    Messages.message(msgKind, f&#34;{n} {kindRep}&#34;, None)
 
                     if msgKind == &#34;error&#34;:
                         good = False
@@ -782,7 +862,7 @@ class Precheck:
 
         sceneInfo = checkScene()
         checkFiles(())
-        good = checkLinks()
+        good = checkMeta() and checkLinks()
         allTocs = wrapReport()
 
         if asPublished:
@@ -796,14 +876,14 @@ class Precheck:
         if good:
             Messages.good(msg=&#34;All checks OK&#34;)
         else:
-            Messages.error(msg=&#34;Some checks failed&#34;, stop=False)
+            Messages.error(msg=&#34;Some checks failed&#34;)
 
         return good</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="control.precheck.Precheck.checkEdition"><code class="name flex">
-<span>def <span class="ident">checkEdition</span></span>(<span>self, project, edition, eInfo, asPublished=False)</span>
+<span>def <span class="ident">checkEdition</span></span>(<span>self, site, project, edition, eInfo, asPublished=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Checks the article and media files in an editon and produces a toc.</p>
@@ -828,13 +908,16 @@ that in the Pure3d pub app, because the internal links work differently.</p>
 as well.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
+<dt><strong><code>site</code></strong> :&ensp;<code>AttrDict | void</code></dt>
+<dd>The site record. If <code>asPublished</code> is passed with True, this parameter
+is not used and can be passed as None</dd>
 <dt><strong><code>project</code></strong> :&ensp;<code>string | ObjectId | AttrDict | int</code></dt>
 <dd>The id of the project in question.</dd>
 <dt><strong><code>edition</code></strong> :&ensp;<code>string | ObjectId | AttrDict | int</code></dt>
 <dd>The id of the edition in question.</dd>
 <dt><strong><code>asPublished</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>
-<p>If False, the project and edition refer to the edition in the
+<p>If False, the project and edition refer to the project and edition in the
 Pure3D author app, and the toc file will be created there.</p>
 <p>If True, the project and edition are numbers that refer to the
 published edition;
@@ -848,361 +931,6 @@ to create a toc that is valid in the published edition.</p>
 <dd>If <code>asPublished</code> is True, it returns the toc as a string, otherwise
 it returns whether the edition passed all checks.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/precheck.py#L44-L392" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def checkEdition(self, project, edition, eInfo, asPublished=False):
-    &#34;&#34;&#34;Checks the article and media files in an editon and produces a toc.
-
-    Articles and media are files and directories that the user creates through
-    the Voyager interface.
-
-    Before publishing we want to make sure that these files pass some basic
-    sanity checks:
-
-    *   All links in the articles are either external links, or they point at an
-        existing file within the edition.
-    *   All non-html files are referred to by a link in an html file.
-        Not meeting this requirement does not block publishing, but
-        unreferenced files will not be published.
-
-    We also create a table of contents of all html files in the edition, so they
-    can be inspected outside the Voyager.
-
-    To that, we add a table of the media files, together with the information
-    which html files refer to them.
-
-    The table of contents in the Pure3d author app is slightly different from
-    that in the Pure3d pub app, because the internal links work differently.
-
-    You can trigger the generation of a toc that works for the published edition
-    as well.
-
-    Parameters
-    ----------
-    project: string | ObjectId | AttrDict | int
-        The id of the project in question.
-    edition: string | ObjectId | AttrDict | int
-        The id of the edition in question.
-    asPublished: boolean, optional False
-        If False, the project and edition refer to the edition in the
-        Pure3D author app, and the toc file will be created there.
-
-        If True, the project and edition are numbers that refer to the
-        published edition;
-        it is assumed that all checks pass and the only task is
-        to create a toc that is valid in the published edition.
-
-    Returns
-    -------
-    boolean | string
-        If `asPublished` is True, it returns the toc as a string, otherwise
-        it returns whether the edition passed all checks.
-    &#34;&#34;&#34;
-    Viewers = self.Viewers
-    Messages = self.Messages
-    Settings = self.Settings
-    H = Settings.H
-    workingDir = Settings.workingDir
-    pubModeDir = Settings.pubModeDir
-    tocFile = Settings.tocFile
-    article = Settings.article
-    media = Settings.media
-
-    if asPublished:
-        editionDir = f&#34;{pubModeDir}/project/{project}/edition/{edition}&#34;
-    else:
-        editionDir = f&#34;{workingDir}/project/{project._id}/edition/{edition}&#34;
-        editionUrl = f&#34;/data/project/{project._id}/edition/{edition}&#34;
-
-    sceneFile = Viewers.getViewInfo(eInfo)[1]
-    scenePath = f&#34;{editionDir}/{sceneFile}&#34;
-
-    REF_RE = re.compile(
-        r&#34;&#34;&#34;
-        \b(src|href)
-        =
-        [&#39;&#34;]
-        ([^&#39;&#34;]*)
-        [&#39;&#34;]
-        &#34;&#34;&#34;,
-        re.X | re.I,
-    )
-
-    sceneInfo = []
-    references = []
-
-    filesFound = dict(media=[], articles=[], models=[])
-    filesReferenced = collections.defaultdict(collections.Counter)
-    filesIssues = dict(
-        unconfined=collections.defaultdict(collections.Counter),
-        missing=collections.defaultdict(collections.Counter),
-    )
-    statusIndex = dict(
-        unconfined=0, external=0, resolved=0, missing=0, unreferenced=0
-    )
-    targetA = {} if asPublished else dict(target=article)
-    targetM = {} if asPublished else dict(target=media)
-    preUrl = &#34;&#34; if asPublished else f&#34;{editionUrl}/&#34;
-
-    def getUris(data, underUri):
-        td = type(data)
-
-        if td is list:
-            return set().union(*(getUris(item, underUri) for item in data))
-
-        if td is dict:
-            return set().union(
-                *(
-                    getUris(item, underUri or k in {&#34;uri&#34;, &#34;uris&#34;, &#34;url&#34;, &#34;urls&#34;})
-                    for (k, item) in data.items()
-                )
-            )
-
-        if td is str and underUri:
-            return {data}
-
-        return set()
-
-    def removeEmptyDirs(base):
-        (files, dirs) = dirContents(base)
-
-        for fl in files:
-            if fl in SKIP:
-                fileRemove(f&#34;{base}/{fl}&#34;)
-        for dr in dirs:
-            removeEmptyDirs(f&#34;{base}/{dr}&#34;)
-
-        (files, dirs) = dirContents(base)
-
-        if len(files) == 0 and len(dirs) == 0:
-            dirRemove(base)
-
-    def checkScene():
-        scene = readJson(asFile=scenePath, plain=True)
-        sceneYaml = scenePath.removesuffix(&#34;json&#34;) + &#34;yaml&#34;
-        writeYaml(scene, asFile=sceneYaml)
-
-        for uri in sorted(getUris(scene, False)):
-            references.append((sceneFile, &#34;models&#34;, un(&#34;NFC&#34;, htmlUnEsc(uri))))
-
-        return scene
-
-    def checkFile(target):
-        sep = &#34;/&#34; if editionDir else &#34;&#34;
-
-        with open(f&#34;{editionDir}{sep}{target}&#34;) as fh:
-            for i, line in enumerate(fh):
-                for kind, url in REF_RE.findall(line):
-                    references.append((target, kind, un(&#34;NFC&#34;, htmlUnEsc(url))))
-
-    def checkFiles(path):
-        nPath = len(path)
-        pathRep = &#34;/&#34;.join(path)
-        sep = &#34;/&#34; if nPath &gt; 0 and editionDir else &#34;&#34;
-        (files, dirs) = dirContents(f&#34;{editionDir}{sep}{pathRep}&#34;)
-
-        for name in files:
-            namel = name.lower()
-            nPath = len(path)
-            pathRep = &#34;/&#34;.join(path)
-            sep = &#34;/&#34; if nPath &gt; 0 else &#34;&#34;
-            target = un(&#34;NFC&#34;, f&#34;{pathRep}{sep}{name}&#34;)
-
-            if nPath &gt; 0 and namel.endswith(&#34;.html&#34;):
-                checkFile(target)
-                filesFound[&#34;articles&#34;].append(target)
-            elif nPath == 0 and (namel.endswith(&#34;.glb&#34;) or namel.endswith(&#34;gltf&#34;)):
-                filesFound[&#34;models&#34;].append(target)
-            elif nPath &gt; 0 and name not in SKIP:
-                filesFound[&#34;media&#34;].append(target)
-
-        for name in dirs:
-            checkFiles(path + (name,))
-
-    def checkLinks():
-        for kind, thisFileList in filesFound.items():
-            for target in thisFileList:
-                filesReferenced[target] = collections.Counter()
-
-        for source, kind, url in references:
-            sourcePath = source
-            sourceDir = dirNm(sourcePath)
-            sep = &#34;/&#34; if sourceDir and url else &#34;&#34;
-            targetPath = un(&#34;NFC&#34;, f&#34;{sourceDir}{sep}{uq(url)}&#34;)
-            sep1 = &#34;/&#34; if targetPath and editionDir else &#34;&#34;
-
-            if url.startswith(&#34;..&#34;):
-                status = &#34;unconfined&#34;
-                filesIssues[status][targetPath][sourcePath] += 1
-            elif ONLINE_RE.match(url) or MAILTO_RE.match(url):
-                status = &#34;external&#34;
-            elif fileExists(f&#34;{editionDir}{sep1}{targetPath}&#34;):
-                status = &#34;resolved&#34;
-                kind = (
-                    &#34;articles&#34;
-                    if targetPath.endswith(&#34;.html&#34;)
-                    else &#34;models&#34;
-                    if targetPath.endswith(&#34;.glb&#34;) or targetPath.endswith(&#34;gltf&#34;)
-                    else &#34;media&#34;
-                )
-                filesReferenced[targetPath][sourcePath] += 1
-            else:
-                status = &#34;missing&#34;
-                filesIssues[status][targetPath][sourcePath] += 1
-
-            statusIndex[status] += 1
-
-        good = True
-
-        if asPublished:
-            nUnref = 0
-
-            for target, sources in filesReferenced.items():
-                if len(sources) &gt; 0:
-                    continue
-
-                fPath = f&#34;{editionDir}/{target}&#34;
-                fileRemove(fPath)
-                nUnref += 1
-
-            removeEmptyDirs(editionDir)
-
-            if nUnref:
-                Messages.warning(
-                    f&#34;Edition {project}/{edition}{nUnref} unreferenced files &#34;
-                    &#34;skipped from being published&#34;
-                )
-        else:
-            Messages.special(msg=&#34;Quality control report&#34;)
-
-            for sources in filesReferenced.values():
-                if len(sources) == 0:
-                    statusIndex[&#34;unreferenced&#34;] += 1
-
-            for kind, n in statusIndex.items():
-                (msgKind, kindRep) = STATUS[kind]
-                if msgKind in {&#34;error&#34;, &#34;warning&#34;} and n == 0:
-                    msgKind = &#34;good&#34;
-                Messages.message(msgKind, f&#34;{n} {kindRep}&#34;, None, stop=False)
-
-                if msgKind == &#34;error&#34;:
-                    good = False
-
-        return good
-
-    def wrapScene(sceneInfo):
-        issues = {}
-
-        for status, theseFiles in filesIssues.items():
-            for file in theseFiles:
-                issues[file] = STATUS[status][0]
-
-        return showDict(sceneFile, sceneInfo, issues=issues)
-
-    def wrapFiles(kind):
-        items = []
-
-        theseFiles = filesFound[kind]
-
-        outerCls = &#34;&#34;
-
-        for i, target in enumerate(sorted(theseFiles, key=lambda x: x.lower())):
-            sources = filesReferenced[target]
-
-            total = sum(sources.values())
-            cls = &#34;warning&#34; if total == 0 else &#34;&#34; if total == 1 else &#34;special&#34;
-
-            if (
-                cls == &#34;warning&#34;
-                and outerCls == &#34;&#34;
-                or cls == &#34;error&#34;
-                and outerCls != &#34;error&#34;
-            ):
-                outerCls = cls
-
-            entryHead = H.a(target, f&#34;{preUrl}{target}&#34;, **targetM, cls=cls)
-            sourceEntries = H.ul(
-                H.li(
-                    [
-                        H.a(s, f&#34;{preUrl}{s}&#34;, **targetA),
-                        H.span(f&#34; - {n} x&#34;, cls=&#34;small mono&#34;),
-                    ],
-                )
-                for (s, n) in sorted(sources.items(), key=lambda x: x[0].lower())
-            )
-            items.append(
-                H.li(
-                    H.div(entryHead)
-                    if total == 0
-                    else H.details(entryHead, sourceEntries, f&#34;{kind}-{i}&#34;)
-                )
-            )
-        kindRep = kind[0].upper() + kind[1:]
-        return H.details(
-            H.b(f&#34;Table of {kindRep}&#34;, cls=outerCls), H.ul(items), kind
-        )
-
-    def wrapIssues(status):
-        items = []
-
-        theseFiles = filesIssues[status]
-
-        if len(theseFiles) == 0:
-            return &#34;&#34;
-
-        for i, target in enumerate(sorted(theseFiles, key=lambda x: x.lower())):
-            sources = theseFiles[target]
-
-            cls = &#34;error&#34;
-
-            entryHead = H.a(target, f&#34;{preUrl}{target}&#34;, **targetM, cls=cls)
-            sourceEntries = H.ul(
-                H.li(
-                    [
-                        H.a(s, f&#34;{preUrl}{s}&#34;, **targetA),
-                        H.span(f&#34; - {n} x&#34;, cls=&#34;small mono&#34;),
-                    ],
-                )
-                for (s, n) in sorted(sources.items(), key=lambda x: x[0].lower())
-            )
-            items.append(H.li(H.details(entryHead, sourceEntries, f&#34;issues-{i}&#34;)))
-        statusRep = STATUS[status][1]
-        return H.details(H.b(f&#34;Table of {statusRep}&#34;, cls=cls), H.ul(items), status)
-
-    def wrapReport():
-        return (
-            H.h(3, &#34;Scene information&#34;)
-            + wrapScene(sceneInfo)
-            + wrapFiles(&#34;models&#34;)
-            + wrapFiles(&#34;articles&#34;)
-            + wrapFiles(&#34;media&#34;)
-            + wrapIssues(&#34;unconfined&#34;)
-            + wrapIssues(&#34;missing&#34;)
-        )
-
-    sceneInfo = checkScene()
-    checkFiles(())
-    good = checkLinks()
-    allTocs = wrapReport()
-
-    if asPublished:
-        return allTocs
-
-    with open(f&#34;{editionDir}/{tocFile}&#34;, &#34;w&#34;) as fh:
-        fh.write(allTocs)
-
-    Messages.special(msg=&#34;Outcome&#34;)
-
-    if good:
-        Messages.good(msg=&#34;All checks OK&#34;)
-    else:
-        Messages.error(msg=&#34;Some checks failed&#34;, stop=False)
-
-    return good</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1283,7 +1011,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <title>control.html API documentation</title>
 <meta name="description" content="HTML generation made easy …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -32,7 +32,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1-L1299" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L1-L1358" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;HTML generation made easy.
 
@@ -746,7 +746,7 @@ class HtmlElements:
         addCls = f&#34;symbol i-{icon} &#34;
         return HtmlElement(&#34;span&#34;).wrap((text or &#34;&#34;) + iconChar, addCls=addCls, **atts)
 
-    def iconx(self, icon, text=None, href=None, **atts):
+    def iconx(self, icon, text=None, tip=None, href=None, **atts):
         &#34;&#34;&#34;iconx.
 
         Pseudo element for a clickable icon.
@@ -766,6 +766,9 @@ class HtmlElements:
             Name of the icon.
         text: string, optional, `None`
             Extra text that will be placed in front of the icon.
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
         href: url, optional, `None`
             Destination of the icon when clicked.
             Will be left out when equal to the empty string.
@@ -785,14 +788,15 @@ class HtmlElements:
 
         if &#34;title&#34; not in atts:
             title = iconTips.get(icon, None)
-            if title is not None:
-                atts[&#34;title&#34;] = title
+
+            if title is not None and tip is not None:
+                atts[&#34;title&#34;] = (title or &#34;&#34;) + (tip or &#34;&#34;)
 
         return HtmlElement(&#34;span&#34; if href is None else &#34;a&#34;).wrap(
             (text or &#34;&#34;) + iconChar, addCls=addCls, **atts
         )
 
-    def actionButton(self, name, kind=None, **atts):
+    def actionButton(self, name, tip=None, kind=None, **atts):
         &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
 
         It is assumed that the permission has already been checked.
@@ -805,6 +809,10 @@ class HtmlElements:
         name: string
             The name of the icon as displayed on the button
 
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
+
         kind: string, optional None
             The kind of the button, passed on in attribute `kind`, can be
             used by Javascript to identify this button.
@@ -816,7 +824,9 @@ class HtmlElements:
             The HTML of the button.
 
         &#34;&#34;&#34;
-        return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)
+        return self.iconx(
+            name, href=&#34;#&#34;, cls=&#34;button small&#34;, tip=tip, kind=name, **atts
+        )
 
     @staticmethod
     def iframe(src, **atts):
@@ -1007,9 +1017,11 @@ class HtmlElements:
                 )
                 if imgUrl
                 else self.span(
-                    [self.icon(&#34;exist&#34; if exists else &#34;noexist&#34;), fileRep]
-                    if prescribed
-                    else fileRep,
+                    (
+                        [self.icon(&#34;exist&#34; if exists else &#34;noexist&#34;), fileRep]
+                        if prescribed
+                        else fileRep
+                    ),
                     cls=&#34;filename&#34;,
                 )
             )
@@ -1131,6 +1143,26 @@ class HtmlElements:
         return HtmlElement(&#34;ol&#34;).wrap(items, type=tp, **atts)
 
     @staticmethod
+    def option(text, value, **atts):
+        &#34;&#34;&#34;OPTION.
+
+        Option within a select element..
+
+        Parameters
+        ----------
+        text: string
+            The text of the option element.
+        value: string
+            The value attribute of the option element.
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;option&#34;).wrap(text, value=value, **atts)
+
+    @staticmethod
     def p(material, **atts):
         &#34;&#34;&#34;P.
 
@@ -1162,6 +1194,29 @@ class HtmlElements:
         &#34;&#34;&#34;
 
         return HtmlElement(&#34;script&#34;).wrap(material, **atts)
+
+    def select(self, options, multiple=False, **atts):
+        &#34;&#34;&#34;SELECT.
+
+        Select box with options.
+
+        Parameters
+        ----------
+        options: iterable
+            Every option is a tuple or list of three elements: (text, value, selected)
+        multiple: boolean, optional False
+            Whether multiple selection is allowed or not.
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;select&#34;).wrap(
+            [self.option(*opt[0:2], selected=opt[2]) for opt in options],
+            multiple=multiple,
+            **atts,
+        )
 
     @staticmethod
     def small(material, **atts):
@@ -1316,11 +1371,15 @@ def asString(value, tight=True):
     return (
         E
         if value is None
-        else value
-        if type(value) is str
-        else sep.join(asString(val, tight=tight) for val in value)
-        if isIterable(value)
-        else str(value)
+        else (
+            value
+            if type(value) is str
+            else (
+                sep.join(asString(val, tight=tight) for val in value)
+                if isIterable(value)
+                else str(value)
+            )
+        )
     )
 
 
@@ -1363,44 +1422,6 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1257-L1288" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def asString(value, tight=True):
-    &#34;&#34;&#34;Join an iterable of strings or iterables into a string.
-
-    And if the value is already a string, return it, and if it is `None`
-    return the empty string.
-
-    The material is recursively joined into a string.
-
-    Parameters
-    ----------
-    value: string | iterable | void
-        Every argument in `value` may be None, a string, or an iterable.
-    tight: boolean, optional False
-        If True, all material will be joined tightly, with no intervening string.
-        Otherwise, all pieces will be joined with a newline.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    sep = E if tight else &#34;\n&#34;
-
-    return (
-        E
-        if value is None
-        else value
-        if type(value) is str
-        else sep.join(asString(val, tight=tight) for val in value)
-        if isIterable(value)
-        else str(value)
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.isIterable"><code class="name flex">
 <span>def <span class="ident">isIterable</span></span>(<span>value)</span>
@@ -1412,21 +1433,6 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <p>Strings are iterables.
 We want to know whether a value is a string or an iterable of strings.</p>
 </div></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1291-L1299" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def isIterable(value):
-    &#34;&#34;&#34;Whether a value is a non-string iterable.
-
-    !!! note
-        Strings are iterables.
-        We want to know whether a value is a string or an iterable of strings.
-    &#34;&#34;&#34;
-
-    return type(value) is not str and hasattr(value, &#34;__iter__&#34;)</code></pre>
-</details>
 </dd>
 </dl>
 </section>
@@ -1449,7 +1455,7 @@ We want to know whether a value is a string or an iterable of strings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L46-L157" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L46-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElement:
     &#34;&#34;&#34;Wrapping of attributes and content into an HTML element.&#34;&#34;&#34;
@@ -1571,17 +1577,6 @@ We want to know whether a value is a string or an iterable of strings.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Escapes double quotes in attribute values.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L75-L79" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def atEscape(v):
-    &#34;&#34;&#34;Escapes double quotes in attribute values.&#34;&#34;&#34;
-
-    return v.replace(&#39;&#34;&#39;, &#34;&amp;quot;&#34;)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElement.atNormal"><code class="name flex">
 <span>def <span class="ident">atNormal</span></span>(<span>k)</span>
@@ -1590,22 +1585,6 @@ def atEscape(v):
 <div class="desc"><p>Normalize the names of attributes.</p>
 <p>Substitute the <code>cls</code> attribute name with <code>class</code>.</p>
 <p>Substitute the <code>tp</code> attribute name with <code>type</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L64-L73" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def atNormal(k):
-    &#34;&#34;&#34;Normalize the names of attributes.
-
-    Substitute the `cls` attribute name with `class`.
-
-    Substitute the `tp` attribute name with `type`.
-    &#34;&#34;&#34;
-
-    return CLASS if k == CLS else TYPE if k == TP else k</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElement.attStr"><code class="name flex">
 <span>def <span class="ident">attStr</span></span>(<span>atts, addCls=None)</span>
@@ -1638,54 +1617,6 @@ Otherwise a fresh class attribute will be created.</dd>
 <dt><code>string</code></dt>
 <dd>The serialzed attributes.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L81-L122" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@classmethod
-def attStr(thisCls, atts, addCls=None):
-    &#34;&#34;&#34;Stringify attributes.
-
-    !!! hint
-        Attributes with value `True` are represented as bare attributes, without
-        value. For example: `{open=True}` translates into `open`.
-        Attributes with value `False` are omitted.
-
-    !!! caution
-        Use the name `cls` to get a `class` attribute inside an HTML element.
-        The name `class` interferes too much with Python syntax to be usable
-        as a keyowrd argument.
-
-    Parameters
-    ----------
-    atts: dict
-        A dictionary of attributes.
-    addCls: string
-        An extra `class` attribute. If there is already a class attribute
-        `addCls` will be appended to it.
-        Otherwise a fresh class attribute will be created.
-
-    Returns
-    -------
-    string
-        The serialzed attributes.
-    &#34;&#34;&#34;
-
-    if addCls:
-        if atts and CLS in atts:
-            atts[CLS] += f&#34; {addCls}&#34;
-        elif atts:
-            atts[CLS] = addCls
-        else:
-            atts = dict(cls=addCls)
-    return E.join(
-        f&#34;&#34;&#34; {thisCls.atNormal(k)}&#34;&#34;&#34;
-        + (E if v is True else f&#39;&#39;&#39;=&#34;{thisCls.atEscape(str(v))}&#34;&#39;&#39;&#39;)
-        for (k, v) in atts.items()
-        if v is not None and v is not False
-    )</code></pre>
-</details>
 </dd>
 </dl>
 <h3>Instance variables</h3>
@@ -1722,46 +1653,6 @@ Otherwise a fresh class attribute will be created.</dd>
 <dt><code>string</code></dt>
 <dd>The serialized element.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L124-L157" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def wrap(self, material, addCls=None, **atts):
-    &#34;&#34;&#34;Wraps attributes and content into an element.
-
-    !!! caution
-        No HTML escaping of special characters will take place.
-        You have to use `control.html.HtmlElements.he` yourself.
-
-    Parameters
-    ----------
-    material: string | iterable
-        The element content. If the material is not a string but another
-        iterable, the items will be joined by the empty string.
-
-    addCls: string
-        An extra `class` attribute. If there is already a class attribute
-        `addCls` will be appended to it.
-        Otherwise a fresh class attribute will be created.
-
-    Returns
-    -------
-    string
-        The serialized element.
-
-    &#34;&#34;&#34;
-
-    name = self.name
-    content = asString(material)
-    attributes = self.attStr(atts, addCls=addCls)
-
-    return (
-        f&#34;&#34;&#34;&lt;{name}{attributes}&gt;&#34;&#34;&#34;
-        if name in EMPTY_ELEMENTS
-        else f&#34;&#34;&#34;&lt;{name}{attributes}&gt;{content}&lt;/{name}&gt;&#34;&#34;&#34;
-    )</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1780,7 +1671,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L160-L1254" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L160-L1309" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElements:
     &#34;&#34;&#34;Wrap specific HTML elements and patterns.
@@ -2335,7 +2226,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         addCls = f&#34;symbol i-{icon} &#34;
         return HtmlElement(&#34;span&#34;).wrap((text or &#34;&#34;) + iconChar, addCls=addCls, **atts)
 
-    def iconx(self, icon, text=None, href=None, **atts):
+    def iconx(self, icon, text=None, tip=None, href=None, **atts):
         &#34;&#34;&#34;iconx.
 
         Pseudo element for a clickable icon.
@@ -2355,6 +2246,9 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
             Name of the icon.
         text: string, optional, `None`
             Extra text that will be placed in front of the icon.
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
         href: url, optional, `None`
             Destination of the icon when clicked.
             Will be left out when equal to the empty string.
@@ -2374,14 +2268,15 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 
         if &#34;title&#34; not in atts:
             title = iconTips.get(icon, None)
-            if title is not None:
-                atts[&#34;title&#34;] = title
+
+            if title is not None and tip is not None:
+                atts[&#34;title&#34;] = (title or &#34;&#34;) + (tip or &#34;&#34;)
 
         return HtmlElement(&#34;span&#34; if href is None else &#34;a&#34;).wrap(
             (text or &#34;&#34;) + iconChar, addCls=addCls, **atts
         )
 
-    def actionButton(self, name, kind=None, **atts):
+    def actionButton(self, name, tip=None, kind=None, **atts):
         &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
 
         It is assumed that the permission has already been checked.
@@ -2394,6 +2289,10 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         name: string
             The name of the icon as displayed on the button
 
+        tip: boolean, optional False
+            Extra text to append after the standard tooltip text based on the
+            *name* parameter.
+
         kind: string, optional None
             The kind of the button, passed on in attribute `kind`, can be
             used by Javascript to identify this button.
@@ -2405,7 +2304,9 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
             The HTML of the button.
 
         &#34;&#34;&#34;
-        return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)
+        return self.iconx(
+            name, href=&#34;#&#34;, cls=&#34;button small&#34;, tip=tip, kind=name, **atts
+        )
 
     @staticmethod
     def iframe(src, **atts):
@@ -2596,9 +2497,11 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
                 )
                 if imgUrl
                 else self.span(
-                    [self.icon(&#34;exist&#34; if exists else &#34;noexist&#34;), fileRep]
-                    if prescribed
-                    else fileRep,
+                    (
+                        [self.icon(&#34;exist&#34; if exists else &#34;noexist&#34;), fileRep]
+                        if prescribed
+                        else fileRep
+                    ),
                     cls=&#34;filename&#34;,
                 )
             )
@@ -2720,6 +2623,26 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         return HtmlElement(&#34;ol&#34;).wrap(items, type=tp, **atts)
 
     @staticmethod
+    def option(text, value, **atts):
+        &#34;&#34;&#34;OPTION.
+
+        Option within a select element..
+
+        Parameters
+        ----------
+        text: string
+            The text of the option element.
+        value: string
+            The value attribute of the option element.
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;option&#34;).wrap(text, value=value, **atts)
+
+    @staticmethod
     def p(material, **atts):
         &#34;&#34;&#34;P.
 
@@ -2751,6 +2674,29 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         &#34;&#34;&#34;
 
         return HtmlElement(&#34;script&#34;).wrap(material, **atts)
+
+    def select(self, options, multiple=False, **atts):
+        &#34;&#34;&#34;SELECT.
+
+        Select box with options.
+
+        Parameters
+        ----------
+        options: iterable
+            Every option is a tuple or list of three elements: (text, value, selected)
+        multiple: boolean, optional False
+            Whether multiple selection is allowed or not.
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;select&#34;).wrap(
+            [self.option(*opt[0:2], selected=opt[2]) for opt in options],
+            multiple=multiple,
+            **atts,
+        )
 
     @staticmethod
     def small(material, **atts):
@@ -2882,27 +2828,27 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <dl>
 <dt id="control.html.HtmlElements.amp"><code class="name">var <span class="ident">amp</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="control.html.HtmlElements.apos"><code class="name">var <span class="ident">apos</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="control.html.HtmlElements.gt"><code class="name">var <span class="ident">gt</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="control.html.HtmlElements.lt"><code class="name">var <span class="ident">lt</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="control.html.HtmlElements.nbsp"><code class="name">var <span class="ident">nbsp</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="control.html.HtmlElements.quot"><code class="name">var <span class="ident">quot</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 </dl>
 <h3>Static methods</h3>
@@ -2925,31 +2871,6 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L325-L343" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def a(material, href, **atts):
-    &#34;&#34;&#34;A.
-
-    Hyperlink.
-
-    Parameters
-    ----------
-    material: string | iterable
-        Text of the link.
-    href: url
-        Destination of the link.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;a&#34;).wrap(material, href=href, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.b"><code class="name flex">
 <span>def <span class="ident">b</span></span>(<span>material, **atts)</span>
@@ -2967,28 +2888,6 @@ def a(material, href, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L345-L360" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def b(material, **atts):
-    &#34;&#34;&#34;B.
-
-    Bold element.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;b&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.body"><code class="name flex">
 <span>def <span class="ident">body</span></span>(<span>material, **atts)</span>
@@ -3006,28 +2905,6 @@ def b(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L362-L377" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def body(material, **atts):
-    &#34;&#34;&#34;BODY.
-
-    The &lt;body&gt; part of a document
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;body&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.br"><code class="name flex">
 <span>def <span class="ident">br</span></span>(<span>)</span>
@@ -3040,24 +2917,6 @@ def body(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L379-L390" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def br():
-    &#34;&#34;&#34;BR.
-
-    Line break.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;br&#34;).wrap(E)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.button"><code class="name flex">
 <span>def <span class="ident">button</span></span>(<span>material, tp, **atts)</span>
@@ -3077,31 +2936,6 @@ The type of the button, e.g. <code>submit</code> or <code>button</code></p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L392-L410" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def button(material, tp, **atts):
-    &#34;&#34;&#34;BUTTON.
-
-    A clickable button
-
-    Parameters
-    ----------
-    material: string | iterable
-        What is displayed on the button.
-    tp:
-        The type of the button, e.g. `submit` or `button`
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;button&#34;).wrap(material, tp=tp, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.checkbox"><code class="name flex">
 <span>def <span class="ident">checkbox</span></span>(<span>var, **atts)</span>
@@ -3119,35 +2953,6 @@ def button(material, tp, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L429-L451" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def checkbox(var, **atts):
-    &#34;&#34;&#34;INPUT type=checkbox.
-
-    The element to receive user clicks.
-
-    Parameters
-    ----------
-    var: string
-        The name of an identifier for the element.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;input&#34;).wrap(
-        E,
-        tp=&#34;checkbox&#34;,
-        id=var,
-        addCls=&#34;option&#34;,
-        **atts,
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.code"><code class="name flex">
 <span>def <span class="ident">code</span></span>(<span>material, **atts)</span>
@@ -3165,28 +2970,6 @@ def checkbox(var, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L412-L427" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def code(material, **atts):
-    &#34;&#34;&#34;CODE.
-
-    Code element.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;code&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.content"><code class="name flex">
 <span>def <span class="ident">content</span></span>(<span>*material, tight=True)</span>
@@ -3210,36 +2993,6 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L205-L228" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def content(*material, tight=True):
-    &#34;&#34;&#34;fragment.
-
-    This is a pseudo element.
-    The material will be joined together, without wrapping it in an element.
-    There are no attributes.
-
-    The material is recursively joined into a string.
-
-    Parameters
-    ----------
-    material: string | iterable
-        Every argument in `material` may be None, a string, or an iterable.
-    tight: boolean, optional False
-        If True, all material will be joined tightly, with no intervening string.
-        Otherwise, all pieces will be joined with a newline.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return asString(material, tight=tight)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.dd"><code class="name flex">
 <span>def <span class="ident">dd</span></span>(<span>material, **atts)</span>
@@ -3257,28 +3010,6 @@ def content(*material, tight=True):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L453-L468" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def dd(material, **atts):
-    &#34;&#34;&#34;DD.
-
-    The definition part of a term.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;dd&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.details"><code class="name flex">
 <span>def <span class="ident">details</span></span>(<span>summary, material, itemkey, **atts)</span>
@@ -3300,36 +3031,6 @@ def dd(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L470-L493" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def details(summary, material, itemkey, **atts):
-    &#34;&#34;&#34;DETAILS.
-
-    Collapsible details element.
-
-    Parameters
-    ----------
-    summary: string | iterable
-        The summary.
-    material: string | iterable
-        The expansion.
-    itemkey: string
-        Identifier for reference from Javascript.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    content = asString(material)
-    return HtmlElement(&#34;details&#34;).wrap(
-        HtmlElement(&#34;summary&#34;).wrap(summary) + content, itemkey=itemkey, **atts
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.dialog"><code class="name flex">
 <span>def <span class="ident">dialog</span></span>(<span>material, **atts)</span>
@@ -3342,24 +3043,6 @@ def details(summary, material, itemkey, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L557-L568" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def dialog(material, **atts):
-    &#34;&#34;&#34;DIALOG.
-
-    A &lt;dialog&gt; element.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;dialog&#34;).wrap(material, E, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.div"><code class="name flex">
 <span>def <span class="ident">div</span></span>(<span>material, **atts)</span>
@@ -3376,26 +3059,6 @@ def dialog(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L570-L583" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def div(material, **atts):
-    &#34;&#34;&#34;DIV.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;div&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.dl"><code class="name flex">
 <span>def <span class="ident">dl</span></span>(<span>items, **atts)</span>
@@ -3413,35 +3076,6 @@ def div(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L585-L607" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def dl(items, **atts):
-    &#34;&#34;&#34;DL.
-
-    Definition list.
-
-    Parameters
-    ----------
-    items: iterable of (string, string)
-        These are the list items, which are term-definition pairs.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;dl&#34;).wrap(
-        [
-            HtmlElement(&#34;dt&#34;).wrap(item[0]) + HtmlElement(&#34;dd&#34;).wrap(item[1])
-            for item in items
-        ],
-        **atts,
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.dt"><code class="name flex">
 <span>def <span class="ident">dt</span></span>(<span>material, **atts)</span>
@@ -3459,28 +3093,6 @@ def dl(items, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L609-L624" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def dt(material, **atts):
-    &#34;&#34;&#34;DT.
-
-    Term of a definition.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;dt&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.elem"><code class="name flex">
 <span>def <span class="ident">elem</span></span>(<span>tag, *args, **kwargs)</span>
@@ -3497,33 +3109,6 @@ def dt(material, **atts):
 <dt><strong><code>*args</code></strong>, <strong><code>**kwargs</code></strong> :&ensp;<code>any</code></dt>
 <dd>The remaining arguments to be passed to the underlying wrapper.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L303-L323" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@classmethod
-def elem(thisClass, tag, *args, **kwargs):
-    &#34;&#34;&#34;Wraps an element whose tag is determined at run time.
-
-    You can also use this to wrap non-html elements.
-
-    Parameters
-    ----------
-    thisClass: class
-        The current class
-    tag: string
-        The name of the element
-    *args, **kwargs: any
-        The remaining arguments to be passed to the underlying wrapper.
-    &#34;&#34;&#34;
-    method = getattr(thisClass, tag, None)
-    return (
-        HtmlElement(tag).wrap(*args, **kwargs)
-        if method is None
-        else method(*args, **kwargs)
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.h"><code class="name flex">
 <span>def <span class="ident">h</span></span>(<span>level, material, **atts)</span>
@@ -3542,29 +3127,6 @@ def elem(thisClass, tag, *args, **kwargs):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L626-L642" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def h(level, material, **atts):
-    &#34;&#34;&#34;H1, H2, H3, H4, H5, H6.
-
-    Parameters
-    ----------
-    level: int
-        The heading level.
-    material: string | iterable
-        The heading content.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(f&#34;h{level}&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.he"><code class="name flex">
 <span>def <span class="ident">he</span></span>(<span>val)</span>
@@ -3575,35 +3137,6 @@ def h(level, material, **atts):
 <pre><code>&amp; &lt; ' &quot;
 </code></pre>
 <p>The dollar sign will be wrapped into a <code>&lt;span&gt;</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L181-L203" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@classmethod
-def he(cls, val):
-    &#34;&#34;&#34;Escape HTML characters.
-
-    The following characters will be replaced by entities:
-    ```
-    &amp; &lt; &#39; &#34;
-    ```
-
-    The dollar sign will be wrapped into a `&lt;span&gt;`.
-    &#34;&#34;&#34;
-
-    return (
-        E
-        if val is None
-        else (
-            str(val)
-            .replace(AMP, cls.amp)
-            .replace(LT, cls.lt)
-            .replace(APOS, cls.apos)
-            .replace(QUOT, cls.quot)
-        )
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.head"><code class="name flex">
 <span>def <span class="ident">head</span></span>(<span>material, **atts)</span>
@@ -3621,28 +3154,6 @@ def he(cls, val):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L644-L659" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def head(material, **atts):
-    &#34;&#34;&#34;HEAD.
-
-    The &lt;head&gt; part of a document
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;head&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.i"><code class="name flex">
 <span>def <span class="ident">i</span></span>(<span>material, **atts)</span>
@@ -3660,28 +3171,6 @@ def head(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L661-L676" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def i(material, **atts):
-    &#34;&#34;&#34;I.
-
-    Italic element.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;i&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.iframe"><code class="name flex">
 <span>def <span class="ident">iframe</span></span>(<span>src, **atts)</span>
@@ -3699,29 +3188,6 @@ def i(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L785-L801" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def iframe(src, **atts):
-    &#34;&#34;&#34;IFRAME.
-
-    An iframe, which is an empty element with an obligatory end tag.
-
-    Parameters
-    ----------
-    src: url
-        Source for the iframe.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;iframe&#34;).wrap(&#34;&#34;, src=src, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.li"><code class="name flex">
 <span>def <span class="ident">li</span></span>(<span>material, **atts)</span>
@@ -3739,28 +3205,6 @@ def iframe(src, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1026-L1041" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def li(material, **atts):
-    &#34;&#34;&#34;LI.
-
-    List item.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;li&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.link"><code class="name flex">
 <span>def <span class="ident">link</span></span>(<span>rel, href, **atts)</span>
@@ -3780,31 +3224,6 @@ def li(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1043-L1061" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def link(rel, href, **atts):
-    &#34;&#34;&#34;LINK.
-
-    Typed hyperlink in the &lt;head&gt; element.
-
-    Parameters
-    ----------
-    rel: string:
-        The type of the link
-    href: url
-        Destination of the link.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;link&#34;).wrap(E, rel=rel, href=href, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.meta"><code class="name flex">
 <span>def <span class="ident">meta</span></span>(<span>**atts)</span>
@@ -3817,24 +3236,6 @@ def link(rel, href, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1063-L1074" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def meta(**atts):
-    &#34;&#34;&#34;META.
-
-    A &lt;meta&gt; element inside the &lt;head&gt; part of a document
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;meta&#34;).wrap(E, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.ol"><code class="name flex">
 <span>def <span class="ident">ol</span></span>(<span>items, tp='1', **atts)</span>
@@ -3855,32 +3256,25 @@ def meta(**atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1076-L1095" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def ol(items, tp=&#34;1&#34;, **atts):
-    &#34;&#34;&#34;OL.
-
-    Ordered list.
-
-    Parameters
-    ----------
-    tp: string, optional &#34;1&#34;
-        The type of ordered list, see the
-        [HTML spec](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ol)
-    items: iterable of string
-        These are the list items.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;ol&#34;).wrap(items, type=tp, **atts)</code></pre>
-</details>
+</dd>
+<dt id="control.html.HtmlElements.option"><code class="name flex">
+<span>def <span class="ident">option</span></span>(<span>text, value, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>OPTION.</p>
+<p>Option within a select element..</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>text</code></strong> :&ensp;<code>string</code></dt>
+<dd>The text of the option element.</dd>
+<dt><strong><code>value</code></strong> :&ensp;<code>string</code></dt>
+<dd>The value attribute of the option element.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string(html)</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
 </dd>
 <dt id="control.html.HtmlElements.p"><code class="name flex">
 <span>def <span class="ident">p</span></span>(<span>material, **atts)</span>
@@ -3898,28 +3292,6 @@ def ol(items, tp=&#34;1&#34;, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1097-L1112" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def p(material, **atts):
-    &#34;&#34;&#34;P.
-
-    Paragraph.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;p&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.script"><code class="name flex">
 <span>def <span class="ident">script</span></span>(<span>material, **atts)</span>
@@ -3936,27 +3308,6 @@ def p(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1114-L1128" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def script(material, **atts):
-    &#34;&#34;&#34;SCRIPT.
-
-    Parameters
-    ----------
-    material: string | iterable
-        The Javascript.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;script&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.small"><code class="name flex">
 <span>def <span class="ident">small</span></span>(<span>material, **atts)</span>
@@ -3974,28 +3325,6 @@ def script(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1130-L1145" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def small(material, **atts):
-    &#34;&#34;&#34;SMALL.
-
-    Small element.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;small&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.span"><code class="name flex">
 <span>def <span class="ident">span</span></span>(<span>material, **atts)</span>
@@ -4013,28 +3342,6 @@ def small(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1147-L1162" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def span(material, **atts):
-    &#34;&#34;&#34;SPAN.
-
-    Inline element.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;span&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.textarea"><code class="name flex">
 <span>def <span class="ident">textarea</span></span>(<span>material, **atts)</span>
@@ -4052,29 +3359,6 @@ def span(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1192-L1208" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def textarea(material, **atts):
-    &#34;&#34;&#34;TEXTAREA.
-
-    Input element for larger text, typically Markdown.
-
-    Parameters
-    ----------
-    material: string | iterable
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    content = asString(material)
-    return HtmlElement(&#34;textarea&#34;).wrap(content, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.ul"><code class="name flex">
 <span>def <span class="ident">ul</span></span>(<span>items, **atts)</span>
@@ -4092,29 +3376,6 @@ def textarea(material, **atts):
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1210-L1226" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def ul(items, **atts):
-    &#34;&#34;&#34;UL.
-
-    Unordered list.
-
-    Parameters
-    ----------
-    items: iterable of string
-        These are the list items.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return HtmlElement(&#34;ul&#34;).wrap(items, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.wrapTable"><code class="name flex">
 <span>def <span class="ident">wrapTable</span></span>(<span>data, td)</span>
@@ -4134,39 +3395,6 @@ to wrapping them in either <code>&lt;th&gt;</code> or <code>&lt;td&gt;</code> el
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1228-L1254" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@staticmethod
-def wrapTable(data, td):
-    &#34;&#34;&#34;Rows and cells.
-
-    Parameters
-    ----------
-    data: iterable of iterables.
-        Rows and cells within them, both with dicts of atts.
-    td: function
-        Funnction for wrapping the cells, typically boiling down
-        to wrapping them in either `&lt;th&gt;` or `&lt;td&gt;` elements.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    tr = HtmlElement(&#34;tr&#34;).wrap
-    material = []
-
-    for rowData, rowAtts in data:
-        rowMaterial = []
-        for cellData, cellAtts in rowData:
-            rowMaterial.append(td(cellData, **cellAtts))
-        material.append(tr(rowMaterial, **rowAtts))
-
-    return material</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.wrapValue"><code class="name flex">
 <span>def <span class="ident">wrapValue</span></span>(<span>value, outerElem='div', outerArgs=[], outerAtts={}, innerElem='span', innerArgs=[], innerAtts={})</span>
@@ -4201,90 +3429,12 @@ All nested values are wrapped in inner elements.</p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L230-L301" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@classmethod
-def wrapValue(
-    thisCls,
-    value,
-    _level=0,
-    outerElem=&#34;div&#34;,
-    outerArgs=[],
-    outerAtts={},
-    innerElem=&#34;span&#34;,
-    innerArgs=[],
-    innerAtts={},
-):
-    &#34;&#34;&#34;Wraps one or more values in elements.
-
-    The value is recursively joined into elements.
-    The value at the outermost level the result is wrapped in a single
-    outer element.
-    All nested values are wrapped in inner elements.
-
-    If the value is None, a bare empty string is returned.
-
-    The structure of elements reflects the structure of the value.
-
-    Parameters
-    ----------
-    value: string | iterable
-        Every argument in `value` may be None, a string, or an iterable.
-    outerElem: string, optional &#34;div&#34;
-        The single element at the outermost level
-    outerArgs: list, optional []
-        Arguments for the outer element.
-    outerAtts: dict, optional {}
-        Attributes for the outer element.
-    innerElem: string, optional &#34;span&#34;
-        The elements at all deeper levels
-    innerArgs: list, optional []
-        Arguments for the inner elements.
-    innerAtts: dict, optional {}
-        Attributes for the inner elements.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    if value is None:
-        return E
-
-    def _wrapValue(value, isOuter):
-        &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
-        if isOuter:
-            elem = outerElem
-            args = outerArgs
-            atts = outerAtts
-        else:
-            elem = innerElem
-            args = innerArgs
-            atts = innerAtts
-
-        isMany = isIterable(value)
-
-        if value is None or type(value) is str or not isMany:
-            return thisCls.elem(elem, str(value or &#34;&#34;), *args, **atts)
-
-        return thisCls.elem(
-            elem,
-            [_wrapValue(val, False) for val in value],
-            *args,
-            **atts,
-        )
-
-    return _wrapValue(value, True)</code></pre>
-</details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
 <dt id="control.html.HtmlElements.actionButton"><code class="name flex">
-<span>def <span class="ident">actionButton</span></span>(<span>self, name, kind=None, **atts)</span>
+<span>def <span class="ident">actionButton</span></span>(<span>self, name, tip=None, kind=None, **atts)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates an action button to be activated by client side Javascript.</p>
@@ -4295,6 +3445,9 @@ def wrapValue(
 <dd>The <code><a title="control.html.HtmlElements" href="#control.html.HtmlElements">HtmlElements</a></code> object</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the icon as displayed on the button</dd>
+<dt><strong><code>tip</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Extra text to append after the standard tooltip text based on the
+<em>name</em> parameter.</dd>
 <dt><strong><code>kind</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>The kind of the button, passed on in attribute <code>kind</code>, can be
 used by Javascript to identify this button.
@@ -4305,37 +3458,6 @@ If <code>None</code>, the kind is set to the value of the <code>name</code> para
 <dt><code>string</code></dt>
 <dd>The HTML of the button.</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L759-L783" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def actionButton(self, name, kind=None, **atts):
-    &#34;&#34;&#34;Generates an action button to be activated by client side Javascript.
-
-    It is assumed that the permission has already been checked.
-
-    Parameters
-    ----------
-    H: object
-        The `control.html.HtmlElements` object
-
-    name: string
-        The name of the icon as displayed on the button
-
-    kind: string, optional None
-        The kind of the button, passed on in attribute `kind`, can be
-        used by Javascript to identify this button.
-        If `None`, the kind is set to the value of the `name` parameter.
-
-    Returns
-    -------
-    string
-        The HTML of the button.
-
-    &#34;&#34;&#34;
-    return self.iconx(name, href=&#34;#&#34;, cls=&#34;button small&#34;, kind=name, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.detailx"><code class="name flex">
 <span>def <span class="ident">detailx</span></span>(<span>self, detailIcons, material, itemkey, openAtts={}, closeAtts={}, **atts)</span>
@@ -4370,73 +3492,6 @@ under the key <code>icons</code>. The icon itself is a Unicode character.</p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L495-L555" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def detailx(
-    self,
-    detailIcons,
-    material,
-    itemkey,
-    openAtts={},
-    closeAtts={},
-    **atts,
-):
-    &#34;&#34;&#34;detailx.
-
-    Collapsible details pseudo element.
-
-    Unlike the HTML `details` element, this one allows separate open and close
-    controls. There is no summary.
-
-    !!! warning
-        The `icon` names must be listed in the web.yaml config file
-        under the key `icons`. The icon itself is a Unicode character.
-
-    !!! hint
-        The `atts` go to the outermost `div` of the result.
-
-    Parameters
-    ----------
-    detailIcons: string | (string, string)
-        Names of the icons that open and close the element.
-    itemkey: string
-        Identifier for reference from Javascript.
-    openAtts: dict, optinal, `{}`
-        Attributes for the open icon.
-    closeAtts: dict, optinal, `{}`
-        Attributes for the close icon.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    icons = Settings.icons
-
-    content = asString(material)
-    (iconOpen, iconClose) = (
-        (detailIcons, detailIcons) if type(detailIcons) is str else detailIcons
-    )
-    triggerElements = [
-        (self.iconx if icon in icons else self.span)(
-            icon,
-            itemkey=itemkey,
-            trigger=value,
-            **triggerAtts,
-        )
-        for (icon, value, triggerAtts) in (
-            (iconOpen, ONE, openAtts),
-            (iconClose, MINONE, closeAtts),
-        )
-    ]
-    return (
-        *triggerElements,
-        HtmlElement(&#34;div&#34;).wrap(content, itemkey=itemkey, body=ONE, **atts),
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.finput"><code class="name flex">
 <span>def <span class="ident">finput</span></span>(<span>self, content, accept, mayChange, saveUrl, deleteUrl, caption, cls='', buttonCls='', wrapped=True, **atts)</span>
@@ -4505,167 +3560,6 @@ that widget. The outer element of the widget is not changed.</p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L870-L1024" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def finput(
-    self,
-    content,
-    accept,
-    mayChange,
-    saveUrl,
-    deleteUrl,
-    caption,
-    cls=&#34;&#34;,
-    buttonCls=&#34;&#34;,
-    wrapped=True,
-    **atts,
-):
-    &#34;&#34;&#34;INPUT type=&#34;file&#34;.
-
-    The input element for uploading files.
-
-    If the user does not have `update` permission, only information about
-    currently uploaded file(s) is presented.
-
-    But if the user does have upload permission, there will be an additional control
-    to update a new file and there will be controls to delete existing files.
-
-    Parameters
-    ----------
-    content: list or tuple
-        The widget handles to cases:
-
-        * 1 single file with a prescribed name.
-        * no prescribed name, lists all files that match the
-          `accept` parameter.
-
-        In the first case, `content` is a tuple consisting of
-
-        * file name
-        * whether the file exists
-        * a url to load the file as image, or None
-
-        In the second case, `content` is a list containing a tuple for each file:
-
-        * file name
-        * a url to load the file as image, or None
-
-        And in this case, all files exist.
-
-        In both cases, a delete control will be added to each file, if allowed.
-
-        If an image url is present, the contents of the file will be
-        displayed as an img element.
-    accept: string
-        MIME type of uploaded file
-    mayChange: boolean
-        Whether the user is allowed to upload new files and delete existing files.
-    saveUrl: string
-        The url to which the resulting file should be posted.
-    deleteUrl: string
-        The url to use to delete a file, with the understanding that the
-        file name should be appended to it.
-    caption: string
-        basis for tooltips for the upload and delete buttons
-    cls: string, optional &#34;&#34;
-        CSS class for the outer element
-    buttonCls: string, optional &#34;&#34;
-        CSS class for the buttons
-    wrapped: boolean, optional True
-        Whether the content should be wrapped in a container element.
-        If so, the container element carries a class attribute filled
-        with `cls`, and all attributes specified in the `atts` argument.
-        This generates a new widget on the page.
-
-        If False, only the content is passed. Use this if the content
-        of an existing widget has changed and must be inserted in
-        that widget. The outer element of the widget is not changed.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    if type(content) is tuple:
-        prescribed = True
-        items = [content]
-        outerCls = &#34;fileswidgetsingle&#34;
-    else:
-        prescribed = False
-        items = [(file, True, imgUrl) for (file, imgUrl) in content]
-        outerCls = &#34;fileswidgetmulti&#34;
-
-    html = []
-
-    for file, exists, imgUrl in items:
-        fileRep = self.he(file)
-
-        itemCls = &#34;withimage&#34; if imgUrl else &#34;withoutimage&#34;
-        label = (
-            (
-                self.img(imgUrl, title=file, cls=&#34;content&#34;)
-                if exists
-                else self.icon(
-                    &#34;noexist&#34;, imgurl=imgUrl, title=f&#34;{file} does not exist&#34;
-                )
-            )
-            if imgUrl
-            else self.span(
-                [self.icon(&#34;exist&#34; if exists else &#34;noexist&#34;), fileRep]
-                if prescribed
-                else fileRep,
-                cls=&#34;filename&#34;,
-            )
-        )
-        deleteControl = &#34;&#34;
-        inputControl = &#34;&#34;
-        uploadControl = &#34;&#34;
-
-        if mayChange:
-            if exists:
-                deleteControl = self.icon(
-                    &#34;delete&#34;,
-                    cls=f&#34;delete {buttonCls}&#34;,
-                    title=f&#34;delete {caption}&#34;,
-                    url=f&#34;{deleteUrl}{file}&#34;,
-                )
-            if prescribed:
-                inputControl = self.input(fileRep, &#34;file&#34;, accept=accept)
-                uploadControl = self.iconx(
-                    &#34;upload&#34;, cls=f&#34;upload {buttonCls}&#34;, title=f&#34;upload {caption}&#34;
-                )
-
-        html.append(
-            self.span(
-                [inputControl, label, deleteControl, uploadControl], cls=itemCls
-            )
-        )
-
-    if mayChange and not prescribed:
-        label = self.span(f&#34;Upload file ({accept})&#34;, cls=&#34;filenamex&#34;)
-        inputControl = self.input(None, &#34;file&#34;, accept=accept)
-        uploadControl = self.iconx(
-            &#34;upload&#34;,
-            text=label,
-            cls=f&#34;upload {buttonCls}&#34;,
-            title=f&#34;upload {caption}&#34;,
-        )
-        html.append(self.span([inputControl, uploadControl]))
-
-    return (
-        self.span(
-            html,
-            saveurl=saveUrl,
-            cls=f&#34;fileupload {outerCls} {cls}&#34;,
-            **atts,
-        )
-        if wrapped
-        else &#34;&#34;.join(html)
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.icon"><code class="name flex">
 <span>def <span class="ident">icon</span></span>(<span>self, icon, text=None, asChar=False, **atts)</span>
@@ -4694,49 +3588,9 @@ attributes that might have been passed.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L678-L711" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def icon(self, icon, text=None, asChar=False, **atts):
-    &#34;&#34;&#34;icon.
-
-    Pseudo element for an icon.
-
-    !!! warning
-        The `icon` names must be listed in the settings.yml config file
-        under the key `icons`. The icon itself is a Unicode character.
-
-    Parameters
-    ----------
-    icon: string
-        Name of the icon.
-    text: string, optional, `None`
-        Extra text that will be placed in front of the icon.
-    asChar: boolean, optional, `False`
-        If `True`, just output the icon character.
-        Otherwise, wrap it in a `&lt;span&gt;` with all
-        attributes that might have been passed.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    icons = Settings.icons
-
-    iconChar = icons.get(icon, icons[&#34;noicon&#34;])
-
-    if asChar:
-        return icons.get(icon, icons[&#34;noicon&#34;])
-
-    addCls = f&#34;symbol i-{icon} &#34;
-    return HtmlElement(&#34;span&#34;).wrap((text or &#34;&#34;) + iconChar, addCls=addCls, **atts)</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.iconx"><code class="name flex">
-<span>def <span class="ident">iconx</span></span>(<span>self, icon, text=None, href=None, **atts)</span>
+<span>def <span class="ident">iconx</span></span>(<span>self, icon, text=None, tip=None, href=None, **atts)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>iconx.</p>
@@ -4756,6 +3610,9 @@ under the key <code>icons</code>. The icon itself is a Unicode character.</p>
 <dd>Name of the icon.</dd>
 <dt><strong><code>text</code></strong> :&ensp;<code>string</code>, optional<code>, </code>None``</dt>
 <dd>Extra text that will be placed in front of the icon.</dd>
+<dt><strong><code>tip</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Extra text to append after the standard tooltip text based on the
+<em>name</em> parameter.</dd>
 <dt><strong><code>href</code></strong> :&ensp;<code>url</code>, optional<code>, </code>None``</dt>
 <dd>Destination of the icon when clicked.
 Will be left out when equal to the empty string.</dd>
@@ -4765,57 +3622,6 @@ Will be left out when equal to the empty string.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L713-L757" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def iconx(self, icon, text=None, href=None, **atts):
-    &#34;&#34;&#34;iconx.
-
-    Pseudo element for a clickable icon.
-    It will be wrapped in an `&lt;a href=&#34;...&#34;&gt;...&lt;/a&gt;` element or a &lt;span...&gt;
-    if `href` is `None`.
-
-    If `href` is the empty string, the element will still be wrapped in
-    an `&lt;a ...&gt;` element, but without a `href` attribute.
-
-    !!! warning
-        The `icon` names must be listed in the settings.yml config file
-        under the key `icons`. The icon itself is a Unicode character.
-
-    Parameters
-    ----------
-    icon: string
-        Name of the icon.
-    text: string, optional, `None`
-        Extra text that will be placed in front of the icon.
-    href: url, optional, `None`
-        Destination of the icon when clicked.
-        Will be left out when equal to the empty string.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-    Settings = self.Settings
-    icons = Settings.icons
-    iconTips = Settings.iconTips
-
-    iconChar = icons.get(icon, icons[&#34;noicon&#34;])
-    addCls = f&#34;icon i-{icon} &#34;
-    if href:
-        atts[&#34;href&#34;] = href
-
-    if &#34;title&#34; not in atts:
-        title = iconTips.get(icon, None)
-        if title is not None:
-            atts[&#34;title&#34;] = title
-
-    return HtmlElement(&#34;span&#34; if href is None else &#34;a&#34;).wrap(
-        (text or &#34;&#34;) + iconChar, addCls=addCls, **atts
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.img"><code class="name flex">
 <span>def <span class="ident">img</span></span>(<span>self, src, href=None, title=None, imgAtts={}, **atts)</span>
@@ -4847,50 +3653,6 @@ If missing, the image is not wrapped further.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L803-L840" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def img(self, src, href=None, title=None, imgAtts={}, **atts):
-    &#34;&#34;&#34;IMG.
-
-    Image element.
-
-    !!! note
-        The `atts` go to the outer element, which is either `&lt;img&gt;` if it is
-        not further wrapped, or `&lt;a&gt;`.
-        The `imgAtts` only go to the `&lt;img&gt;` element.
-
-    Parameters
-    ----------
-    src: url
-        The url of the image.
-    href: url, optional, `None`
-        The destination to navigate to if the image is clicked.
-        The images is then wrapped in an `&lt;a&gt;` element.
-        If missing, the image is not wrapped further.
-    title: string, optional, `None`
-        Tooltip.
-    imgAtts: dict, optional {}
-        Attributes that go to the `&lt;img&gt;` element.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    return (
-        self.a(
-            HtmlElement(&#34;img&#34;).wrap(E, src=src, **imgAtts),
-            href,
-            title=title,
-            **atts,
-        )
-        if href
-        else HtmlElement(&#34;img&#34;).wrap(E, src=src, title=title, **imgAtts, **atts)
-    )</code></pre>
-</details>
 </dd>
 <dt id="control.html.HtmlElements.input"><code class="name flex">
 <span>def <span class="ident">input</span></span>(<span>self, material, tp, **atts)</span>
@@ -4920,39 +3682,25 @@ If missing, the image is not wrapped further.</dd>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L842-L868" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def input(self, material, tp, **atts):
-    &#34;&#34;&#34;INPUT.
-
-    The element to receive types user input.
-
-    !!! caution
-        Do not use this for checkboxes. Use
-        `control.html.HtmlElements.checkbox` instead.
-
-    !!! caution
-        Do not use this for file inputs. Use
-        `control.html.HtmlElements.finput` instead.
-
-    Parameters
-    ----------
-    tp: string
-        The type of input
-    material: string | iterable
-        This goes into the `value` attribute of the element, after HTML escaping.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    content = asString(material)
-    return HtmlElement(&#34;input&#34;).wrap(E, tp=tp, value=self.he(content), **atts)</code></pre>
-</details>
+</dd>
+<dt id="control.html.HtmlElements.select"><code class="name flex">
+<span>def <span class="ident">select</span></span>(<span>self, options, multiple=False, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>SELECT.</p>
+<p>Select box with options.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>options</code></strong> :&ensp;<code>iterable</code></dt>
+<dd>Every option is a tuple or list of three elements: (text, value, selected)</dd>
+<dt><strong><code>multiple</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether multiple selection is allowed or not.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string(html)</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
 </dd>
 <dt id="control.html.HtmlElements.table"><code class="name flex">
 <span>def <span class="ident">table</span></span>(<span>self, headers, rows, **atts)</span>
@@ -4977,39 +3725,6 @@ into <code>&lt;th&gt;</code>.</p>
 <dt><code>string(html)</code></dt>
 <dd>&nbsp;</dd>
 </dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/72e8f757c90c1637405986b86636d4dd02e213e7/src/control/html.py#L1164-L1190" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def table(self, headers, rows, **atts):
-    &#34;&#34;&#34;TABLE.
-
-    The table element.
-
-    Parameters
-    ----------
-    headers, rows: iterables of iterables
-        An iterable of rows.
-        Each row is a tuple: an iterable of cells, and a dict of atts for the row.
-        Each cell is a tuple: material for the cell, and a dict of atts for the cell.
-
-    !!! note
-        Cells in normal rows are wrapped in `&lt;td&gt;`, cells in header rows go
-        into `&lt;th&gt;`.
-
-    Returns
-    -------
-    string(html)
-    &#34;&#34;&#34;
-
-    th = HtmlElement(&#34;th&#34;).wrap
-    td = HtmlElement(&#34;td&#34;).wrap
-    headerMaterial = self.wrapTable(headers, th)
-    rowMaterial = self.wrapTable(rows, td)
-    material = HtmlElement(&#34;tbody&#34;).wrap(headerMaterial + rowMaterial)
-    return HtmlElement(&#34;table&#34;).wrap(material, **atts)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -5132,9 +3847,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.html.HtmlElements.meta" href="#control.html.HtmlElements.meta">meta</a></code></li>
 <li><code><a title="control.html.HtmlElements.nbsp" href="#control.html.HtmlElements.nbsp">nbsp</a></code></li>
 <li><code><a title="control.html.HtmlElements.ol" href="#control.html.HtmlElements.ol">ol</a></code></li>
+<li><code><a title="control.html.HtmlElements.option" href="#control.html.HtmlElements.option">option</a></code></li>
 <li><code><a title="control.html.HtmlElements.p" href="#control.html.HtmlElements.p">p</a></code></li>
 <li><code><a title="control.html.HtmlElements.quot" href="#control.html.HtmlElements.quot">quot</a></code></li>
 <li><code><a title="control.html.HtmlElements.script" href="#control.html.HtmlElements.script">script</a></code></li>
+<li><code><a title="control.html.HtmlElements.select" href="#control.html.HtmlElements.select">select</a></code></li>
 <li><code><a title="control.html.HtmlElements.small" href="#control.html.HtmlElements.small">small</a></code></li>
 <li><code><a title="control.html.HtmlElements.span" href="#control.html.HtmlElements.span">span</a></code></li>
 <li><code><a title="control.html.HtmlElements.table" href="#control.html.HtmlElements.table">table</a></code></li>
@@ -5151,7 +3868,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>
