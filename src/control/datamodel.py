@@ -649,7 +649,7 @@ class Field:
 
         Some field specifications may be table dependent. If a table is passed,
         we can get the table dependent values by means of the static method
-        `control.datamodel.Datmodel.specialize`.
+        `control.datamodel.Datamodel.specialize`.
 
         All field access should be guarded by the authorisation rules.
 
