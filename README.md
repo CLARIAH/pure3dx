@@ -51,7 +51,7 @@ The software in this repo the product of
 *   [Bas Doppen](https://pure.knaw.nl/portal/en/persons/bas-doppen):
     visual design of the editions app;
 *   [Dirk Roorda](https://github.com/dirkroorda):
-    backend, integration, and the overall architecture;
+    the code: backend, integration, and the overall architecture;
 *   Qiqing Ding (Vic) and his colleagues in the Concern Infrastructure team:
     lots of help on the containerization and Kubernetes deployment;
 *   Pure3D contains several releases of the
@@ -96,7 +96,8 @@ For more information on the set up you need to have a VPN connection to the HuC
 institute and then you can follow this
 [link](https://code.huc.knaw.nl/pure3d/pure3d-config).
 
-You can also deploy it locally, see [local-deploy](docs/local-deploy.md).
+You can also deploy it locally, see [local-deploy](docs/local-deploy.md). Also for that
+you need to fetch information that is only accessible over the VPN to the HuC.
 
 ## Technical documentation
 
@@ -111,7 +112,8 @@ op the published pages.
 
 ## History
 
-*   2024-05-16 Pure3D went in production
+*   2024-12-10 Improvements in metadata handling and visual design.
+*   2024-05-16 Pure3D went in production.
 
 **Earlier**
 
@@ -124,17 +126,18 @@ great whishes have been expressed. It is still visible in a
 Not everything that we had in mind has been implemented so far. There is much room
 for improvements and further development:
 
-*   The layout of the authoring app is unpolished and primitive. It should look
-    more like the layout of the publishing app.
+*   The layout of the authoring app is unpolished and very different from the layout
+    of the published editions.
 
-*   The handling of metadata is not sophisticated: just a few Dublin Core fields with
-    unconstrained content.
+*   The handling of metadata is not sophisticated: just a few Dublin Core
+    fields, most with unconstrained content, and some with controlled vocabularies.
 
 *   Search has not been implemented, not in the authoring app and not in the publishing
     app.
 
 *   Pre-flight checks for publication are basic: checks for broken links and
-    unreferenced files. It should also check for completeness of metadata.
+    unreferenced files and presence of metadata. More checks, especially on the
+    metadata, would be helpful.
 
 *   No attempt for persistent identifiers has been made; we do have stable urls for
     published editions: `https://editions.pure3d.eu/project/p/edition/e` where `p` and
@@ -145,6 +148,11 @@ for improvements and further development:
 *   A 3D dataset is more than a 3D model with annotations: there is also paradata or
     supplementary material; Pure3D does not manage such data.
 
+*   Limits: the infrastructure allows uploads up to 500MB, and downloads up to 1GB.
+    Both limits should be equal.
+
 *   Pure3D is currently tied to the Voyager 3D Viewer, but it is desirable to be able
     to support more viewers. Even better would it be if editions made for one viewer,
-    could be consumed by another viewer.
+    could be consumed by another viewer. But that presupposes more interoperability
+    between viewers, especially where it comes to annotation, than is currently the
+    case.

@@ -24,6 +24,8 @@ were large.
     *Fix:* not known yet. Instead, downloads of projects/editions whose unzipped size
     exceeds 1 GB are prevented, and the user will get a warning about that.
 
+1.  The maximum upload size is currently 500 MB.
+
 # Release 2024-11-18
 
 In this release we have changed the metadata schema.

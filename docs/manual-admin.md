@@ -281,6 +281,12 @@ can make other users owner as well.
 
 ### Edition pages
 
+You can upload models and related files to editions by means of the controls
+on the edition page.
+
+The maximum upload size is 500 MB, but we try to set it to 1 GB.
+The maximumdownload size is 1 GB.
+
 An edition page has additional controls for checking, publishing and unpublishing.
 
 If you are an organiser, you see the `check` and `publish` controls.
@@ -347,6 +353,7 @@ Here is what you see (from top to button):
 Editions and projects should get thumbnails, small iconic images representative of
 the contents of the edition, and by which editions/projects can be distinguished
 easily from each other. The recommended size is 1024 x 1024 pixels.
+
 ### Pre-flight checking
 
 Editors should use the `check` button before publishing and then check the coloured

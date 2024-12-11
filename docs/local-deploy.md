@@ -142,18 +142,42 @@ is within reach.
 
 #### Run Pure3d
 
-We can now run Pure3d via Docker compose (`runlocal up prod`). When the app starts up, the script
-`src/start.sh` will be executed
+We can now run Pure3d via Docker compose (`runlocal up prod`). When the app
+starts up, the script `src/start.sh` will be executed
+
+#### Log in
+
+If you did `runlocal up prod` you have to log in via CLARIAH authentication.
+
+If you used an other mode instead op `prod`, e.g. `test`, `custom`, `pilot`, there
+will be a row of buttons by means of which you can log in as a specific user
+with specific roles.
 
 #### Import the database
 ```
 docker exec -it pure3d_author src/importdb.sh
 ```
 
-#### Give your user root access
+#### Give a user root access
 
-1. Open the web app: localhost:8000
-2. Login
-3. Open `mogosh` on the 'mongodb'-docker with user `root`
-4. Execute `use pure3d_prod`
-5. Execute `db.user.update({'user': '<the value of your user property>'}, {'$set' : {'role': 'root'}})`
+If you are using mode `prod`, everybody that logs in through the CLARIAH infrastructure
+is a normal user. If there are not yet users on the system with role `owner` or `admin`,
+you can make yourself `owner` or `admin`.
+
+1. Open the web app: http://localhost:8000
+1. Login via CLARIAH.
+1. Go to the My Work page, and find the Users section
+1. Make yourself `admin` or `owner` (this works if you are no admins or owners yet)
+
+If this option is unavailable, you can resort to the following procedure
+
+1. keep `runlocal up prod` running in its terminal window;
+1. open a new terminal window and given the commands `k` and `kset pure3d author`
+1. now say: `runlocal mongo prod` to enter a mongo shell on the production database;
+   after the prompt, give the command: `db.user.find()` to get a list of users;
+   identify a user by its `user` property. Say you want to adapt the role of user
+   `de826af76e3b67294982b016741da04901fae967`. Then give the command
+
+```
+db.user.update({'user': 'de826af76e3b67294982b016741da04901fae967'}, {'$set' : {'role': 'root'}})
+```

@@ -1,6 +1,6 @@
 # Design development
 
-The design is defined in the *src/design* directory, where templates and partials
+The visual design is defined in the *src/design* directory, where templates and partials
 are defined in the [handlebars](https://handlebarsjs.com) formalism.
 We use [tailwind](https://tailwindcss.com) for defining the CSS codes.
 
