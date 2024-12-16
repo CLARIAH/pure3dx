@@ -148,9 +148,6 @@ for improvements and further development:
 *   A 3D dataset is more than a 3D model with annotations: there is also paradata or
     supplementary material; Pure3D does not manage such data.
 
-*   Limits: the infrastructure allows uploads up to 500MB, and downloads up to 1GB.
-    Both limits should be equal.
-
 *   Pure3D is currently tied to the Voyager 3D Viewer, but it is desirable to be able
     to support more viewers. Even better would it be if editions made for one viewer,
     could be consumed by another viewer. But that presupposes more interoperability

@@ -284,8 +284,8 @@ can make other users owner as well.
 You can upload models and related files to editions by means of the controls
 on the edition page.
 
-The maximum upload size is 500 MB, but we try to set it to 1 GB.
-The maximumdownload size is 1 GB.
+*   **The maximum upload size is 1 GB.**
+*   **The maximumdownload size is 1 GB.**
 
 An edition page has additional controls for checking, publishing and unpublishing.
 
