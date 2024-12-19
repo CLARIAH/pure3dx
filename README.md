@@ -112,8 +112,10 @@ op the published pages.
 
 ## History
 
-*   2024-12-10 Improvements in metadata handling and visual design.
+*   2024-05-19 Moved location for temp files off the data volume to a new temp volume,
+    which is excluded from backup.
 *   2024-05-16 Pure3D went in production.
+*   2024-12-10 Improvements in metadata handling and visual design.
 
 **Earlier**
 

@@ -11,6 +11,7 @@ services:
     container_name: pure3d_author
     hostname: pure3d_author
     environment:
+      TEMP_DIR: ${TEMP_DIR}
       DATA_DIR: ${DATA_DIR}
       PUB_DIR: ${PUB_DIR}
       PUB_URL: ${PUB_URL}

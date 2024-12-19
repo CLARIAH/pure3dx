@@ -1448,9 +1448,8 @@ class Content(Datamodel):
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        dataDir = Settings.dataDir
+        tempDir = Settings.tempDir
         workingDir = Settings.workingDir
-        runMode = Settings.runMode
 
         dontCompress = set(Settings.dontCompress)
         limits = Settings.limits
@@ -1514,10 +1513,7 @@ class Content(Datamodel):
             Messages.error(msg=msg, logmsg=logmsg)
             return redirectStatus(f"/{ref}", False)
 
-        sep = "/" if dataDir else ""
-        tempBase = f"{dataDir}{sep}temp/{runMode}"
-        dirMake(tempBase)
-        dst = mkdtemp(dir=tempBase)
+        dst = mkdtemp(dir=tempDir)
         Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: CREATED TEMP DIR {dst}")
 
         def deleteTmpDir():

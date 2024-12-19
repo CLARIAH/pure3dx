@@ -56,6 +56,7 @@ _temp/
 
 # Data files #
 #####################
+temp/
 data/
 published/
 

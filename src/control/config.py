@@ -278,10 +278,32 @@ class Config:
         """
 
     def checkData(self):
-        """Get the location of the project data on the file system."""
+        """Get the location of the project data on the file system.
+
+        We also make a separate place for the temporary directories.
+        Make sure the temp location is not inside the data location, so that when
+        the data volume is backed up, no temporary files will be backed up.
+        """
         Messages = self.Messages
         Settings = self.Settings
         runMode = Settings.runMode
+
+        tempDir = var("TEMP_DIR")
+
+        if tempDir is None:
+            Messages.error(logmsg="Environment variable `TEMP_DIR` not defined")
+            self.good = False
+            return
+
+        tempDir = tempDir.rstrip("/")
+
+        Settings.tempDir = tempDir
+
+        sep = "/" if tempDir else ""
+
+        runTempDir = f"{tempDir}/{runMode}"
+        dirMake(runTempDir)
+        Settings.tempDir = runTempDir
 
         dataDir = var("DATA_DIR")
 
