@@ -332,9 +332,11 @@ class Static:
 
                 for genDir, asData in ((pubModeDir, False), (dataOutDir, True)):
                     path = f"{genDir}/{item.fileName}"
+
                     if asData:
                         ext = ".json"
                         path = path.rsplit(".", 1)[0] + ext
+
                     dirPart = dirNm(path)
                     dirMake(dirPart)
 
@@ -806,7 +808,7 @@ class Static:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(
+                    (er.toc, er.obfuscated) = Precheck.checkEdition(
                         None, pNum, eNum, eItem, asPublished=True
                     )
 

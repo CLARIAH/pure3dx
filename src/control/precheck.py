@@ -63,6 +63,19 @@ class Precheck:
         To that, we add a table of the media files, together with the information
         which html files refer to them.
 
+        !!! caution "Hidden toc"
+            The owners of Pure3D do not feel confident to show this toc for
+            editions that do not have an open license, because the toc makes it easy
+            to download all files of the edition.
+
+            However, by merely viewing an edition, its files will be downloaded to
+            a user's computer, and the user can find those files back on his computer.
+
+            So we do not protect such editions at all, we only add a layer of
+            obfuscation to accessing those files. It is only meant as a temporary
+            measure until the authors and editors of Pure3D are fully aware of the
+            consequences of publishing editions on Pure3D.
+
         The table of contents in the Pure3d author app is slightly different from
         that in the Pure3d pub app, because the internal links work differently.
 
@@ -227,7 +240,7 @@ class Precheck:
                 ("edition", eInfo),
             ):
                 for metaKey in Content.checkMetaFields(table):
-                    value = Content.getValue(table, record, metaKey, manner="logical")
+                    value = Content.getValue(table, record, metaKey, manner="resolved")
 
                     if value:
                         # Messages.good(f"{table}:{metaKey} is present")
@@ -246,6 +259,19 @@ class Precheck:
                 Messages.good("All required metadata fields are present")
 
             return good
+
+        def checkObfuscate():
+            licence = (
+                Content.getValue("edition", eInfo, "license", manner="logical")
+                .lower()
+                .strip()
+            )
+            noLicence = "All rights reserved.".lower().strip()
+            return (
+                dict(style="""display: none;""")
+                if not licence or licence == noLicence
+                else {}
+            )
 
         def checkLinks():
             for kind, thisFileList in filesFound.items():
@@ -400,8 +426,11 @@ class Precheck:
             statusRep = STATUS[status][1]
             return H.details(H.b(f"Table of {statusRep}", cls=cls), H.ul(items), status)
 
+        obfuscate = checkObfuscate()
+        obfuscateRep = " ".join(f'{k}="{v}"' for (k, v) in obfuscate.items())
+
         def wrapReport():
-            return (
+            content = (
                 H.h(3, "Scene information")
                 + wrapScene(sceneInfo)
                 + wrapFiles("models")
@@ -410,6 +439,7 @@ class Precheck:
                 + wrapIssues("unconfined")
                 + wrapIssues("missing")
             )
+            return H.div(content, **obfuscate) if obfuscate else content
 
         sceneInfo = checkScene()
         checkFiles(())
@@ -417,7 +447,7 @@ class Precheck:
         allTocs = wrapReport()
 
         if asPublished:
-            return allTocs
+            return (allTocs, obfuscateRep)
 
         with open(f"{editionDir}/{tocFile}", "w") as fh:
             fh.write(allTocs)

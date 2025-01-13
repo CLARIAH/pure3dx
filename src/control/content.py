@@ -556,8 +556,6 @@ class Content(Datamodel):
         )
         update = {fieldPath: sValue}
 
-        self.debug(f"{update=}")
-
         if key == "title":
             update[key] = sValue
 
