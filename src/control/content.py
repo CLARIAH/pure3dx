@@ -9,7 +9,7 @@ import yaml
 import magic
 
 from flask import jsonify
-from .generic import AttrDict, isonow
+from .generic import AttrDict, isonow, plainify
 from .files import (
     fileExists,
     fileRemove,
@@ -539,6 +539,7 @@ class Content(Datamodel):
             return dict(stat=False, messages=[["error", f"{key} is not updatable"]])
 
         tp = F.tp
+        multiple = F.multiple
         fieldPath = fieldPaths[key]
 
         (recordId, record) = Mongo.get(table, record)
@@ -551,8 +552,12 @@ class Content(Datamodel):
 
         sValue = (
             value
-            if tp == "text"
-            else value if tp == "keyword" else readYaml(value, plain=True, ignore=True)
+            if tp == "text" or tp == "string" and not multiple
+            else (
+                value
+                if tp == "keyword"
+                else plainify(readYaml(value, plain=True, ignore=True))
+            )
         )
         update = {fieldPath: sValue}
 

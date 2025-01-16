@@ -1,3 +1,17 @@
+# Release 2025-01-16
+
+There was a blocking issue (Internal Server Error) having to do with
+titles with a `:` in it: those were interpreted as a dictionary instead of a string.
+
+Fixed by preventing that yaml metadata fields are interpreted as dicts. Only strings
+and lists of strings are allowed.
+
+There was also an issue with the display of the fields `funder` and `audience` on the
+published pages. This was caused by the fact that the template assumed these had
+lists of values in it, whereas the page generator produced them as single
+string markdown fields.
+Fixed by leaving the template intact, but declaring the fields as (multiple) strings.
+
 # Release 2024-12-09
 
 There were issues with downloading projects and editions, especially when they

@@ -262,7 +262,7 @@ class Precheck:
 
         def checkObfuscate():
             licence = (
-                Content.getValue("edition", eInfo, "license", manner="logical")
+                (Content.getValue("edition", eInfo, "license", manner="logical") or "")
                 .lower()
                 .strip()
             )

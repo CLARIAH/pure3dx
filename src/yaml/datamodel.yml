@@ -176,14 +176,12 @@ fields:
     caption: Keywords
   audience:
     nameSpace: dc
-    tp: text
     mandatory:
       edition: true
     default: []
     caption: Intended audience
   funder:
     nameSpace: dc
-    tp: text
     default: ""
     caption: Funder
   country:
@@ -525,9 +523,3 @@ uploads:
     fileName: icon.png
     show: true
     caption: edition logo
-
-mimeTypes:
-  "model/gltf-binary":
-    - glb
-  "model/gltf+json":
-    - gltf

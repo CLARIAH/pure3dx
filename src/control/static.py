@@ -45,7 +45,7 @@ class Static:
         self.data = AttrDict()
         self.dbData = AttrDict()
 
-    def sanitizeMeta(self, table, record):
+    def _sanitizeMeta(self, table, record):
         """Checks for missing (sub)-fields in the Dublin Core.
 
         Any field that is missing will be supplied with a default value, most of the
@@ -95,7 +95,7 @@ class Static:
                     if value is None
                     else (
                         "<br>\n".join(markdown(e) for e in value)
-                        if type(value) in (list, tuple)
+                        if type(value) in {list, tuple}
                         else markdown(value)
                     )
                 )
@@ -551,7 +551,7 @@ class Static:
             Ftitle = Content.makeField("title", "site")
 
             info = dbData[kind]
-            self.sanitizeMeta("site", info)
+            self._sanitizeMeta("site", info)
             bp = info.boilerplate
             self.bp = bp
 
@@ -653,7 +653,7 @@ class Static:
             result = []
 
             for num, item in info.items():
-                self.sanitizeMeta("project", item)
+                self._sanitizeMeta("project", item)
 
                 r = AttrDict()
                 r.name = item.title
@@ -678,7 +678,7 @@ class Static:
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    self.sanitizeMeta("edition", item)
+                    self._sanitizeMeta("edition", item)
 
                     r = AttrDict()
                     r.projectNum = pNum
@@ -708,7 +708,7 @@ class Static:
                     continue
 
                 pItem = pInfo[pNum]
-                self.sanitizeMeta("project", pItem)
+                self._sanitizeMeta("project", pItem)
                 pId = pItem._id
                 pdc = pItem.dc
                 fileName = f"project/{pNum}/index.html"
@@ -732,7 +732,7 @@ class Static:
 
                 for eNum in sorted(thisEInfo):
                     eItem = thisEInfo[eNum]
-                    self.sanitizeMeta("edition", eItem)
+                    self._sanitizeMeta("edition", eItem)
                     edc = eItem.dc
 
                     er = AttrDict()
@@ -783,7 +783,7 @@ class Static:
                         continue
 
                     eItem = thisEInfo[eNum]
-                    self.sanitizeMeta("edition", eItem)
+                    self._sanitizeMeta("edition", eItem)
                     eId = eItem._id
                     edc = eItem.dc
 
