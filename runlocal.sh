@@ -130,7 +130,7 @@ function appbuild {
     # build the app for kubernetes, using local github clone as is
     # if you pass "push" as argument, the docker images will be pushed to the
     # registry
-    ./build-local.sh "$@"
+    ./build.sh "$@"
 }
 
 function appdev {
