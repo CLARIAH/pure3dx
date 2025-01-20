@@ -60,7 +60,6 @@ function appup {
         good="x"
     fi
 
-
     if [[ "$good" == "v" ]]; then
         export runmode
         export flaskdebug

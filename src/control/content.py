@@ -770,7 +770,9 @@ class Content(Datamodel):
         return H.content(
             self.getValue(table, record, key, level=level) or ""
             for (key, level) in (
-                fieldSpec.strip().split("@", 1) for fieldSpec in fieldSpecs.split("+")
+                fieldSpec.strip().split("@", 1)
+                for fieldSpec in fieldSpecs.split("+")
+                if fieldSpec
             )
         )
 

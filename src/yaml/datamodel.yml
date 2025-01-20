@@ -523,3 +523,9 @@ uploads:
     fileName: icon.png
     show: true
     caption: edition logo
+
+mimeTypes:
+  "model/gltf-binary":
+    - glb
+  "model/gltf+json":
+    - gltf

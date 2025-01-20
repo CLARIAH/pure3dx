@@ -296,12 +296,8 @@ class Config:
             return
 
         tempDir = tempDir.rstrip("/")
-
-        Settings.tempDir = tempDir
-
         sep = "/" if tempDir else ""
-
-        runTempDir = f"{tempDir}/{runMode}"
+        runTempDir = f"{tempDir}{sep}{runMode}"
         dirMake(runTempDir)
         Settings.tempDir = runTempDir
 
