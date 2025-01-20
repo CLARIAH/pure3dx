@@ -1,3 +1,8 @@
+# Release 2025-01-20
+
+Somehow the assignment of roles to users with repsect to an edition or project
+was broken. It has been fixed.
+
 # Release 2025-01-16
 
 There was a blocking issue (Internal Server Error) having to do with

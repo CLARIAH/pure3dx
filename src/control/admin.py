@@ -763,13 +763,12 @@ class Admin:
         H = self.H
 
         actualRole = H.div(itemRoles[role], role=role, cls="role")
-        tableRep = f"/{table}" if table else ""
         recordRep = f"/{recordId}" if table else ""
 
         allRoles = sorted({role} | otherRoles, key=roleRank)
 
         if editable:
-            saveUrl = f"/save/role/{u}/{tableRep}{recordRep}"
+            saveUrl = f"/save/role/{u}/{table or ''}{recordRep}"
             updateButton = H.actionButton("edit_assign")
             cancelButton = H.actionButton("edit_cancel")
             saveButton = H.actionButton("edit_save")
@@ -1026,9 +1025,11 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles if table == "edition" else editionRoles
+            else projectRoles if table == "project" else editionRoles
         )
         newRoleRep = itemRoles[newRole]
+
+        self.debug(f"{u=} {table=} {newRole=} {newRoleRep=}")
 
         (editable, otherRoles) = self.authUser(u, table=table, record=recordId)
         if not editable:
