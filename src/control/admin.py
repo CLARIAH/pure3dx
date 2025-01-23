@@ -1029,8 +1029,6 @@ class Admin:
         )
         newRoleRep = itemRoles[newRole]
 
-        self.debug(f"{u=} {table=} {newRole=} {newRoleRep=}")
-
         (editable, otherRoles) = self.authUser(u, table=table, record=recordId)
         if not editable:
             return dict(stat=False, messages=[["error", "update not allowed"]])

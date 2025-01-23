@@ -48,18 +48,19 @@
     <div class="border-r border-neutral-300 w-full xl:w-3/5 relative">
       <div class="sticky top-0">
         <{{element}}
-        root="/project/{{projectNum}}/edition/{{num}}/"
-        resourceroot="/viewers/{{viewer}}/{{version}}/"
-        document="{{sceneFile}}"
-        id="viewer3d"
-        style="display: block; position: relative; height: 90vh; width: 100%;"
-      ></{{element}}>
-      <div class="p-3">
-        {{{viewerSelector}}}
+          root="/project/{{projectNum}}/edition/{{num}}/"
+          resourceroot="/viewers/{{viewer}}/{{version}}/"
+          document="{{sceneFile}}"
+          id="viewer3d"
+          style="display: block; position: relative; height: 90vh; width: 100%;"
+        ></{{element}}>
+        <div class="p-3">
+          {{{viewerSelector}}}
+        </div>
+        <div class="p-3">
+          {{{peerInfo}}}
+        </div>
       </div>
-
-      </div>
-
     </div>
     <div class="w-full xl:w-2/5 p-8">
       <div class="max-w-xl ">{{>metadata-edition}}</div>

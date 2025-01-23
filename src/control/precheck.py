@@ -82,6 +82,13 @@ class Precheck:
         You can trigger the generation of a toc that works for the published edition
         as well.
 
+        We also generate content specifically for published pages
+
+        *   peer review kind and content and logo, if any, otherwise we leave it
+            completely blank. If the peer review kind is missing or "no peer review"
+            we do not place the peer reviewed logo
+        *   citation: we distill a citation from the metadata.
+
         Parameters
         ----------
         site: AttrDict | void
@@ -102,9 +109,11 @@ class Precheck:
 
         Returns
         -------
-        boolean | string
-            If `asPublished` is True, it returns the toc as a string, otherwise
-            it returns whether the edition passed all checks.
+        boolean | tuple
+            If `asPublished` is False,
+                it returns whether the edition passed all checks.
+            Otherwise it returns the toc as a string, plus the peer review
+            kind, content, and logo, plus the citation
         """
         Viewers = self.Viewers
         Content = self.Content
@@ -441,13 +450,38 @@ class Precheck:
             )
             return H.div(content, **obfuscate) if obfuscate else content
 
+        def wrapPeer():
+            peerKind = (
+                Content.getValue("edition", eInfo, "peerreviewkind", manner="logical")
+                or ""
+            )
+            peerKindBare = peerKind.lower().strip()
+            noPeer = "No peer review".lower().strip()
+
+            if not peerKindBare or peerKindBare == noPeer:
+                return ""
+
+            peerContent = Content.getValue(
+                "edition", eInfo, "peerreviewcontent", manner="formatted"
+            )
+            peerLogo = H.img("/images/peer-reviewed.png")
+
+            return H.content(
+                [
+                    H.p(peerLogo),
+                    H.h(2, f"Peer review ({peerKind})"),
+                    H.div(peerContent),
+                ]
+            )
+
         sceneInfo = checkScene()
         checkFiles(())
         good = checkMeta() and checkLinks()
         allTocs = wrapReport()
+        peerInfo = wrapPeer()
 
         if asPublished:
-            return (allTocs, obfuscateRep)
+            return (allTocs, obfuscateRep, peerInfo)
 
         with open(f"{editionDir}/{tocFile}", "w") as fh:
             fh.write(allTocs)

@@ -1144,6 +1144,23 @@ class HtmlElements:
         return HtmlElement("p").wrap(material, **atts)
 
     @staticmethod
+    def pre(material, **atts):
+        """PRE.
+
+        Pre element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("pre").wrap(material, **atts)
+
+    @staticmethod
     def script(material, **atts):
         """SCRIPT.
 

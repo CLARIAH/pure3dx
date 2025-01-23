@@ -50,7 +50,7 @@ class Static:
 
         Any field that is missing will be supplied with a default value, most of the
         times it will be an empty list or string, but the licence will be an
-        "All rights reserved" licence.
+        "All rights reserved" licence and the peer review kind will be "No peer review".
         Ideally the defaults should come from configuration, but because an admin can
         change the keywords, the defaults should then also be editable by an admin,
         but that goes to far for now.
@@ -72,6 +72,8 @@ class Static:
             The dict is changed in place.
         """
         Content = self.Content
+        Settings = self.Settings
+        H = Settings.H
 
         fields = Content.getMetaFields(table, None, asDict=True)
         listKeys = Content.getListFields()
@@ -94,7 +96,7 @@ class Static:
                     ""
                     if value is None
                     else (
-                        "<br>\n".join(markdown(e) for e in value)
+                        H.br().join(markdown(e) for e in value)
                         if type(value) in {list, tuple}
                         else markdown(value)
                     )
@@ -507,6 +509,7 @@ class Static:
             `kind`. It will not be computed twice.
         """
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Content = self.Content
         Precheck = self.Precheck
@@ -588,7 +591,7 @@ class Static:
 
             result = []
 
-            for (textName, key) in texts.items():
+            for textName, key in texts.items():
                 F = Content.makeField(key, "site")
 
                 r = AttrDict()
@@ -750,6 +753,27 @@ class Static:
 
             return result
 
+        def wrapCitation(er):
+            dc = er.dc
+            doi = dc.doi
+            creator = dc.creator
+            published = dc.datePublished
+            title = dc.title
+
+            authorRep = ", ".join(creator)
+            yearRep = published.split("-", 1)[0]
+
+            hasDoi = doi and sum(1 for d in doi if d) > 0
+            myUrl = er.url
+            citeLink = (
+                ", ".join(H.a(d, f"https://doi.org/{d}") for d in doi if d)
+                if hasDoi
+                else H.a(myUrl, myUrl)
+            )
+
+            citeText = f"""{authorRep}. {yearRep}. {title}. {citeLink}"""
+            return H.p(H.small(H.code(citeText)))
+
         def get_editionpages():
             viewers = self.getData("viewers", None, None)
             viewersLean = tuple(
@@ -799,6 +823,7 @@ class Static:
                     er.projectFileName = projectFileName
                     er.authorLink = f"{authorRoot}{pId}/{eId}"
                     fileBase = f"project/{pNum}/edition/{eNum}/index"
+                    er.url = f"{Settings.pubUrl}/{fileBase}.html"
                     er.num = eNum
                     er.name = eItem.title
                     er.dc = edc
@@ -808,9 +833,12 @@ class Static:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    (er.toc, er.obfuscated) = Precheck.checkEdition(
-                        None, pNum, eNum, eItem, asPublished=True
-                    )
+                    (
+                        er.toc,
+                        er.obfuscated,
+                        er.peerInfo,
+                    ) = Precheck.checkEdition(None, pNum, eNum, eItem, asPublished=True)
+                    er.citation = wrapCitation(er)
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name

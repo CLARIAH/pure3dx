@@ -21,6 +21,18 @@
     <li class="">{{dc.datePublished}}</li>
 </ul>
 
+{{#if dc.doi}}
+     <h2 class="text-lg mt-4 mb-1" tabindex="1">Creators</h2>
+     <ul>
+        {{#each dc.doi}}
+        <li class=""><a href="https://doi.org/{{this}}">{{this}}</a></li>
+        {{/each}}
+    </ul>
+{{/if}}
+
+<h2 class="text-lg mt-4 mb-1" tabindex="3">Citation</h2>
+{{{citation}}}
+
 <h2 class="text-lg mt-4 mb-1" id="rights" tabindex="4">Rights</h2>
 <dl class="flex flex-row flex-wrap">
     <dt class="italic w-1/3">License</dt>

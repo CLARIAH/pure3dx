@@ -170,6 +170,11 @@ fields:
       edition: true
     default: See creator
     caption: Contact details
+  doi:
+    nameSpace: dc
+    fieldPath: doi
+    default: []
+    caption: DOI
   keyword:
     nameSpace: dc
     default: []
@@ -421,6 +426,22 @@ fields:
       site: true
     default: /about.html#editions
     caption: Url under header right on Edition page
+  peerreviewkind:
+    nameSpace: pure3d
+    fieldPath: peerReviewKind
+    tp: keyword
+    multiple: false
+    mandatory:
+      edition: true
+    default: No peer review
+    caption: Peer review
+  peerreviewcontent:
+    nameSpace: pure3d
+    fieldPath: peerReviewContent
+    tp: text
+    multiple: false
+    default: ""
+    caption: Peer review content
 
 fieldDistribution:
   main:
@@ -453,6 +474,7 @@ fieldDistribution:
     edition:
       - abstract
       - description
+      - peerreviewcontent
   box:
     site:
       - blog
@@ -491,6 +513,8 @@ fieldDistribution:
       - language
       - source
       - provenance
+      - doi
+      - peerreviewkind
 
 uploads:
   model:
