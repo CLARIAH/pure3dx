@@ -149,7 +149,11 @@ authRules:
     update:
       true: {}
       false:
-        editor: true
+        editor:
+          - ''
+          - dc
+        organiser:
+          - pure3d
     delete:
       true: {}
       false:

@@ -31,7 +31,7 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, record, action=None, insertTable=None):
+    def authorise(self, table, record, nameSpace=None, action=None, insertTable=None):
         """Check whether an action is allowed on data.
 
         The "create" action is a bit special, because we do not have any record
@@ -70,6 +70,11 @@ class Auth(Users):
             The id of the record that is being accessed or the record itself;
             for `create` actions it is the master record to which a new record
             will be created as a detail.
+        nameSpace: string, optional None
+            Authorisation on fields may be nameSpace dependent (fields are organised
+            in nameSpace). When you do authorisation for field access, pass the
+            nameSpace here. If you do not pass a nameSpace, and the rules encountered
+            are nameSpace dependent, nameSpace `''` is assumed.
         action: string, optional None
             The action for which permission is asked.
         insertTable: string
@@ -295,6 +300,9 @@ class Auth(Users):
         #    roles a user needs to have to perform that action
         #    The roles itself are given as a dict, keyed by the role
         #    and valued by a boolean or a set, depending on the action.
+        #    If it is a set (in fact, a list), it is a list of nameSpace,
+        #    and the nameSpace parameter that has been passed to this function
+        #    will be used.
 
         # We compute the allowed actions resulting in a dict keyed by the action
         # and valued by a boolean.
@@ -308,7 +316,15 @@ class Auth(Users):
             permission = False
 
             for presentRole in userRoles:
-                if requiredRoles.get(presentRole, False):
+                permValue = requiredRoles.get(presentRole, False)
+
+                if type(permValue) is not bool:
+                    if nameSpace is None:
+                        permValue = "" in permValue
+                    else:
+                        permValue = nameSpace in permValue
+
+                if permValue:
                     permission = True
                     break
 

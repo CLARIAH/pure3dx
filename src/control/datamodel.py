@@ -682,8 +682,8 @@ class Field:
         Example `dc` (Dublin Core). So if a record has Dublin Core
         metadata, we expect that metadata to exist under key `dc` in that record.
 
-        If the namespace is `""`, it is assumed that we can dig up the values without
-        going into a namespace sub-record first.
+        If the nameSpace is `""`, it is assumed that we can dig up the values without
+        going into a nameSpace sub-record first.
 
         **NB.: This attribute is not table dependent.**
         """

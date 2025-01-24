@@ -526,14 +526,13 @@ class Content(Datamodel):
         fieldPaths = self.fieldPaths
 
         value = json.loads(requestData())
-        permitted = Auth.authorise(table, record, action="update")
+        F = self.makeField(key, table)
+        readonly = F.readonly
+        nameSpace = F.nameSpace
+        permitted = Auth.authorise(table, record, nameSpace=nameSpace, action="update")
 
         if not permitted:
             return dict(stat=False, messages=[["error", "update not allowed"]])
-
-        F = self.makeField(key, table)
-
-        readonly = F.readonly
 
         if readonly:
             return dict(stat=False, messages=[["error", f"{key} is not updatable"]])
@@ -736,6 +735,7 @@ class Content(Datamodel):
             return None
 
         F = self.makeField(key, table)
+        nameSpace = F.nameSpace
 
         isBare = manner in {"bare", "barex"}
         compact = manner == "barex"
@@ -744,7 +744,7 @@ class Content(Datamodel):
         if isBare or isLogical:
             return F.bare(record, compact=compact) if isBare else F.logical(record)
 
-        editable = Auth.authorise(table, record, action="update")
+        editable = Auth.authorise(table, record, nameSpace=nameSpace, action="update")
         return F.formatted(record, editable=editable, level=level)
 
     def getValues(self, table, record, fieldSpecs):
