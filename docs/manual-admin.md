@@ -76,7 +76,8 @@ The life cycle of an edition starts with somebody that wants to create an editio
     ```
 
 1.  If you have obtained a DOI elsewhere, now is the moment to fill this in to the
-    DOI(s) field. As the name suggests, you can put in multiple fields.
+    DOI(s) field. The *editor* should do this.
+    As the name suggests, you can put in multiple fields.
     These DOI(s) will be used to generate a citation on the published edition's page.
     If this field is blank, the url to the published edition's landing page will
     be used in the citation.
