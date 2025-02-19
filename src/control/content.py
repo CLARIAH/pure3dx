@@ -555,9 +555,10 @@ class Content(Datamodel):
             else (
                 value
                 if tp == "keyword"
-                else plainify(readYaml(value, plain=True, ignore=True))
+                else plainify(readYaml(value, plain=True, ignore=True), multiple)
             )
         )
+        self.debug(f"{key} {value=} {sValue=}")
         update = {fieldPath: sValue}
 
         if key == "title":

@@ -288,19 +288,6 @@ class Config:
         Settings = self.Settings
         runMode = Settings.runMode
 
-        tempDir = var("TEMP_DIR")
-
-        if tempDir is None:
-            Messages.error(logmsg="Environment variable `TEMP_DIR` not defined")
-            self.good = False
-            return
-
-        tempDir = tempDir.rstrip("/")
-        sep = "/" if tempDir else ""
-        runTempDir = f"{tempDir}{sep}{runMode}"
-        dirMake(runTempDir)
-        Settings.tempDir = runTempDir
-
         dataDir = var("DATA_DIR")
 
         if dataDir is None:
@@ -324,6 +311,19 @@ class Config:
 
         if self.migrate:
             return
+
+        tempDir = var("TEMP_DIR")
+
+        if tempDir is None:
+            Messages.error(logmsg="Environment variable `TEMP_DIR` not defined")
+            self.good = False
+            return
+
+        tempDir = tempDir.rstrip("/")
+        sep = "/" if tempDir else ""
+        runTempDir = f"{tempDir}{sep}{runMode}"
+        dirMake(runTempDir)
+        Settings.tempDir = runTempDir
 
         workingDir = f"{workingParent}/{runMode}"
         dirMake(workingDir)
@@ -455,7 +455,8 @@ class Config:
         yamlDir = Settings.yamlDir
 
         datamodelFile = "datamodel.yml"
-        datamodel = readYaml(asFile=f"{yamlDir}/{datamodelFile}")
+        datamodel = readYaml(asFile=f"{yamlDir}/{datamodelFile}", preferTuples=False)
+
         if datamodel is None:
             Messages.error(logmsg=f"Cannot read {datamodelFile} in {yamlDir}")
             self.good = False

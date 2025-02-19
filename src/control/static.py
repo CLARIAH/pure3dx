@@ -89,7 +89,7 @@ class Static:
 
             if key in listKeys:
                 if type(value) not in (list, tuple):
-                    value = [value]
+                    value = [value] if value else []
 
             if key in markdownKeys:
                 value = (
@@ -771,7 +771,7 @@ class Static:
                 else H.a(myUrl, myUrl)
             )
 
-            citeText = f"""{authorRep}. {yearRep}. {title}. {citeLink}"""
+            citeText = f"""{authorRep}. {yearRep}. {title}. PURE3D. {citeLink}"""
             return H.p(H.small(H.code(citeText)))
 
         def get_editionpages():
@@ -837,6 +837,7 @@ class Static:
                         er.toc,
                         er.obfuscated,
                         er.peerInfo,
+                        er.peerLogo,
                     ) = Precheck.checkEdition(None, pNum, eNum, eItem, asPublished=True)
                     er.citation = wrapCitation(er)
 

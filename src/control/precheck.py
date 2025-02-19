@@ -459,29 +459,31 @@ class Precheck:
             noPeer = "No peer review".lower().strip()
 
             if not peerKindBare or peerKindBare == noPeer:
-                return ""
+                return ("", "")
 
             peerContent = Content.getValue(
                 "edition", eInfo, "peerreviewcontent", manner="formatted"
             )
-            peerLogo = H.img("/images/peer-reviewed.png")
+            peerLogo = H.img("/images/peer-reviewed.svg", style="width: 6rem;")
 
-            return H.content(
-                [
-                    H.p(peerLogo),
-                    H.h(2, f"Peer review ({peerKind})"),
-                    H.div(peerContent),
-                ]
+            return (
+                H.content(
+                    [
+                        H.h(2, f"Peer review ({peerKind})"),
+                        H.div(peerContent),
+                    ]
+                ),
+                peerLogo,
             )
 
         sceneInfo = checkScene()
         checkFiles(())
         good = checkMeta() and checkLinks()
         allTocs = wrapReport()
-        peerInfo = wrapPeer()
+        peerInfo, peerLogo = wrapPeer()
 
         if asPublished:
-            return (allTocs, obfuscateRep, peerInfo)
+            return (allTocs, obfuscateRep, peerInfo, peerLogo)
 
         with open(f"{editionDir}/{tocFile}", "w") as fh:
             fh.write(allTocs)

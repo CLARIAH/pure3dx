@@ -141,15 +141,15 @@ def attResolve(attSpec, version):
     return default
 
 
-def plainify(value):
+def plainify(value, multiple):
     """Make sure that the value is either a string or a list of strings.
 
     If it is a dict, turn it into a list of stringified key-value pairs.
     """
+    tp = type(value)
+
     if value is None:
         return ""
-
-    tp = type(value)
 
     if tp is list:
         return [plainify(v) for v in value]
