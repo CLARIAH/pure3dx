@@ -141,7 +141,7 @@ def attResolve(attSpec, version):
     return default
 
 
-def plainify(value, multiple):
+def plainify(value):
     """Make sure that the value is either a string or a list of strings.
 
     If it is a dict, turn it into a list of stringified key-value pairs.

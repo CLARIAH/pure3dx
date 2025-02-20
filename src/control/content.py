@@ -555,7 +555,7 @@ class Content(Datamodel):
             else (
                 value
                 if tp == "keyword"
-                else plainify(readYaml(value, plain=True, ignore=True), multiple)
+                else plainify(readYaml(value, plain=True, ignore=True))
             )
         )
         self.debug(f"{key} {value=} {sValue=}")
