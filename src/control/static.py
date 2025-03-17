@@ -145,6 +145,10 @@ class Static:
                 with number `p` and edition with number `e` within that project;
             *   `True`, `True`: everything will be regenerated.
 
+        featured: list of integer
+            The list of publication numbers of featured projects. They will appear
+            in a special display on the home page.
+
         Returns
         -------
         boolean
