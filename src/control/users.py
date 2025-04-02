@@ -514,7 +514,11 @@ class Users:
                     criteria = {f"{table}Id": record._id, "role": role}
                     relatedUserList = Mongo.getList(f"{table}User", **criteria)
                     relatedUsers = sorted(
-                        (userInfo[r.user] for r in relatedUserList),
+                        (
+                            userInfo[r.user]
+                            for r in relatedUserList
+                            if r.user in userInfo
+                        ),
                         key=lambda x: x.nickname or "",
                     )
                 users = tuple((u.user, u.nickname) for u in relatedUsers)

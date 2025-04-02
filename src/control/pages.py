@@ -448,9 +448,11 @@ class Pages:
 
         mainFields = Content.getMetaFields("project", "main", level=3)
         otherFields = Content.getMetaFields("project", ["narrative", "box"], level=3)
+        icon = Content.getUpload(project, "iconProject")
 
         left = (
-            Content.getValues("project", project, mainFields)
+            icon
+            + Content.getValues("project", project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -569,9 +571,11 @@ class Pages:
         )
         mainFields = Content.getMetaFields("edition", "main", level=4)
         otherFields = Content.getMetaFields("edition", ["narrative", "box"], level=4)
+        icon = Content.getUpload(edition, "iconEdition")
 
         left = (
             breadCrumb
+            + icon
             + Content.getValues("edition", edition, mainFields)
             + publishButton
             + actionHeading
