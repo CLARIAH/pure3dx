@@ -140,7 +140,8 @@ class Auth(Users):
 
         state = None
 
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+
         if recordId is None:
             return {} if action is None else False
 
@@ -191,24 +192,32 @@ class Auth(Users):
 
         allRelatedTables = (
             {
-                relatedTable: "self"
-                if relatedTable == insertTable
-                else "detail"
-                if detailMaster[relatedTable] == insertTable
-                else "master"
-                if detailMaster[insertTable] == relatedTable
-                else ""
+                relatedTable: (
+                    "self"
+                    if relatedTable == insertTable
+                    else (
+                        "detail"
+                        if detailMaster[relatedTable] == insertTable
+                        else (
+                            "master"
+                            if detailMaster[insertTable] == relatedTable
+                            else ""
+                        )
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
             if isCreate
             else {
-                relatedTable: "self"
-                if relatedTable == table
-                else "detail"
-                if detailMaster[relatedTable] == table
-                else "master"
-                if detailMaster[table] == relatedTable
-                else ""
+                relatedTable: (
+                    "self"
+                    if relatedTable == table
+                    else (
+                        "detail"
+                        if detailMaster[relatedTable] == table
+                        else "master" if detailMaster[table] == relatedTable else ""
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
         )
@@ -219,7 +228,7 @@ class Auth(Users):
 
         userRoles = {role}
 
-        for (relatedTable, kind) in allRelatedTables.items():
+        for relatedTable, kind in allRelatedTables.items():
             if kind == "":
                 continue
 
@@ -233,9 +242,11 @@ class Auth(Users):
                 if isCreate:
                     continue
 
-                crit = {relatedIdField: recordId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {"user": user, relatedIdField: recordId},
+                    warn=False,
+                    exceptDeleted=True,
                 )
                 extraRole = crossRecord.role
 
@@ -256,9 +267,11 @@ class Auth(Users):
                 # of the relatedTable with the user table
                 # because we find a user role there
 
-                crit = {relatedIdField: masterId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {"user": user, relatedIdField: masterId},
+                    warn=False,
+                    exceptDeleted=True,
                 )
                 extraRole = crossRecord.role
 
@@ -275,16 +288,20 @@ class Auth(Users):
                 # look up all detail records in the detail table
 
                 idField = f"{table}Id"
-                crit = {idField: recordId}
-                detailRecords = Mongo.getList(relatedTable, **crit)
+                detailRecords = Mongo.getList(
+                    relatedTable, {idField: recordId}, exceptDeleted=True
+                )
                 detailIds = [detailRecord._id for detailRecord in detailRecords]
 
                 # we need the cross records between these detail records and
                 # the user table, and we read the extra roles from those
                 # records
 
-                crit = {relatedIdField: {"$in": detailIds}}
-                crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
+                crossRecords = Mongo.getList(
+                    relatedCrossTable,
+                    {"user": user, relatedIdField: {"$in": detailIds}},
+                    exceptDeleted=True,
+                )
 
                 for crossRecord in crossRecords:
                     extraRole = crossRecord.role
@@ -309,7 +326,7 @@ class Auth(Users):
 
         allowedActions = {}
 
-        for (act, requiredRoles) in rules.items():
+        for act, requiredRoles in rules.items():
             if requiredRoles is None:
                 continue
 
@@ -373,13 +390,16 @@ class Auth(Users):
             return False
 
         Mongo = self.Mongo
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
         if projectId is None:
             return False
 
         user = User.user
         projectUser = Mongo.getRecord(
-            "projectUser", user=user, projectId=projectId, warn=False
+            "projectUser",
+            dict(user=user, projectId=projectId),
+            warn=False,
+            exceptDeleted=True,
         )
         return projectUser.role == "organiser"
 

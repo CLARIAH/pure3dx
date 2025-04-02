@@ -216,7 +216,7 @@ class Pages:
         Backup = self.Backup
         Auth = self.Auth
 
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
 
         if not Auth.mayBackup(project=project):
             Messages.warning(
@@ -253,7 +253,7 @@ class Pages:
         Backup = self.Backup
         Auth = self.Auth
 
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
 
         ref = getReferrer().removeprefix("/")
         back = f"/{ref}"
@@ -438,7 +438,7 @@ class Pages:
         Backup = self.Backup
         runProd = Settings.runProd
 
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
         publishInfo = Content.getPublishInfo("project", project)
         actionHeading = H.h(3, "Actions")
         downloadButton = Content.getDownload("project", project)
@@ -489,7 +489,7 @@ class Pages:
         Mongo = self.Mongo
         Content = self.Content
 
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
         if projectId is None:
             return redirectStatus("/home", False)
 
@@ -544,12 +544,12 @@ class Pages:
 
         tocFile = Settings.tocFile
 
-        (editionId, edition) = Mongo.get("edition", edition)
+        (editionId, edition) = Mongo.get("edition", edition, exceptDeleted=True)
         if edition is None:
             return redirectStatus("/project", True)
 
         projectId = edition.projectId
-        (projectId, project) = Mongo.get("project", projectId)
+        (projectId, project) = Mongo.get("project", projectId, exceptDeleted=True)
         if project is None:
             return redirectStatus("/project", True)
 
@@ -609,12 +609,16 @@ class Pages:
         editionIdVerified = None
 
         if editionIdGiven is not None:
-            (editionIdVerified, editionVerified) = Mongo.get("edition", editionIdGiven)
+            (editionIdVerified, editionVerified) = Mongo.get(
+                "edition", editionIdGiven, exceptDeleted=True
+            )
             if editionVerified is not None:
                 projectIdVerifiedFromEdition = editionVerified.projectId
 
         if projectIdGiven is not None:
-            (projectIdVerified, projectVerified) = Mongo.get("project", projectIdGiven)
+            (projectIdVerified, projectVerified) = Mongo.get(
+                "project", projectIdGiven, exceptDeleted=True
+            )
 
         if editionIdGiven is not None:
             if editionIdVerified is None:
@@ -689,7 +693,7 @@ class Pages:
         ref = getReferrer().removeprefix("/")
         back = f"/{ref}"
 
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
         if recordId is None:
             return redirectStatus(back, False)
 
@@ -730,7 +734,7 @@ class Pages:
         Viewers = self.Viewers
         Auth = self.Auth
 
-        (editionId, edition) = Mongo.get("edition", edition)
+        (editionId, edition) = Mongo.get("edition", edition, exceptDeleted=True)
         if editionId is None:
             return renderTemplate("viewer", viewerCode="")
 
@@ -904,11 +908,11 @@ class Pages:
         User = Auth.myDetails()
         user = User.user
 
-        (projectId, project) = Mongo.get("project", project)
+        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
         if projectId is None:
             return False
 
-        (editionId, edition) = Mongo.get("edition", edition)
+        (editionId, edition) = Mongo.get("edition", edition, exceptDeleted=True)
         if editionId is None:
             return False
 

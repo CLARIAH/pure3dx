@@ -854,7 +854,10 @@ class Admin:
 
             if site.processing:
                 Mongo.updateRecord(
-                    "site", dict(processing=False, lastPublished=isonow()), _id=site._id
+                    "site",
+                    dict(_id=site._id),
+                    dict(processing=False, lastPublished=isonow()),
+                    exceptDeleted=True,
                 )
             status = True
             messages = []
@@ -926,7 +929,7 @@ class Admin:
                 ],
             )
 
-        Mongo.insertRecord("keyword", name=name, value=value)
+        Mongo.insertRecord("keyword", dict(name=name, value=value))
 
         return dict(stat=True, messages=[], updated=self.wrap())
 
@@ -982,7 +985,7 @@ class Admin:
                 messages=[["error", f"keyword '{name}':'{value}' is used {occs} x"]],
             )
 
-        good = Mongo.deleteRecord("keyword", name=name, value=value)
+        good = Mongo.deleteRecord("keyword", dict(name=name, value=value), soft=True)
         messages = [] if good else [["warning", "no keyword has been deleted"]]
 
         return dict(stat=good, messages=messages, updated=self.wrap())
@@ -1039,20 +1042,27 @@ class Admin:
         msg = ""
 
         if table is None:
-            result = Mongo.updateRecord("user", dict(role=newRole), user=u)
+            result = Mongo.updateRecord(
+                "user", dict(user=u), dict(role=newRole), exceptDeleted=True
+            )
         else:
-            (recordId, record) = Mongo.get(table, recordId)
+            (recordId, record) = Mongo.get(table, recordId, exceptDeleted=True)
+
             if recordId is None:
-                return dict(stat=False, messages=[["error", "record does not exist"]])
+                return dict(
+                    stat=False, messages=[["error", f"{table} record does not exist"]]
+                )
 
             criteria = {"user": u, f"{table}Id": recordId}
+
             if newRole is None:
-                result = Mongo.deleteRecord(f"{table}User", **criteria)
+                result = Mongo.deleteRecord(f"{table}User", criteria, soft=True)
+
                 if not result:
                     msg = f"could not unlink this user from the {table}"
             else:
                 result = Mongo.updateRecord(
-                    f"{table}User", dict(role=newRole), **criteria
+                    f"{table}User", criteria, dict(role=newRole), exceptDeleted=True
                 )
                 if not result:
                     msg = (
@@ -1114,17 +1124,21 @@ class Admin:
         if newRole not in otherRoles:
             return dict(stat=False, messages=[["error", f"invalid role: {newRoleRep}"]])
 
-        (recordId, record) = Mongo.get(table, recordId)
+        (recordId, record) = Mongo.get(table, recordId, exceptDeleted=True)
+
         if recordId is None:
             return dict(stat=False, messages=[["error", "record does not exist"]])
 
         criteria = {"user": u, f"{table}Id": recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
+        crossRecord = Mongo.getRecord(
+            f"{table}User", criteria, warn=False, exceptDeleted=True
+        )
 
         msg = ""
 
         if crossRecord:
-            result = Mongo.updateRecord(f"{table}User", dict(role=newRole), **criteria)
+            result = Mongo.updateRecord(f"{table}User", criteria, dict(role=newRole))
+
             if not result:
                 msg = (
                     "could not change this user's role to "
@@ -1132,7 +1146,7 @@ class Admin:
                 )
         else:
             fields = {"user": u, f"{table}Id": recordId, "role": newRole}
-            result = Mongo.insertRecord(f"{table}User", **fields)
+            result = Mongo.insertRecord(f"{table}User", fields)
             if not result:
                 msg = f"could not link this user to {table} as {newRoleRep}"
 
@@ -1192,7 +1206,7 @@ class Admin:
                     role="user",
                     isSpecial=True,
                 )
-                userId = Mongo.insertRecord("user", **userInfo)
+                userId = Mongo.insertRecord("user", userInfo)
 
                 if not userId:
                     status = False
@@ -1246,7 +1260,9 @@ class Admin:
                 status = False
                 messages.append(("error", "name should not be empty"))
             else:
-                good = Mongo.deleteRecord("user", isSpecial=True, user=user)
+                good = Mongo.deleteRecord(
+                    "user", dict(isSpecial=True, user=user), soft=True
+                )
 
                 if not good:
                     status = False
@@ -1274,7 +1290,8 @@ class Admin:
         Typically needed when you have used an admin function to perform
         a user administration action.
 
-        This may change the permissions and hence the visibility of projects and editions.
+        This may change the permissions and hence the visibility of projects
+        and editions.
         It also changes the possible user management actions in the future.
         """
         Mongo = self.Mongo
@@ -1291,12 +1308,12 @@ class Admin:
         if not user:
             return
 
-        siteRecord = Mongo.getRecord("site")
-        userList = Mongo.getList("user", sort="nickname")
-        projectList = Mongo.getList("project", sort="title")
-        editionList = Mongo.getList("edition", sort="title")
-        projectLinks = Mongo.getList("projectUser")
-        editionLinks = Mongo.getList("editionUser")
+        siteRecord = Mongo.getRecord("site", {}, exceptDeleted=True)
+        userList = Mongo.getList("user", {}, sort="nickname", exceptDeleted=True)
+        projectList = Mongo.getList("project", {}, sort="title", exceptDeleted=True)
+        editionList = Mongo.getList("edition", {}, sort="title", exceptDeleted=True)
+        projectLinks = Mongo.getList("projectUser", {}, exceptDeleted=True)
+        editionLinks = Mongo.getList("editionUser", {}, exceptDeleted=True)
 
         users = AttrDict({x.user: x for x in userList})
         projects = AttrDict({x._id: x for x in projectList})
@@ -1555,7 +1572,8 @@ class Admin:
         # edition-scoped assignments
 
         Mongo = self.Mongo
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+
         if recordId is None:
             return nope
 

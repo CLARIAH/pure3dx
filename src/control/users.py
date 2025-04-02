@@ -404,7 +404,9 @@ class Users:
             enabled = not userActive or isSpecialUser
 
             for record in sorted(
-                Mongo.getList("user", sort="nickname", isSpecial=True),
+                Mongo.getList(
+                    "user", dict(isSpecial=True), exceptDeleted=True, sort="nickname"
+                ),
                 key=lambda r: r.nickname or "",
             ):
                 user = record.user
@@ -504,7 +506,9 @@ class Users:
             users = None
 
             if allowed and roles is not None and roles.get(role, None) is not None:
-                userInfo = Mongo.getList("user", sort="nickname", asDict="user")
+                userInfo = Mongo.getList(
+                    "user", {}, exceptDeleted=True, sort="nickname", asDict="user"
+                )
 
                 if table == "site":
                     relatedUsers = [
@@ -512,7 +516,9 @@ class Users:
                     ]
                 else:
                     criteria = {f"{table}Id": record._id, "role": role}
-                    relatedUserList = Mongo.getList(f"{table}User", **criteria)
+                    relatedUserList = Mongo.getList(
+                        f"{table}User", criteria, exceptDeleted=True
+                    )
                     relatedUsers = sorted(
                         (
                             userInfo[r.user]
@@ -628,7 +634,7 @@ class Users:
         Mongo = self.Mongo
         User = acg.User
 
-        record = Mongo.getRecord("user", user=user)
+        record = Mongo.getRecord("user", dict(user=user), exceptDeleted=True)
 
         if not record:
             Messages.warning(msg="Unknown user", logmsg=f"Unknown user {user}")
@@ -674,7 +680,9 @@ class Users:
                 email = record.get("email", "")
                 record["nickname"] = email.split("@", 1)[0] or "unknown_name"
 
-        record = Mongo.getRecord("user", user=user, warn=False)
+        record = Mongo.getRecord(
+            "user", dict(user=user), exceptDeleted=True, warn=False
+        )
         newUser = None
 
         if not record:
@@ -683,9 +691,10 @@ class Users:
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
             fillNickname(newUser)
+            newUser["role"] = "user"
 
-            userId = Mongo.insertRecord("user", role="user", **newUser)
-            record = Mongo.getRecord("user", _id=userId)
+            userId = Mongo.insertRecord("user", newUser)
+            record = Mongo.getRecord("user", dict(_id=userId), exceptDeleted=True)
 
         User.clear()
 
@@ -714,5 +723,6 @@ class Users:
                     User[att] = new
 
             if changes:
-                Mongo.updateRecord("user", changes, user=User.user)
+                Mongo.updateRecord("user", dict(user=User.user), changes)
+
         return True

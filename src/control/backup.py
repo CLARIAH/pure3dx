@@ -62,7 +62,7 @@ class Backup:
         projectSlug = ""
 
         if project is not None:
-            (projectId, project) = Mongo.get("project", project)
+            (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
             if projectId is None:
                 return ""
             projectSlug = f"/{projectId}"
@@ -202,7 +202,7 @@ class Backup:
         now = isonow()
 
         if project is not None:
-            (projectId, project) = Mongo.get("project", project)
+            (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
             if projectId is None:
                 return False
             activeDir = f"{workingDir}/project/{projectId}"
@@ -263,7 +263,7 @@ class Backup:
         backupBase = f"{dataDir}/backups/{runMode}"
 
         if project is not None:
-            (projectId, project) = Mongo.get("project", project)
+            (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
             if projectId is None:
                 return False
             activeDir = f"{workingDir}/project/{projectId}"
@@ -350,7 +350,7 @@ class Backup:
         backupBase = f"{dataDir}/backups/{runMode}"
 
         if project is not None:
-            (projectId, project) = Mongo.get("project", project)
+            (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
             backupBase += f"/project/{projectId}"
 
         backupDir = f"{backupBase}/{backup}"
