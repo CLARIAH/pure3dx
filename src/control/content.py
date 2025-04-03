@@ -20,6 +20,8 @@ from .files import (
     extNm,
     readYaml,
     fSize,
+    dirNm,
+    initTree,
 )
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
@@ -94,9 +96,7 @@ class Content(Datamodel):
         if siteId is None:
             return ""
 
-        return Wrap.projectsMain(
-            site, Mongo.getList("project", {}, sort="title", exceptDeleted=True)
-        )
+        return Wrap.projectsMain(site, Mongo.getList("project", {}, sort="title"))
 
     def getEditions(self, project):
         """Get the list of the editions of a project.
@@ -121,15 +121,13 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Wrap = self.Wrap
 
-        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
+        (projectId, project) = Mongo.get("project", project)
         if projectId is None:
             return ""
 
         return Wrap.editionsMain(
             project,
-            Mongo.getList(
-                "edition", dict(projectId=projectId), sort="title", exceptDeleted=True
-            ),
+            Mongo.getList("edition", dict(projectId=projectId), sort="title"),
         )
 
     def getScene(self, projectId, edition, version=None, action=None):
@@ -184,7 +182,7 @@ class Content(Datamodel):
         Viewers = self.Viewers
         Wrap = self.Wrap
 
-        (editionId, edition) = Mongo.get("edition", edition, exceptDeleted=True)
+        (editionId, edition) = Mongo.get("edition", edition)
         if editionId is None:
             return ""
 
@@ -230,7 +228,7 @@ class Content(Datamodel):
         )
 
     def getAdmin(self):
-        """Get the list of relevant projects, editions and users.
+        """Get the controls on relevant projects, editions and users.
 
         Admin users get the list of all users.
 
@@ -280,7 +278,7 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
 
-        (siteId, site) = Mongo.get("site", site, exceptDeleted=True)
+        (siteId, site) = Mongo.get("site", site)
         if siteId is None:
             return None
 
@@ -335,7 +333,7 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             Messages.warning(
                 msg=f"Delete {table}: no such {table}",
@@ -348,6 +346,8 @@ class Content(Datamodel):
         if not permitted:
             return None
 
+        User = Auth.myDetails()
+        name = User.nickname
         details = self.getDetailRecords(table, record)
         nDetails = len(details)
 
@@ -364,9 +364,7 @@ class Content(Datamodel):
 
         if links:
             for linkTable, linkCriteria in links.items():
-                (thisGood, count) = Mongo.deleteRecords(
-                    linkTable, linkCriteria, soft=True
-                )
+                (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, name)
                 if not thisGood:
                     good = False
                     Messages.error(
@@ -386,16 +384,16 @@ class Content(Datamodel):
         if not good:
             return False
 
-        good = Mongo.deleteRecord(table, dict(_id=recordId), soft=True)
+        good = self.deleteItemFiles(table, record, recordId)
 
         if not good:
             return False
 
-        good = self.deleteItemFiles(table, record, recordId, soft=True)
+        good = Mongo.deleteRecord(table, dict(_id=recordId), name)
 
         return good
 
-    def deleteItemFiles(self, table, record, recordId, soft=False):
+    def hardDeleteItemFiles(self, table, record, recordId):
         Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
@@ -408,13 +406,6 @@ class Content(Datamodel):
             itemDirHead += f"/project/{projectId}"
 
         itemDir = f"{itemDirHead}/{itemDirTail}"
-
-        if soft:
-            if dirExists(itemDir):
-                with open(f"{itemDir}/__deleted__.txt", "w") as fh:
-                    fh.write("deleted\n")
-
-            return True
 
         good = True
 
@@ -442,6 +433,25 @@ class Content(Datamodel):
             )
 
         return good
+
+    def deleteItemFiles(self, table, record, recordId):
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        itemDirHead = workingDir
+        itemDirTail = f"{table}/{recordId}"
+
+        if table == "edition":
+            projectId = record.projectId
+            itemDirHead += f"/project/{projectId}"
+
+        itemDir = f"{itemDirHead}/{itemDirTail}"
+
+        if dirExists(itemDir):
+            with open(f"{itemDir}/__deleted__.txt", "w") as fh:
+                fh.write("deleted\n")
+
+        return True
 
     def createEdition(self, project):
         """Creates a new edition.
@@ -483,7 +493,7 @@ class Content(Datamodel):
         values = dict(viewer=viewerDefault, version=versionDefault, scene=sceneFile)
         editionSettings = fillin(editionSettingsTemplate, values)
 
-        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
+        (projectId, project) = Mongo.get("project", project)
         if projectId is None:
             return None
 
@@ -583,7 +593,7 @@ class Content(Datamodel):
         multiple = F.multiple
         fieldPath = fieldPaths[key]
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
 
         if recordId is None:
             return dict(
@@ -600,7 +610,6 @@ class Content(Datamodel):
                 else plainify(readYaml(value, plain=True, ignore=True))
             )
         )
-        self.debug(f"{key} {value=} {sValue=}")
         update = {fieldPath: sValue}
 
         if key == "title":
@@ -612,7 +621,7 @@ class Content(Datamodel):
                 messages=[["error", "could not update the record in the database"]],
             )
         else:
-            (recordId, record) = Mongo.get(table, recordId, exceptDeleted=True)
+            (recordId, record) = Mongo.get(table, recordId)
 
         now = isonow()
         dateCreatedPath = fieldPaths["dateCreated"]
@@ -908,7 +917,7 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return ""
 
@@ -961,7 +970,7 @@ class Content(Datamodel):
         pubUrl = Settings.pubUrl
         published = Settings.published
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return ""
 
@@ -1248,7 +1257,7 @@ class Content(Datamodel):
         H = Settings.H
         Mongo = self.Mongo
 
-        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
+        (projectId, project) = Mongo.get("project", project)
         if not project:
             return ""
 
@@ -1289,7 +1298,7 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
-        (recordId, record) = Mongo.get("edition", record, exceptDeleted=True)
+        (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
                 msg="record does not exist", logmsg=f"edition {recordId} does not exist"
@@ -1330,7 +1339,7 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
-        (recordId, record) = Mongo.get("edition", record, exceptDeleted=True)
+        (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
                 msg="record does not exist", logmsg=f"edition {recordId} does not exist"
@@ -1371,7 +1380,7 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
-        (recordId, record) = Mongo.get("edition", record, exceptDeleted=True)
+        (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
                 msg="record does not exist", logmsg=f"edition {recordId} does not exist"
@@ -1412,7 +1421,7 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
-        (recordId, record) = Mongo.get("edition", record, exceptDeleted=True)
+        (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
                 msg="record does not exist", logmsg=f"edition {recordId} does not exist"
@@ -1507,7 +1516,7 @@ class Content(Datamodel):
         # sizeUnits = limits.sizeUnitsOptimistic
         sizeLimit = sizeUnits * sizeUnitSize
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
 
         if recordId is None:
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
@@ -1587,10 +1596,7 @@ class Content(Datamodel):
 
             if edition is None:
                 editions = Mongo.getList(
-                    "edition",
-                    dict(projectId=projectId),
-                    sort="title",
-                    exceptDeleted=True,
+                    "edition", dict(projectId=projectId), sort="title"
                 )
 
                 for ed in editions:
@@ -1720,7 +1726,7 @@ class Content(Datamodel):
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
@@ -1757,10 +1763,11 @@ class Content(Datamodel):
             return jsonify(status=False, msgs=msgs)
 
         try:
+            initTree(dirNm(fileFullPath), fresh=False)
             with open(fileFullPath, "wb") as fh:
                 fh.write(fileContent)
-        except Exception:
-            logmsg = f"Could not save uploaded file: {key}: {fileFullPath}"
+        except Exception as e:
+            logmsg = f"Could not save uploaded file: {key}: {fileFullPath} because of {e}"
             msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
@@ -2047,7 +2054,7 @@ class Content(Datamodel):
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 

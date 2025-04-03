@@ -140,7 +140,7 @@ class Auth(Users):
 
         state = None
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
 
         if recordId is None:
             return {} if action is None else False
@@ -246,7 +246,6 @@ class Auth(Users):
                     relatedCrossTable,
                     {"user": user, relatedIdField: recordId},
                     warn=False,
-                    exceptDeleted=True,
                 )
                 extraRole = crossRecord.role
 
@@ -271,7 +270,6 @@ class Auth(Users):
                     relatedCrossTable,
                     {"user": user, relatedIdField: masterId},
                     warn=False,
-                    exceptDeleted=True,
                 )
                 extraRole = crossRecord.role
 
@@ -288,9 +286,7 @@ class Auth(Users):
                 # look up all detail records in the detail table
 
                 idField = f"{table}Id"
-                detailRecords = Mongo.getList(
-                    relatedTable, {idField: recordId}, exceptDeleted=True
-                )
+                detailRecords = Mongo.getList(relatedTable, {idField: recordId})
                 detailIds = [detailRecord._id for detailRecord in detailRecords]
 
                 # we need the cross records between these detail records and
@@ -300,7 +296,6 @@ class Auth(Users):
                 crossRecords = Mongo.getList(
                     relatedCrossTable,
                     {"user": user, relatedIdField: {"$in": detailIds}},
-                    exceptDeleted=True,
                 )
 
                 for crossRecord in crossRecords:
@@ -390,16 +385,13 @@ class Auth(Users):
             return False
 
         Mongo = self.Mongo
-        (projectId, project) = Mongo.get("project", project, exceptDeleted=True)
+        (projectId, project) = Mongo.get("project", project)
         if projectId is None:
             return False
 
         user = User.user
         projectUser = Mongo.getRecord(
-            "projectUser",
-            dict(user=user, projectId=projectId),
-            warn=False,
-            exceptDeleted=True,
+            "projectUser", dict(user=user, projectId=projectId), warn=False
         )
         return projectUser.role == "organiser"
 

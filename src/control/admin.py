@@ -4,6 +4,9 @@ import json
 from .flask import requestData
 from .generic import AttrDict, isonow
 from .helpers import normalize
+from .files import dirExists, fileExists, fileRemove
+
+from .mongo import MDEL, MDELDT, MDELBY
 
 
 USERNAME_RE = re.compile(r"[^a-z0-9._-]")
@@ -125,10 +128,16 @@ class Admin:
             )
 
         projects = self.projects
+        delProjects = self.delProjects
 
         projectsAll = sorted(
             projects.values(),
             key=lambda x: (1 if x.isVisible else 0, x.title or "", x._id),
+        )
+
+        delProjectsAll = sorted(
+            delProjects.values(),
+            key=lambda x: (x.title or "", x._id),
         )
 
         inPower = self.inPower
@@ -142,6 +151,7 @@ class Admin:
             allProjects = self._wrapAllProjects(projectsAll)
             allKeywords = self._wrapKeywordControls()
             allUsers = self._wrapUserControls()
+            allDeleted = self._wrapDeletedItems(delProjectsAll)
         else:
             pubControls = ""
             allProjects = ""
@@ -149,7 +159,15 @@ class Admin:
             allKeywords = ""
 
         return H.div(
-            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
+            [
+                pubControls,
+                allKeywords,
+                allUsers,
+                myDetails,
+                myProjects,
+                allProjects,
+                allDeleted,
+            ],
             cls="myadmin",
         )
 
@@ -388,6 +406,43 @@ class Admin:
         )
         return H.div(wrapped, id="allprojects")
 
+    def _wrapDeletedItems(self, delProjectsAll):
+        """Generate HTML for the list of all deleted projects and editions.
+
+        All projects that have been (softly) deleted or contain editions that
+        have been (softly) deleted, are listed,
+        together with their (softly) deleted editions.
+
+        For each (softly) deleted item that still exists a control is added to
+        undelete it.
+
+        Only those items that have not been hardly deleted in the meantime.
+
+        Parameters
+        ----------
+        projectsAll: list
+            The list of all projects
+
+        Returns
+        -------
+        string
+            The html
+        """
+        H = self.H
+
+        wrapped = []
+        wrapped.append(H.h(1, "Deleted projects and editions"))
+
+        wrappedProjects = [self._wrapDelProject(p) for p in delProjectsAll]
+
+        wrapped.append(
+            H.div(wrappedProjects)
+            if len(wrappedProjects)
+            else H.div("There are no deleted projects/editions")
+        )
+
+        return H.div(wrapped, id="delprojects")
+
     def _wrapProject(self, project, myOnly=True):
         """Generate HTML for a project in admin view.
 
@@ -424,9 +479,7 @@ class Admin:
             ),
             key=lambda x: (x.title or "", x._id),
         )
-        title = project.title
-        if not title:
-            title = H.i("no title")
+        title = project.title or H.i("no title")
 
         return H.div(
             [
@@ -477,9 +530,7 @@ class Admin:
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
-        title = edition.title
-        if not title:
-            title = H.i("no title")
+        title = edition.title or H.i("no title")
 
         return H.div(
             [
@@ -490,6 +541,93 @@ class Admin:
                     cls="eusers",
                 ),
             ],
+            cls="eentry",
+        )
+
+    def _wrapDelProject(self, project):
+        """Generate HTML for a deleted project in admin view.
+
+        Parameters
+        ----------
+        project: AttrDict
+            A record of a project that is deleted or has deleted editions.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+        title = project.title or H.i("no title")
+        pDeleted = project.get(MDEL, False)
+
+        if pDeleted:
+            pDeletedBy = project.get(MDELBY, "unknown")
+            pDeletedDt = project.get(MDELDT, "unknown")
+
+            pTitle = H.span(title, cls="ptitle")
+            pStatus = H.span(f"on {pDeletedDt} by {pDeletedBy}", cls="pestatus warning")
+            pControl = H.span(
+                "undelete",
+                url=f"project/{project._id}/undelete",
+                title="undelete this project",
+                cls="button medium undelete",
+            )
+        else:
+            pTitle = H.a(title, f"project/{project._id}", cls="ptitle")
+            pStatus = ""
+            pControl = ""
+
+        editions = sorted(
+            project.editions.values(), key=lambda x: (x.title or "", x._id)
+        )
+
+        return H.div(
+            [
+                H.div(f"{pControl} {pTitle} {pStatus}", cls="phead"),
+                H.div(
+                    [self._wrapDelEdition(e, pDeleted) for e in editions],
+                    cls="peditions",
+                ),
+            ],
+            cls="pentry",
+        )
+
+    def _wrapDelEdition(self, edition, pDeleted):
+        """Generate HTML for a deleted edition in admin view.
+
+        Parameters
+        ----------
+        edition: AttrDict
+            An edition record
+        pDeleted: boolean
+            Whether the parent project is currently deleted.
+            We do not allow undelete actions of editions if their parents are
+            still deleted.
+
+        Returns
+        -------
+        string
+            The HTML
+        """
+        H = self.H
+        title = edition.title or H.i("no title")
+        eDeletedBy = edition.get(MDELBY, "unknown")
+        eDeletedDt = edition.get(MDELDT, "unknown")
+
+        eTitle = H.span(title, cls="etitle")
+        eStatus = H.span(f"on {eDeletedDt} by {eDeletedBy}", cls="pestatus warning")
+        undelete = "" if pDeleted else "undelete"
+        disabled = "disabled" if pDeleted else ""
+        eControl = H.span(
+            "undelete",
+            url=f"edition/{edition._id}/undelete",
+            title="undelete this edition",
+            cls=f"button medium {undelete} {disabled}",
+        )
+
+        return H.div(
+            [H.div(f"{eControl} {eTitle} {eStatus}", cls="ehead")],
             cls="eentry",
         )
 
@@ -857,7 +995,6 @@ class Admin:
                     "site",
                     dict(_id=site._id),
                     dict(processing=False, lastPublished=isonow()),
-                    exceptDeleted=True,
                 )
             status = True
             messages = []
@@ -931,6 +1068,7 @@ class Admin:
 
         Mongo.insertRecord("keyword", dict(name=name, value=value))
 
+        self.update()
         return dict(stat=True, messages=[], updated=self.wrap())
 
     def deleteKeyword(self):
@@ -949,13 +1087,15 @@ class Admin:
         Auth = self.Auth
         Mongo = self.Mongo
         Content = self.Content
+        inPower = self.inPower
 
-        permitted = Auth.inPower()[0]
-
-        if not permitted:
+        if not inPower:
             return dict(
                 stat=False, messages=[["error", "deleting a keyword is not allowed"]]
             )
+
+        User = Auth.myDetails()
+        name = User.nickname
 
         keywords = Content.getKeywords()
         specs = json.loads(requestData())
@@ -985,9 +1125,10 @@ class Admin:
                 messages=[["error", f"keyword '{name}':'{value}' is used {occs} x"]],
             )
 
-        good = Mongo.deleteRecord("keyword", dict(name=name, value=value), soft=True)
+        good = Mongo.deleteRecord("keyword", dict(name=name, value=value), name)
         messages = [] if good else [["warning", "no keyword has been deleted"]]
 
+        self.update()
         return dict(stat=good, messages=messages, updated=self.wrap())
 
     # retrieval and action functions -- USERS and ROLES
@@ -1021,6 +1162,7 @@ class Admin:
             * `messages`: list of messages for the user,
             * `updated`: new content for the user managment div.
         """
+        Auth = self.Auth
         Mongo = self.Mongo
         siteRoles = self.siteRoles
         projectRoles = self.projectRoles
@@ -1041,12 +1183,13 @@ class Admin:
 
         msg = ""
 
+        User = Auth.myDetails()
+        name = User.nickname
+
         if table is None:
-            result = Mongo.updateRecord(
-                "user", dict(user=u), dict(role=newRole), exceptDeleted=True
-            )
+            result = Mongo.updateRecord("user", dict(user=u), dict(role=newRole))
         else:
-            (recordId, record) = Mongo.get(table, recordId, exceptDeleted=True)
+            (recordId, record) = Mongo.get(table, recordId)
 
             if recordId is None:
                 return dict(
@@ -1056,13 +1199,13 @@ class Admin:
             criteria = {"user": u, f"{table}Id": recordId}
 
             if newRole is None:
-                result = Mongo.deleteRecord(f"{table}User", criteria, soft=True)
+                result = Mongo.deleteRecord(f"{table}User", criteria, name)
 
                 if not result:
                     msg = f"could not unlink this user from the {table}"
             else:
                 result = Mongo.updateRecord(
-                    f"{table}User", criteria, dict(role=newRole), exceptDeleted=True
+                    f"{table}User", criteria, dict(role=newRole)
                 )
                 if not result:
                     msg = (
@@ -1124,15 +1267,13 @@ class Admin:
         if newRole not in otherRoles:
             return dict(stat=False, messages=[["error", f"invalid role: {newRoleRep}"]])
 
-        (recordId, record) = Mongo.get(table, recordId, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, recordId)
 
         if recordId is None:
             return dict(stat=False, messages=[["error", "record does not exist"]])
 
         criteria = {"user": u, f"{table}Id": recordId}
-        crossRecord = Mongo.getRecord(
-            f"{table}User", criteria, warn=False, exceptDeleted=True
-        )
+        crossRecord = Mongo.getRecord(f"{table}User", criteria, warn=False)
 
         msg = ""
 
@@ -1247,10 +1388,13 @@ class Admin:
             * `status`: whether the create action was successful
             * `messages`: messages issued during the process
         """
+        Auth = self.Auth
         Mongo = self.Mongo
         Settings = self.Settings
         runProd = Settings.runProd
         inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
 
         status = True
         messages = []
@@ -1260,9 +1404,7 @@ class Admin:
                 status = False
                 messages.append(("error", "name should not be empty"))
             else:
-                good = Mongo.deleteRecord(
-                    "user", dict(isSpecial=True, user=user), soft=True
-                )
+                good = Mongo.deleteRecord("user", dict(isSpecial=True, user=user), name)
 
                 if not good:
                     status = False
@@ -1280,7 +1422,124 @@ class Admin:
                 )
 
         self.update()
-        return dict(status=status, messages=messages)
+        return dict(stat=status, messages=messages)
+
+    def undeleteItem(self, table, record):
+        """Deletes an item, project or edition.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: string | ObjectId | AttrDict
+            The item in question.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        """
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Content = self.Content
+        inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
+
+        messages = []
+
+        if inPower:
+            (recordId, record) = Mongo.get(table, record, deleted=True)
+
+            if recordId is None:
+                messages.append(("warning", f"{table}: no such {table}"))
+                return dict(stat=False, messages=messages)
+
+            if table == "edition":
+                parent = record.projectId
+                (projectId, project) = Mongo.get("project", parent)
+
+                if projectId is None:
+                    messages.append(
+                        (
+                            "error",
+                            "Not allowed to undelete an edition "
+                            "whose parent project is still deleted",
+                        )
+                    )
+                    return dict(stat=False, messages=messages)
+
+            if not Mongo.undeleteRecord(table, dict(_id=recordId), name):
+                messages.append(("error", f"could not undelete this {table} record"))
+                return dict(stat=False, messages=messages)
+
+            links = Content.getLinkedCrit(table, record)
+            status = True
+
+            if links:
+                for linkTable, linkCriteria in links.items():
+                    (thisStatus, count) = Mongo.undeleteRecords(
+                        linkTable, linkCriteria, name
+                    )
+
+                    if not thisStatus:
+                        status = False
+                        messages.append(
+                            ("error", f"could not undelete linked {linkTable} record")
+                        )
+                    else:
+                        messages.append(
+                            ("info", f"Deleted {count} link records from {linkTable}")
+                        )
+
+            if not status:
+                return dict(stat=False, messages=messages)
+
+            (status, theseMessages) = self.undeleteItemFiles(table, record, recordId)
+            messages.extend(theseMessages)
+
+            self.update()
+
+            if not status:
+                return dict(stat=False, messages=messages, updated=self.wrap())
+
+            return dict(stat=True, messages=messages, updated=self.wrap())
+        else:
+            messages.append(("error", f"undeleting a {table} needs admin privileges"))
+            return dict(stat=False, messages=messages)
+
+    def undeleteItemFiles(self, table, record, recordId):
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        itemDirHead = workingDir
+        itemDirTail = f"{table}/{recordId}"
+
+        if table == "edition":
+            projectId = record.projectId
+            itemDirHead += f"/project/{projectId}"
+
+        itemDir = f"{itemDirHead}/{itemDirTail}"
+
+        messages = []
+        status = True
+
+        if dirExists(itemDir):
+            markFile = f"{itemDir}/__deleted__.txt"
+
+            if fileExists(markFile):
+                fileRemove(markFile)
+                messages.append(
+                    ("good", f"Undeleted the {table} directory on the file system")
+                )
+            else:
+                messages.append(
+                    ("warning", f"The {table} directory existed in a non-deleted state")
+                )
+        else:
+            status = True
+            messages.append(("warning", f"The {table} directory does not exist"))
+        return (status, messages)
 
     # LOGISTICS functions
 
@@ -1308,16 +1567,21 @@ class Admin:
         if not user:
             return
 
-        siteRecord = Mongo.getRecord("site", {}, exceptDeleted=True)
-        userList = Mongo.getList("user", {}, sort="nickname", exceptDeleted=True)
-        projectList = Mongo.getList("project", {}, sort="title", exceptDeleted=True)
-        editionList = Mongo.getList("edition", {}, sort="title", exceptDeleted=True)
-        projectLinks = Mongo.getList("projectUser", {}, exceptDeleted=True)
-        editionLinks = Mongo.getList("editionUser", {}, exceptDeleted=True)
+        siteRecord = Mongo.getRecord("site", {})
+        userList = Mongo.getList("user", {}, sort="nickname")
+        projectList = Mongo.getList("project", {}, sort="title")
+        projectList2 = Mongo.getList("project", {}, sort="title")
+        delProjectList = Mongo.getList("project", {}, deleted=True, sort="title")
+        editionList = Mongo.getList("edition", {}, sort="title")
+        delEditionList = Mongo.getList("edition", {}, deleted=True, sort="title")
+        projectLinks = Mongo.getList("projectUser", {})
+        editionLinks = Mongo.getList("editionUser", {})
 
         users = AttrDict({x.user: x for x in userList})
         projects = AttrDict({x._id: x for x in projectList})
+        projects2 = AttrDict({x._id: x for x in projectList2})
         editions = AttrDict({x._id: x for x in editionList})
+        delProjects = AttrDict({x._id: x for x in delProjectList} | projects2)
 
         myIds = AttrDict()
 
@@ -1325,12 +1589,29 @@ class Admin:
         self.users = users
         self.projects = projects
         self.editions = editions
+        self.delProjects = delProjects
         self.myIds = myIds
 
         for eRecord in editionList:
             eId = eRecord._id
             pId = eRecord.projectId
             projects[pId].setdefault("editions", {})[eId] = eRecord
+
+        for eRecord in delEditionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            delProjects[pId].setdefault("editions", {})[eId] = eRecord
+
+        toBeRemoved = []
+
+        for pID, pRecord in delProjects.items():
+            pEditions = pRecord.get("editions", {})
+
+            if len(pEditions) == 0:
+                toBeRemoved.append(pID)
+
+        for pID in toBeRemoved:
+            del delProjects[pID]
 
         for pLink in projectLinks:
             role = pLink.role
@@ -1355,15 +1636,20 @@ class Admin:
 
         for eLink in editionLinks:
             role = eLink.role
+
             if role:
                 u = eLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 eId = eLink.editionId
                 eRecord = editions[eId]
+
                 if eRecord is None:
                     continue
+
                 pId = eRecord.projectId
 
                 if user == u:
@@ -1572,7 +1858,7 @@ class Admin:
         # edition-scoped assignments
 
         Mongo = self.Mongo
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
 
         if recordId is None:
             return nope

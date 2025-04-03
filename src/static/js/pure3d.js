@@ -524,6 +524,47 @@ const linkUser = (linkuser, topContent) => {
   })
 }
 
+const undeleteItems = () => {
+  const uControls = $(".undelete")
+  const topContent = $(".myadmin")
+
+  uControls.each((i, uControl) => {
+    undeleteItem(uControl, topContent)
+  })
+}
+
+const undeleteItem = (uControl, topContent) => {
+  const uButton = $(uControl)
+  const undelUrl = uButton.attr("url")
+
+  const undelete = () => {
+    $.ajax({
+      type: "GET",
+      url: undelUrl,
+      processData: false,
+      contentType: true,
+      success: processOK,
+      error: processError,
+    })
+  }
+
+  const processOK = response => {
+    const { messages, updated } = response
+    addMsgs(messages, true)
+    topContent.html(updated)
+    processMyWork()
+  }
+
+  const processError = (jqXHR, stat) => {
+    const { status, statusText } = jqXHR
+    addMsg([stat, `undelete failed: ${status} ${statusText}`])
+  }
+
+  uButton.off("click").click(() => {
+    undelete()
+  })
+}
+
 const kwmanageWidgets = () => {
   const kwmanagewidgets = $(".kwmanagewidget")
   const topContent = $(".myadmin")
@@ -924,13 +965,13 @@ const confirmInit = () => {
 }
 
 const processMyWork = name => {
-  kwmanageWidgets()
   if (name) {
     $(`[itemkey="keywordlist-${name}"]`).prop("open", true)
   }
   editRoles()
   createUser()
   linkUsers()
+  undeleteItems()
   confirmInit()
 }
 

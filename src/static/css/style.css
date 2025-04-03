@@ -357,9 +357,10 @@ span.fileupload.iconedition img {
   flex: 2 1 auto;
   padding: 0.2rem 0.6rem;
   margin: 0.2rem 0.2rem;
+  font-weight: bold;
 }
 .ptitle {
-  font-weight: bold;
+  font-size: large;
 }
 .puser,.prole,.pestatus {
   border: 0.1rem solid var(--field-inner-border);

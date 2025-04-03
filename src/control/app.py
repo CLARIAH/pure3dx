@@ -242,6 +242,17 @@ def appFactory(objects):
         """
         return Pages.deleteItem("project", project)
 
+    @app.route("/project/<string:project>/undelete")
+    def undeleteProject(project):
+        """Undeletes a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        """
+        return Admin(Content).undeleteItem("project", project)
+
     @app.route("/project/<string:project>/edition/create")
     def createEdition(project):
         """Create a new edition with the current user as editor.
@@ -282,6 +293,17 @@ def appFactory(objects):
             The id of the edition record.
         """
         return Pages.deleteItem("edition", edition)
+
+    @app.route("/edition/<string:edition>/undelete")
+    def undeleteEdition(edition):
+        """Undeletes an edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        """
+        return Admin(Content).undeleteItem("edition", edition)
 
     @app.route(
         "/viewer/<string:version>/<string:action>/<string:edition>/<string:subMode>"

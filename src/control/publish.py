@@ -92,7 +92,7 @@ class Publish:
 
         def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, condition, exceptDeleted=True)
+                itemsDb = Mongo.getList(kind, condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -109,7 +109,7 @@ class Publish:
         if pPubNumLast is None:
             # because there is only 1 site in the database,
             # we can retrieve it without paramaters
-            site = Mongo.getRecord("site", {}, exceptDeleted=True)
+            site = Mongo.getRecord("site", {})
 
             if "publishedProjectCount" in site:
                 pPubNum = site["publishedProjectCount"] + 1
@@ -290,9 +290,7 @@ class Publish:
                     stage = f"set pubnum for project to {pPubNum}"
                     update = dict(pubNum=pPubNum, isVisible=True)
                     Mongo.updateRecord("project", dict(_id=project._id), update)
-                    project = Mongo.getRecord(
-                        "project", dict(_id=project._id), exceptDeleted=True
-                    )
+                    project = Mongo.getRecord("project", dict(_id=project._id))
 
                     stage = f"set pubnum for edition to {ePubNum}"
                     update = {
@@ -301,9 +299,7 @@ class Publish:
                         datePublishedPath: now,
                     }
                     Mongo.updateRecord("edition", dict(_id=edition._id), update)
-                    edition = Mongo.getRecord(
-                        "edition", dict(_id=edition._id), exceptDeleted=True
-                    )
+                    edition = Mongo.getRecord("edition", dict(_id=edition._id))
 
                     stage = "add site files"
                     self.addSiteFiles(site)
@@ -353,9 +349,7 @@ class Publish:
                         dateUnPublishedPath: now,
                     }
                     Mongo.updateRecord("edition", dict(_id=edition._id), update)
-                    edition = Mongo.getRecord(
-                        "edition", dict(_id=edition._id), exceptDeleted=True
-                    )
+                    edition = Mongo.getRecord("edition", dict(_id=edition._id))
 
                     stage = f"remove edition files {pPubNum}/{ePubNum}"
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -378,9 +372,7 @@ class Publish:
                         stage = f"make project with {pPubNum} invisible"
                         update = dict(isVisible=False)
                         Mongo.updateRecord("project", dict(_id=project._id), update)
-                        project = Mongo.getRecord(
-                            "project", dict(_id=project._id), exceptDeleted=True
-                        )
+                        project = Mongo.getRecord("project", dict(_id=project._id))
 
                         stage = f"remove project files {pPubNum}"
                         self.removeProjectFiles(pPubNum)

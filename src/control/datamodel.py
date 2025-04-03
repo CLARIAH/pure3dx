@@ -256,14 +256,14 @@ class Datamodel:
 
         if edition is not None:
             table = "edition"
-            (recordId, record) = Mongo.get(table, edition, exceptDeleted=True)
+            (recordId, record) = Mongo.get(table, edition)
         elif project is not None:
             table = "project"
-            (recordId, record) = Mongo.get(table, project, exceptDeleted=True)
+            (recordId, record) = Mongo.get(table, project)
         else:
             table = "site"
             siteCrit = Settings.siteCrit
-            record = Mongo.getRecord(table, siteCrit, exceptDeleted=True)
+            record = Mongo.getRecord(table, siteCrit)
             recordId = record._id
 
         return (table, recordId, record)
@@ -289,7 +289,7 @@ class Datamodel:
         """
         Mongo = self.Mongo
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
 
         if recordId is None:
             return (None, None, None, None, None, None)
@@ -301,13 +301,11 @@ class Datamodel:
         elif table == "project":
             (editionId, edition) = (None, None)
             (projectId, project) = (recordId, record)
-            (siteId, site) = Mongo.get("site", record.siteId, exceptDeleted=True)
+            (siteId, site) = Mongo.get("site", record.siteId)
         elif table == "edition":
             (editionId, edition) = (recordId, record)
-            (projectId, project) = Mongo.get(
-                "project", record.projectId, exceptDeleted=True
-            )
-            (siteId, site) = Mongo.get("site", project.siteId, exceptDeleted=True)
+            (projectId, project) = Mongo.get("project", record.projectId)
+            (siteId, site) = Mongo.get("site", project.siteId)
 
         return (siteId, site, projectId, project, editionId, edition)
 
@@ -343,7 +341,7 @@ class Datamodel:
         if detailTable is None:
             return AttrDict()
 
-        (masterId, master) = Mongo.get(masterTable, master, exceptDeleted=True)
+        (masterId, master) = Mongo.get(masterTable, master)
         if masterId is None:
             return AttrDict()
 
@@ -351,7 +349,7 @@ class Datamodel:
 
         detailRecords = AttrDict()
 
-        details = Mongo.getList(detailTable, crit, exceptDeleted=True)
+        details = Mongo.getList(detailTable, crit)
 
         if len(details):
             detailRecords[detailTable] = details
@@ -377,12 +375,8 @@ class Datamodel:
             The number of editions
         """
         Mongo = self.Mongo
-        nProjects = len(
-            Mongo.getList("projectUser", dict(user=user), exceptDeleted=True)
-        )
-        nEditions = len(
-            Mongo.getList("EditionUser", dict(user=user), exceptDeleted=True)
-        )
+        nProjects = len(Mongo.getList("projectUser", dict(user=user)))
+        nEditions = len(Mongo.getList("EditionUser", dict(user=user)))
         return (nProjects, nEditions)
 
     def getLinkedCrit(self, table, record):
@@ -413,7 +407,7 @@ class Datamodel:
         if linkTables is None:
             return AttrDict()
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return AttrDict()
 
@@ -466,7 +460,7 @@ class Datamodel:
         for name in keywordLists:
             keywords[name] = {}
 
-        keywordItems = Mongo.getList("keyword", {}, exceptDeleted=True)
+        keywordItems = Mongo.getList("keyword", {})
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
@@ -481,8 +475,8 @@ class Datamodel:
             fieldPath = fieldPaths[name]
             value = keywordRecord.value
             criteria = {fieldPath: value}
-            recordsP = Mongo.getList("project", criteria, exceptDeleted=True)
-            recordsE = Mongo.getList("edition", criteria, exceptDeleted=True)
+            recordsP = Mongo.getList("project", criteria)
+            recordsE = Mongo.getList("edition", criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
 
@@ -492,8 +486,8 @@ class Datamodel:
 
                 for value in values:
                     criteria = {fieldPath: value}
-                    recordsP = Mongo.getList("project", criteria, exceptDeleted=True)
-                    recordsE = Mongo.getList("edition", criteria, exceptDeleted=True)
+                    recordsP = Mongo.getList("project", criteria)
+                    recordsE = Mongo.getList("edition", criteria)
                     occs = len(recordsP) + len(recordsE)
                     keywords[name][value] = occs
 
@@ -966,7 +960,7 @@ class Field:
 
         table = self.table
 
-        (recordId, record) = Mongo.get(table, record, exceptDeleted=True)
+        (recordId, record) = Mongo.get(table, record)
         if recordId is None:
             return ""
 
