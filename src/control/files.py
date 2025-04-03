@@ -6,7 +6,6 @@ from shutil import rmtree, copytree, copy
 
 from .generic import deepAttrDict
 
-
 THREE_EXT = {"glb", "gltf"}
 THREE_EXT_PAT = "|".join(THREE_EXT)
 
@@ -14,6 +13,8 @@ IMAGE_RE = re.compile(r"""^.*\.(png|jpg|jpeg)$""", re.I)
 THREED_RE = re.compile(rf"""^.*\.({THREE_EXT_PAT})$""", re.I)
 
 DS_STORE = ".DS_Store"
+
+FDEL = "__deleted__.txt"
 
 
 def str_presenter(dumper, data):

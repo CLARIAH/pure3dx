@@ -1,8 +1,11 @@
+import os
 import re
 from datetime import datetime as dt, UTC
 from functools import cmp_to_key as keyFromComparison
 
 from bson.objectid import ObjectId
+
+mTime = os.path.getmtime
 
 
 VERSION_COMP_RE = re.compile(
@@ -73,6 +76,23 @@ def pseudoisonow():
         E.g. `2024-11-13T10-53-15Z`
     """
     return isonow().replace(":", "-")
+
+
+def dateOnly(iso):
+    return iso.strip().split("T", 1)[0]
+
+
+def lessAgo(days, refDate, iso=True):
+    if refDate is None:
+        # undefined dates count as not recent
+        return False
+
+    delta = utcnow() - (
+        dt.fromisoformat(refDate) if iso else dt.fromtimestamp(refDate, tz=UTC)
+    )
+    deltaDays = delta.days + delta.seconds / 86400
+
+    return 0 <= deltaDays < days
 
 
 def splitComp(c):

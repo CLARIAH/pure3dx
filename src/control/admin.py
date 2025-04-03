@@ -2,9 +2,10 @@ import re
 import json
 
 from .flask import requestData
-from .generic import AttrDict, isonow
+from .generic import AttrDict, lessAgo, isonow, dateOnly
 from .helpers import normalize
-from .files import dirExists, fileExists, fileRemove
+from .files import dirExists, fileExists, fileRemove, FDEL
+from .garbage import DELAY_UNDEL
 
 from .mongo import MDEL, MDELDT, MDELBY
 
@@ -563,14 +564,16 @@ class Admin:
 
         if pDeleted:
             pDeletedBy = project.get(MDELBY, "unknown")
-            pDeletedDt = project.get(MDELDT, "unknown")
+            pDeletedTm = project.get(MDELDT, "2000-01-01T00:00:00Z")
+            pDeletedDt = dateOnly(pDeletedTm)
 
             pTitle = H.span(title, cls="ptitle")
             pStatus = H.span(f"on {pDeletedDt} by {pDeletedBy}", cls="pestatus warning")
+            pId = project._id
             pControl = H.span(
                 "undelete",
-                url=f"project/{project._id}/undelete",
-                title="undelete this project",
+                url=f"project/{pId}/undelete",
+                title=f"undelete project {pId}",
                 cls="button medium undelete",
             )
         else:
@@ -613,16 +616,18 @@ class Admin:
         H = self.H
         title = edition.title or H.i("no title")
         eDeletedBy = edition.get(MDELBY, "unknown")
-        eDeletedDt = edition.get(MDELDT, "unknown")
+        eDeletedTm = edition.get(MDELDT, "2000-01-01T00:00:00Z")
+        eDeletedDt = dateOnly(eDeletedTm)
 
         eTitle = H.span(title, cls="etitle")
         eStatus = H.span(f"on {eDeletedDt} by {eDeletedBy}", cls="pestatus warning")
         undelete = "" if pDeleted else "undelete"
         disabled = "disabled" if pDeleted else ""
+        eId = edition._id
         eControl = H.span(
             "undelete",
-            url=f"edition/{edition._id}/undelete",
-            title="undelete this edition",
+            url=f"edition/{eId}/undelete",
+            title=f"undelete edition {eId}",
             cls=f"button medium {undelete} {disabled}",
         )
 
@@ -1525,7 +1530,7 @@ class Admin:
         status = True
 
         if dirExists(itemDir):
-            markFile = f"{itemDir}/__deleted__.txt"
+            markFile = f"{itemDir}/{FDEL}"
 
             if fileExists(markFile):
                 fileRemove(markFile)
@@ -1571,11 +1576,19 @@ class Admin:
         userList = Mongo.getList("user", {}, sort="nickname")
         projectList = Mongo.getList("project", {}, sort="title")
         projectList2 = Mongo.getList("project", {}, sort="title")
-        delProjectList = Mongo.getList("project", {}, deleted=True, sort="title")
         editionList = Mongo.getList("edition", {}, sort="title")
-        delEditionList = Mongo.getList("edition", {}, deleted=True, sort="title")
         projectLinks = Mongo.getList("projectUser", {})
         editionLinks = Mongo.getList("editionUser", {})
+
+        delProjectListAll = Mongo.getList("project", {}, deleted=True, sort="title")
+        delEditionListAll = Mongo.getList("edition", {}, deleted=True, sort="title")
+
+        delProjectList = [
+            r for r in delProjectListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
+        delEditionList = [
+            r for r in delEditionListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
 
         users = AttrDict({x.user: x for x in userList})
         projects = AttrDict({x._id: x for x in projectList})

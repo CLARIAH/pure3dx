@@ -1,5 +1,6 @@
 import re
 
+from .helpers import console
 from flask import (
     Flask,
     current_app,
@@ -35,6 +36,18 @@ def appInitializing():
     first instance.
     """
     return var("WERKZEUG_RUN_MAIN") is None and not current_app
+
+
+def runInfo():
+    """For things that should run once.
+
+    When Flask starts with the debugger, two instances of the app will be running.
+    We want to make sure that we are in the second instance: the one that will be killed
+    and reloaded if the code has changed.
+    """
+    runMain = var("WERKZEUG_RUN_MAIN")
+    return runMain
+
 
 
 def appMake(*args, **kwargs):

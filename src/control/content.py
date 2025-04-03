@@ -22,6 +22,7 @@ from .files import (
     fSize,
     dirNm,
     initTree,
+    FDEL
 )
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
@@ -448,7 +449,7 @@ class Content(Datamodel):
         itemDir = f"{itemDirHead}/{itemDirTail}"
 
         if dirExists(itemDir):
-            with open(f"{itemDir}/__deleted__.txt", "w") as fh:
+            with open(f"{itemDir}/{FDEL}", "w") as fh:
                 fh.write("deleted\n")
 
         return True
