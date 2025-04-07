@@ -2,7 +2,7 @@ import re
 import json
 
 from .flask import requestData
-from .generic import AttrDict, lessAgo, isonow, dateOnly
+from .generic import AttrDict, lessAgo, amountTogo, isonow, dateOnly
 from .helpers import normalize
 from .files import dirExists, fileExists, fileRemove, FDEL
 from .sweeper import DELAY_UNDEL
@@ -568,12 +568,13 @@ class Admin:
             pDeletedBy = project.get(MDELBY, "unknown")
             pDeletedTm = project.get(MDELDT, "2000-01-01T00:00:00Z")
             pDeletedDt = dateOnly(pDeletedTm)
+            pRemainingDays = amountTogo(DELAY_UNDEL, pDeletedTm, iso=True)
 
             pTitle = H.span(title, cls="ptitle")
             pStatus = H.span(f"on {pDeletedDt} by {pDeletedBy}", cls="pestatus warning")
             pId = project._id
             pControl = H.span(
-                "undelete",
+                f"undelete ({pRemainingDays} days left)",
                 url=f"project/{pId}/undelete",
                 title=f"undelete project {pId}",
                 cls="button medium undelete",
@@ -622,6 +623,7 @@ class Admin:
         eDeletedBy = edition.get(MDELBY, "unknown")
         eDeletedTm = edition.get(MDELDT, "2000-01-01T00:00:00Z")
         eDeletedDt = dateOnly(eDeletedTm)
+        eRemainingDays = int(round(amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)))
 
         eTitle = H.span(title, cls="etitle")
         eStatus = H.span(f"on {eDeletedDt} by {eDeletedBy}", cls="pestatus warning")
@@ -629,7 +631,7 @@ class Admin:
         disabled = "disabled" if pDeleted else ""
         eId = edition._id
         eControl = H.span(
-            "undelete",
+            f"undelete ({eRemainingDays} days left)",
             url=f"edition/{eId}/undelete",
             title=f"undelete edition {eId}",
             cls=f"button medium {undelete} {disabled}",

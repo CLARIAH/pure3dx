@@ -82,17 +82,27 @@ def dateOnly(iso):
     return iso.strip().split("T", 1)[0]
 
 
-def lessAgo(days, refDate, iso=True):
+def getDelta(days, refDate, iso=True):
     if refDate is None:
         # undefined dates count as not recent
-        return False
+        return 0
 
     delta = utcnow() - (
         dt.fromisoformat(refDate) if iso else dt.fromtimestamp(refDate, tz=UTC)
     )
     deltaDays = delta.days + delta.seconds / 86400
 
-    return 0 <= deltaDays < days
+    return deltaDays
+
+
+def lessAgo(days, refDate, iso=True):
+    return 0 <= getDelta(days, refDate, iso=iso) < days
+
+
+def amountTogo(days, refDate, iso=True):
+    deltaDays = getDelta(days, refDate, iso=iso)
+
+    return days - deltaDays
 
 
 def splitComp(c):
