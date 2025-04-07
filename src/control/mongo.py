@@ -221,9 +221,10 @@ class Mongo:
             else:
                 (good, count) = self.deleteRecordsHard(table, {}, "system")
                 if good:
+                    plural = "" if count == 1 else "s"
                     Messages.plain(
-                        msg=f"cleared table `{table} of {count} records`",
-                        logmsg=f"cleared table `{table} of {count} records`",
+                        msg=f"cleared table `{table} of {count} record{plural}`",
+                        logmsg=f"cleared table `{table} of {count} record{plural}`",
                     )
 
     def get(self, table, record, deleted=False):
@@ -425,7 +426,7 @@ class Mongo:
         boolean
             Whether the undelete was successful
         """
-        criteria[MDEL] = True
+        criteria[MDEL] = {"$exists": True}
         updates = {"$unset": {MDEL: None}, "$set": {MRESDT: isonow(), MRESBY: by}}
         (good, result) = self._execute(table, "update_one", criteria, updates)
         return good
@@ -498,7 +499,7 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been undeleted
         """
-        criteria[MDEL] = True
+        criteria[MDEL] = {"$exists": True}
         updates = {"$unset": {MDEL: False}, "$set": {MRESDT: isonow(), MRESBY: by}}
         (good, result) = self._execute(table, "update_many", criteria, updates)
         count = result.modified_count if good else 0
@@ -805,9 +806,13 @@ class Mongo:
                     with open(f"{src}/{name}", "rb") as f:
                         records = decode_all(f.read())
 
-                    Messages.info(msg=f"table {table} {len(records)} record(s)")
+                    n = len(records)
+                    plural = "" if n == 1 else "s"
+                    Messages.info(msg=f"table {table} {n} record{plural}")
                     if db[table] is not None and clean:
-                        (thisGood, count) = self.hardDeleteRecords(table, {})
+                        (thisGood, count) = self.hardDeleteRecords(
+                            table, {}, "backuprestore"
+                        )
                         if not thisGood:
                             good = False
 
@@ -835,6 +840,7 @@ class Mongo:
                 if table == "project":
                     records = [r for r in records if r._id == projectId]
                     nRecords = len(records)
+
                     if nRecords == 0:
                         Messages.warning(
                             msg=f"No {table} records found! Restore skipped.",
@@ -877,9 +883,10 @@ class Mongo:
                         continue
 
                     Messages.info(msg=f"Restoring {table} records ...")
+
                     if db[table] is not None and clean:
                         (thisGood, count) = self.hardDeleteRecords(
-                            table, dict(projectId=projectId)
+                            table, dict(projectId=projectId), "backuprestore"
                         )
                     if thisGood:
                         db[table].insert_many(records)

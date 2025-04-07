@@ -379,7 +379,7 @@ class Datamodel:
         nEditions = len(Mongo.getList("EditionUser", dict(user=user)))
         return (nProjects, nEditions)
 
-    def getLinkedCrit(self, table, record):
+    def getLinkedCrit(self, table, record, deleted=False):
         """Produce criteria to retrieve the linked records of a record.
 
         It finds all cross-linked records containing an id of the
@@ -393,6 +393,8 @@ class Datamodel:
             The name of the table in which the record lives.
         record: string | ObjectId | AttrDict
             The record.
+        deleted: boolean, optional False
+            Search only in the records that are marked for deletion
 
         Returns
         -------
@@ -404,10 +406,12 @@ class Datamodel:
         mainLink = self.mainLink
 
         linkTables = mainLink[table]
+
         if linkTables is None:
             return AttrDict()
 
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, deleted=deleted)
+
         if recordId is None:
             return AttrDict()
 

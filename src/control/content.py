@@ -22,7 +22,7 @@ from .files import (
     fSize,
     dirNm,
     initTree,
-    FDEL
+    FDEL,
 )
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
@@ -333,29 +333,39 @@ class Content(Datamodel):
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
+        User = Auth.myDetails()
+        name = User.nickname
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f"{record.projectId}/" if table == "edition" else ""
+        itemRep = f"{table} {projectRep}{recordId}"
+        head = f"DELETE (on behalf of {name}) {itemRep}: "
+
         if recordId is None:
             Messages.warning(
                 msg=f"Delete {table}: no such {table}",
-                logmsg=f"Delete {table}: no {table} {recordId}",
+                logmsg=f"{head}Not found",
             )
             return None
 
         permitted = Auth.authorise(table, record, action="delete")
 
         if not permitted:
+            Messages.error(
+                msg=f"Delete {table}: no such {table}",
+                logmsg=f"{head}Not permitted",
+            )
             return None
 
-        User = Auth.myDetails()
-        name = User.nickname
         details = self.getDetailRecords(table, record)
         nDetails = len(details)
 
         if nDetails:
+            plural = "" if nDetails == 1 else "s"
             Messages.warning(
-                msg=f"Cannot delete {table} because it has {nDetails} detail records",
-                logmsg=f"Delete {table} {recordId} prevented: {nDetails} details",
+                msg=f"Cannot delete {table} because it has "
+                f"{nDetails} detail record{plural}",
+                logmsg=f"{head}Prevented because of {nDetails} detail record{plural}",
             )
             return None
 
@@ -366,91 +376,73 @@ class Content(Datamodel):
         if links:
             for linkTable, linkCriteria in links.items():
                 (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, name)
+
                 if not thisGood:
                     good = False
                     Messages.error(
                         msg=f"Error during removing link records from {linkTable}",
                         logmsg=(
-                            "Cannot delete records from "
-                            f"{linkTable} by {linkCriteria}"
+                            "{head}Cannot delete link records from "
+                            f"{linkTable} with {linkCriteria}"
                         ),
                     )
                     break
 
+                plural = "" if count == 1 else "s"
                 Messages.info(
-                    msg=f"Deleted {count} link records from {linkTable}",
-                    logmsg=f"Deleted {count} link records from {linkTable}",
+                    logmsg=(
+                        f"{head}Deleted {count} link record{plural} from {linkTable}"
+                    )
                 )
 
         if not good:
             return False
 
-        good = self.deleteItemFiles(table, record, recordId)
+        good = self.deleteItemFiles(table, record, recordId, name)
 
-        if not good:
+        if good:
+            Messages.info(logmsg=f"{head}deleted the {table} record")
+        else:
+            Messages.error(logmsg=f"{head}could not delete this {table} record")
             return False
 
         good = Mongo.deleteRecord(table, dict(_id=recordId), name)
 
-        return good
-
-    def hardDeleteItemFiles(self, table, record, recordId):
-        Messages = self.Messages
-        Settings = self.Settings
-        workingDir = Settings.workingDir
-
-        itemDirHead = workingDir
-        itemDirTail = f"{table}/{recordId}"
-
-        if table == "edition":
-            projectId = record.projectId
-            itemDirHead += f"/project/{projectId}"
-
-        itemDir = f"{itemDirHead}/{itemDirTail}"
-
-        good = True
-
-        if dirExists(itemDir):
-            try:
-                dirRemove(itemDir)
-                Messages.info(
-                    msg=f"The {table} directory is removed",
-                    logmsg=f"The {table} dir {itemDir} is removed",
-                )
-            except Exception as e:
-                Messages.warning(
-                    msg=f"The {table} directory is could not be removed completely",
-                    logmsg=f"The {table} dir {itemDir} could not be removed completely",
-                )
-                Messages.warning(
-                    msg="Try again a bit later",
-                    logmsg=f"because of {e}",
-                )
-                good = False
+        if good:
+            Messages.info(
+                msg=f"Deleted {table}",
+                logmsg=f"{head}Success",
+            )
         else:
-            Messages.warning(
-                msg=f"The {table} directory on file system did not exist",
-                logmsg=f"The {table} dir {itemDir} did not exist",
+            Messages.error(
+                msg=f"Failed to delete {table}",
+                logmsg=f"{head}Failed",
             )
 
         return good
 
-    def deleteItemFiles(self, table, record, recordId):
+    def deleteItemFiles(self, table, record, recordId, name):
+        Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
 
-        itemDirHead = workingDir
-        itemDirTail = f"{table}/{recordId}"
-
-        if table == "edition":
+        if table == "project":
+            itemDirTail = f"{table}/{recordId}"
+        elif table == "edition":
             projectId = record.projectId
-            itemDirHead += f"/project/{projectId}"
+            itemDirTail = f"/project/{projectId}/{table}/{recordId}"
 
-        itemDir = f"{itemDirHead}/{itemDirTail}"
+        itemDir = f"{workingDir}/{itemDirTail}"
+
+        head = f"DELETE DIRECTORY (on behalf of {name}) {itemDirTail}: "
 
         if dirExists(itemDir):
+            Messages.info(logmsg=f"{head}by adding {FDEL}")
+
             with open(f"{itemDir}/{FDEL}", "w") as fh:
                 fh.write("deleted\n")
+        else:
+            Messages.info(logmsg=f"{head}no such directory")
 
         return True
 
@@ -1508,6 +1500,8 @@ class Content(Datamodel):
         Auth = self.Auth
         tempDir = Settings.tempDir
         workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         dontCompress = set(Settings.dontCompress)
         limits = Settings.limits
@@ -1518,14 +1512,18 @@ class Content(Datamodel):
         sizeLimit = sizeUnits * sizeUnitSize
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f"{record.projectId}/" if table == "edition" else ""
+        itemRep = f"{table} {projectRep}{recordId}"
+        head = f"DOWNLOAD (on behalf of {name}) {itemRep}: "
 
         if recordId is None:
+            Messages.error(logmsg=f"{head}record does not exist")
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
         permitted = Auth.authorise(table, record, action="read")
 
         if not permitted:
-            logmsg = f"DOWNLOAD {table}/{recordId}: not permitted"
+            logmsg = f"{head}not permitted"
             msg = f"Download of {table}/{recordId} not permitted"
             Messages.warning(msg=msg, logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
@@ -1561,7 +1559,7 @@ class Content(Datamodel):
         if totalSize > sizeLimit:
             totalUnits = int(round(totalSize / sizeUnitSize))
             logmsg = (
-                f"DOWNLOAD {table}/{recordId}: too big: "
+                f"{head}too big: "
                 f"{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}"
             )
             msg = (
@@ -1572,11 +1570,11 @@ class Content(Datamodel):
             return redirectStatus(f"/{ref}", False)
 
         dst = mkdtemp(dir=tempDir)
-        Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: CREATED TEMP DIR {dst}")
+        Messages.info(logmsg=f"{head}CREATE TEMP DIR {dst}")
 
         def deleteTmpDir():
             dirRemove(dst)
-            Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}")
+            Messages.info(logmsg=f"{head}DELETE TEMP DIR {dst}")
 
         good = True
 
@@ -1630,11 +1628,11 @@ class Content(Datamodel):
                 compress("")
 
             dirRemove(landing)
-            Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: zipped the data")
+            Messages.info(logmsg=f"{head}zipped the data")
 
         except Exception as e:
             msg = f"Could not zip the {table}/{recordId} data"
-            logmsg = f"DOWNLOAD {table}/{recordId}: could not zip the data"
+            logmsg = f"{head}could not zip the data"
             Messages.error(msg=msg, logmsg=msg)
             Messages.error(logmsg="".join(format_exception(e)))
             deleteTmpDir()
@@ -1667,11 +1665,11 @@ class Content(Datamodel):
 
                 except Exception as e:
                     msg = "Could not stream the {table}/{recordId} data"
-                    logmsg = f"DOWNLOAD {table}/{recordId}: could not stream the data"
+                    logmsg = f"{head}could not stream the data"
                     Messages.error(msg=msg, logmsg=logmsg)
                     Messages.error(logmsg="".join(format_exception(e)))
 
-                Messages.info(logmsg=f"DOWNLOAD {table}/{recordId}: streaming done")
+                Messages.info(logmsg=f"{head}streaming done")
                 deleteTmpDir()
 
             result = (stream(readFileChunks()), headers)
@@ -1723,12 +1721,19 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
         workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f"{record.projectId}/" if table == "edition" else ""
+        itemRep = f"{table} {projectRep}{recordId}"
+        head = f"UPLOAD (on behalf of {name}) {itemRep}: "
+
         if recordId is None:
+            Messages.error(logmsg=f"{head}record does not exist")
             return jsonify(status=False, msgs=[["warning", "record does not exist"]])
 
         permitted = Auth.authorise(table, record, action="update")
@@ -1742,7 +1747,7 @@ class Content(Datamodel):
         fileFullPath = f"{workingDir}/{filePath}"
 
         if not permitted:
-            logmsg = f"Upload not permitted: {key}: {fileFullPath}"
+            logmsg = f"{head}Upload not permitted: {key}: {fileFullPath}"
             msg = f"Upload not permitted: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
@@ -1756,11 +1761,13 @@ class Content(Datamodel):
             destDir = f"{workingDir}/{path}"
             (good, msgs) = self.processModelZip(fileContent, destDir)
             if good:
+                Messages.info(logmsg=f"{head}Success")
                 return jsonify(
                     status=True,
                     msgs=msgs,
                     content=H.b("Please refresh the page", cls="good"),
                 )
+            Messages.info(logmsg=f"{head}Failure")
             return jsonify(status=False, msgs=msgs)
 
         try:
@@ -1768,7 +1775,7 @@ class Content(Datamodel):
             with open(fileFullPath, "wb") as fh:
                 fh.write(fileContent)
         except Exception as e:
-            logmsg = f"Could not save uploaded file: {key}: {fileFullPath} because of {e}"
+            logmsg = f"{head}Could not save uploaded file: {key}: {fileFullPath} because of {e}"
             msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
@@ -1776,6 +1783,7 @@ class Content(Datamodel):
         content = self.getUpload(
             record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
+        Messages.info(f"{head}Success")
 
         return jsonify(status=True, msgs=[["good", "Done"]], content=content)
 

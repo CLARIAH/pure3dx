@@ -3,7 +3,7 @@ from pybars import Compiler
 from .messages import Messages as MessagesCls
 from .config import Config as ConfigCls
 from .mongo import Mongo as MongoCls
-from .garbage import Garbage as GarbageCls
+from .sweeper import Sweeper as SweeperCls
 from .viewers import Viewers as ViewersCls
 from .wrap import Wrap as WrapCls
 from .backup import Backup as BackupCls
@@ -35,7 +35,7 @@ def prepare(design=False, migrate=False, trivial=False):
       to access content
     * `control.pages.Pages`: high-level functions that
       distribute content over the page
-    * `control.garbage.Garbage`: scheduled job to clean up deleted items
+    * `control.sweeper.Sweeper`: scheduled job to clean up deleted items
 
     !!! note "Should be run once!"
         These objects are used in several web apps:
@@ -92,7 +92,7 @@ def prepare(design=False, migrate=False, trivial=False):
 
     Viewers = ViewersCls(Settings, Messages)
     Mongo = MongoCls(Settings, Messages)
-    Garbage = GarbageCls(Settings, Messages, Mongo)
+    Sweeper = SweeperCls(Settings, Messages, Mongo)
     Wrap = WrapCls(Settings, Messages, Viewers)
     Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
     Tailwind = TailwindCls(Settings)
@@ -129,7 +129,7 @@ def prepare(design=False, migrate=False, trivial=False):
     Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
     Messages.setFlask()
 
-    Garbage.start()
+    Sweeper.start()
 
     return AttrDict(
         Settings=Settings,

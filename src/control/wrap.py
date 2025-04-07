@@ -199,17 +199,17 @@ class Wrap:
 
         wrapped = []
 
-        titleText = H.span(sceneFile, cls="entrytitle")
-        button = self.contentButton(
-            "edition", edition, "delete", confirm=True, text="Delete scene"
-        )
+        # button = self.contentButton(
+        #     "edition", edition, "delete", confirm=True, text="Delete scene"
+        # )
 
+        titleText = H.span(sceneFile, cls="entrytitle")
         (frame, buttons) = Viewers.getFrame(
             edition, actions, viewer, version, action, sceneExists
         )
         title = H.span(titleText, cls="entrytitle")
         content = f"""{frame}{title}{buttons}"""
-        caption = self.wrapCaption(content, button, None, active=True)
+        caption = self.wrapCaption(content, None, None, active=True)
 
         wrapped.append(caption)
         return H.content(*wrapped)
@@ -249,8 +249,10 @@ class Wrap:
 
         activeCls = "active" if active else ""
         rest = []
+
         if statusBadge is not None:
             rest.append(statusBadge)
+
         rest.append(button)
 
         return H.div(

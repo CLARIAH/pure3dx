@@ -682,7 +682,6 @@ class Pages:
         -------
         response
         """
-        Messages = self.Messages
         Mongo = self.Mongo
         Content = self.Content
 
@@ -696,16 +695,11 @@ class Pages:
         result = Content.deleteItem(table, record)
 
         if result:
-            Messages.info(logmsg=f"Deleted {table} {recordId}", msg=f"{table} deleted")
             back = "/project"
+
             if table == "edition":
                 projectId = record.projectId
                 back += f"/{projectId}"
-        else:
-            Messages.warning(
-                logmsg=f"Could not delete {table} {recordId}",
-                msg=f"failed to delete {table}",
-            )
         return redirectStatus(back, True)
 
     def viewerFrame(self, edition, version, action, subMode):

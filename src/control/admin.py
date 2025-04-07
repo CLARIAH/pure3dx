@@ -5,7 +5,7 @@ from .flask import requestData
 from .generic import AttrDict, lessAgo, isonow, dateOnly
 from .helpers import normalize
 from .files import dirExists, fileExists, fileRemove, FDEL
-from .garbage import DELAY_UNDEL
+from .sweeper import DELAY_UNDEL
 
 from .mongo import MDEL, MDELDT, MDELBY
 
@@ -66,6 +66,8 @@ class Admin:
 
         Messages = Content.Messages
         Messages.debugAdd(self)
+
+        self.Messages = Messages
 
         Settings = Content.Settings
         H = Settings.H
@@ -581,8 +583,10 @@ class Admin:
             pStatus = ""
             pControl = ""
 
-        editions = sorted(
-            project.editions.values(), key=lambda x: (x.title or "", x._id)
+        editions = (
+            sorted(project.editions.values(), key=lambda x: (x.title or "", x._id))
+            if project.editions
+            else []
         )
 
         return H.div(
@@ -1446,6 +1450,7 @@ class Admin:
         """
         Auth = self.Auth
         Mongo = self.Mongo
+        Messages = self.Messages
         Content = self.Content
         inPower = self.inPower
         User = Auth.myDetails()
@@ -1453,10 +1458,14 @@ class Admin:
 
         messages = []
 
-        if inPower:
-            (recordId, record) = Mongo.get(table, record, deleted=True)
+        (recordId, record) = Mongo.get(table, record, deleted=True)
+        projectRep = f"{record.projectId}/" if table == "edition" else ""
+        itemRep = f"{table} {projectRep}{recordId}"
+        head = f"RESTORE (on behalf of {name}) {itemRep}: "
 
+        if inPower:
             if recordId is None:
+                Messages.warning(logmsg=f"{head}Not found")
                 messages.append(("warning", f"{table}: no such {table}"))
                 return dict(stat=False, messages=messages)
 
@@ -1465,17 +1474,21 @@ class Admin:
                 (projectId, project) = Mongo.get("project", parent)
 
                 if projectId is None:
+                    Messages.error(logmsg=f"{head}Project is still deleted")
                     messages.append(
                         (
                             "error",
-                            "Not allowed to undelete an edition "
+                            "Not allowed to restore an edition "
                             "whose parent project is still deleted",
                         )
                     )
                     return dict(stat=False, messages=messages)
 
-            if not Mongo.undeleteRecord(table, dict(_id=recordId), name):
-                messages.append(("error", f"could not undelete this {table} record"))
+            if Mongo.undeleteRecord(table, dict(_id=recordId), name):
+                Messages.info(logmsg=f"{head}restored the {table} record")
+            else:
+                Messages.error(logmsg=f"{head}restore of {table} record failed")
+                messages.append(("error", f"could not restore this {table} record"))
                 return dict(stat=False, messages=messages)
 
             links = Content.getLinkedCrit(table, record)
@@ -1489,60 +1502,86 @@ class Admin:
 
                     if not thisStatus:
                         status = False
+                        Messages.error(
+                            logmsg=(
+                                f"Cannot restore link records from "
+                                f"{linkTable} with {linkCriteria}"
+                            )
+                        )
                         messages.append(
-                            ("error", f"could not undelete linked {linkTable} record")
+                            ("error", f"could not restore linked {linkTable} record")
                         )
                     else:
+                        Messages.info(
+                            logmsg=(
+                                f"{head}Restored {count} link records "
+                                f"from {linkTable}"
+                            )
+                        )
                         messages.append(
-                            ("info", f"Deleted {count} link records from {linkTable}")
+                            ("info", f"Restored {count} link records from {linkTable}")
                         )
 
             if not status:
                 return dict(stat=False, messages=messages)
 
-            (status, theseMessages) = self.undeleteItemFiles(table, record, recordId)
+            (status, theseMessages) = self.undeleteItemFiles(
+                table, record, recordId, name
+            )
             messages.extend(theseMessages)
 
             self.update()
+            updated = self.wrap()
 
-            if not status:
-                return dict(stat=False, messages=messages, updated=self.wrap())
+            if status:
+                Messages.info(logmsg=f"{head}Success")
+                return dict(stat=True, messages=messages, updated=updated)
+            else:
+                Messages.info(logmsg=f"{head}Failed")
+                return dict(stat=False, messages=messages, updated=updated)
 
-            return dict(stat=True, messages=messages, updated=self.wrap())
         else:
-            messages.append(("error", f"undeleting a {table} needs admin privileges"))
+            Messages.error(logmsg=f"{head}Not permitted")
+            messages.append(("error", f"restoring a {table} needs admin privileges"))
             return dict(stat=False, messages=messages)
 
-    def undeleteItemFiles(self, table, record, recordId):
+    def undeleteItemFiles(self, table, record, recordId, name):
+        Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
 
-        itemDirHead = workingDir
         itemDirTail = f"{table}/{recordId}"
 
-        if table == "edition":
+        if table == "project":
+            itemDirTail = f"{table}/{recordId}"
+        elif table == "edition":
             projectId = record.projectId
-            itemDirHead += f"/project/{projectId}"
+            itemDirTail = f"/project/{projectId}/{table}/{recordId}"
 
-        itemDir = f"{itemDirHead}/{itemDirTail}"
+        itemDir = f"{workingDir}/{itemDirTail}"
 
         messages = []
         status = True
+
+        head = f"RESTORE DIRECTORY (on behalf of {name}) {itemDirTail}: "
 
         if dirExists(itemDir):
             markFile = f"{itemDir}/{FDEL}"
 
             if fileExists(markFile):
                 fileRemove(markFile)
+                Messages.info(logmsg=f"{head}by removing {FDEL}")
                 messages.append(
                     ("good", f"Undeleted the {table} directory on the file system")
                 )
             else:
+                Messages.warning(logmsg=f"{head}was not marked as deleted!")
                 messages.append(
                     ("warning", f"The {table} directory existed in a non-deleted state")
                 )
         else:
             status = True
+            Messages.warning(logmsg=f"{head}does not exist on the file system!")
             messages.append(("warning", f"The {table} directory does not exist"))
         return (status, messages)
 
@@ -1586,6 +1625,7 @@ class Admin:
         delProjectList = [
             r for r in delProjectListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
         ]
+        delProjectSet = {r._id for r in delProjectList}
         delEditionList = [
             r for r in delEditionListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
         ]
@@ -1594,6 +1634,7 @@ class Admin:
         projects = AttrDict({x._id: x for x in projectList})
         projects2 = AttrDict({x._id: x for x in projectList2})
         editions = AttrDict({x._id: x for x in editionList})
+
         delProjects = AttrDict({x._id: x for x in delProjectList} | projects2)
 
         myIds = AttrDict()
@@ -1615,9 +1656,14 @@ class Admin:
             pId = eRecord.projectId
             delProjects[pId].setdefault("editions", {})[eId] = eRecord
 
+        # delete projects that are not themselves deleted and have no deleted editions
+
         toBeRemoved = []
 
         for pID, pRecord in delProjects.items():
+            if pID in delProjectSet:
+                continue
+
             pEditions = pRecord.get("editions", {})
 
             if len(pEditions) == 0:
@@ -1632,16 +1678,21 @@ class Admin:
             if role:
                 u = pLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 pId = pLink.projectId
                 pRecord = projects[pId]
+
                 if pRecord is None:
                     continue
+
                 pRecord.setdefault("users", AttrDict())
 
                 if user == u:
                     myIds.setdefault("project", set()).add(pId)
+
                     for eId in pRecord.editions or []:
                         myIds.setdefault("edition", set()).add(eId)
 
