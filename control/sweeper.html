@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.11.1" />
+<title>control.sweeper API documentation</title>
+<meta name="description" content="Periodically deletes stuff permanently that is marked as deleted …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>control.sweeper</code></h1>
+</header>
+<section id="section-intro">
+<p>Periodically deletes stuff permanently that is marked as deleted.</p>
+<p>This module takes care that mongodb records and file system folders
+that are marked for deletion, are physically removed after 31 days.</p>
+<p>It also visits the temp directory and removes all subdirectories starting
+with <code>tmp</code> that are at least one one day old.</p>
+<p>The sweeper is a function that is scheduled to run at a configured interval.
+Each worker of the running website has the sweeper scheduled.</p>
+<p>But before each sweeper job executes, it checks the time of last execution.
+If that is less than a half interval ago, the sweeper job will return without
+doing anything.</p>
+<p>In this way there will be always sweeper jobs scheduled, and if there are multiple
+workers, they will not do superfluous work.
+Note that when workers are killed and started, it remains guaranteed that sweeping
+will be done.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/sweeper.py#L1-L347" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;Periodically deletes stuff permanently that is marked as deleted.
+
+This module takes care that mongodb records and file system folders
+that are marked for deletion, are physically removed after 31 days.
+
+It also visits the temp directory and removes all subdirectories starting
+with `tmp` that are at least one one day old.
+
+The sweeper is a function that is scheduled to run at a configured interval.
+Each worker of the running website has the sweeper scheduled.
+
+But before each sweeper job executes, it checks the time of last execution.
+If that is less than a half interval ago, the sweeper job will return without
+doing anything.
+
+In this way there will be always sweeper jobs scheduled, and if there are multiple
+workers, they will not do superfluous work.
+Note that when workers are killed and started, it remains guaranteed that sweeping
+will be done.
+&#34;&#34;&#34;
+
+import os
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from .files import dirContents, fileExists, dirRemove
+from .generic import lessAgo, mTime, isonow
+from .mongo import MDELDT
+from .files import FDEL
+from .flask import runInfo
+
+ON = True
+&#34;&#34;&#34;Whether to invoke the sweeper or not.
+
+Sometimes, for debugging or testing, it is handy to not start the sweeping process.
+&#34;&#34;&#34;
+
+DRY = False
+&#34;&#34;&#34;Whether to perform the wipes on records and directories, or suppress the execution.
+
+If True, all wipes will be announced, but not performed.
+&#34;&#34;&#34;
+
+DRYREP = &#34;(dry)&#34; if DRY else &#34;&#34;
+
+SEC = 1 / 24 / 3600
+&#34;&#34;&#34;A second as fraction of a day.
+
+Some operations uses days as unit. This is the second with respect to the unit day.
+&#34;&#34;&#34;
+
+DELAY_UNDEL = None
+&#34;&#34;&#34;The grace period for restoring deleted items.
+
+Items that are marked as deleted less than this ago, can still be restored.
+&#34;&#34;&#34;
+
+DELAY_DEL = None
+&#34;&#34;&#34;The grace period for permanently deleting deleted items.
+
+Items that are marked as deleted less than this ago, will be permanently deleted
+by the next sweeping action.
+&#34;&#34;&#34;
+
+DELAY_TMP = None
+&#34;&#34;&#34;The grace period for deleting temp directories.
+
+Sometimes temporary directories are not wiped properly after they have been used.
+Those directories will be wiped after this period.
+&#34;&#34;&#34;
+
+INTERVAL = None
+&#34;&#34;&#34;The interval between invocations of the sweeper function.
+
+When workers schedule the sweeper job, they use this as the interval.
+&#34;&#34;&#34;
+
+if DRY:
+    DELAY_UNDEL = 3600 * SEC
+    DELAY_DEL = 55 * SEC
+    DELAY_TMP = 35 * SEC
+    INTERVAL = dict(seconds=10)
+else:
+    DELAY_UNDEL = 30
+    DELAY_DEL = 31
+    DELAY_TMP = 1
+    INTERVAL = dict(days=1)
+
+SWEEP_LEE = (
+    0.4 * INTERVAL[&#34;days&#34;]
+    if &#34;days&#34; in INTERVAL
+    else SEC * INTERVAL[&#34;seconds&#34;] if &#34;seconds&#34; in INTERVAL else 0.5
+)
+&#34;&#34;&#34;The threshold for suppressing a sweep action.
+
+If the latest sweep action occurred less than this ago,
+the current sweep action will be suppressed.
+&#34;&#34;&#34;
+
+
+class Sweeper:
+    def __init__(self, Settings, Messages, Mongo):
+        self.Settings = Settings
+        self.Mongo = Mongo
+        self.Messages = Messages
+        Messages.debugAdd(self)
+
+        scheduler = BackgroundScheduler()
+        self.scheduler = scheduler
+
+    def maySchedule(self):
+        &#34;&#34;&#34;Whether a process is allowed to schedule the sweeper.
+
+        Scheduling is suppressed if `ON` is False.
+
+        Also, when Flask runs in debug mode, there are two processes working.
+        The second process is the one that gets restarted when errors occur or
+        code is updated. It is this process that may schedule sweepers, not the
+        first process.
+        &#34;&#34;&#34;
+        if not ON:
+            return False
+
+        Messages = self.Messages
+        Settings = self.Settings
+        debugMode = Settings.debugMode
+
+        runMain = runInfo()
+        startIt = debugMode and runMain or not debugMode
+        head = f&#34;SWEEPER{DRYREP} by worker {os.getpid()}: &#34;
+
+        if startIt:
+            now = isonow()
+            Messages.info(logmsg=f&#34;{head}scheduled at {now}&#34;)
+        else:
+            Messages.info(logmsg=f&#34;{head}deferred to debug instance&#34;)
+        return startIt
+
+    def start(self):
+        &#34;&#34;&#34;Schedules the sweeper job.
+        &#34;&#34;&#34;
+        if self.maySchedule():
+            scheduler = self.scheduler
+            sweeper = self.clean()
+            scheduler.add_job(sweeper, &#34;interval&#34;, **INTERVAL)
+            scheduler.start()
+
+    def clean(self):
+        &#34;&#34;&#34;Provides the sweeper function.
+
+        This method is not the sweeper function itself, but it *returns*
+        the sweeper function, which has some variables from the rest of the
+        program bound in.
+
+        The sweeper function has three separate parts:
+
+        *   *sweepMongo* (for the database records)
+        *   *sweepDirectories* (for the project/edition directories)
+        *   *sweepTemp* (for the temporary directories)
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Messages = self.Messages
+        Settings = self.Settings
+        siteCrit = Settings.siteCrit
+
+        def mayExecute():
+            if not ON:
+                return False
+
+            site = Mongo.getRecord(&#34;site&#34;, siteCrit)
+            sstm = site.sweeperStartTm or None
+            head = f&#34;SWEEPER{DRYREP} by worker {os.getpid()}: &#34;
+
+            now = isonow()
+
+            if sstm is None or not lessAgo(SWEEP_LEE, sstm, iso=True):
+                Mongo.updateRecord(&#34;site&#34;, siteCrit, dict(sweeperStartTm=now))
+                result = True
+            else:
+                Messages.info(
+                    logmsg=f&#34;{head}skipped sweeping at {now} &#34;
+                    f&#34;because too close to last sweep at {sstm}&#34;
+                )
+                result = False
+
+            return result
+
+        def sweeper():
+            if mayExecute():
+                head = f&#34;SWEEPER{DRYREP}: &#34;
+                self.sweepMongo()
+                self.sweepDirectories()
+                self.sweepTemp()
+                now = isonow()
+                Messages.info(logmsg=f&#34;{head}sweep completed at {now}&#34;)
+
+        return sweeper
+
+    def sweepMongo(self):
+        &#34;&#34;&#34;Permanently deletes records marked as deleted in all tables.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Messages = self.Messages
+
+        tables = &#34;&#34;&#34;
+            edition
+            editionUser
+            keyword
+            project
+            projectUser
+            site
+            user
+        &#34;&#34;&#34;.strip().split()
+
+        head = f&#34;SWEEPER{DRYREP}-MONGO: &#34;
+
+        for table in tables:
+            recordIds = [
+                r._id
+                for r in Mongo.getList(table, {}, deleted=True)
+                if not lessAgo(DELAY_DEL, r.get(MDELDT, None))
+            ]
+
+            n = len(recordIds)
+
+            if n:
+                plural = &#34;&#34; if n == 1 else &#34;s&#34;
+                Messages.info(logmsg=f&#34;{head}{n:&gt;3} {table} record{plural} to be wiped&#34;)
+
+                if DRY:
+                    for recordId in recordIds:
+                        Messages.info(logmsg=f&#34;{head}delete {table} record {recordId}&#34;)
+                else:
+                    Mongo.hardDeleteRecords(
+                        table, dict(_id={&#34;$in&#34;: recordIds}), &#34;sweeper&#34;
+                    )
+
+    def sweepDirectories(self):
+        &#34;&#34;&#34;Wipes all project/edition directories that are marked as deleted.
+
+        Such directories are marked as deleted if they contain a file named
+        `__deleted__.txt`.
+
+        Note that it should not occur that projects are marked as deleted while
+        they contain editions that are not deleted. But in case this should happen,
+        the deletion of the project directory is prevented.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+        projectsDir = f&#34;{workingDir}/project&#34;
+
+        nP = 0
+        nE = 0
+
+        head = f&#34;SWEEPER{DRYREP}-FOLDERS&#34;
+
+        for project in dirContents(projectsDir)[1]:
+            headProj = f&#34;{head} project/{project}&#34;
+            projectDir = f&#34;{projectsDir}/{project}&#34;
+            editionsDir = f&#34;{projectDir}/edition&#34;
+
+            for edition in dirContents(editionsDir)[1]:
+                headEd = f&#34;{headProj}/edition/{edition}&#34;
+                editionDir = f&#34;{editionsDir}/{edition}&#34;
+                eDelFile = f&#34;{editionDir}/{FDEL}&#34;
+
+                if fileExists(eDelFile) and not lessAgo(
+                    DELAY_DEL, mTime(eDelFile), iso=False
+                ):
+                    nE += 1
+
+                    if DRY:
+                        Messages.info(logmsg=headEd)
+                    else:
+                        try:
+                            dirRemove(editionDir)
+                            Messages.info(logmsg=f&#34;{headEd}: wiped&#34;)
+                        except Exception as e:
+                            Messages.error(
+                                logmsg=f&#34;{headEd}: failed to wipe because of {e}&#34;
+                            )
+
+            pDelFile = f&#34;{projectDir}/{FDEL}&#34;
+
+            if fileExists(pDelFile) and not lessAgo(
+                DELAY_DEL, mTime(pDelFile), iso=False
+            ):
+                if len(dirContents(editionsDir)[1]):
+                    Messages.error(
+                        logmsg=f&#34;{headProj}: will not wipe because it is not empty&#34;
+                    )
+                else:
+                    nP += 1
+
+                    if DRY:
+                        Messages.info(logmsg=headProj)
+                    else:
+                        try:
+                            dirRemove(projectDir)
+                            Messages.info(logmsg=f&#34;{headProj}: wiped&#34;)
+                        except Exception as e:
+                            Messages.error(
+                                logmsg=f&#34;{headProj}: failed to wipe because of {e}&#34;
+                            )
+
+        if nP &gt; 0:
+            plural = &#34;&#34; if nP == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}: deleted {nP:&gt;3} project{plural}&#34;)
+
+        if nE &gt; 0:
+            plural = &#34;&#34; if nE == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}: deleted {nE:&gt;3} edition{plural}&#34;)
+
+    def sweepTemp(self):
+        &#34;&#34;&#34;Wipes all temporary directories of a certain age, typically 1 day.
+
+        These directories all resides at the toplevel of the temp dir, and their
+        names start with `tmp`.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        tempDir = Settings.tempDir
+
+        head = f&#34;SWEEPER{DRYREP}-TMP: &#34;
+
+        nT = 0
+
+        for tmp in dirContents(tempDir)[1]:
+            tmpd = f&#34;{tempDir}/{tmp}&#34;
+
+            if tmp.startswith(&#34;tmp&#34;) and not lessAgo(DELAY_TMP, mTime(tmpd), iso=False):
+                nT += 1
+
+                if DRY:
+                    Messages.info(logmsg=f&#34;{head}tempdir {tmp}&#34;)
+                else:
+                    try:
+                        dirRemove(tmpd)
+                    except Exception as e:
+                        Messages.error(
+                            logmsg=f&#34;{head}Failed to remove {tmpd} &#34; f&#34;because of {e}&#34;
+                        )
+
+        if nT &gt; 0:
+            plural = &#34;&#34; if nT == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}deleted {nT:&gt;3} tempdir{plural}&#34;)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-variables">Global variables</h2>
+<dl>
+<dt id="control.sweeper.DELAY_DEL"><code class="name">var <span class="ident">DELAY_DEL</span></code></dt>
+<dd>
+<div class="desc"><p>The grace period for permanently deleting deleted items.</p>
+<p>Items that are marked as deleted less than this ago, will be permanently deleted
+by the next sweeping action.</p></div>
+</dd>
+<dt id="control.sweeper.DELAY_TMP"><code class="name">var <span class="ident">DELAY_TMP</span></code></dt>
+<dd>
+<div class="desc"><p>The grace period for deleting temp directories.</p>
+<p>Sometimes temporary directories are not wiped properly after they have been used.
+Those directories will be wiped after this period.</p></div>
+</dd>
+<dt id="control.sweeper.DELAY_UNDEL"><code class="name">var <span class="ident">DELAY_UNDEL</span></code></dt>
+<dd>
+<div class="desc"><p>The grace period for restoring deleted items.</p>
+<p>Items that are marked as deleted less than this ago, can still be restored.</p></div>
+</dd>
+<dt id="control.sweeper.DRY"><code class="name">var <span class="ident">DRY</span></code></dt>
+<dd>
+<div class="desc"><p>Whether to perform the wipes on records and directories, or suppress the execution.</p>
+<p>If True, all wipes will be announced, but not performed.</p></div>
+</dd>
+<dt id="control.sweeper.INTERVAL"><code class="name">var <span class="ident">INTERVAL</span></code></dt>
+<dd>
+<div class="desc"><p>The interval between invocations of the sweeper function.</p>
+<p>When workers schedule the sweeper job, they use this as the interval.</p></div>
+</dd>
+<dt id="control.sweeper.ON"><code class="name">var <span class="ident">ON</span></code></dt>
+<dd>
+<div class="desc"><p>Whether to invoke the sweeper or not.</p>
+<p>Sometimes, for debugging or testing, it is handy to not start the sweeping process.</p></div>
+</dd>
+<dt id="control.sweeper.SEC"><code class="name">var <span class="ident">SEC</span></code></dt>
+<dd>
+<div class="desc"><p>A second as fraction of a day.</p>
+<p>Some operations uses days as unit. This is the second with respect to the unit day.</p></div>
+</dd>
+<dt id="control.sweeper.SWEEP_LEE"><code class="name">var <span class="ident">SWEEP_LEE</span></code></dt>
+<dd>
+<div class="desc"><p>The threshold for suppressing a sweep action.</p>
+<p>If the latest sweep action occurred less than this ago,
+the current sweep action will be suppressed.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="control.sweeper.Sweeper"><code class="flex name class">
+<span>class <span class="ident">Sweeper</span></span>
+<span>(</span><span>Settings, Messages, Mongo)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/sweeper.py#L100-L347" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Sweeper:
+    def __init__(self, Settings, Messages, Mongo):
+        self.Settings = Settings
+        self.Mongo = Mongo
+        self.Messages = Messages
+        Messages.debugAdd(self)
+
+        scheduler = BackgroundScheduler()
+        self.scheduler = scheduler
+
+    def maySchedule(self):
+        &#34;&#34;&#34;Whether a process is allowed to schedule the sweeper.
+
+        Scheduling is suppressed if `ON` is False.
+
+        Also, when Flask runs in debug mode, there are two processes working.
+        The second process is the one that gets restarted when errors occur or
+        code is updated. It is this process that may schedule sweepers, not the
+        first process.
+        &#34;&#34;&#34;
+        if not ON:
+            return False
+
+        Messages = self.Messages
+        Settings = self.Settings
+        debugMode = Settings.debugMode
+
+        runMain = runInfo()
+        startIt = debugMode and runMain or not debugMode
+        head = f&#34;SWEEPER{DRYREP} by worker {os.getpid()}: &#34;
+
+        if startIt:
+            now = isonow()
+            Messages.info(logmsg=f&#34;{head}scheduled at {now}&#34;)
+        else:
+            Messages.info(logmsg=f&#34;{head}deferred to debug instance&#34;)
+        return startIt
+
+    def start(self):
+        &#34;&#34;&#34;Schedules the sweeper job.
+        &#34;&#34;&#34;
+        if self.maySchedule():
+            scheduler = self.scheduler
+            sweeper = self.clean()
+            scheduler.add_job(sweeper, &#34;interval&#34;, **INTERVAL)
+            scheduler.start()
+
+    def clean(self):
+        &#34;&#34;&#34;Provides the sweeper function.
+
+        This method is not the sweeper function itself, but it *returns*
+        the sweeper function, which has some variables from the rest of the
+        program bound in.
+
+        The sweeper function has three separate parts:
+
+        *   *sweepMongo* (for the database records)
+        *   *sweepDirectories* (for the project/edition directories)
+        *   *sweepTemp* (for the temporary directories)
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Mongo = self.Mongo
+        Messages = self.Messages
+        Settings = self.Settings
+        siteCrit = Settings.siteCrit
+
+        def mayExecute():
+            if not ON:
+                return False
+
+            site = Mongo.getRecord(&#34;site&#34;, siteCrit)
+            sstm = site.sweeperStartTm or None
+            head = f&#34;SWEEPER{DRYREP} by worker {os.getpid()}: &#34;
+
+            now = isonow()
+
+            if sstm is None or not lessAgo(SWEEP_LEE, sstm, iso=True):
+                Mongo.updateRecord(&#34;site&#34;, siteCrit, dict(sweeperStartTm=now))
+                result = True
+            else:
+                Messages.info(
+                    logmsg=f&#34;{head}skipped sweeping at {now} &#34;
+                    f&#34;because too close to last sweep at {sstm}&#34;
+                )
+                result = False
+
+            return result
+
+        def sweeper():
+            if mayExecute():
+                head = f&#34;SWEEPER{DRYREP}: &#34;
+                self.sweepMongo()
+                self.sweepDirectories()
+                self.sweepTemp()
+                now = isonow()
+                Messages.info(logmsg=f&#34;{head}sweep completed at {now}&#34;)
+
+        return sweeper
+
+    def sweepMongo(self):
+        &#34;&#34;&#34;Permanently deletes records marked as deleted in all tables.
+        &#34;&#34;&#34;
+        Mongo = self.Mongo
+        Messages = self.Messages
+
+        tables = &#34;&#34;&#34;
+            edition
+            editionUser
+            keyword
+            project
+            projectUser
+            site
+            user
+        &#34;&#34;&#34;.strip().split()
+
+        head = f&#34;SWEEPER{DRYREP}-MONGO: &#34;
+
+        for table in tables:
+            recordIds = [
+                r._id
+                for r in Mongo.getList(table, {}, deleted=True)
+                if not lessAgo(DELAY_DEL, r.get(MDELDT, None))
+            ]
+
+            n = len(recordIds)
+
+            if n:
+                plural = &#34;&#34; if n == 1 else &#34;s&#34;
+                Messages.info(logmsg=f&#34;{head}{n:&gt;3} {table} record{plural} to be wiped&#34;)
+
+                if DRY:
+                    for recordId in recordIds:
+                        Messages.info(logmsg=f&#34;{head}delete {table} record {recordId}&#34;)
+                else:
+                    Mongo.hardDeleteRecords(
+                        table, dict(_id={&#34;$in&#34;: recordIds}), &#34;sweeper&#34;
+                    )
+
+    def sweepDirectories(self):
+        &#34;&#34;&#34;Wipes all project/edition directories that are marked as deleted.
+
+        Such directories are marked as deleted if they contain a file named
+        `__deleted__.txt`.
+
+        Note that it should not occur that projects are marked as deleted while
+        they contain editions that are not deleted. But in case this should happen,
+        the deletion of the project directory is prevented.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+        projectsDir = f&#34;{workingDir}/project&#34;
+
+        nP = 0
+        nE = 0
+
+        head = f&#34;SWEEPER{DRYREP}-FOLDERS&#34;
+
+        for project in dirContents(projectsDir)[1]:
+            headProj = f&#34;{head} project/{project}&#34;
+            projectDir = f&#34;{projectsDir}/{project}&#34;
+            editionsDir = f&#34;{projectDir}/edition&#34;
+
+            for edition in dirContents(editionsDir)[1]:
+                headEd = f&#34;{headProj}/edition/{edition}&#34;
+                editionDir = f&#34;{editionsDir}/{edition}&#34;
+                eDelFile = f&#34;{editionDir}/{FDEL}&#34;
+
+                if fileExists(eDelFile) and not lessAgo(
+                    DELAY_DEL, mTime(eDelFile), iso=False
+                ):
+                    nE += 1
+
+                    if DRY:
+                        Messages.info(logmsg=headEd)
+                    else:
+                        try:
+                            dirRemove(editionDir)
+                            Messages.info(logmsg=f&#34;{headEd}: wiped&#34;)
+                        except Exception as e:
+                            Messages.error(
+                                logmsg=f&#34;{headEd}: failed to wipe because of {e}&#34;
+                            )
+
+            pDelFile = f&#34;{projectDir}/{FDEL}&#34;
+
+            if fileExists(pDelFile) and not lessAgo(
+                DELAY_DEL, mTime(pDelFile), iso=False
+            ):
+                if len(dirContents(editionsDir)[1]):
+                    Messages.error(
+                        logmsg=f&#34;{headProj}: will not wipe because it is not empty&#34;
+                    )
+                else:
+                    nP += 1
+
+                    if DRY:
+                        Messages.info(logmsg=headProj)
+                    else:
+                        try:
+                            dirRemove(projectDir)
+                            Messages.info(logmsg=f&#34;{headProj}: wiped&#34;)
+                        except Exception as e:
+                            Messages.error(
+                                logmsg=f&#34;{headProj}: failed to wipe because of {e}&#34;
+                            )
+
+        if nP &gt; 0:
+            plural = &#34;&#34; if nP == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}: deleted {nP:&gt;3} project{plural}&#34;)
+
+        if nE &gt; 0:
+            plural = &#34;&#34; if nE == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}: deleted {nE:&gt;3} edition{plural}&#34;)
+
+    def sweepTemp(self):
+        &#34;&#34;&#34;Wipes all temporary directories of a certain age, typically 1 day.
+
+        These directories all resides at the toplevel of the temp dir, and their
+        names start with `tmp`.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        tempDir = Settings.tempDir
+
+        head = f&#34;SWEEPER{DRYREP}-TMP: &#34;
+
+        nT = 0
+
+        for tmp in dirContents(tempDir)[1]:
+            tmpd = f&#34;{tempDir}/{tmp}&#34;
+
+            if tmp.startswith(&#34;tmp&#34;) and not lessAgo(DELAY_TMP, mTime(tmpd), iso=False):
+                nT += 1
+
+                if DRY:
+                    Messages.info(logmsg=f&#34;{head}tempdir {tmp}&#34;)
+                else:
+                    try:
+                        dirRemove(tmpd)
+                    except Exception as e:
+                        Messages.error(
+                            logmsg=f&#34;{head}Failed to remove {tmpd} &#34; f&#34;because of {e}&#34;
+                        )
+
+        if nT &gt; 0:
+            plural = &#34;&#34; if nT == 1 else &#34;s&#34;
+            Messages.info(logmsg=f&#34;{head}deleted {nT:&gt;3} tempdir{plural}&#34;)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="control.sweeper.Sweeper.clean"><code class="name flex">
+<span>def <span class="ident">clean</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Provides the sweeper function.</p>
+<p>This method is not the sweeper function itself, but it <em>returns</em>
+the sweeper function, which has some variables from the rest of the
+program bound in.</p>
+<p>The sweeper function has three separate parts:</p>
+<ul>
+<li><em>sweepMongo</em> (for the database records)</li>
+<li><em>sweepDirectories</em> (for the project/edition directories)</li>
+<li><em>sweepTemp</em> (for the temporary directories)</li>
+</ul></div>
+</dd>
+<dt id="control.sweeper.Sweeper.maySchedule"><code class="name flex">
+<span>def <span class="ident">maySchedule</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Whether a process is allowed to schedule the sweeper.</p>
+<p>Scheduling is suppressed if <code><a title="control.sweeper.ON" href="#control.sweeper.ON">ON</a></code> is False.</p>
+<p>Also, when Flask runs in debug mode, there are two processes working.
+The second process is the one that gets restarted when errors occur or
+code is updated. It is this process that may schedule sweepers, not the
+first process.</p></div>
+</dd>
+<dt id="control.sweeper.Sweeper.start"><code class="name flex">
+<span>def <span class="ident">start</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Schedules the sweeper job.</p></div>
+</dd>
+<dt id="control.sweeper.Sweeper.sweepDirectories"><code class="name flex">
+<span>def <span class="ident">sweepDirectories</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wipes all project/edition directories that are marked as deleted.</p>
+<p>Such directories are marked as deleted if they contain a file named
+<code>__deleted__.txt</code>.</p>
+<p>Note that it should not occur that projects are marked as deleted while
+they contain editions that are not deleted. But in case this should happen,
+the deletion of the project directory is prevented.</p></div>
+</dd>
+<dt id="control.sweeper.Sweeper.sweepMongo"><code class="name flex">
+<span>def <span class="ident">sweepMongo</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Permanently deletes records marked as deleted in all tables.</p></div>
+</dd>
+<dt id="control.sweeper.Sweeper.sweepTemp"><code class="name flex">
+<span>def <span class="ident">sweepTemp</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wipes all temporary directories of a certain age, typically 1 day.</p>
+<p>These directories all resides at the toplevel of the temp dir, and their
+names start with <code>tmp</code>.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<p><a href="https://github.com/CLARIAH/pure3dx" title="GitHub repo">GitHub</a></p>
+<p><a href="https://github.com/CLARIAH/pure3dx/blob/main/stats.md" title="GitHub repo">code stats</a></p>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="control" href="index.html">control</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-variables">Global variables</a></h3>
+<ul class="two-column">
+<li><code><a title="control.sweeper.DELAY_DEL" href="#control.sweeper.DELAY_DEL">DELAY_DEL</a></code></li>
+<li><code><a title="control.sweeper.DELAY_TMP" href="#control.sweeper.DELAY_TMP">DELAY_TMP</a></code></li>
+<li><code><a title="control.sweeper.DELAY_UNDEL" href="#control.sweeper.DELAY_UNDEL">DELAY_UNDEL</a></code></li>
+<li><code><a title="control.sweeper.DRY" href="#control.sweeper.DRY">DRY</a></code></li>
+<li><code><a title="control.sweeper.INTERVAL" href="#control.sweeper.INTERVAL">INTERVAL</a></code></li>
+<li><code><a title="control.sweeper.ON" href="#control.sweeper.ON">ON</a></code></li>
+<li><code><a title="control.sweeper.SEC" href="#control.sweeper.SEC">SEC</a></code></li>
+<li><code><a title="control.sweeper.SWEEP_LEE" href="#control.sweeper.SWEEP_LEE">SWEEP_LEE</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="control.sweeper.Sweeper" href="#control.sweeper.Sweeper">Sweeper</a></code></h4>
+<ul class="two-column">
+<li><code><a title="control.sweeper.Sweeper.clean" href="#control.sweeper.Sweeper.clean">clean</a></code></li>
+<li><code><a title="control.sweeper.Sweeper.maySchedule" href="#control.sweeper.Sweeper.maySchedule">maySchedule</a></code></li>
+<li><code><a title="control.sweeper.Sweeper.start" href="#control.sweeper.Sweeper.start">start</a></code></li>
+<li><code><a title="control.sweeper.Sweeper.sweepDirectories" href="#control.sweeper.Sweeper.sweepDirectories">sweepDirectories</a></code></li>
+<li><code><a title="control.sweeper.Sweeper.sweepMongo" href="#control.sweeper.Sweeper.sweepMongo">sweepMongo</a></code></li>
+<li><code><a title="control.sweeper.Sweeper.sweepTemp" href="#control.sweeper.Sweeper.sweepTemp">sweepTemp</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+</footer>
+</body>
+</html>

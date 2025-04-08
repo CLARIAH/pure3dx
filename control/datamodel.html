@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L1-L1293" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/datamodel.py#L1-L1298" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from markdown import markdown
 
@@ -293,7 +293,7 @@ class Datamodel:
         else:
             table = &#34;site&#34;
             siteCrit = Settings.siteCrit
-            record = Mongo.getRecord(table, **siteCrit)
+            record = Mongo.getRecord(table, siteCrit)
             recordId = record._id
 
         return (table, recordId, record)
@@ -379,7 +379,8 @@ class Datamodel:
 
         detailRecords = AttrDict()
 
-        details = Mongo.getList(detailTable, **crit)
+        details = Mongo.getList(detailTable, crit)
+
         if len(details):
             detailRecords[detailTable] = details
 
@@ -404,11 +405,11 @@ class Datamodel:
             The number of editions
         &#34;&#34;&#34;
         Mongo = self.Mongo
-        nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
-        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
+        nProjects = len(Mongo.getList(&#34;projectUser&#34;, dict(user=user)))
+        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, dict(user=user)))
         return (nProjects, nEditions)
 
-    def getLinkedCrit(self, table, record):
+    def getLinkedCrit(self, table, record, deleted=False):
         &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
 
         It finds all cross-linked records containing an id of the
@@ -422,6 +423,8 @@ class Datamodel:
             The name of the table in which the record lives.
         record: string | ObjectId | AttrDict
             The record.
+        deleted: boolean, optional False
+            Search only in the records that are marked for deletion
 
         Returns
         -------
@@ -433,10 +436,12 @@ class Datamodel:
         mainLink = self.mainLink
 
         linkTables = mainLink[table]
+
         if linkTables is None:
             return AttrDict()
 
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, deleted=deleted)
+
         if recordId is None:
             return AttrDict()
 
@@ -489,7 +494,7 @@ class Datamodel:
         for name in keywordLists:
             keywords[name] = {}
 
-        keywordItems = Mongo.getList(&#34;keyword&#34;)
+        keywordItems = Mongo.getList(&#34;keyword&#34;, {})
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
@@ -504,8 +509,8 @@ class Datamodel:
             fieldPath = fieldPaths[name]
             value = keywordRecord.value
             criteria = {fieldPath: value}
-            recordsP = Mongo.getList(&#34;project&#34;, **criteria)
-            recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+            recordsP = Mongo.getList(&#34;project&#34;, criteria)
+            recordsE = Mongo.getList(&#34;edition&#34;, criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
 
@@ -515,8 +520,8 @@ class Datamodel:
 
                 for value in values:
                     criteria = {fieldPath: value}
-                    recordsP = Mongo.getList(&#34;project&#34;, **criteria)
-                    recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+                    recordsP = Mongo.getList(&#34;project&#34;, criteria)
+                    recordsE = Mongo.getList(&#34;edition&#34;, criteria)
                     occs = len(recordsP) + len(recordsE)
                     keywords[name][value] = occs
 
@@ -712,8 +717,8 @@ class Field:
         Example `dc` (Dublin Core). So if a record has Dublin Core
         metadata, we expect that metadata to exist under key `dc` in that record.
 
-        If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
-        going into a namespace sub-record first.
+        If the nameSpace is `&#34;&#34;`, it is assumed that we can dig up the values without
+        going into a nameSpace sub-record first.
 
         **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
@@ -1360,7 +1365,7 @@ which deal with file uploads.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L7-L629" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/datamodel.py#L7-L634" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Datamodel:
     def __init__(self, Settings, Messages, Mongo):
@@ -1621,7 +1626,7 @@ which deal with file uploads.</p>
         else:
             table = &#34;site&#34;
             siteCrit = Settings.siteCrit
-            record = Mongo.getRecord(table, **siteCrit)
+            record = Mongo.getRecord(table, siteCrit)
             recordId = record._id
 
         return (table, recordId, record)
@@ -1707,7 +1712,8 @@ which deal with file uploads.</p>
 
         detailRecords = AttrDict()
 
-        details = Mongo.getList(detailTable, **crit)
+        details = Mongo.getList(detailTable, crit)
+
         if len(details):
             detailRecords[detailTable] = details
 
@@ -1732,11 +1738,11 @@ which deal with file uploads.</p>
             The number of editions
         &#34;&#34;&#34;
         Mongo = self.Mongo
-        nProjects = len(Mongo.getList(&#34;projectUser&#34;, user=user))
-        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, user=user))
+        nProjects = len(Mongo.getList(&#34;projectUser&#34;, dict(user=user)))
+        nEditions = len(Mongo.getList(&#34;EditionUser&#34;, dict(user=user)))
         return (nProjects, nEditions)
 
-    def getLinkedCrit(self, table, record):
+    def getLinkedCrit(self, table, record, deleted=False):
         &#34;&#34;&#34;Produce criteria to retrieve the linked records of a record.
 
         It finds all cross-linked records containing an id of the
@@ -1750,6 +1756,8 @@ which deal with file uploads.</p>
             The name of the table in which the record lives.
         record: string | ObjectId | AttrDict
             The record.
+        deleted: boolean, optional False
+            Search only in the records that are marked for deletion
 
         Returns
         -------
@@ -1761,10 +1769,12 @@ which deal with file uploads.</p>
         mainLink = self.mainLink
 
         linkTables = mainLink[table]
+
         if linkTables is None:
             return AttrDict()
 
-        (recordId, record) = Mongo.get(table, record)
+        (recordId, record) = Mongo.get(table, record, deleted=deleted)
+
         if recordId is None:
             return AttrDict()
 
@@ -1817,7 +1827,7 @@ which deal with file uploads.</p>
         for name in keywordLists:
             keywords[name] = {}
 
-        keywordItems = Mongo.getList(&#34;keyword&#34;)
+        keywordItems = Mongo.getList(&#34;keyword&#34;, {})
 
         for keywordRecord in keywordItems:
             name = keywordRecord.name
@@ -1832,8 +1842,8 @@ which deal with file uploads.</p>
             fieldPath = fieldPaths[name]
             value = keywordRecord.value
             criteria = {fieldPath: value}
-            recordsP = Mongo.getList(&#34;project&#34;, **criteria)
-            recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+            recordsP = Mongo.getList(&#34;project&#34;, criteria)
+            recordsE = Mongo.getList(&#34;edition&#34;, criteria)
             occs = len(recordsP) + len(recordsE)
             keywords[name][value] = occs
 
@@ -1843,8 +1853,8 @@ which deal with file uploads.</p>
 
                 for value in values:
                     criteria = {fieldPath: value}
-                    recordsP = Mongo.getList(&#34;project&#34;, **criteria)
-                    recordsE = Mongo.getList(&#34;project&#34;, **criteria)
+                    recordsP = Mongo.getList(&#34;project&#34;, criteria)
+                    recordsE = Mongo.getList(&#34;edition&#34;, criteria)
                     occs = len(recordsP) + len(recordsE)
                     keywords[name][value] = occs
 
@@ -2107,7 +2117,7 @@ and valued by the number of edition/project records it occurs in.</dd>
 </dl></div>
 </dd>
 <dt id="control.datamodel.Datamodel.getLinkedCrit"><code class="name flex">
-<span>def <span class="ident">getLinkedCrit</span></span>(<span>self, table, record)</span>
+<span>def <span class="ident">getLinkedCrit</span></span>(<span>self, table, record, deleted=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Produce criteria to retrieve the linked records of a record.</p>
@@ -2120,6 +2130,8 @@ given record.</p>
 <dd>The name of the table in which the record lives.</dd>
 <dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The record.</dd>
+<dt><strong><code>deleted</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Search only in the records that are marked for deletion</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2368,7 +2380,7 @@ are not present, defaults will be provided.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L632-L1070" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/datamodel.py#L637-L1075" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Field:
     def __init__(self, Settings, Messages, Mongo, Datamodel, key, table, **kwargs):
@@ -2423,8 +2435,8 @@ are not present, defaults will be provided.</dd>
         Example `dc` (Dublin Core). So if a record has Dublin Core
         metadata, we expect that metadata to exist under key `dc` in that record.
 
-        If the namespace is `&#34;&#34;`, it is assumed that we can dig up the values without
-        going into a namespace sub-record first.
+        If the nameSpace is `&#34;&#34;`, it is assumed that we can dig up the values without
+        going into a nameSpace sub-record first.
 
         **NB.: This attribute is not table dependent.**
         &#34;&#34;&#34;
@@ -2855,8 +2867,8 @@ into a nested dict. At the end of the path we find the selected value.</p>
 <div class="desc"><p>The first key to access the field data in a record.</p>
 <p>Example <code>dc</code> (Dublin Core). So if a record has Dublin Core
 metadata, we expect that metadata to exist under key <code>dc</code> in that record.</p>
-<p>If the namespace is <code>""</code>, it is assumed that we can dig up the values without
-going into a namespace sub-record first.</p>
+<p>If the nameSpace is <code>""</code>, it is assumed that we can dig up the values without
+going into a nameSpace sub-record first.</p>
 <p><strong>NB.: This attribute is not table dependent.</strong></p></div>
 </dd>
 <dt id="control.datamodel.Field.readonly"><code class="name">var <span class="ident">readonly</span></code></dt>
@@ -3052,7 +3064,7 @@ should be present: <code>table</code>, <code>accept</code>, while <code>caption<
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/datamodel.py#L1073-L1293" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/datamodel.py#L1078-L1298" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Upload:
     def __init__(self, Settings, Messages, Mongo, key, **kwargs):

@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/static.py#L1-L897" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/static.py#L1-L932" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 from copy import deepcopy
@@ -80,7 +80,7 @@ class Static:
 
         Any field that is missing will be supplied with a default value, most of the
         times it will be an empty list or string, but the licence will be an
-        &#34;All rights reserved&#34; licence.
+        &#34;All rights reserved&#34; licence and the peer review kind will be &#34;No peer review&#34;.
         Ideally the defaults should come from configuration, but because an admin can
         change the keywords, the defaults should then also be editable by an admin,
         but that goes to far for now.
@@ -102,6 +102,8 @@ class Static:
             The dict is changed in place.
         &#34;&#34;&#34;
         Content = self.Content
+        Settings = self.Settings
+        H = Settings.H
 
         fields = Content.getMetaFields(table, None, asDict=True)
         listKeys = Content.getListFields()
@@ -117,15 +119,15 @@ class Static:
 
             if key in listKeys:
                 if type(value) not in (list, tuple):
-                    value = [value]
+                    value = [value] if value else []
 
             if key in markdownKeys:
                 value = (
                     &#34;&#34;
                     if value is None
                     else (
-                        &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in value)
-                        if type(value) in (list, tuple)
+                        H.br().join(markdown(e) for e in value)
+                        if type(value) in {list, tuple}
                         else markdown(value)
                     )
                 )
@@ -172,6 +174,10 @@ class Static:
             *   `p`, `e`: **S** and **P** and **E** are (re)generated for project
                 with number `p` and edition with number `e` within that project;
             *   `True`, `True`: everything will be regenerated.
+
+        featured: list of integer
+            The list of publication numbers of featured projects. They will appear
+            in a special display on the home page.
 
         Returns
         -------
@@ -362,9 +368,11 @@ class Static:
 
                 for genDir, asData in ((pubModeDir, False), (dataOutDir, True)):
                     path = f&#34;{genDir}/{item.fileName}&#34;
+
                     if asData:
                         ext = &#34;.json&#34;
                         path = path.rsplit(&#34;.&#34;, 1)[0] + ext
+
                     dirPart = dirNm(path)
                     dirMake(dirPart)
 
@@ -535,6 +543,7 @@ class Static:
             `kind`. It will not be computed twice.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Content = self.Content
         Precheck = self.Precheck
@@ -616,7 +625,7 @@ class Static:
 
             result = []
 
-            for (textName, key) in texts.items():
+            for textName, key in texts.items():
                 F = Content.makeField(key, &#34;site&#34;)
 
                 r = AttrDict()
@@ -778,6 +787,27 @@ class Static:
 
             return result
 
+        def wrapCitation(er):
+            dc = er.dc
+            doi = dc.doi
+            creator = dc.creator
+            published = dc.datePublished
+            title = dc.title
+
+            authorRep = &#34;, &#34;.join(creator)
+            yearRep = published.split(&#34;-&#34;, 1)[0]
+
+            hasDoi = doi and sum(1 for d in doi if d) &gt; 0
+            myUrl = er.url
+            citeLink = (
+                &#34;, &#34;.join(H.a(d, f&#34;https://doi.org/{d}&#34;) for d in doi if d)
+                if hasDoi
+                else H.a(myUrl, myUrl)
+            )
+
+            citeText = f&#34;&#34;&#34;{authorRep}. {yearRep}. {title}. PURE3D. {citeLink}&#34;&#34;&#34;
+            return H.p(H.small(H.code(citeText)))
+
         def get_editionpages():
             viewers = self.getData(&#34;viewers&#34;, None, None)
             viewersLean = tuple(
@@ -827,6 +857,7 @@ class Static:
                     er.projectFileName = projectFileName
                     er.authorLink = f&#34;{authorRoot}{pId}/{eId}&#34;
                     fileBase = f&#34;project/{pNum}/edition/{eNum}/index&#34;
+                    er.url = f&#34;{Settings.pubUrl}/{fileBase}.html&#34;
                     er.num = eNum
                     er.name = eItem.title
                     er.dc = edc
@@ -836,9 +867,13 @@ class Static:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(
-                        None, pNum, eNum, eItem, asPublished=True
-                    )
+                    (
+                        er.toc,
+                        er.obfuscated,
+                        er.peerInfo,
+                        er.peerLogo,
+                    ) = Precheck.checkEdition(None, pNum, eNum, eItem, asPublished=True)
+                    er.citation = wrapCitation(er)
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name
@@ -945,7 +980,7 @@ class Static:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/static.py#L28-L897" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/static.py#L28-L932" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Static:
     def __init__(self, Settings, Messages, Content, Viewers, Tailwind, Handlebars):
@@ -972,7 +1007,7 @@ class Static:
 
         Any field that is missing will be supplied with a default value, most of the
         times it will be an empty list or string, but the licence will be an
-        &#34;All rights reserved&#34; licence.
+        &#34;All rights reserved&#34; licence and the peer review kind will be &#34;No peer review&#34;.
         Ideally the defaults should come from configuration, but because an admin can
         change the keywords, the defaults should then also be editable by an admin,
         but that goes to far for now.
@@ -994,6 +1029,8 @@ class Static:
             The dict is changed in place.
         &#34;&#34;&#34;
         Content = self.Content
+        Settings = self.Settings
+        H = Settings.H
 
         fields = Content.getMetaFields(table, None, asDict=True)
         listKeys = Content.getListFields()
@@ -1009,15 +1046,15 @@ class Static:
 
             if key in listKeys:
                 if type(value) not in (list, tuple):
-                    value = [value]
+                    value = [value] if value else []
 
             if key in markdownKeys:
                 value = (
                     &#34;&#34;
                     if value is None
                     else (
-                        &#34;&lt;br&gt;\n&#34;.join(markdown(e) for e in value)
-                        if type(value) in (list, tuple)
+                        H.br().join(markdown(e) for e in value)
+                        if type(value) in {list, tuple}
                         else markdown(value)
                     )
                 )
@@ -1064,6 +1101,10 @@ class Static:
             *   `p`, `e`: **S** and **P** and **E** are (re)generated for project
                 with number `p` and edition with number `e` within that project;
             *   `True`, `True`: everything will be regenerated.
+
+        featured: list of integer
+            The list of publication numbers of featured projects. They will appear
+            in a special display on the home page.
 
         Returns
         -------
@@ -1254,9 +1295,11 @@ class Static:
 
                 for genDir, asData in ((pubModeDir, False), (dataOutDir, True)):
                     path = f&#34;{genDir}/{item.fileName}&#34;
+
                     if asData:
                         ext = &#34;.json&#34;
                         path = path.rsplit(&#34;.&#34;, 1)[0] + ext
+
                     dirPart = dirNm(path)
                     dirMake(dirPart)
 
@@ -1427,6 +1470,7 @@ class Static:
             `kind`. It will not be computed twice.
         &#34;&#34;&#34;
         Settings = self.Settings
+        H = Settings.H
         Messages = self.Messages
         Content = self.Content
         Precheck = self.Precheck
@@ -1508,7 +1552,7 @@ class Static:
 
             result = []
 
-            for (textName, key) in texts.items():
+            for textName, key in texts.items():
                 F = Content.makeField(key, &#34;site&#34;)
 
                 r = AttrDict()
@@ -1670,6 +1714,27 @@ class Static:
 
             return result
 
+        def wrapCitation(er):
+            dc = er.dc
+            doi = dc.doi
+            creator = dc.creator
+            published = dc.datePublished
+            title = dc.title
+
+            authorRep = &#34;, &#34;.join(creator)
+            yearRep = published.split(&#34;-&#34;, 1)[0]
+
+            hasDoi = doi and sum(1 for d in doi if d) &gt; 0
+            myUrl = er.url
+            citeLink = (
+                &#34;, &#34;.join(H.a(d, f&#34;https://doi.org/{d}&#34;) for d in doi if d)
+                if hasDoi
+                else H.a(myUrl, myUrl)
+            )
+
+            citeText = f&#34;&#34;&#34;{authorRep}. {yearRep}. {title}. PURE3D. {citeLink}&#34;&#34;&#34;
+            return H.p(H.small(H.code(citeText)))
+
         def get_editionpages():
             viewers = self.getData(&#34;viewers&#34;, None, None)
             viewersLean = tuple(
@@ -1719,6 +1784,7 @@ class Static:
                     er.projectFileName = projectFileName
                     er.authorLink = f&#34;{authorRoot}{pId}/{eId}&#34;
                     fileBase = f&#34;project/{pNum}/edition/{eNum}/index&#34;
+                    er.url = f&#34;{Settings.pubUrl}/{fileBase}.html&#34;
                     er.num = eNum
                     er.name = eItem.title
                     er.dc = edc
@@ -1728,9 +1794,13 @@ class Static:
                     origViewer = authorTool.name
                     origVersion = authorTool.name
                     er.sceneFile = authorTool.sceneFile
-                    er.toc = Precheck.checkEdition(
-                        None, pNum, eNum, eItem, asPublished=True
-                    )
+                    (
+                        er.toc,
+                        er.obfuscated,
+                        er.peerInfo,
+                        er.peerLogo,
+                    ) = Precheck.checkEdition(None, pNum, eNum, eItem, asPublished=True)
+                    er.citation = wrapCitation(er)
 
                     for viewerInfo in viewers:
                         viewer = viewerInfo.name
@@ -1859,6 +1929,9 @@ with number <code>p</code> and edition with number <code>e</code> within that pr
 <li><code>True</code>, <code>True</code>: everything will be regenerated.</li>
 </ul>
 </dd>
+<dt><strong><code>featured</code></strong> :&ensp;<code>list</code> of <code>integer</code></dt>
+<dd>The list of publication numbers of featured projects. They will appear
+in a special display on the home page.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1935,7 +2008,7 @@ into files named <code>db.json</code>.</p></div>
 <div class="desc"><p>Checks for missing (sub)-fields in the Dublin Core.</p>
 <p>Any field that is missing will be supplied with a default value, most of the
 times it will be an empty list or string, but the licence will be an
-"All rights reserved" licence.
+"All rights reserved" licence and the peer review kind will be "No peer review".
 Ideally the defaults should come from configuration, but because an admin can
 change the keywords, the defaults should then also be editable by an admin,
 but that goes to far for now.</p>

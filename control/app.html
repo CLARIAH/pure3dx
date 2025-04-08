@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/app.py#L1-L684" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/app.py#L1-L706" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;The routing definitions of the flask webapp.
 &#34;&#34;&#34;
@@ -273,6 +273,17 @@ def appFactory(objects):
         &#34;&#34;&#34;
         return Pages.deleteItem(&#34;project&#34;, project)
 
+    @app.route(&#34;/project/&lt;string:project&gt;/undelete&#34;)
+    def undeleteProject(project):
+        &#34;&#34;&#34;Undeletes a project.
+
+        Parameters
+        ----------
+        project: string
+            The id of the project record.
+        &#34;&#34;&#34;
+        return Admin(Content).undeleteItem(&#34;project&#34;, project)
+
     @app.route(&#34;/project/&lt;string:project&gt;/edition/create&#34;)
     def createEdition(project):
         &#34;&#34;&#34;Create a new edition with the current user as editor.
@@ -313,6 +324,17 @@ def appFactory(objects):
             The id of the edition record.
         &#34;&#34;&#34;
         return Pages.deleteItem(&#34;edition&#34;, edition)
+
+    @app.route(&#34;/edition/&lt;string:edition&gt;/undelete&#34;)
+    def undeleteEdition(edition):
+        &#34;&#34;&#34;Undeletes an edition.
+
+        Parameters
+        ----------
+        edition: string
+            The id of the edition record.
+        &#34;&#34;&#34;
+        return Admin(Content).undeleteItem(&#34;edition&#34;, edition)
 
     @app.route(
         &#34;/viewer/&lt;string:version&gt;/&lt;string:action&gt;/&lt;string:edition&gt;/&lt;string:subMode&gt;&#34;

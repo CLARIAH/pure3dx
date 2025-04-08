@@ -26,13 +26,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/prepare.py#L1-L141" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/prepare.py#L1-L146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from pybars import Compiler
 
 from .messages import Messages as MessagesCls
 from .config import Config as ConfigCls
 from .mongo import Mongo as MongoCls
+from .sweeper import Sweeper as SweeperCls
 from .viewers import Viewers as ViewersCls
 from .wrap import Wrap as WrapCls
 from .backup import Backup as BackupCls
@@ -64,6 +65,7 @@ def prepare(design=False, migrate=False, trivial=False):
       to access content
     * `control.pages.Pages`: high-level functions that
       distribute content over the page
+    * `control.sweeper.Sweeper`: scheduled job to clean up deleted items
 
     !!! note &#34;Should be run once!&#34;
         These objects are used in several web apps:
@@ -120,6 +122,7 @@ def prepare(design=False, migrate=False, trivial=False):
 
     Viewers = ViewersCls(Settings, Messages)
     Mongo = MongoCls(Settings, Messages)
+    Sweeper = SweeperCls(Settings, Messages, Mongo)
     Wrap = WrapCls(Settings, Messages, Viewers)
     Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)
     Tailwind = TailwindCls(Settings)
@@ -155,6 +158,8 @@ def prepare(design=False, migrate=False, trivial=False):
 
     Pages = PagesCls(Settings, Viewers, Messages, Mongo, Content, Backup, Auth)
     Messages.setFlask()
+
+    Sweeper.start()
 
     return AttrDict(
         Settings=Settings,
@@ -199,6 +204,7 @@ each of these objects has a dedicated task in the app:</p>
 to access content</li>
 <li><code><a title="control.pages.Pages" href="pages.html#control.pages.Pages">Pages</a></code>: high-level functions that
 distribute content over the page</li>
+<li><code><a title="control.sweeper.Sweeper" href="sweeper.html#control.sweeper.Sweeper">Sweeper</a></code>: scheduled job to clean up deleted items</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Should be run once!</p>

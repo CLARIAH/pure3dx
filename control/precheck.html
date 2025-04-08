@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/precheck.py#L1-L432" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/precheck.py#L1-L498" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import collections
@@ -93,11 +93,31 @@ class Precheck:
         To that, we add a table of the media files, together with the information
         which html files refer to them.
 
+        !!! caution &#34;Hidden toc&#34;
+            The owners of Pure3D do not feel confident to show this toc for
+            editions that do not have an open license, because the toc makes it easy
+            to download all files of the edition.
+
+            However, by merely viewing an edition, its files will be downloaded to
+            a user&#39;s computer, and the user can find those files back on his computer.
+
+            So we do not protect such editions at all, we only add a layer of
+            obfuscation to accessing those files. It is only meant as a temporary
+            measure until the authors and editors of Pure3D are fully aware of the
+            consequences of publishing editions on Pure3D.
+
         The table of contents in the Pure3d author app is slightly different from
         that in the Pure3d pub app, because the internal links work differently.
 
         You can trigger the generation of a toc that works for the published edition
         as well.
+
+        We also generate content specifically for published pages
+
+        *   peer review kind and content and logo, if any, otherwise we leave it
+            completely blank. If the peer review kind is missing or &#34;no peer review&#34;
+            we do not place the peer reviewed logo
+        *   citation: we distill a citation from the metadata.
 
         Parameters
         ----------
@@ -119,9 +139,11 @@ class Precheck:
 
         Returns
         -------
-        boolean | string
-            If `asPublished` is True, it returns the toc as a string, otherwise
-            it returns whether the edition passed all checks.
+        boolean | tuple
+            If `asPublished` is False,
+                it returns whether the edition passed all checks.
+            Otherwise it returns the toc as a string, plus the peer review
+            kind, content, and logo, plus the citation
         &#34;&#34;&#34;
         Viewers = self.Viewers
         Content = self.Content
@@ -257,7 +279,7 @@ class Precheck:
                 (&#34;edition&#34;, eInfo),
             ):
                 for metaKey in Content.checkMetaFields(table):
-                    value = Content.getValue(table, record, metaKey, manner=&#34;logical&#34;)
+                    value = Content.getValue(table, record, metaKey, manner=&#34;resolved&#34;)
 
                     if value:
                         # Messages.good(f&#34;{table}:{metaKey} is present&#34;)
@@ -276,6 +298,19 @@ class Precheck:
                 Messages.good(&#34;All required metadata fields are present&#34;)
 
             return good
+
+        def checkObfuscate():
+            licence = (
+                (Content.getValue(&#34;edition&#34;, eInfo, &#34;license&#34;, manner=&#34;logical&#34;) or &#34;&#34;)
+                .lower()
+                .strip()
+            )
+            noLicence = &#34;All rights reserved.&#34;.lower().strip()
+            return (
+                dict(style=&#34;&#34;&#34;display: none;&#34;&#34;&#34;)
+                if not licence or licence == noLicence
+                else {}
+            )
 
         def checkLinks():
             for kind, thisFileList in filesFound.items():
@@ -430,8 +465,11 @@ class Precheck:
             statusRep = STATUS[status][1]
             return H.details(H.b(f&#34;Table of {statusRep}&#34;, cls=cls), H.ul(items), status)
 
+        obfuscate = checkObfuscate()
+        obfuscateRep = &#34; &#34;.join(f&#39;{k}=&#34;{v}&#34;&#39; for (k, v) in obfuscate.items())
+
         def wrapReport():
-            return (
+            content = (
                 H.h(3, &#34;Scene information&#34;)
                 + wrapScene(sceneInfo)
                 + wrapFiles(&#34;models&#34;)
@@ -440,14 +478,42 @@ class Precheck:
                 + wrapIssues(&#34;unconfined&#34;)
                 + wrapIssues(&#34;missing&#34;)
             )
+            return H.div(content, **obfuscate) if obfuscate else content
+
+        def wrapPeer():
+            peerKind = (
+                Content.getValue(&#34;edition&#34;, eInfo, &#34;peerreviewkind&#34;, manner=&#34;logical&#34;)
+                or &#34;&#34;
+            )
+            peerKindBare = peerKind.lower().strip()
+            noPeer = &#34;No peer review&#34;.lower().strip()
+
+            if not peerKindBare or peerKindBare == noPeer:
+                return (&#34;&#34;, &#34;&#34;)
+
+            peerContent = Content.getValue(
+                &#34;edition&#34;, eInfo, &#34;peerreviewcontent&#34;, manner=&#34;formatted&#34;
+            )
+            peerLogo = H.img(&#34;/images/peer-reviewed.svg&#34;, style=&#34;width: 6rem;&#34;)
+
+            return (
+                H.content(
+                    [
+                        H.h(2, f&#34;Peer review ({peerKind})&#34;),
+                        H.div(peerContent),
+                    ]
+                ),
+                peerLogo,
+            )
 
         sceneInfo = checkScene()
         checkFiles(())
         good = checkMeta() and checkLinks()
         allTocs = wrapReport()
+        peerInfo, peerLogo = wrapPeer()
 
         if asPublished:
-            return allTocs
+            return (allTocs, obfuscateRep, peerInfo, peerLogo)
 
         with open(f&#34;{editionDir}/{tocFile}&#34;, &#34;w&#34;) as fh:
             fh.write(allTocs)
@@ -480,7 +546,7 @@ class Precheck:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/precheck.py#L36-L432" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/precheck.py#L36-L498" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Precheck:
     def __init__(self, Settings, Messages, Content, Viewers):
@@ -512,11 +578,31 @@ class Precheck:
         To that, we add a table of the media files, together with the information
         which html files refer to them.
 
+        !!! caution &#34;Hidden toc&#34;
+            The owners of Pure3D do not feel confident to show this toc for
+            editions that do not have an open license, because the toc makes it easy
+            to download all files of the edition.
+
+            However, by merely viewing an edition, its files will be downloaded to
+            a user&#39;s computer, and the user can find those files back on his computer.
+
+            So we do not protect such editions at all, we only add a layer of
+            obfuscation to accessing those files. It is only meant as a temporary
+            measure until the authors and editors of Pure3D are fully aware of the
+            consequences of publishing editions on Pure3D.
+
         The table of contents in the Pure3d author app is slightly different from
         that in the Pure3d pub app, because the internal links work differently.
 
         You can trigger the generation of a toc that works for the published edition
         as well.
+
+        We also generate content specifically for published pages
+
+        *   peer review kind and content and logo, if any, otherwise we leave it
+            completely blank. If the peer review kind is missing or &#34;no peer review&#34;
+            we do not place the peer reviewed logo
+        *   citation: we distill a citation from the metadata.
 
         Parameters
         ----------
@@ -538,9 +624,11 @@ class Precheck:
 
         Returns
         -------
-        boolean | string
-            If `asPublished` is True, it returns the toc as a string, otherwise
-            it returns whether the edition passed all checks.
+        boolean | tuple
+            If `asPublished` is False,
+                it returns whether the edition passed all checks.
+            Otherwise it returns the toc as a string, plus the peer review
+            kind, content, and logo, plus the citation
         &#34;&#34;&#34;
         Viewers = self.Viewers
         Content = self.Content
@@ -676,7 +764,7 @@ class Precheck:
                 (&#34;edition&#34;, eInfo),
             ):
                 for metaKey in Content.checkMetaFields(table):
-                    value = Content.getValue(table, record, metaKey, manner=&#34;logical&#34;)
+                    value = Content.getValue(table, record, metaKey, manner=&#34;resolved&#34;)
 
                     if value:
                         # Messages.good(f&#34;{table}:{metaKey} is present&#34;)
@@ -695,6 +783,19 @@ class Precheck:
                 Messages.good(&#34;All required metadata fields are present&#34;)
 
             return good
+
+        def checkObfuscate():
+            licence = (
+                (Content.getValue(&#34;edition&#34;, eInfo, &#34;license&#34;, manner=&#34;logical&#34;) or &#34;&#34;)
+                .lower()
+                .strip()
+            )
+            noLicence = &#34;All rights reserved.&#34;.lower().strip()
+            return (
+                dict(style=&#34;&#34;&#34;display: none;&#34;&#34;&#34;)
+                if not licence or licence == noLicence
+                else {}
+            )
 
         def checkLinks():
             for kind, thisFileList in filesFound.items():
@@ -849,8 +950,11 @@ class Precheck:
             statusRep = STATUS[status][1]
             return H.details(H.b(f&#34;Table of {statusRep}&#34;, cls=cls), H.ul(items), status)
 
+        obfuscate = checkObfuscate()
+        obfuscateRep = &#34; &#34;.join(f&#39;{k}=&#34;{v}&#34;&#39; for (k, v) in obfuscate.items())
+
         def wrapReport():
-            return (
+            content = (
                 H.h(3, &#34;Scene information&#34;)
                 + wrapScene(sceneInfo)
                 + wrapFiles(&#34;models&#34;)
@@ -859,14 +963,42 @@ class Precheck:
                 + wrapIssues(&#34;unconfined&#34;)
                 + wrapIssues(&#34;missing&#34;)
             )
+            return H.div(content, **obfuscate) if obfuscate else content
+
+        def wrapPeer():
+            peerKind = (
+                Content.getValue(&#34;edition&#34;, eInfo, &#34;peerreviewkind&#34;, manner=&#34;logical&#34;)
+                or &#34;&#34;
+            )
+            peerKindBare = peerKind.lower().strip()
+            noPeer = &#34;No peer review&#34;.lower().strip()
+
+            if not peerKindBare or peerKindBare == noPeer:
+                return (&#34;&#34;, &#34;&#34;)
+
+            peerContent = Content.getValue(
+                &#34;edition&#34;, eInfo, &#34;peerreviewcontent&#34;, manner=&#34;formatted&#34;
+            )
+            peerLogo = H.img(&#34;/images/peer-reviewed.svg&#34;, style=&#34;width: 6rem;&#34;)
+
+            return (
+                H.content(
+                    [
+                        H.h(2, f&#34;Peer review ({peerKind})&#34;),
+                        H.div(peerContent),
+                    ]
+                ),
+                peerLogo,
+            )
 
         sceneInfo = checkScene()
         checkFiles(())
         good = checkMeta() and checkLinks()
         allTocs = wrapReport()
+        peerInfo, peerLogo = wrapPeer()
 
         if asPublished:
-            return allTocs
+            return (allTocs, obfuscateRep, peerInfo, peerLogo)
 
         with open(f&#34;{editionDir}/{tocFile}&#34;, &#34;w&#34;) as fh:
             fh.write(allTocs)
@@ -902,10 +1034,29 @@ unreferenced files will not be published.</li>
 can be inspected outside the Voyager.</p>
 <p>To that, we add a table of the media files, together with the information
 which html files refer to them.</p>
+<div class="admonition caution">
+<p class="admonition-title">Hidden toc</p>
+<p>The owners of Pure3D do not feel confident to show this toc for
+editions that do not have an open license, because the toc makes it easy
+to download all files of the edition.</p>
+<p>However, by merely viewing an edition, its files will be downloaded to
+a user's computer, and the user can find those files back on his computer.</p>
+<p>So we do not protect such editions at all, we only add a layer of
+obfuscation to accessing those files. It is only meant as a temporary
+measure until the authors and editors of Pure3D are fully aware of the
+consequences of publishing editions on Pure3D.</p>
+</div>
 <p>The table of contents in the Pure3d author app is slightly different from
 that in the Pure3d pub app, because the internal links work differently.</p>
 <p>You can trigger the generation of a toc that works for the published edition
 as well.</p>
+<p>We also generate content specifically for published pages</p>
+<ul>
+<li>peer review kind and content and logo, if any, otherwise we leave it
+completely blank. If the peer review kind is missing or "no peer review"
+we do not place the peer reviewed logo</li>
+<li>citation: we distill a citation from the metadata.</li>
+</ul>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>site</code></strong> :&ensp;<code>AttrDict | void</code></dt>
@@ -927,9 +1078,11 @@ to create a toc that is valid in the published edition.</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>boolean | string</code></dt>
-<dd>If <code>asPublished</code> is True, it returns the toc as a string, otherwise
-it returns whether the edition passed all checks.</dd>
+<dt><code>boolean | tuple</code></dt>
+<dd>If <code>asPublished</code> is False,
+it returns whether the edition passed all checks.
+Otherwise it returns the toc as a string, plus the peer review
+kind, content, and logo, plus the citation</dd>
 </dl></div>
 </dd>
 </dl>

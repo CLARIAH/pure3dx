@@ -26,10 +26,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/flask.py#L1-L259" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/flask.py#L1-L272" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 
+from .helpers import console
 from flask import (
     Flask,
     current_app,
@@ -65,6 +66,18 @@ def appInitializing():
     first instance.
     &#34;&#34;&#34;
     return var(&#34;WERKZEUG_RUN_MAIN&#34;) is None and not current_app
+
+
+def runInfo():
+    &#34;&#34;&#34;For things that should run once.
+
+    When Flask starts with the debugger, two instances of the app will be running.
+    We want to make sure that we are in the second instance: the one that will be killed
+    and reloaded if the code has changed.
+    &#34;&#34;&#34;
+    runMain = var(&#34;WERKZEUG_RUN_MAIN&#34;)
+    return runMain
+
 
 
 def appMake(*args, **kwargs):
@@ -433,6 +446,15 @@ else the None.</dd>
 <dd>The HTTP response</dd>
 </dl></div>
 </dd>
+<dt id="control.flask.runInfo"><code class="name flex">
+<span>def <span class="ident">runInfo</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>For things that should run once.</p>
+<p>When Flask starts with the debugger, two instances of the app will be running.
+We want to make sure that we are in the second instance: the one that will be killed
+and reloaded if the code has changed.</p></div>
+</dd>
 <dt id="control.flask.sendFile"><code class="name flex">
 <span>def <span class="ident">sendFile</span></span>(<span>path)</span>
 </code></dt>
@@ -592,6 +614,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.flask.requestData" href="#control.flask.requestData">requestData</a></code></li>
 <li><code><a title="control.flask.requestMethod" href="#control.flask.requestMethod">requestMethod</a></code></li>
 <li><code><a title="control.flask.response" href="#control.flask.response">response</a></code></li>
+<li><code><a title="control.flask.runInfo" href="#control.flask.runInfo">runInfo</a></code></li>
 <li><code><a title="control.flask.sendFile" href="#control.flask.sendFile">sendFile</a></code></li>
 <li><code><a title="control.flask.sessionGet" href="#control.flask.sessionGet">sessionGet</a></code></li>
 <li><code><a title="control.flask.sessionPop" href="#control.flask.sessionPop">sessionPop</a></code></li>

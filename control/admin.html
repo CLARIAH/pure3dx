@@ -26,14 +26,18 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/admin.py#L1-L1616" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/admin.py#L1-L2042" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import json
 
 from .flask import requestData
-from .generic import AttrDict, isonow
+from .generic import AttrDict, lessAgo, amountTogo, isonow, dateOnly
 from .helpers import normalize
+from .files import dirExists, fileExists, fileRemove, FDEL
+from .sweeper import DELAY_UNDEL
+
+from .mongo import MDEL, MDELDT, MDELBY
 
 
 USERNAME_RE = re.compile(r&#34;[^a-z0-9._-]&#34;)
@@ -87,11 +91,19 @@ class Admin:
         ### keywords
 
         The lists of keywords in metadata fields
+
+        ### deleted items
+
+        Projects and directories that have been marked as deleted, and can still be
+        restored (after 30 days marked deleted items may no longer be restored and
+        they will be deleted after 1 day more).
         &#34;&#34;&#34;
         self.Content = Content
 
         Messages = Content.Messages
         Messages.debugAdd(self)
+
+        self.Messages = Messages
 
         Settings = Content.Settings
         H = Settings.H
@@ -150,42 +162,74 @@ class Admin:
 
         if not user:
             H = self.H
-            return H.p(
-                &#34;Log in to view the projects and editions that you are working on.&#34;
+            return (
+                H.p(
+                    &#34;Log in to view the projects and editions that you are working on.&#34;
+                ),
+                &#34;&#34;,
             )
 
         projects = self.projects
+        delProjects = self.delProjects
 
         projectsAll = sorted(
             projects.values(),
             key=lambda x: (1 if x.isVisible else 0, x.title or &#34;&#34;, x._id),
         )
 
+        delProjectsAll = sorted(
+            delProjects.values(),
+            key=lambda x: (x.title or &#34;&#34;, x._id),
+        )
+
         inPower = self.inPower
 
-        myDetails = self._wrapMyDetails()
+        (myDetails, tocMyDetails) = self.wrapMyDetails()
 
-        myProjects = self._wrapMyProjects(projectsAll)
+        (myProjects, tocMyProjects) = self.wrapMyProjects(projectsAll)
 
         if inPower:
-            pubControls = self._wrapPubControls()
-            allProjects = self._wrapAllProjects(projectsAll)
-            allKeywords = self._wrapKeywordControls()
-            allUsers = self._wrapUserControls()
+            (pubControls, tocPub) = self.wrapPubControls()
+            (allProjects, tocProjects) = self.wrapAllProjects(projectsAll)
+            (allKeywords, tocKeywords) = self.wrapKeywordControls()
+            (allUsers, tocAllusers) = self.wrapUserControls()
+            (allDeleted, tocDeleted) = self.wrapDeletedItems(delProjectsAll)
         else:
-            pubControls = &#34;&#34;
-            allProjects = &#34;&#34;
-            allUsers = &#34;&#34;
-            allKeywords = &#34;&#34;
+            pubControls, tocPub = &#34;&#34;, &#34;&#34;
+            allProjects, tocProjects = &#34;&#34;, &#34;&#34;
+            allKeywords, tocKeywords = &#34;&#34;, &#34;&#34;
+            allUsers, tocAllusers = &#34;&#34;, &#34;&#34;
+            allDeleted, tocDeleted = &#34;&#34;, &#34;&#34;
 
-        return H.div(
-            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
-            cls=&#34;myadmin&#34;,
+        toc = (
+            tocPub,
+            tocKeywords,
+            tocAllusers,
+            tocMyDetails,
+            tocMyProjects,
+            tocProjects,
+            tocDeleted,
+        )
+
+        return (
+            H.div(
+                [
+                    pubControls,
+                    allKeywords,
+                    allUsers,
+                    myDetails,
+                    myProjects,
+                    allProjects,
+                    allDeleted,
+                ],
+                cls=&#34;myadmin&#34;,
+            ),
+            H.ul([H.li(x) for x in toc if x]),
         )
 
     # specialized WRAP functions
 
-    def _wrapMyDetails(self):
+    def wrapMyDetails(self):
         &#34;&#34;&#34;Generate HTML for the details of the current user.
 
         Parameters
@@ -202,16 +246,27 @@ class Admin:
         siteRoles = self.siteRoles
         User = self.User
 
-        return H.div(
-            [
-                H.h(1, &#34;My details&#34;),
-                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
-            ],
-            id=&#34;mydetails&#34;,
+        title = &#34;My details&#34;
+        name = &#34;my-details&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
+        return (
+            H.div(
+                [
+                    H.h(1, H.anchor(title, name)),
+                    self.wrapUsers(
+                        siteRoles, theseUsers={User.user: (User, User.role)}
+                    ),
+                ],
+                id=&#34;mydetails&#34;,
+            ),
+            tocEntry,
         )
 
-    def _wrapMyProjects(self, projectsAll):
+    def wrapMyProjects(self, projectsAll):
         &#34;&#34;&#34;Generate HTML for the list of the projects of the current user.
+
+        Only projects and editions that are not marked as deleted show up.
 
         Parameters
         ----------
@@ -228,19 +283,23 @@ class Admin:
 
         projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
+        title = &#34;My projects and editions&#34;
+        name = &#34;my-projects&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = [
-            H.h(1, &#34;My projects and editions&#34;),
+            H.h(1, H.anchor(title, name)),
             (
-                H.div([self._wrapProject(p) for p in projectsMy])
+                H.div([self.wrapProject(p) for p in projectsMy])
                 if len(projectsMy)
                 else H.div(
                     &#34;You do not have a specific role w.r.t. projects and editions.&#34;
                 )
             ),
         ]
-        return H.div(wrapped, id=&#34;myprojects&#34;)
+        return (H.div(wrapped, id=&#34;myprojects&#34;), tocEntry)
 
-    def _wrapPubControls(self):
+    def wrapPubControls(self):
         &#34;&#34;&#34;Generate HTML for the published projects in admin view.
 
         Currently, it provides
@@ -259,8 +318,12 @@ class Admin:
         Content = self.Content
         (table, siteId, site) = Content.relevant()
 
+        title = &#34;Published projects&#34;
+        name = &#34;pub-controls&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = []
-        wrapped.append(H.h(1, &#34;Published projects&#34;))
+        wrapped.append(H.h(1, H.anchor(title, name)))
 
         wrapped.append(H.h(2, &#34;Featured published projects&#34;))
         wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
@@ -298,9 +361,9 @@ class Admin:
             )
             + H.div(&#34;test&#34;, id=&#34;pubmessages&#34;),
         )
-        return H.div(wrapped, id=&#34;pubcontrols&#34;)
+        return (H.div(wrapped, id=&#34;pubcontrols&#34;), tocEntry)
 
-    def _wrapKeywordControls(self):
+    def wrapKeywordControls(self):
         &#34;&#34;&#34;Generate HTML for the keyword management.
 
         The keywords sit in a table with name `keyword`.
@@ -371,12 +434,16 @@ class Admin:
             cls=&#34;skeywords&#34;,
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;Manage keywords&#34;))
-        wrapped.append(H.div(keywordMaterial))
-        return H.div(wrapped, id=&#34;keywordcontrols&#34;)
+        title = &#34;Manage keywords&#34;
+        name = &#34;manage-keywords&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
 
-    def _wrapUserControls(self):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(H.div(keywordMaterial))
+        return (H.div(wrapped, id=&#34;keywordcontrols&#34;), tocEntry)
+
+    def wrapUserControls(self):
         &#34;&#34;&#34;Generate HTML for the user management.
 
         Returns
@@ -387,20 +454,24 @@ class Admin:
         H = self.H
         siteRoles = self.siteRoles
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;Manage users&#34;))
-        wrapped.append(
-            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
-        )
-        return H.div(wrapped, id=&#34;allusers&#34;)
+        title = &#34;Manage users&#34;
+        name = &#34;manage-users&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
 
-    def _wrapAllProjects(self, projectsAll):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(
+            H.div(self.wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+        )
+        return (H.div(wrapped, id=&#34;allusers&#34;), tocEntry)
+
+    def wrapAllProjects(self, projectsAll):
         &#34;&#34;&#34;Generate HTML for the list of all projects.
 
         Parameters
         ----------
         projectsAll: list
-            The list of all projects
+            The list of all projects, in as far they have not been marked as deleted.
 
         Returns
         -------
@@ -409,16 +480,60 @@ class Admin:
         &#34;&#34;&#34;
         H = self.H
 
+        title = &#34;All projects and editions&#34;
+        name = &#34;all-projects&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = []
-        wrapped.append(H.h(1, &#34;All projects and editions&#34;))
+        wrapped.append(H.h(1, H.anchor(title, name)))
         wrapped.append(
-            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
+            H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
             if len(projectsAll)
             else H.div(&#34;There are no projects and no editions&#34;)
         )
-        return H.div(wrapped, id=&#34;allprojects&#34;)
+        return (H.div(wrapped, id=&#34;allprojects&#34;), tocEntry)
 
-    def _wrapProject(self, project, myOnly=True):
+    def wrapDeletedItems(self, delProjectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of all deleted projects and editions.
+
+        All projects that have been marked as deleted or contain editions that
+        have been marked as deleted, are listed,
+        together with their marked-deleted editions.
+
+        For each marked-deleted item that is in the grace period of 30 days,
+        a control is added to restore it.
+
+        Parameters
+        ----------
+        delProjectsAll: list
+            The list of all projects that are either marked deleted or have
+            editions that are marked deleted, all within the grace period of 30 days.
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+
+        title = &#34;Deleted projects and editions&#34;
+        name = &#34;deleted-items&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+
+        wrappedProjects = [self.wrapDelProject(p) for p in delProjectsAll]
+
+        wrapped.append(
+            H.div(wrappedProjects)
+            if len(wrappedProjects)
+            else H.div(&#34;There are no deleted projects/editions&#34;)
+        )
+
+        return (H.div(wrapped, id=&#34;delprojects&#34;), tocEntry)
+
+    def wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
 
         Parameters
@@ -454,9 +569,7 @@ class Admin:
             ),
             key=lambda x: (x.title or &#34;&#34;, x._id),
         )
-        title = project.title
-        if not title:
-            title = H.i(&#34;no title&#34;)
+        title = project.title or H.i(&#34;no title&#34;)
 
         return H.div(
             [
@@ -465,7 +578,7 @@ class Admin:
                         H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                         H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;),
                         H.div(
-                            self._wrapUsers(
+                            self.wrapUsers(
                                 projectRoles, table=&#34;project&#34;, record=project
                             ),
                             cls=&#34;pusers&#34;,
@@ -477,7 +590,7 @@ class Admin:
                     (
                         &#34;no editions&#34;
                         if len(theseEditions) == 0
-                        else [self._wrapEdition(e) for e in theseEditions]
+                        else [self.wrapEdition(e) for e in theseEditions]
                     ),
                     cls=&#34;peditions&#34;,
                 ),
@@ -485,7 +598,7 @@ class Admin:
             cls=&#34;pentry&#34;,
         )
 
-    def _wrapEdition(self, edition):
+    def wrapEdition(self, edition):
         &#34;&#34;&#34;Generate HTML for an edition in admin view.
 
         Parameters
@@ -507,23 +620,116 @@ class Admin:
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
-        title = edition.title
-        if not title:
-            title = H.i(&#34;no title&#34;)
+        title = edition.title or H.i(&#34;no title&#34;)
 
         return H.div(
             [
                 H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                 H.a(title, f&#34;edition/{edition._id}&#34;, cls=&#34;etitle&#34;),
                 H.div(
-                    self._wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
+                    self.wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
                     cls=&#34;eusers&#34;,
                 ),
             ],
             cls=&#34;eentry&#34;,
         )
 
-    def _wrapUsers(
+    def wrapDelProject(self, project):
+        &#34;&#34;&#34;Generate HTML for a deleted project in admin view.
+
+        Parameters
+        ----------
+        project: AttrDict
+            A record of a project that is deleted or has deleted editions.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+        title = project.title or H.i(&#34;no title&#34;)
+        pDeleted = project.get(MDEL, False)
+
+        if pDeleted:
+            pDeletedBy = project.get(MDELBY, &#34;unknown&#34;)
+            pDeletedTm = project.get(MDELDT, &#34;2000-01-01T00:00:00Z&#34;)
+            pDeletedDt = dateOnly(pDeletedTm)
+            pRemainingDays = amountTogo(DELAY_UNDEL, pDeletedTm, iso=True)
+
+            pTitle = H.span(title, cls=&#34;ptitle&#34;)
+            pStatus = H.span(f&#34;on {pDeletedDt} by {pDeletedBy}&#34;, cls=&#34;pestatus warning&#34;)
+            pId = project._id
+            pControl = H.span(
+                f&#34;undelete ({pRemainingDays:4.2f} days left)&#34;,
+                url=f&#34;project/{pId}/undelete&#34;,
+                title=f&#34;undelete project {pId}&#34;,
+                cls=&#34;button medium undelete&#34;,
+            )
+        else:
+            pTitle = H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;)
+            pStatus = &#34;&#34;
+            pControl = &#34;&#34;
+
+        editions = (
+            sorted(project.editions.values(), key=lambda x: (x.title or &#34;&#34;, x._id))
+            if project.editions
+            else []
+        )
+
+        return H.div(
+            [
+                H.div(f&#34;{pControl} {pTitle} {pStatus}&#34;, cls=&#34;phead&#34;),
+                H.div(
+                    [self.wrapDelEdition(e, pDeleted) for e in editions],
+                    cls=&#34;peditions&#34;,
+                ),
+            ],
+            cls=&#34;pentry&#34;,
+        )
+
+    def wrapDelEdition(self, edition, pDeleted):
+        &#34;&#34;&#34;Generate HTML for a deleted edition in admin view.
+
+        Parameters
+        ----------
+        edition: AttrDict
+            An edition record
+        pDeleted: boolean
+            Whether the parent project is currently deleted.
+            We do not allow undelete actions of editions if their parents are
+            still deleted.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+        title = edition.title or H.i(&#34;no title&#34;)
+        eDeletedBy = edition.get(MDELBY, &#34;unknown&#34;)
+        eDeletedTm = edition.get(MDELDT, &#34;2000-01-01T00:00:00Z&#34;)
+        eDeletedDt = dateOnly(eDeletedTm)
+        eRemainingDays = amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)
+
+        eTitle = H.span(title, cls=&#34;etitle&#34;)
+        eStatus = H.span(f&#34;on {eDeletedDt} by {eDeletedBy}&#34;, cls=&#34;pestatus warning&#34;)
+        undelete = &#34;&#34; if pDeleted else &#34;undelete&#34;
+        disabled = &#34;disabled&#34; if pDeleted else &#34;&#34;
+        eId = edition._id
+        eControl = H.span(
+            f&#34;undelete ({eRemainingDays:4.2f} days left)&#34;,
+            url=f&#34;edition/{eId}/undelete&#34;,
+            title=f&#34;undelete edition {eId}&#34;,
+            cls=f&#34;button medium {undelete} {disabled}&#34;,
+        )
+
+        return H.div(
+            [H.div(f&#34;{eControl} {eTitle} {eStatus}&#34;, cls=&#34;ehead&#34;)],
+            cls=&#34;eentry&#34;,
+        )
+
+    def wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
     ):
         &#34;&#34;&#34;Generate HTML for a list of users.
@@ -586,7 +792,7 @@ class Admin:
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self._wrapUser(
+                    self.wrapUser(
                         u,
                         uRecord,
                         role,
@@ -603,7 +809,7 @@ class Admin:
 
         if editable:
             wrapped.append(
-                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
             )
 
         if record is None and not runProd and inPower and doingAllUsers:
@@ -626,7 +832,7 @@ class Admin:
 
         return &#34;&#34;.join(wrapped)
 
-    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def wrapLinkUser(self, roles, itemRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML to add a user in a specified role.
 
         Parameters
@@ -674,7 +880,7 @@ class Admin:
             saveurl=f&#34;/link/user/{table}/{recordId}&#34;,
         )
 
-    def _wrapUser(
+    def wrapUser(
         self,
         u,
         uRecord,
@@ -747,7 +953,7 @@ class Admin:
         return H.div(
             [
                 H.div(uRecord.nickname, cls=&#34;user&#34;),
-                *self._wrapRole(
+                *self.wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
                 *indicator,
@@ -755,7 +961,7 @@ class Admin:
             cls=&#34;userroles&#34;,
         )
 
-    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there
@@ -793,13 +999,12 @@ class Admin:
         H = self.H
 
         actualRole = H.div(itemRoles[role], role=role, cls=&#34;role&#34;)
-        tableRep = f&#34;/{table}&#34; if table else &#34;&#34;
         recordRep = f&#34;/{recordId}&#34; if table else &#34;&#34;
 
         allRoles = sorted({role} | otherRoles, key=roleRank)
 
         if editable:
-            saveUrl = f&#34;/save/role/{u}/{tableRep}{recordRep}&#34;
+            saveUrl = f&#34;/save/role/{u}/{table or &#39;&#39;}{recordRep}&#34;
             updateButton = H.actionButton(&#34;edit_assign&#34;)
             cancelButton = H.actionButton(&#34;edit_cancel&#34;)
             saveButton = H.actionButton(&#34;edit_save&#34;)
@@ -885,7 +1090,9 @@ class Admin:
 
             if site.processing:
                 Mongo.updateRecord(
-                    &#34;site&#34;, dict(processing=False, lastPublished=isonow()), _id=site._id
+                    &#34;site&#34;,
+                    dict(_id=site._id),
+                    dict(processing=False, lastPublished=isonow()),
                 )
             status = True
             messages = []
@@ -957,8 +1164,9 @@ class Admin:
                 ],
             )
 
-        Mongo.insertRecord(&#34;keyword&#34;, name=name, value=value)
+        Mongo.insertRecord(&#34;keyword&#34;, dict(name=name, value=value))
 
+        self.update()
         return dict(stat=True, messages=[], updated=self.wrap())
 
     def deleteKeyword(self):
@@ -977,13 +1185,15 @@ class Admin:
         Auth = self.Auth
         Mongo = self.Mongo
         Content = self.Content
+        inPower = self.inPower
 
-        permitted = Auth.inPower()[0]
-
-        if not permitted:
+        if not inPower:
             return dict(
                 stat=False, messages=[[&#34;error&#34;, &#34;deleting a keyword is not allowed&#34;]]
             )
+
+        User = Auth.myDetails()
+        name = User.nickname
 
         keywords = Content.getKeywords()
         specs = json.loads(requestData())
@@ -1013,9 +1223,10 @@ class Admin:
                 messages=[[&#34;error&#34;, f&#34;keyword &#39;{name}&#39;:&#39;{value}&#39; is used {occs} x&#34;]],
             )
 
-        good = Mongo.deleteRecord(&#34;keyword&#34;, name=name, value=value)
+        good = Mongo.deleteRecord(&#34;keyword&#34;, dict(name=name, value=value), name)
         messages = [] if good else [[&#34;warning&#34;, &#34;no keyword has been deleted&#34;]]
 
+        self.update()
         return dict(stat=good, messages=messages, updated=self.wrap())
 
     # retrieval and action functions -- USERS and ROLES
@@ -1049,6 +1260,7 @@ class Admin:
             * `messages`: list of messages for the user,
             * `updated`: new content for the user managment div.
         &#34;&#34;&#34;
+        Auth = self.Auth
         Mongo = self.Mongo
         siteRoles = self.siteRoles
         projectRoles = self.projectRoles
@@ -1056,7 +1268,7 @@ class Admin:
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles if table == &#34;edition&#34; else editionRoles
+            else projectRoles if table == &#34;project&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -1069,21 +1281,29 @@ class Admin:
 
         msg = &#34;&#34;
 
+        User = Auth.myDetails()
+        name = User.nickname
+
         if table is None:
-            result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
+            result = Mongo.updateRecord(&#34;user&#34;, dict(user=u), dict(role=newRole))
         else:
             (recordId, record) = Mongo.get(table, recordId)
+
             if recordId is None:
-                return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
+                return dict(
+                    stat=False, messages=[[&#34;error&#34;, f&#34;{table} record does not exist&#34;]]
+                )
 
             criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
+
             if newRole is None:
-                result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
+                result = Mongo.deleteRecord(f&#34;{table}User&#34;, criteria, name)
+
                 if not result:
                     msg = f&#34;could not unlink this user from the {table}&#34;
             else:
                 result = Mongo.updateRecord(
-                    f&#34;{table}User&#34;, dict(role=newRole), **criteria
+                    f&#34;{table}User&#34;, criteria, dict(role=newRole)
                 )
                 if not result:
                     msg = (
@@ -1146,16 +1366,18 @@ class Admin:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
 
         (recordId, record) = Mongo.get(table, recordId)
+
         if recordId is None:
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
         criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
+        crossRecord = Mongo.getRecord(f&#34;{table}User&#34;, criteria, warn=False)
 
         msg = &#34;&#34;
 
         if crossRecord:
-            result = Mongo.updateRecord(f&#34;{table}User&#34;, dict(role=newRole), **criteria)
+            result = Mongo.updateRecord(f&#34;{table}User&#34;, criteria, dict(role=newRole))
+
             if not result:
                 msg = (
                     &#34;could not change this user&#39;s role to &#34;
@@ -1163,7 +1385,7 @@ class Admin:
                 )
         else:
             fields = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId, &#34;role&#34;: newRole}
-            result = Mongo.insertRecord(f&#34;{table}User&#34;, **fields)
+            result = Mongo.insertRecord(f&#34;{table}User&#34;, fields)
             if not result:
                 msg = f&#34;could not link this user to {table} as {newRoleRep}&#34;
 
@@ -1223,7 +1445,7 @@ class Admin:
                     role=&#34;user&#34;,
                     isSpecial=True,
                 )
-                userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
+                userId = Mongo.insertRecord(&#34;user&#34;, userInfo)
 
                 if not userId:
                     status = False
@@ -1264,10 +1486,13 @@ class Admin:
             * `status`: whether the create action was successful
             * `messages`: messages issued during the process
         &#34;&#34;&#34;
+        Auth = self.Auth
         Mongo = self.Mongo
         Settings = self.Settings
         runProd = Settings.runProd
         inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
 
         status = True
         messages = []
@@ -1277,7 +1502,7 @@ class Admin:
                 status = False
                 messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
             else:
-                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, user=user)
+                good = Mongo.deleteRecord(&#34;user&#34;, dict(isSpecial=True, user=user), name)
 
                 if not good:
                     status = False
@@ -1295,7 +1520,159 @@ class Admin:
                 )
 
         self.update()
-        return dict(status=status, messages=messages)
+        return dict(stat=status, messages=messages)
+
+    def undeleteItem(self, table, record):
+        &#34;&#34;&#34;Deletes an item, project or edition.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: string | ObjectId | AttrDict
+            The item in question.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Messages = self.Messages
+        Content = self.Content
+        inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
+
+        messages = []
+
+        (recordId, record) = Mongo.get(table, record, deleted=True)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;RESTORE (on behalf of {name}) {itemRep}: &#34;
+
+        if inPower:
+            if recordId is None:
+                Messages.warning(logmsg=f&#34;{head}Not found&#34;)
+                messages.append((&#34;warning&#34;, f&#34;{table}: no such {table}&#34;))
+                return dict(stat=False, messages=messages)
+
+            if table == &#34;edition&#34;:
+                parent = record.projectId
+                (projectId, project) = Mongo.get(&#34;project&#34;, parent)
+
+                if projectId is None:
+                    Messages.error(logmsg=f&#34;{head}Project is still deleted&#34;)
+                    messages.append(
+                        (
+                            &#34;error&#34;,
+                            &#34;Not allowed to restore an edition &#34;
+                            &#34;whose parent project is still deleted&#34;,
+                        )
+                    )
+                    return dict(stat=False, messages=messages)
+
+            if Mongo.undeleteRecord(table, dict(_id=recordId), name):
+                Messages.info(logmsg=f&#34;{head}restored the {table} record&#34;)
+            else:
+                Messages.error(logmsg=f&#34;{head}restore of {table} record failed&#34;)
+                messages.append((&#34;error&#34;, f&#34;could not restore this {table} record&#34;))
+                return dict(stat=False, messages=messages)
+
+            links = Content.getLinkedCrit(table, record)
+            status = True
+
+            if links:
+                for linkTable, linkCriteria in links.items():
+                    (thisStatus, count) = Mongo.undeleteRecords(
+                        linkTable, linkCriteria, name
+                    )
+
+                    if not thisStatus:
+                        status = False
+                        Messages.error(
+                            logmsg=(
+                                f&#34;Cannot restore link records from &#34;
+                                f&#34;{linkTable} with {linkCriteria}&#34;
+                            )
+                        )
+                        messages.append(
+                            (&#34;error&#34;, f&#34;could not restore linked {linkTable} record&#34;)
+                        )
+                    else:
+                        Messages.info(
+                            logmsg=(
+                                f&#34;{head}Restored {count} link records &#34;
+                                f&#34;from {linkTable}&#34;
+                            )
+                        )
+                        messages.append(
+                            (&#34;info&#34;, f&#34;Restored {count} link records from {linkTable}&#34;)
+                        )
+
+            if not status:
+                return dict(stat=False, messages=messages)
+
+            (status, theseMessages) = self.undeleteItemFiles(
+                table, record, recordId, name
+            )
+            messages.extend(theseMessages)
+
+            self.update()
+            updated = self.wrap()
+
+            if status:
+                Messages.info(logmsg=f&#34;{head}Success&#34;)
+                return dict(stat=True, messages=messages, updated=updated)
+            else:
+                Messages.info(logmsg=f&#34;{head}Failed&#34;)
+                return dict(stat=False, messages=messages, updated=updated)
+
+        else:
+            Messages.error(logmsg=f&#34;{head}Not permitted&#34;)
+            messages.append((&#34;error&#34;, f&#34;restoring a {table} needs admin privileges&#34;))
+            return dict(stat=False, messages=messages)
+
+    def undeleteItemFiles(self, table, record, recordId, name):
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        itemDirTail = f&#34;{table}/{recordId}&#34;
+
+        if table == &#34;project&#34;:
+            itemDirTail = f&#34;{table}/{recordId}&#34;
+        elif table == &#34;edition&#34;:
+            projectId = record.projectId
+            itemDirTail = f&#34;/project/{projectId}/{table}/{recordId}&#34;
+
+        itemDir = f&#34;{workingDir}/{itemDirTail}&#34;
+
+        messages = []
+        status = True
+
+        head = f&#34;RESTORE DIRECTORY (on behalf of {name}) {itemDirTail}: &#34;
+
+        if dirExists(itemDir):
+            markFile = f&#34;{itemDir}/{FDEL}&#34;
+
+            if fileExists(markFile):
+                fileRemove(markFile)
+                Messages.info(logmsg=f&#34;{head}by removing {FDEL}&#34;)
+                messages.append(
+                    (&#34;good&#34;, f&#34;Undeleted the {table} directory on the file system&#34;)
+                )
+            else:
+                Messages.warning(logmsg=f&#34;{head}was not marked as deleted!&#34;)
+                messages.append(
+                    (&#34;warning&#34;, f&#34;The {table} directory existed in a non-deleted state&#34;)
+                )
+        else:
+            status = True
+            Messages.warning(logmsg=f&#34;{head}does not exist on the file system!&#34;)
+            messages.append((&#34;warning&#34;, f&#34;The {table} directory does not exist&#34;))
+        return (status, messages)
 
     # LOGISTICS functions
 
@@ -1305,7 +1682,8 @@ class Admin:
         Typically needed when you have used an admin function to perform
         a user administration action.
 
-        This may change the permissions and hence the visibility of projects and editions.
+        This may change the permissions and hence the visibility of projects
+        and editions.
         It also changes the possible user management actions in the future.
         &#34;&#34;&#34;
         Mongo = self.Mongo
@@ -1322,16 +1700,31 @@ class Admin:
         if not user:
             return
 
-        siteRecord = Mongo.getRecord(&#34;site&#34;)
-        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
-        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
-        projectLinks = Mongo.getList(&#34;projectUser&#34;)
-        editionLinks = Mongo.getList(&#34;editionUser&#34;)
+        siteRecord = Mongo.getRecord(&#34;site&#34;, {})
+        userList = Mongo.getList(&#34;user&#34;, {}, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;)
+        projectList2 = Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, {}, sort=&#34;title&#34;)
+        projectLinks = Mongo.getList(&#34;projectUser&#34;, {})
+        editionLinks = Mongo.getList(&#34;editionUser&#34;, {})
+
+        delProjectListAll = Mongo.getList(&#34;project&#34;, {}, deleted=True, sort=&#34;title&#34;)
+        delEditionListAll = Mongo.getList(&#34;edition&#34;, {}, deleted=True, sort=&#34;title&#34;)
+
+        delProjectList = [
+            r for r in delProjectListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
+        delProjectSet = {r._id for r in delProjectList}
+        delEditionList = [
+            r for r in delEditionListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
 
         users = AttrDict({x.user: x for x in userList})
         projects = AttrDict({x._id: x for x in projectList})
+        projects2 = AttrDict({x._id: x for x in projectList2})
         editions = AttrDict({x._id: x for x in editionList})
+
+        delProjects = AttrDict({x._id: x for x in delProjectList} | projects2)
 
         myIds = AttrDict()
 
@@ -1339,6 +1732,7 @@ class Admin:
         self.users = users
         self.projects = projects
         self.editions = editions
+        self.delProjects = delProjects
         self.myIds = myIds
 
         for eRecord in editionList:
@@ -1346,22 +1740,48 @@ class Admin:
             pId = eRecord.projectId
             projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
 
+        for eRecord in delEditionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            delProjects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
+
+        # delete projects that are not themselves deleted and have no deleted editions
+
+        toBeRemoved = []
+
+        for pID, pRecord in delProjects.items():
+            if pID in delProjectSet:
+                continue
+
+            pEditions = pRecord.get(&#34;editions&#34;, {})
+
+            if len(pEditions) == 0:
+                toBeRemoved.append(pID)
+
+        for pID in toBeRemoved:
+            del delProjects[pID]
+
         for pLink in projectLinks:
             role = pLink.role
 
             if role:
                 u = pLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 pId = pLink.projectId
                 pRecord = projects[pId]
+
                 if pRecord is None:
                     continue
+
                 pRecord.setdefault(&#34;users&#34;, AttrDict())
 
                 if user == u:
                     myIds.setdefault(&#34;project&#34;, set()).add(pId)
+
                     for eId in pRecord.editions or []:
                         myIds.setdefault(&#34;edition&#34;, set()).add(eId)
 
@@ -1369,15 +1789,20 @@ class Admin:
 
         for eLink in editionLinks:
             role = eLink.role
+
             if role:
                 u = eLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 eId = eLink.editionId
                 eRecord = editions[eId]
+
                 if eRecord is None:
                     continue
+
                 pId = eRecord.projectId
 
                 if user == u:
@@ -1587,6 +2012,7 @@ class Admin:
 
         Mongo = self.Mongo
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return nope
 
@@ -1691,11 +2117,15 @@ and valued by a tuple of the user record and his role.</p>
 It is a dict with keys <code>project</code> and <code>edition</code> and the values are sets
 of ids.</p>
 <h3 id="keywords">keywords</h3>
-<p>The lists of keywords in metadata fields</p></div>
+<p>The lists of keywords in metadata fields</p>
+<h3 id="deleted-items">deleted items</h3>
+<p>Projects and directories that have been marked as deleted, and can still be
+restored (after 30 days marked deleted items may no longer be restored and
+they will be deleted after 1 day more).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/admin.py#L12-L1616" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/admin.py#L16-L2042" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Admin:
     def __init__(self, Content):
@@ -1745,11 +2175,19 @@ of ids.</p>
         ### keywords
 
         The lists of keywords in metadata fields
+
+        ### deleted items
+
+        Projects and directories that have been marked as deleted, and can still be
+        restored (after 30 days marked deleted items may no longer be restored and
+        they will be deleted after 1 day more).
         &#34;&#34;&#34;
         self.Content = Content
 
         Messages = Content.Messages
         Messages.debugAdd(self)
+
+        self.Messages = Messages
 
         Settings = Content.Settings
         H = Settings.H
@@ -1808,42 +2246,74 @@ of ids.</p>
 
         if not user:
             H = self.H
-            return H.p(
-                &#34;Log in to view the projects and editions that you are working on.&#34;
+            return (
+                H.p(
+                    &#34;Log in to view the projects and editions that you are working on.&#34;
+                ),
+                &#34;&#34;,
             )
 
         projects = self.projects
+        delProjects = self.delProjects
 
         projectsAll = sorted(
             projects.values(),
             key=lambda x: (1 if x.isVisible else 0, x.title or &#34;&#34;, x._id),
         )
 
+        delProjectsAll = sorted(
+            delProjects.values(),
+            key=lambda x: (x.title or &#34;&#34;, x._id),
+        )
+
         inPower = self.inPower
 
-        myDetails = self._wrapMyDetails()
+        (myDetails, tocMyDetails) = self.wrapMyDetails()
 
-        myProjects = self._wrapMyProjects(projectsAll)
+        (myProjects, tocMyProjects) = self.wrapMyProjects(projectsAll)
 
         if inPower:
-            pubControls = self._wrapPubControls()
-            allProjects = self._wrapAllProjects(projectsAll)
-            allKeywords = self._wrapKeywordControls()
-            allUsers = self._wrapUserControls()
+            (pubControls, tocPub) = self.wrapPubControls()
+            (allProjects, tocProjects) = self.wrapAllProjects(projectsAll)
+            (allKeywords, tocKeywords) = self.wrapKeywordControls()
+            (allUsers, tocAllusers) = self.wrapUserControls()
+            (allDeleted, tocDeleted) = self.wrapDeletedItems(delProjectsAll)
         else:
-            pubControls = &#34;&#34;
-            allProjects = &#34;&#34;
-            allUsers = &#34;&#34;
-            allKeywords = &#34;&#34;
+            pubControls, tocPub = &#34;&#34;, &#34;&#34;
+            allProjects, tocProjects = &#34;&#34;, &#34;&#34;
+            allKeywords, tocKeywords = &#34;&#34;, &#34;&#34;
+            allUsers, tocAllusers = &#34;&#34;, &#34;&#34;
+            allDeleted, tocDeleted = &#34;&#34;, &#34;&#34;
 
-        return H.div(
-            [pubControls, allKeywords, allUsers, myDetails, myProjects, allProjects],
-            cls=&#34;myadmin&#34;,
+        toc = (
+            tocPub,
+            tocKeywords,
+            tocAllusers,
+            tocMyDetails,
+            tocMyProjects,
+            tocProjects,
+            tocDeleted,
+        )
+
+        return (
+            H.div(
+                [
+                    pubControls,
+                    allKeywords,
+                    allUsers,
+                    myDetails,
+                    myProjects,
+                    allProjects,
+                    allDeleted,
+                ],
+                cls=&#34;myadmin&#34;,
+            ),
+            H.ul([H.li(x) for x in toc if x]),
         )
 
     # specialized WRAP functions
 
-    def _wrapMyDetails(self):
+    def wrapMyDetails(self):
         &#34;&#34;&#34;Generate HTML for the details of the current user.
 
         Parameters
@@ -1860,16 +2330,27 @@ of ids.</p>
         siteRoles = self.siteRoles
         User = self.User
 
-        return H.div(
-            [
-                H.h(1, &#34;My details&#34;),
-                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
-            ],
-            id=&#34;mydetails&#34;,
+        title = &#34;My details&#34;
+        name = &#34;my-details&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
+        return (
+            H.div(
+                [
+                    H.h(1, H.anchor(title, name)),
+                    self.wrapUsers(
+                        siteRoles, theseUsers={User.user: (User, User.role)}
+                    ),
+                ],
+                id=&#34;mydetails&#34;,
+            ),
+            tocEntry,
         )
 
-    def _wrapMyProjects(self, projectsAll):
+    def wrapMyProjects(self, projectsAll):
         &#34;&#34;&#34;Generate HTML for the list of the projects of the current user.
+
+        Only projects and editions that are not marked as deleted show up.
 
         Parameters
         ----------
@@ -1886,19 +2367,23 @@ of ids.</p>
 
         projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
+        title = &#34;My projects and editions&#34;
+        name = &#34;my-projects&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = [
-            H.h(1, &#34;My projects and editions&#34;),
+            H.h(1, H.anchor(title, name)),
             (
-                H.div([self._wrapProject(p) for p in projectsMy])
+                H.div([self.wrapProject(p) for p in projectsMy])
                 if len(projectsMy)
                 else H.div(
                     &#34;You do not have a specific role w.r.t. projects and editions.&#34;
                 )
             ),
         ]
-        return H.div(wrapped, id=&#34;myprojects&#34;)
+        return (H.div(wrapped, id=&#34;myprojects&#34;), tocEntry)
 
-    def _wrapPubControls(self):
+    def wrapPubControls(self):
         &#34;&#34;&#34;Generate HTML for the published projects in admin view.
 
         Currently, it provides
@@ -1917,8 +2402,12 @@ of ids.</p>
         Content = self.Content
         (table, siteId, site) = Content.relevant()
 
+        title = &#34;Published projects&#34;
+        name = &#34;pub-controls&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = []
-        wrapped.append(H.h(1, &#34;Published projects&#34;))
+        wrapped.append(H.h(1, H.anchor(title, name)))
 
         wrapped.append(H.h(2, &#34;Featured published projects&#34;))
         wrapped.append(Content.getValue(table, site, &#34;featured&#34;))
@@ -1956,9 +2445,9 @@ of ids.</p>
             )
             + H.div(&#34;test&#34;, id=&#34;pubmessages&#34;),
         )
-        return H.div(wrapped, id=&#34;pubcontrols&#34;)
+        return (H.div(wrapped, id=&#34;pubcontrols&#34;), tocEntry)
 
-    def _wrapKeywordControls(self):
+    def wrapKeywordControls(self):
         &#34;&#34;&#34;Generate HTML for the keyword management.
 
         The keywords sit in a table with name `keyword`.
@@ -2029,12 +2518,16 @@ of ids.</p>
             cls=&#34;skeywords&#34;,
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;Manage keywords&#34;))
-        wrapped.append(H.div(keywordMaterial))
-        return H.div(wrapped, id=&#34;keywordcontrols&#34;)
+        title = &#34;Manage keywords&#34;
+        name = &#34;manage-keywords&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
 
-    def _wrapUserControls(self):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(H.div(keywordMaterial))
+        return (H.div(wrapped, id=&#34;keywordcontrols&#34;), tocEntry)
+
+    def wrapUserControls(self):
         &#34;&#34;&#34;Generate HTML for the user management.
 
         Returns
@@ -2045,20 +2538,24 @@ of ids.</p>
         H = self.H
         siteRoles = self.siteRoles
 
-        wrapped = []
-        wrapped.append(H.h(1, &#34;Manage users&#34;))
-        wrapped.append(
-            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
-        )
-        return H.div(wrapped, id=&#34;allusers&#34;)
+        title = &#34;Manage users&#34;
+        name = &#34;manage-users&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
 
-    def _wrapAllProjects(self, projectsAll):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(
+            H.div(self.wrapUsers(siteRoles, workIndicator=True), cls=&#34;susers&#34;)
+        )
+        return (H.div(wrapped, id=&#34;allusers&#34;), tocEntry)
+
+    def wrapAllProjects(self, projectsAll):
         &#34;&#34;&#34;Generate HTML for the list of all projects.
 
         Parameters
         ----------
         projectsAll: list
-            The list of all projects
+            The list of all projects, in as far they have not been marked as deleted.
 
         Returns
         -------
@@ -2067,16 +2564,60 @@ of ids.</p>
         &#34;&#34;&#34;
         H = self.H
 
+        title = &#34;All projects and editions&#34;
+        name = &#34;all-projects&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
         wrapped = []
-        wrapped.append(H.h(1, &#34;All projects and editions&#34;))
+        wrapped.append(H.h(1, H.anchor(title, name)))
         wrapped.append(
-            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
+            H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
             if len(projectsAll)
             else H.div(&#34;There are no projects and no editions&#34;)
         )
-        return H.div(wrapped, id=&#34;allprojects&#34;)
+        return (H.div(wrapped, id=&#34;allprojects&#34;), tocEntry)
 
-    def _wrapProject(self, project, myOnly=True):
+    def wrapDeletedItems(self, delProjectsAll):
+        &#34;&#34;&#34;Generate HTML for the list of all deleted projects and editions.
+
+        All projects that have been marked as deleted or contain editions that
+        have been marked as deleted, are listed,
+        together with their marked-deleted editions.
+
+        For each marked-deleted item that is in the grace period of 30 days,
+        a control is added to restore it.
+
+        Parameters
+        ----------
+        delProjectsAll: list
+            The list of all projects that are either marked deleted or have
+            editions that are marked deleted, all within the grace period of 30 days.
+
+        Returns
+        -------
+        string
+            The html
+        &#34;&#34;&#34;
+        H = self.H
+
+        title = &#34;Deleted projects and editions&#34;
+        name = &#34;deleted-items&#34;
+        tocEntry = H.a(title, f&#34;#{name}&#34;)
+
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+
+        wrappedProjects = [self.wrapDelProject(p) for p in delProjectsAll]
+
+        wrapped.append(
+            H.div(wrappedProjects)
+            if len(wrappedProjects)
+            else H.div(&#34;There are no deleted projects/editions&#34;)
+        )
+
+        return (H.div(wrapped, id=&#34;delprojects&#34;), tocEntry)
+
+    def wrapProject(self, project, myOnly=True):
         &#34;&#34;&#34;Generate HTML for a project in admin view.
 
         Parameters
@@ -2112,9 +2653,7 @@ of ids.</p>
             ),
             key=lambda x: (x.title or &#34;&#34;, x._id),
         )
-        title = project.title
-        if not title:
-            title = H.i(&#34;no title&#34;)
+        title = project.title or H.i(&#34;no title&#34;)
 
         return H.div(
             [
@@ -2123,7 +2662,7 @@ of ids.</p>
                         H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                         H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;),
                         H.div(
-                            self._wrapUsers(
+                            self.wrapUsers(
                                 projectRoles, table=&#34;project&#34;, record=project
                             ),
                             cls=&#34;pusers&#34;,
@@ -2135,7 +2674,7 @@ of ids.</p>
                     (
                         &#34;no editions&#34;
                         if len(theseEditions) == 0
-                        else [self._wrapEdition(e) for e in theseEditions]
+                        else [self.wrapEdition(e) for e in theseEditions]
                     ),
                     cls=&#34;peditions&#34;,
                 ),
@@ -2143,7 +2682,7 @@ of ids.</p>
             cls=&#34;pentry&#34;,
         )
 
-    def _wrapEdition(self, edition):
+    def wrapEdition(self, edition):
         &#34;&#34;&#34;Generate HTML for an edition in admin view.
 
         Parameters
@@ -2165,23 +2704,116 @@ of ids.</p>
         status = representations.isPublished[stat]
         statusCls = css.isPublished[stat]
 
-        title = edition.title
-        if not title:
-            title = H.i(&#34;no title&#34;)
+        title = edition.title or H.i(&#34;no title&#34;)
 
         return H.div(
             [
                 H.div(status, cls=f&#34;pestatus {statusCls}&#34;),
                 H.a(title, f&#34;edition/{edition._id}&#34;, cls=&#34;etitle&#34;),
                 H.div(
-                    self._wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
+                    self.wrapUsers(editionRoles, table=&#34;edition&#34;, record=edition),
                     cls=&#34;eusers&#34;,
                 ),
             ],
             cls=&#34;eentry&#34;,
         )
 
-    def _wrapUsers(
+    def wrapDelProject(self, project):
+        &#34;&#34;&#34;Generate HTML for a deleted project in admin view.
+
+        Parameters
+        ----------
+        project: AttrDict
+            A record of a project that is deleted or has deleted editions.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+        title = project.title or H.i(&#34;no title&#34;)
+        pDeleted = project.get(MDEL, False)
+
+        if pDeleted:
+            pDeletedBy = project.get(MDELBY, &#34;unknown&#34;)
+            pDeletedTm = project.get(MDELDT, &#34;2000-01-01T00:00:00Z&#34;)
+            pDeletedDt = dateOnly(pDeletedTm)
+            pRemainingDays = amountTogo(DELAY_UNDEL, pDeletedTm, iso=True)
+
+            pTitle = H.span(title, cls=&#34;ptitle&#34;)
+            pStatus = H.span(f&#34;on {pDeletedDt} by {pDeletedBy}&#34;, cls=&#34;pestatus warning&#34;)
+            pId = project._id
+            pControl = H.span(
+                f&#34;undelete ({pRemainingDays:4.2f} days left)&#34;,
+                url=f&#34;project/{pId}/undelete&#34;,
+                title=f&#34;undelete project {pId}&#34;,
+                cls=&#34;button medium undelete&#34;,
+            )
+        else:
+            pTitle = H.a(title, f&#34;project/{project._id}&#34;, cls=&#34;ptitle&#34;)
+            pStatus = &#34;&#34;
+            pControl = &#34;&#34;
+
+        editions = (
+            sorted(project.editions.values(), key=lambda x: (x.title or &#34;&#34;, x._id))
+            if project.editions
+            else []
+        )
+
+        return H.div(
+            [
+                H.div(f&#34;{pControl} {pTitle} {pStatus}&#34;, cls=&#34;phead&#34;),
+                H.div(
+                    [self.wrapDelEdition(e, pDeleted) for e in editions],
+                    cls=&#34;peditions&#34;,
+                ),
+            ],
+            cls=&#34;pentry&#34;,
+        )
+
+    def wrapDelEdition(self, edition, pDeleted):
+        &#34;&#34;&#34;Generate HTML for a deleted edition in admin view.
+
+        Parameters
+        ----------
+        edition: AttrDict
+            An edition record
+        pDeleted: boolean
+            Whether the parent project is currently deleted.
+            We do not allow undelete actions of editions if their parents are
+            still deleted.
+
+        Returns
+        -------
+        string
+            The HTML
+        &#34;&#34;&#34;
+        H = self.H
+        title = edition.title or H.i(&#34;no title&#34;)
+        eDeletedBy = edition.get(MDELBY, &#34;unknown&#34;)
+        eDeletedTm = edition.get(MDELDT, &#34;2000-01-01T00:00:00Z&#34;)
+        eDeletedDt = dateOnly(eDeletedTm)
+        eRemainingDays = amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)
+
+        eTitle = H.span(title, cls=&#34;etitle&#34;)
+        eStatus = H.span(f&#34;on {eDeletedDt} by {eDeletedBy}&#34;, cls=&#34;pestatus warning&#34;)
+        undelete = &#34;&#34; if pDeleted else &#34;undelete&#34;
+        disabled = &#34;disabled&#34; if pDeleted else &#34;&#34;
+        eId = edition._id
+        eControl = H.span(
+            f&#34;undelete ({eRemainingDays:4.2f} days left)&#34;,
+            url=f&#34;edition/{eId}/undelete&#34;,
+            title=f&#34;undelete edition {eId}&#34;,
+            cls=f&#34;button medium {undelete} {disabled}&#34;,
+        )
+
+        return H.div(
+            [H.div(f&#34;{eControl} {eTitle} {eStatus}&#34;, cls=&#34;ehead&#34;)],
+            cls=&#34;eentry&#34;,
+        )
+
+    def wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
     ):
         &#34;&#34;&#34;Generate HTML for a list of users.
@@ -2244,7 +2876,7 @@ of ids.</p>
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self._wrapUser(
+                    self.wrapUser(
                         u,
                         uRecord,
                         role,
@@ -2261,7 +2893,7 @@ of ids.</p>
 
         if editable:
             wrapped.append(
-                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
             )
 
         if record is None and not runProd and inPower and doingAllUsers:
@@ -2284,7 +2916,7 @@ of ids.</p>
 
         return &#34;&#34;.join(wrapped)
 
-    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def wrapLinkUser(self, roles, itemRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML to add a user in a specified role.
 
         Parameters
@@ -2332,7 +2964,7 @@ of ids.</p>
             saveurl=f&#34;/link/user/{table}/{recordId}&#34;,
         )
 
-    def _wrapUser(
+    def wrapUser(
         self,
         u,
         uRecord,
@@ -2405,7 +3037,7 @@ of ids.</p>
         return H.div(
             [
                 H.div(uRecord.nickname, cls=&#34;user&#34;),
-                *self._wrapRole(
+                *self.wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
                 *indicator,
@@ -2413,7 +3045,7 @@ of ids.</p>
             cls=&#34;userroles&#34;,
         )
 
-    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         &#34;&#34;&#34;Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there
@@ -2451,13 +3083,12 @@ of ids.</p>
         H = self.H
 
         actualRole = H.div(itemRoles[role], role=role, cls=&#34;role&#34;)
-        tableRep = f&#34;/{table}&#34; if table else &#34;&#34;
         recordRep = f&#34;/{recordId}&#34; if table else &#34;&#34;
 
         allRoles = sorted({role} | otherRoles, key=roleRank)
 
         if editable:
-            saveUrl = f&#34;/save/role/{u}/{tableRep}{recordRep}&#34;
+            saveUrl = f&#34;/save/role/{u}/{table or &#39;&#39;}{recordRep}&#34;
             updateButton = H.actionButton(&#34;edit_assign&#34;)
             cancelButton = H.actionButton(&#34;edit_cancel&#34;)
             saveButton = H.actionButton(&#34;edit_save&#34;)
@@ -2543,7 +3174,9 @@ of ids.</p>
 
             if site.processing:
                 Mongo.updateRecord(
-                    &#34;site&#34;, dict(processing=False, lastPublished=isonow()), _id=site._id
+                    &#34;site&#34;,
+                    dict(_id=site._id),
+                    dict(processing=False, lastPublished=isonow()),
                 )
             status = True
             messages = []
@@ -2615,8 +3248,9 @@ of ids.</p>
                 ],
             )
 
-        Mongo.insertRecord(&#34;keyword&#34;, name=name, value=value)
+        Mongo.insertRecord(&#34;keyword&#34;, dict(name=name, value=value))
 
+        self.update()
         return dict(stat=True, messages=[], updated=self.wrap())
 
     def deleteKeyword(self):
@@ -2635,13 +3269,15 @@ of ids.</p>
         Auth = self.Auth
         Mongo = self.Mongo
         Content = self.Content
+        inPower = self.inPower
 
-        permitted = Auth.inPower()[0]
-
-        if not permitted:
+        if not inPower:
             return dict(
                 stat=False, messages=[[&#34;error&#34;, &#34;deleting a keyword is not allowed&#34;]]
             )
+
+        User = Auth.myDetails()
+        name = User.nickname
 
         keywords = Content.getKeywords()
         specs = json.loads(requestData())
@@ -2671,9 +3307,10 @@ of ids.</p>
                 messages=[[&#34;error&#34;, f&#34;keyword &#39;{name}&#39;:&#39;{value}&#39; is used {occs} x&#34;]],
             )
 
-        good = Mongo.deleteRecord(&#34;keyword&#34;, name=name, value=value)
+        good = Mongo.deleteRecord(&#34;keyword&#34;, dict(name=name, value=value), name)
         messages = [] if good else [[&#34;warning&#34;, &#34;no keyword has been deleted&#34;]]
 
+        self.update()
         return dict(stat=good, messages=messages, updated=self.wrap())
 
     # retrieval and action functions -- USERS and ROLES
@@ -2707,6 +3344,7 @@ of ids.</p>
             * `messages`: list of messages for the user,
             * `updated`: new content for the user managment div.
         &#34;&#34;&#34;
+        Auth = self.Auth
         Mongo = self.Mongo
         siteRoles = self.siteRoles
         projectRoles = self.projectRoles
@@ -2714,7 +3352,7 @@ of ids.</p>
         itemRoles = (
             siteRoles
             if table is None
-            else projectRoles if table == &#34;edition&#34; else editionRoles
+            else projectRoles if table == &#34;project&#34; else editionRoles
         )
         newRoleRep = itemRoles[newRole]
 
@@ -2727,21 +3365,29 @@ of ids.</p>
 
         msg = &#34;&#34;
 
+        User = Auth.myDetails()
+        name = User.nickname
+
         if table is None:
-            result = Mongo.updateRecord(&#34;user&#34;, dict(role=newRole), user=u)
+            result = Mongo.updateRecord(&#34;user&#34;, dict(user=u), dict(role=newRole))
         else:
             (recordId, record) = Mongo.get(table, recordId)
+
             if recordId is None:
-                return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
+                return dict(
+                    stat=False, messages=[[&#34;error&#34;, f&#34;{table} record does not exist&#34;]]
+                )
 
             criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
+
             if newRole is None:
-                result = Mongo.deleteRecord(f&#34;{table}User&#34;, **criteria)
+                result = Mongo.deleteRecord(f&#34;{table}User&#34;, criteria, name)
+
                 if not result:
                     msg = f&#34;could not unlink this user from the {table}&#34;
             else:
                 result = Mongo.updateRecord(
-                    f&#34;{table}User&#34;, dict(role=newRole), **criteria
+                    f&#34;{table}User&#34;, criteria, dict(role=newRole)
                 )
                 if not result:
                     msg = (
@@ -2804,16 +3450,18 @@ of ids.</p>
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;invalid role: {newRoleRep}&#34;]])
 
         (recordId, record) = Mongo.get(table, recordId)
+
         if recordId is None:
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;record does not exist&#34;]])
 
         criteria = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId}
-        crossRecord = Mongo.getRecord(table, warn=False, **criteria)
+        crossRecord = Mongo.getRecord(f&#34;{table}User&#34;, criteria, warn=False)
 
         msg = &#34;&#34;
 
         if crossRecord:
-            result = Mongo.updateRecord(f&#34;{table}User&#34;, dict(role=newRole), **criteria)
+            result = Mongo.updateRecord(f&#34;{table}User&#34;, criteria, dict(role=newRole))
+
             if not result:
                 msg = (
                     &#34;could not change this user&#39;s role to &#34;
@@ -2821,7 +3469,7 @@ of ids.</p>
                 )
         else:
             fields = {&#34;user&#34;: u, f&#34;{table}Id&#34;: recordId, &#34;role&#34;: newRole}
-            result = Mongo.insertRecord(f&#34;{table}User&#34;, **fields)
+            result = Mongo.insertRecord(f&#34;{table}User&#34;, fields)
             if not result:
                 msg = f&#34;could not link this user to {table} as {newRoleRep}&#34;
 
@@ -2881,7 +3529,7 @@ of ids.</p>
                     role=&#34;user&#34;,
                     isSpecial=True,
                 )
-                userId = Mongo.insertRecord(&#34;user&#34;, **userInfo)
+                userId = Mongo.insertRecord(&#34;user&#34;, userInfo)
 
                 if not userId:
                     status = False
@@ -2922,10 +3570,13 @@ of ids.</p>
             * `status`: whether the create action was successful
             * `messages`: messages issued during the process
         &#34;&#34;&#34;
+        Auth = self.Auth
         Mongo = self.Mongo
         Settings = self.Settings
         runProd = Settings.runProd
         inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
 
         status = True
         messages = []
@@ -2935,7 +3586,7 @@ of ids.</p>
                 status = False
                 messages.append((&#34;error&#34;, &#34;name should not be empty&#34;))
             else:
-                good = Mongo.deleteRecord(&#34;user&#34;, isSpecial=True, user=user)
+                good = Mongo.deleteRecord(&#34;user&#34;, dict(isSpecial=True, user=user), name)
 
                 if not good:
                     status = False
@@ -2953,7 +3604,159 @@ of ids.</p>
                 )
 
         self.update()
-        return dict(status=status, messages=messages)
+        return dict(stat=status, messages=messages)
+
+    def undeleteItem(self, table, record):
+        &#34;&#34;&#34;Deletes an item, project or edition.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: string | ObjectId | AttrDict
+            The item in question.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        &#34;&#34;&#34;
+        Auth = self.Auth
+        Mongo = self.Mongo
+        Messages = self.Messages
+        Content = self.Content
+        inPower = self.inPower
+        User = Auth.myDetails()
+        name = User.nickname
+
+        messages = []
+
+        (recordId, record) = Mongo.get(table, record, deleted=True)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;RESTORE (on behalf of {name}) {itemRep}: &#34;
+
+        if inPower:
+            if recordId is None:
+                Messages.warning(logmsg=f&#34;{head}Not found&#34;)
+                messages.append((&#34;warning&#34;, f&#34;{table}: no such {table}&#34;))
+                return dict(stat=False, messages=messages)
+
+            if table == &#34;edition&#34;:
+                parent = record.projectId
+                (projectId, project) = Mongo.get(&#34;project&#34;, parent)
+
+                if projectId is None:
+                    Messages.error(logmsg=f&#34;{head}Project is still deleted&#34;)
+                    messages.append(
+                        (
+                            &#34;error&#34;,
+                            &#34;Not allowed to restore an edition &#34;
+                            &#34;whose parent project is still deleted&#34;,
+                        )
+                    )
+                    return dict(stat=False, messages=messages)
+
+            if Mongo.undeleteRecord(table, dict(_id=recordId), name):
+                Messages.info(logmsg=f&#34;{head}restored the {table} record&#34;)
+            else:
+                Messages.error(logmsg=f&#34;{head}restore of {table} record failed&#34;)
+                messages.append((&#34;error&#34;, f&#34;could not restore this {table} record&#34;))
+                return dict(stat=False, messages=messages)
+
+            links = Content.getLinkedCrit(table, record)
+            status = True
+
+            if links:
+                for linkTable, linkCriteria in links.items():
+                    (thisStatus, count) = Mongo.undeleteRecords(
+                        linkTable, linkCriteria, name
+                    )
+
+                    if not thisStatus:
+                        status = False
+                        Messages.error(
+                            logmsg=(
+                                f&#34;Cannot restore link records from &#34;
+                                f&#34;{linkTable} with {linkCriteria}&#34;
+                            )
+                        )
+                        messages.append(
+                            (&#34;error&#34;, f&#34;could not restore linked {linkTable} record&#34;)
+                        )
+                    else:
+                        Messages.info(
+                            logmsg=(
+                                f&#34;{head}Restored {count} link records &#34;
+                                f&#34;from {linkTable}&#34;
+                            )
+                        )
+                        messages.append(
+                            (&#34;info&#34;, f&#34;Restored {count} link records from {linkTable}&#34;)
+                        )
+
+            if not status:
+                return dict(stat=False, messages=messages)
+
+            (status, theseMessages) = self.undeleteItemFiles(
+                table, record, recordId, name
+            )
+            messages.extend(theseMessages)
+
+            self.update()
+            updated = self.wrap()
+
+            if status:
+                Messages.info(logmsg=f&#34;{head}Success&#34;)
+                return dict(stat=True, messages=messages, updated=updated)
+            else:
+                Messages.info(logmsg=f&#34;{head}Failed&#34;)
+                return dict(stat=False, messages=messages, updated=updated)
+
+        else:
+            Messages.error(logmsg=f&#34;{head}Not permitted&#34;)
+            messages.append((&#34;error&#34;, f&#34;restoring a {table} needs admin privileges&#34;))
+            return dict(stat=False, messages=messages)
+
+    def undeleteItemFiles(self, table, record, recordId, name):
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        itemDirTail = f&#34;{table}/{recordId}&#34;
+
+        if table == &#34;project&#34;:
+            itemDirTail = f&#34;{table}/{recordId}&#34;
+        elif table == &#34;edition&#34;:
+            projectId = record.projectId
+            itemDirTail = f&#34;/project/{projectId}/{table}/{recordId}&#34;
+
+        itemDir = f&#34;{workingDir}/{itemDirTail}&#34;
+
+        messages = []
+        status = True
+
+        head = f&#34;RESTORE DIRECTORY (on behalf of {name}) {itemDirTail}: &#34;
+
+        if dirExists(itemDir):
+            markFile = f&#34;{itemDir}/{FDEL}&#34;
+
+            if fileExists(markFile):
+                fileRemove(markFile)
+                Messages.info(logmsg=f&#34;{head}by removing {FDEL}&#34;)
+                messages.append(
+                    (&#34;good&#34;, f&#34;Undeleted the {table} directory on the file system&#34;)
+                )
+            else:
+                Messages.warning(logmsg=f&#34;{head}was not marked as deleted!&#34;)
+                messages.append(
+                    (&#34;warning&#34;, f&#34;The {table} directory existed in a non-deleted state&#34;)
+                )
+        else:
+            status = True
+            Messages.warning(logmsg=f&#34;{head}does not exist on the file system!&#34;)
+            messages.append((&#34;warning&#34;, f&#34;The {table} directory does not exist&#34;))
+        return (status, messages)
 
     # LOGISTICS functions
 
@@ -2963,7 +3766,8 @@ of ids.</p>
         Typically needed when you have used an admin function to perform
         a user administration action.
 
-        This may change the permissions and hence the visibility of projects and editions.
+        This may change the permissions and hence the visibility of projects
+        and editions.
         It also changes the possible user management actions in the future.
         &#34;&#34;&#34;
         Mongo = self.Mongo
@@ -2980,16 +3784,31 @@ of ids.</p>
         if not user:
             return
 
-        siteRecord = Mongo.getRecord(&#34;site&#34;)
-        userList = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;)
-        projectList = Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;)
-        editionList = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;)
-        projectLinks = Mongo.getList(&#34;projectUser&#34;)
-        editionLinks = Mongo.getList(&#34;editionUser&#34;)
+        siteRecord = Mongo.getRecord(&#34;site&#34;, {})
+        userList = Mongo.getList(&#34;user&#34;, {}, sort=&#34;nickname&#34;)
+        projectList = Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;)
+        projectList2 = Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;)
+        editionList = Mongo.getList(&#34;edition&#34;, {}, sort=&#34;title&#34;)
+        projectLinks = Mongo.getList(&#34;projectUser&#34;, {})
+        editionLinks = Mongo.getList(&#34;editionUser&#34;, {})
+
+        delProjectListAll = Mongo.getList(&#34;project&#34;, {}, deleted=True, sort=&#34;title&#34;)
+        delEditionListAll = Mongo.getList(&#34;edition&#34;, {}, deleted=True, sort=&#34;title&#34;)
+
+        delProjectList = [
+            r for r in delProjectListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
+        delProjectSet = {r._id for r in delProjectList}
+        delEditionList = [
+            r for r in delEditionListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+        ]
 
         users = AttrDict({x.user: x for x in userList})
         projects = AttrDict({x._id: x for x in projectList})
+        projects2 = AttrDict({x._id: x for x in projectList2})
         editions = AttrDict({x._id: x for x in editionList})
+
+        delProjects = AttrDict({x._id: x for x in delProjectList} | projects2)
 
         myIds = AttrDict()
 
@@ -2997,6 +3816,7 @@ of ids.</p>
         self.users = users
         self.projects = projects
         self.editions = editions
+        self.delProjects = delProjects
         self.myIds = myIds
 
         for eRecord in editionList:
@@ -3004,22 +3824,48 @@ of ids.</p>
             pId = eRecord.projectId
             projects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
 
+        for eRecord in delEditionList:
+            eId = eRecord._id
+            pId = eRecord.projectId
+            delProjects[pId].setdefault(&#34;editions&#34;, {})[eId] = eRecord
+
+        # delete projects that are not themselves deleted and have no deleted editions
+
+        toBeRemoved = []
+
+        for pID, pRecord in delProjects.items():
+            if pID in delProjectSet:
+                continue
+
+            pEditions = pRecord.get(&#34;editions&#34;, {})
+
+            if len(pEditions) == 0:
+                toBeRemoved.append(pID)
+
+        for pID in toBeRemoved:
+            del delProjects[pID]
+
         for pLink in projectLinks:
             role = pLink.role
 
             if role:
                 u = pLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 pId = pLink.projectId
                 pRecord = projects[pId]
+
                 if pRecord is None:
                     continue
+
                 pRecord.setdefault(&#34;users&#34;, AttrDict())
 
                 if user == u:
                     myIds.setdefault(&#34;project&#34;, set()).add(pId)
+
                     for eId in pRecord.editions or []:
                         myIds.setdefault(&#34;edition&#34;, set()).add(eId)
 
@@ -3027,15 +3873,20 @@ of ids.</p>
 
         for eLink in editionLinks:
             role = eLink.role
+
             if role:
                 u = eLink.user
                 uRecord = users[u]
+
                 if uRecord is None:
                     continue
+
                 eId = eLink.editionId
                 eRecord = editions[eId]
+
                 if eRecord is None:
                     continue
+
                 pId = eRecord.projectId
 
                 if user == u:
@@ -3245,6 +4096,7 @@ of ids.</p>
 
         Mongo = self.Mongo
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return nope
 
@@ -3593,6 +4445,30 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 </dd>
 </dl></div>
 </dd>
+<dt id="control.admin.Admin.undeleteItem"><code class="name flex">
+<span>def <span class="ident">undeleteItem</span></span>(<span>self, table, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes an item, project or edition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The kind of item: <code>project</code> or <code>edition</code>.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
+<dd>The item in question.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the deletion was successful.</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.undeleteItemFiles"><code class="name flex">
+<span>def <span class="ident">undeleteItemFiles</span></span>(<span>self, table, record, recordId, name)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="control.admin.Admin.update"><code class="name flex">
 <span>def <span class="ident">update</span></span>(<span>self)</span>
 </code></dt>
@@ -3600,7 +4476,8 @@ are listing: site-wide users or users related to a project or to an edition.</dd
 <div class="desc"><p>Reread the tables of users, projects, editions.</p>
 <p>Typically needed when you have used an admin function to perform
 a user administration action.</p>
-<p>This may change the permissions and hence the visibility of projects and editions.
+<p>This may change the permissions and hence the visibility of projects
+and editions.
 It also changes the possible user management actions in the future.</p></div>
 </dd>
 <dt id="control.admin.Admin.wrap"><code class="name flex">
@@ -3615,6 +4492,322 @@ with their associated users and roles.</p>
 users and items, they will be editable.</p>
 <p>The second overview is for admin/roots only.
 It shows a list of users and their site-wide roles, which can be changed.</p></div>
+</dd>
+<dt id="control.admin.Admin.wrapAllProjects"><code class="name flex">
+<span>def <span class="ident">wrapAllProjects</span></span>(<span>self, projectsAll)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the list of all projects.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectsAll</code></strong> :&ensp;<code>list</code></dt>
+<dd>The list of all projects, in as far they have not been marked as deleted.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapDelEdition"><code class="name flex">
+<span>def <span class="ident">wrapDelEdition</span></span>(<span>self, edition, pDeleted)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a deleted edition in admin view.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>edition</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>An edition record</dd>
+<dt><strong><code>pDeleted</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Whether the parent project is currently deleted.
+We do not allow undelete actions of editions if their parents are
+still deleted.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapDelProject"><code class="name flex">
+<span>def <span class="ident">wrapDelProject</span></span>(<span>self, project)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a deleted project in admin view.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>A record of a project that is deleted or has deleted editions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapDeletedItems"><code class="name flex">
+<span>def <span class="ident">wrapDeletedItems</span></span>(<span>self, delProjectsAll)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the list of all deleted projects and editions.</p>
+<p>All projects that have been marked as deleted or contain editions that
+have been marked as deleted, are listed,
+together with their marked-deleted editions.</p>
+<p>For each marked-deleted item that is in the grace period of 30 days,
+a control is added to restore it.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>delProjectsAll</code></strong> :&ensp;<code>list</code></dt>
+<dd>The list of all projects that are either marked deleted or have
+editions that are marked deleted, all within the grace period of 30 days.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapEdition"><code class="name flex">
+<span>def <span class="ident">wrapEdition</span></span>(<span>self, edition)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for an edition in admin view.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>edition</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>An edition record</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapKeywordControls"><code class="name flex">
+<span>def <span class="ident">wrapKeywordControls</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the keyword management.</p>
+<p>The keywords sit in a table with name <code>keyword</code>.
+Each record corresponds to a keyword, each keyword has fields:</p>
+<ul>
+<li><em>name</em>: the name of the metadata field of which it is a value;</li>
+<li><em>value</em>: the keyword itself;</li>
+</ul>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapLinkUser"><code class="name flex">
+<span>def <span class="ident">wrapLinkUser</span></span>(<span>self, roles, itemRoles, table, recordId)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML to add a user in a specified role.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>roles</code></strong> :&ensp;<code>string | void</code></dt>
+<dd>The choice of roles that a new user can get.</dd>
+<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Dictionary keyed by the possible roles and valued by the description
+of that role.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either None or <code>project</code> or <code>edition</code>, indicates to what we are linking
+users: site-wide users or users related to a project or to an edition.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>Either None or the id of a project or edition, corresponding to the
+<code>table</code> parameter.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapMyDetails"><code class="name flex">
+<span>def <span class="ident">wrapMyDetails</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the details of the current user.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectsAll</code></strong> :&ensp;<code>list</code></dt>
+<dd>The list of all projects</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapMyProjects"><code class="name flex">
+<span>def <span class="ident">wrapMyProjects</span></span>(<span>self, projectsAll)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the list of the projects of the current user.</p>
+<p>Only projects and editions that are not marked as deleted show up.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>projectsAll</code></strong> :&ensp;<code>list</code></dt>
+<dd>The list of all projects</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapProject"><code class="name flex">
+<span>def <span class="ident">wrapProject</span></span>(<span>self, project, myOnly=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a project in admin view.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>project</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>A project record</dd>
+<dt><strong><code>myOnly</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether to show only the editions in the project that are associated
+with the current user.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapPubControls"><code class="name flex">
+<span>def <span class="ident">wrapPubControls</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the published projects in admin view.</p>
+<p>Currently, it provides</p>
+<ul>
+<li>a control to edit the list of featured published projects in a
+rather coarse manner.</li>
+<li>a control to regenerate the static pages</li>
+</ul>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapRole"><code class="name flex">
+<span>def <span class="ident">wrapRole</span></span>(<span>self, u, itemRoles, role, editable, otherRoles, table, recordId)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a role.</p>
+<p>This may or may not be an editable widget, depending on whether there
+are options to choose from.</p>
+<p>Site-wide users have a single site-wide role. But project/edition users
+can have zero or one role wrt projects/editions.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>u</code></strong> :&ensp;<code>string</code></dt>
+<dd>The eppn of the user.</dd>
+<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Dictionary keyed by the possible roles and valued by the description
+of that role.</dd>
+<dt><strong><code>role</code></strong> :&ensp;<code>string | void</code></dt>
+<dd>The actual role of the user, or None if the user has no role.</dd>
+<dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Whether the current user may change the role of this user.</dd>
+<dt><strong><code>otherRoles</code></strong> :&ensp;<code>frozenset</code></dt>
+<dd>The other roles that the target user may be assigned by the current user.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either None or <code>project</code> or <code>edition</code>, indicates what users we
+are listing: site-wide users or users related to a project or to an edition.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>Either None or the id of a project or edition, corresponding to the
+<code>table</code> parameter.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapUser"><code class="name flex">
+<span>def <span class="ident">wrapUser</span></span>(<span>self, u, uRecord, role, editable, otherRoles, itemRoles, table, recordId, workIndicator)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a single user and his role.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>u</code></strong> :&ensp;<code>string</code></dt>
+<dd>The eppn of the user.</dd>
+<dt><strong><code>uRecord</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>The user record.</dd>
+<dt><strong><code>role</code></strong> :&ensp;<code>string | void</code></dt>
+<dd>The actual role of the user, or None if the user has no role.</dd>
+<dt><strong><code>editable</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Whether the current user may change the role of this user.</dd>
+<dt><strong><code>otherRoles</code></strong> :&ensp;<code>frozenset</code></dt>
+<dd>The other roles that the user may get from the current user.</dd>
+<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Dictionary keyed by the possible roles and valued by the description
+of that role.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>Either None or <code>project</code> or <code>edition</code>, indicates what users we
+are listing: site-wide users or users related to a project or to an edition.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>ObjectId</code> or <code>None</code></dt>
+<dd>Either None or the id of a project or edition, corresponding to the
+<code>table</code> parameter.</dd>
+<dt><strong><code>workIndicator</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Whether to mention the number of projects and editions the user is
+involved in.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapUserControls"><code class="name flex">
+<span>def <span class="ident">wrapUserControls</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for the user management.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The html</dd>
+</dl></div>
+</dd>
+<dt id="control.admin.Admin.wrapUsers"><code class="name flex">
+<span>def <span class="ident">wrapUsers</span></span>(<span>self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate HTML for a list of users.</p>
+<p>It is dependent on the value of table/record whether it is about the users
+of a specific project/edition or the site-wide users.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>itemRoles</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Dictionary keyed by the possible roles and valued by the description
+of that role.</dd>
+<dt><strong><code>workIndicator</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
+<dd>Whether to mention the number of projects and editions the user is
+involved in.</dd>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>Either <code>project</code> or <code>edition</code>, indicates what users we are listing:
+related to a project or to an edition.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code>, optional <code>None</code></dt>
+<dd>If <code>table</code> is passed and not None, here is the specific project or edition
+whose users should be listed.</dd>
+<dt><strong><code>theseUsers</code></strong> :&ensp;<code>dict</code>, optional <code>None</code></dt>
+<dd>If table/record is not specified, you can specify users here.
+If this parameter is also None, then all users in the system are taken.
+Otherwise, you have to specify a dict, keyed by user eppns and valued by
+tuples consisting of a user record and a role.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string</code></dt>
+<dd>The HTML</dd>
+</dl></div>
 </dd>
 </dl>
 </dd>
@@ -3694,8 +4887,25 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.admin.Admin.pubTerminate" href="#control.admin.Admin.pubTerminate">pubTerminate</a></code></li>
 <li><code><a title="control.admin.Admin.saveKeyword" href="#control.admin.Admin.saveKeyword">saveKeyword</a></code></li>
 <li><code><a title="control.admin.Admin.saveRole" href="#control.admin.Admin.saveRole">saveRole</a></code></li>
+<li><code><a title="control.admin.Admin.undeleteItem" href="#control.admin.Admin.undeleteItem">undeleteItem</a></code></li>
+<li><code><a title="control.admin.Admin.undeleteItemFiles" href="#control.admin.Admin.undeleteItemFiles">undeleteItemFiles</a></code></li>
 <li><code><a title="control.admin.Admin.update" href="#control.admin.Admin.update">update</a></code></li>
 <li><code><a title="control.admin.Admin.wrap" href="#control.admin.Admin.wrap">wrap</a></code></li>
+<li><code><a title="control.admin.Admin.wrapAllProjects" href="#control.admin.Admin.wrapAllProjects">wrapAllProjects</a></code></li>
+<li><code><a title="control.admin.Admin.wrapDelEdition" href="#control.admin.Admin.wrapDelEdition">wrapDelEdition</a></code></li>
+<li><code><a title="control.admin.Admin.wrapDelProject" href="#control.admin.Admin.wrapDelProject">wrapDelProject</a></code></li>
+<li><code><a title="control.admin.Admin.wrapDeletedItems" href="#control.admin.Admin.wrapDeletedItems">wrapDeletedItems</a></code></li>
+<li><code><a title="control.admin.Admin.wrapEdition" href="#control.admin.Admin.wrapEdition">wrapEdition</a></code></li>
+<li><code><a title="control.admin.Admin.wrapKeywordControls" href="#control.admin.Admin.wrapKeywordControls">wrapKeywordControls</a></code></li>
+<li><code><a title="control.admin.Admin.wrapLinkUser" href="#control.admin.Admin.wrapLinkUser">wrapLinkUser</a></code></li>
+<li><code><a title="control.admin.Admin.wrapMyDetails" href="#control.admin.Admin.wrapMyDetails">wrapMyDetails</a></code></li>
+<li><code><a title="control.admin.Admin.wrapMyProjects" href="#control.admin.Admin.wrapMyProjects">wrapMyProjects</a></code></li>
+<li><code><a title="control.admin.Admin.wrapProject" href="#control.admin.Admin.wrapProject">wrapProject</a></code></li>
+<li><code><a title="control.admin.Admin.wrapPubControls" href="#control.admin.Admin.wrapPubControls">wrapPubControls</a></code></li>
+<li><code><a title="control.admin.Admin.wrapRole" href="#control.admin.Admin.wrapRole">wrapRole</a></code></li>
+<li><code><a title="control.admin.Admin.wrapUser" href="#control.admin.Admin.wrapUser">wrapUser</a></code></li>
+<li><code><a title="control.admin.Admin.wrapUserControls" href="#control.admin.Admin.wrapUserControls">wrapUserControls</a></code></li>
+<li><code><a title="control.admin.Admin.wrapUsers" href="#control.admin.Admin.wrapUsers">wrapUsers</a></code></li>
 </ul>
 </li>
 </ul>

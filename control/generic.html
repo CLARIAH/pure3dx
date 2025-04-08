@@ -26,13 +26,16 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/generic.py#L1-L275" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/generic.py#L1-L324" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import re
+<pre><code class="python">import os
+import re
 from datetime import datetime as dt, UTC
 from functools import cmp_to_key as keyFromComparison
 
 from bson.objectid import ObjectId
+
+mTime = os.path.getmtime
 
 
 VERSION_COMP_RE = re.compile(
@@ -105,6 +108,33 @@ def pseudoisonow():
     return isonow().replace(&#34;:&#34;, &#34;-&#34;)
 
 
+def dateOnly(iso):
+    return iso.strip().split(&#34;T&#34;, 1)[0]
+
+
+def getDelta(days, refDate, iso=True):
+    if refDate is None:
+        # undefined dates count as not recent
+        return 0
+
+    delta = utcnow() - (
+        dt.fromisoformat(refDate) if iso else dt.fromtimestamp(refDate, tz=UTC)
+    )
+    deltaDays = delta.days + delta.seconds / 86400
+
+    return deltaDays
+
+
+def lessAgo(days, refDate, iso=True):
+    return 0 &lt;= getDelta(days, refDate, iso=iso) &lt; days
+
+
+def amountTogo(days, refDate, iso=True):
+    deltaDays = getDelta(days, refDate, iso=iso)
+
+    return days - deltaDays
+
+
 def splitComp(c):
     return [m for m in VERSION_COMP_RE.findall(c) if m[0] or m[1]]
 
@@ -169,6 +199,25 @@ def attResolve(attSpec, version):
             return v
 
     return default
+
+
+def plainify(value):
+    &#34;&#34;&#34;Make sure that the value is either a string or a list of strings.
+
+    If it is a dict, turn it into a list of stringified key-value pairs.
+    &#34;&#34;&#34;
+    tp = type(value)
+
+    if value is None:
+        return &#34;&#34;
+
+    if tp is list:
+        return [plainify(v) for v in value]
+
+    if tp is dict:
+        return [f&#34;{k}: {plainify(v)}&#34; for (k, v) in value.items()]
+
+    return str(value)
 
 
 class AttrDict(dict):
@@ -312,8 +361,20 @@ def deepAttrDict(info, preferTuples=False):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="control.generic.amountTogo"><code class="name flex">
+<span>def <span class="ident">amountTogo</span></span>(<span>days, refDate, iso=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="control.generic.attResolve"><code class="name flex">
 <span>def <span class="ident">attResolve</span></span>(<span>attSpec, version)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="control.generic.dateOnly"><code class="name flex">
+<span>def <span class="ident">dateOnly</span></span>(<span>iso)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -362,6 +423,12 @@ and functions.</dd>
 each value of type <code><a title="control.generic.AttrDict" href="#control.generic.AttrDict">AttrDict</a></code> is turned into a <code>dict</code>.</dd>
 </dl></div>
 </dd>
+<dt id="control.generic.getDelta"><code class="name flex">
+<span>def <span class="ident">getDelta</span></span>(<span>days, refDate, iso=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="control.generic.getVersionKeyFunc"><code class="name flex">
 <span>def <span class="ident">getVersionKeyFunc</span></span>(<span>)</span>
 </code></dt>
@@ -385,11 +452,24 @@ each value of type <code><a title="control.generic.AttrDict" href="#control.gene
 <dd>E.g. <code>2024-11-13T10:53:15Z</code></dd>
 </dl></div>
 </dd>
+<dt id="control.generic.lessAgo"><code class="name flex">
+<span>def <span class="ident">lessAgo</span></span>(<span>days, refDate, iso=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="control.generic.makeComps"><code class="name flex">
 <span>def <span class="ident">makeComps</span></span>(<span>v)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt id="control.generic.plainify"><code class="name flex">
+<span>def <span class="ident">plainify</span></span>(<span>value)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Make sure that the value is either a string or a list of strings.</p>
+<p>If it is a dict, turn it into a list of stringified key-value pairs.</p></div>
 </dd>
 <dt id="control.generic.pseudoisonow"><code class="name flex">
 <span>def <span class="ident">pseudoisonow</span></span>(<span>)</span>
@@ -457,7 +537,7 @@ dict by means of keys, like <code>xxx["yyy"]</code> rather then by attribute lik
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/generic.py#L144-L181" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/generic.py#L193-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AttrDict(dict):
     &#34;&#34;&#34;Turn a dict into an object with attributes.
@@ -576,12 +656,17 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
+<li><code><a title="control.generic.amountTogo" href="#control.generic.amountTogo">amountTogo</a></code></li>
 <li><code><a title="control.generic.attResolve" href="#control.generic.attResolve">attResolve</a></code></li>
+<li><code><a title="control.generic.dateOnly" href="#control.generic.dateOnly">dateOnly</a></code></li>
 <li><code><a title="control.generic.deepAttrDict" href="#control.generic.deepAttrDict">deepAttrDict</a></code></li>
 <li><code><a title="control.generic.deepdict" href="#control.generic.deepdict">deepdict</a></code></li>
+<li><code><a title="control.generic.getDelta" href="#control.generic.getDelta">getDelta</a></code></li>
 <li><code><a title="control.generic.getVersionKeyFunc" href="#control.generic.getVersionKeyFunc">getVersionKeyFunc</a></code></li>
 <li><code><a title="control.generic.isonow" href="#control.generic.isonow">isonow</a></code></li>
+<li><code><a title="control.generic.lessAgo" href="#control.generic.lessAgo">lessAgo</a></code></li>
 <li><code><a title="control.generic.makeComps" href="#control.generic.makeComps">makeComps</a></code></li>
+<li><code><a title="control.generic.plainify" href="#control.generic.plainify">plainify</a></code></li>
 <li><code><a title="control.generic.pseudoisonow" href="#control.generic.pseudoisonow">pseudoisonow</a></code></li>
 <li><code><a title="control.generic.splitComp" href="#control.generic.splitComp">splitComp</a></code></li>
 <li><code><a title="control.generic.utcnow" href="#control.generic.utcnow">utcnow</a></code></li>

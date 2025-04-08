@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/pages.py#L1-L1110" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/pages.py#L1-L1110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from .flask import redirectStatus, renderTemplate, sendFile, getReferrer
 
@@ -339,7 +339,7 @@ class Pages:
         return self.page(&#34;projects&#34;, left=left)
 
     def admin(self):
-        &#34;&#34;&#34;The page with the list of projects, editions, and users.
+        &#34;&#34;&#34;The page with the controls on the relevant projects, editions, and users.
 
         Returns
         -------
@@ -347,10 +347,12 @@ class Pages:
         &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
+
         if recordId is None:
             left = None
         else:
             (left, right) = Content.getAdmin()
+
         return self.page(&#34;admin&#34;, left=left, right=right)
 
     def createUser(self, user):
@@ -478,9 +480,11 @@ class Pages:
 
         mainFields = Content.getMetaFields(&#34;project&#34;, &#34;main&#34;, level=3)
         otherFields = Content.getMetaFields(&#34;project&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=3)
+        icon = Content.getUpload(project, &#34;iconProject&#34;)
 
         left = (
-            Content.getValues(&#34;project&#34;, project, mainFields)
+            icon
+            + Content.getValues(&#34;project&#34;, project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -599,9 +603,11 @@ class Pages:
         )
         mainFields = Content.getMetaFields(&#34;edition&#34;, &#34;main&#34;, level=4)
         otherFields = Content.getMetaFields(&#34;edition&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=4)
+        icon = Content.getUpload(edition, &#34;iconEdition&#34;)
 
         left = (
             breadCrumb
+            + icon
             + Content.getValues(&#34;edition&#34;, edition, mainFields)
             + publishButton
             + actionHeading
@@ -708,7 +714,6 @@ class Pages:
         -------
         response
         &#34;&#34;&#34;
-        Messages = self.Messages
         Mongo = self.Mongo
         Content = self.Content
 
@@ -722,16 +727,11 @@ class Pages:
         result = Content.deleteItem(table, record)
 
         if result:
-            Messages.info(logmsg=f&#34;Deleted {table} {recordId}&#34;, msg=f&#34;{table} deleted&#34;)
             back = &#34;/project&#34;
+
             if table == &#34;edition&#34;:
                 projectId = record.projectId
                 back += f&#34;/{projectId}&#34;
-        else:
-            Messages.warning(
-                logmsg=f&#34;Could not delete {table} {recordId}&#34;,
-                msg=f&#34;failed to delete {table}&#34;,
-            )
         return redirectStatus(back, True)
 
     def viewerFrame(self, edition, version, action, subMode):
@@ -1182,7 +1182,7 @@ If so, it the return value will be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/pages.py#L4-L1110" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/pages.py#L4-L1110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Pages:
     def __init__(self, Settings, Viewers, Messages, Mongo, Content, Backup, Auth):
@@ -1492,7 +1492,7 @@ If so, it the return value will be documented.</p>
         return self.page(&#34;projects&#34;, left=left)
 
     def admin(self):
-        &#34;&#34;&#34;The page with the list of projects, editions, and users.
+        &#34;&#34;&#34;The page with the controls on the relevant projects, editions, and users.
 
         Returns
         -------
@@ -1500,10 +1500,12 @@ If so, it the return value will be documented.</p>
         &#34;&#34;&#34;
         Content = self.Content
         (table, recordId, record) = Content.relevant()
+
         if recordId is None:
             left = None
         else:
             (left, right) = Content.getAdmin()
+
         return self.page(&#34;admin&#34;, left=left, right=right)
 
     def createUser(self, user):
@@ -1631,9 +1633,11 @@ If so, it the return value will be documented.</p>
 
         mainFields = Content.getMetaFields(&#34;project&#34;, &#34;main&#34;, level=3)
         otherFields = Content.getMetaFields(&#34;project&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=3)
+        icon = Content.getUpload(project, &#34;iconProject&#34;)
 
         left = (
-            Content.getValues(&#34;project&#34;, project, mainFields)
+            icon
+            + Content.getValues(&#34;project&#34;, project, mainFields)
             + publishInfo
             + actionHeading
             + downloadButton
@@ -1752,9 +1756,11 @@ If so, it the return value will be documented.</p>
         )
         mainFields = Content.getMetaFields(&#34;edition&#34;, &#34;main&#34;, level=4)
         otherFields = Content.getMetaFields(&#34;edition&#34;, [&#34;narrative&#34;, &#34;box&#34;], level=4)
+        icon = Content.getUpload(edition, &#34;iconEdition&#34;)
 
         left = (
             breadCrumb
+            + icon
             + Content.getValues(&#34;edition&#34;, edition, mainFields)
             + publishButton
             + actionHeading
@@ -1861,7 +1867,6 @@ If so, it the return value will be documented.</p>
         -------
         response
         &#34;&#34;&#34;
-        Messages = self.Messages
         Mongo = self.Mongo
         Content = self.Content
 
@@ -1875,16 +1880,11 @@ If so, it the return value will be documented.</p>
         result = Content.deleteItem(table, record)
 
         if result:
-            Messages.info(logmsg=f&#34;Deleted {table} {recordId}&#34;, msg=f&#34;{table} deleted&#34;)
             back = &#34;/project&#34;
+
             if table == &#34;edition&#34;:
                 projectId = record.projectId
                 back += f&#34;/{projectId}&#34;
-        else:
-            Messages.warning(
-                logmsg=f&#34;Could not delete {table} {recordId}&#34;,
-                msg=f&#34;failed to delete {table}&#34;,
-            )
         return redirectStatus(back, True)
 
     def viewerFrame(self, edition, version, action, subMode):
@@ -2298,7 +2298,7 @@ If so, it the return value will be documented.</p>
 <span>def <span class="ident">admin</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>The page with the list of projects, editions, and users.</p>
+<div class="desc"><p>The page with the controls on the relevant projects, editions, and users.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>response</code></dt>

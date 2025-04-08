@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/publish.py#L1-L513" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/publish.py#L1-L515" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from traceback import format_exception
 from .mongo import Mongo
@@ -122,7 +122,7 @@ class Publish:
 
         def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, **condition)
+                itemsDb = Mongo.getList(kind, condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -139,7 +139,7 @@ class Publish:
         if pPubNumLast is None:
             # because there is only 1 site in the database,
             # we can retrieve it without paramaters
-            site = Mongo.getRecord(&#34;site&#34;)
+            site = Mongo.getRecord(&#34;site&#34;, {})
 
             if &#34;publishedProjectCount&#34; in site:
                 pPubNum = site[&#34;publishedProjectCount&#34;] + 1
@@ -148,7 +148,7 @@ class Publish:
                 # to make sure no two project have the same pubNum
                 pPubNum = getNum(&#34;project&#34;, pPubNumLast, {}, projectDir)
 
-            Mongo.updateRecord(&#34;site&#34;, {&#34;publishedProjectCount&#34;: pPubNum})
+            Mongo.updateRecord(&#34;site&#34;, {}, {&#34;publishedProjectCount&#34;: pPubNum})
 
         else:
             pPubNum = pPubNumLast
@@ -166,7 +166,7 @@ class Publish:
                 ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
             Mongo.updateRecord(
-                &#34;project&#34;, {&#34;publishedEditionCount&#34;: ePubNum}, _id=project._id
+                &#34;project&#34;, dict(_id=project._id), {&#34;publishedEditionCount&#34;: ePubNum}
             )
         else:
             ePubNum = ePubNumLast
@@ -228,7 +228,7 @@ class Publish:
         now = isonow()
 
         Mongo.updateRecord(
-            &#34;site&#34;, dict(processing=True, lastPublished=now), _id=site._id
+            &#34;site&#34;, dict(_id=site._id), dict(processing=True, lastPublished=now)
         )
 
         # make sure that if something fails, the publishing flag will be reset
@@ -249,7 +249,7 @@ class Publish:
 
         def restore(table):
             info = orig[table]
-            Mongo.updateRecord(table, info.updates, **info.condition)
+            Mongo.updateRecord(table, info.condition, info.updates)
 
         # quit early, without doing anything, if the action is not applicable
 
@@ -319,8 +319,8 @@ class Publish:
                 try:
                     stage = f&#34;set pubnum for project to {pPubNum}&#34;
                     update = dict(pubNum=pPubNum, isVisible=True)
-                    Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-                    project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
+                    Mongo.updateRecord(&#34;project&#34;, dict(_id=project._id), update)
+                    project = Mongo.getRecord(&#34;project&#34;, dict(_id=project._id))
 
                     stage = f&#34;set pubnum for edition to {ePubNum}&#34;
                     update = {
@@ -328,8 +328,8 @@ class Publish:
                         &#34;isPublished&#34;: True,
                         datePublishedPath: now,
                     }
-                    Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
+                    Mongo.updateRecord(&#34;edition&#34;, dict(_id=edition._id), update)
+                    edition = Mongo.getRecord(&#34;edition&#34;, dict(_id=edition._id))
 
                     stage = &#34;add site files&#34;
                     self.addSiteFiles(site)
@@ -378,8 +378,8 @@ class Publish:
                         &#34;isPublished&#34;: False,
                         dateUnPublishedPath: now,
                     }
-                    Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
+                    Mongo.updateRecord(&#34;edition&#34;, dict(_id=edition._id), update)
+                    edition = Mongo.getRecord(&#34;edition&#34;, dict(_id=edition._id))
 
                     stage = f&#34;remove edition files {pPubNum}/{ePubNum}&#34;
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -401,8 +401,8 @@ class Publish:
                     if len(theseEditions) == 0:
                         stage = f&#34;make project with {pPubNum} invisible&#34;
                         update = dict(isVisible=False)
-                        Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-                        project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
+                        Mongo.updateRecord(&#34;project&#34;, dict(_id=project._id), update)
+                        project = Mongo.getRecord(&#34;project&#34;, dict(_id=project._id))
 
                         stage = f&#34;remove project files {pPubNum}&#34;
                         self.removeProjectFiles(pPubNum)
@@ -452,7 +452,9 @@ class Publish:
             lastPublished = last
 
         Mongo.updateRecord(
-            &#34;site&#34;, dict(processing=False, lastPublished=lastPublished), _id=site._id
+            &#34;site&#34;,
+            dict(_id=site._id),
+            dict(processing=False, lastPublished=lastPublished),
         )
 
     def addSiteFiles(self, site):
@@ -574,7 +576,7 @@ class Publish:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/publish.py#L19-L513" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/publish.py#L19-L515" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Publish:
     def __init__(
@@ -652,7 +654,7 @@ class Publish:
 
         def getNum(kind, pubNumLast, condition, itemsDir):
             if pubNumLast is None:
-                itemsDb = Mongo.getList(kind, **condition)
+                itemsDb = Mongo.getList(kind, condition)
                 nDb = len(itemsDb)
                 maxDb = 0 if nDb == 0 else max(r.pubNum or 0 for r in itemsDb)
 
@@ -669,7 +671,7 @@ class Publish:
         if pPubNumLast is None:
             # because there is only 1 site in the database,
             # we can retrieve it without paramaters
-            site = Mongo.getRecord(&#34;site&#34;)
+            site = Mongo.getRecord(&#34;site&#34;, {})
 
             if &#34;publishedProjectCount&#34; in site:
                 pPubNum = site[&#34;publishedProjectCount&#34;] + 1
@@ -678,7 +680,7 @@ class Publish:
                 # to make sure no two project have the same pubNum
                 pPubNum = getNum(&#34;project&#34;, pPubNumLast, {}, projectDir)
 
-            Mongo.updateRecord(&#34;site&#34;, {&#34;publishedProjectCount&#34;: pPubNum})
+            Mongo.updateRecord(&#34;site&#34;, {}, {&#34;publishedProjectCount&#34;: pPubNum})
 
         else:
             pPubNum = pPubNumLast
@@ -696,7 +698,7 @@ class Publish:
                 ePubNum = getNum(kind, pubNumLast, condition, itemsDir)
 
             Mongo.updateRecord(
-                &#34;project&#34;, {&#34;publishedEditionCount&#34;: ePubNum}, _id=project._id
+                &#34;project&#34;, dict(_id=project._id), {&#34;publishedEditionCount&#34;: ePubNum}
             )
         else:
             ePubNum = ePubNumLast
@@ -758,7 +760,7 @@ class Publish:
         now = isonow()
 
         Mongo.updateRecord(
-            &#34;site&#34;, dict(processing=True, lastPublished=now), _id=site._id
+            &#34;site&#34;, dict(_id=site._id), dict(processing=True, lastPublished=now)
         )
 
         # make sure that if something fails, the publishing flag will be reset
@@ -779,7 +781,7 @@ class Publish:
 
         def restore(table):
             info = orig[table]
-            Mongo.updateRecord(table, info.updates, **info.condition)
+            Mongo.updateRecord(table, info.condition, info.updates)
 
         # quit early, without doing anything, if the action is not applicable
 
@@ -849,8 +851,8 @@ class Publish:
                 try:
                     stage = f&#34;set pubnum for project to {pPubNum}&#34;
                     update = dict(pubNum=pPubNum, isVisible=True)
-                    Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-                    project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
+                    Mongo.updateRecord(&#34;project&#34;, dict(_id=project._id), update)
+                    project = Mongo.getRecord(&#34;project&#34;, dict(_id=project._id))
 
                     stage = f&#34;set pubnum for edition to {ePubNum}&#34;
                     update = {
@@ -858,8 +860,8 @@ class Publish:
                         &#34;isPublished&#34;: True,
                         datePublishedPath: now,
                     }
-                    Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
+                    Mongo.updateRecord(&#34;edition&#34;, dict(_id=edition._id), update)
+                    edition = Mongo.getRecord(&#34;edition&#34;, dict(_id=edition._id))
 
                     stage = &#34;add site files&#34;
                     self.addSiteFiles(site)
@@ -908,8 +910,8 @@ class Publish:
                         &#34;isPublished&#34;: False,
                         dateUnPublishedPath: now,
                     }
-                    Mongo.updateRecord(&#34;edition&#34;, update, _id=edition._id)
-                    edition = Mongo.getRecord(&#34;edition&#34;, _id=edition._id)
+                    Mongo.updateRecord(&#34;edition&#34;, dict(_id=edition._id), update)
+                    edition = Mongo.getRecord(&#34;edition&#34;, dict(_id=edition._id))
 
                     stage = f&#34;remove edition files {pPubNum}/{ePubNum}&#34;
                     self.removeEditionFiles(pPubNum, ePubNum)
@@ -931,8 +933,8 @@ class Publish:
                     if len(theseEditions) == 0:
                         stage = f&#34;make project with {pPubNum} invisible&#34;
                         update = dict(isVisible=False)
-                        Mongo.updateRecord(&#34;project&#34;, update, _id=project._id)
-                        project = Mongo.getRecord(&#34;project&#34;, _id=project._id)
+                        Mongo.updateRecord(&#34;project&#34;, dict(_id=project._id), update)
+                        project = Mongo.getRecord(&#34;project&#34;, dict(_id=project._id))
 
                         stage = f&#34;remove project files {pPubNum}&#34;
                         self.removeProjectFiles(pPubNum)
@@ -982,7 +984,9 @@ class Publish:
             lastPublished = last
 
         Mongo.updateRecord(
-            &#34;site&#34;, dict(processing=False, lastPublished=lastPublished), _id=site._id
+            &#34;site&#34;,
+            dict(_id=site._id),
+            dict(processing=False, lastPublished=lastPublished),
         )
 
     def addSiteFiles(self, site):

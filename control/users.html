@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/users.py#L1-L714" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/users.py#L1-L720" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from .generic import AttrDict
 from .flask import (
@@ -434,7 +434,7 @@ class Users:
             enabled = not userActive or isSpecialUser
 
             for record in sorted(
-                Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, isSpecial=True),
+                Mongo.getList(&#34;user&#34;, dict(isSpecial=True), sort=&#34;nickname&#34;),
                 key=lambda r: r.nickname or &#34;&#34;,
             ):
                 user = record.user
@@ -534,7 +534,7 @@ class Users:
             users = None
 
             if allowed and roles is not None and roles.get(role, None) is not None:
-                userInfo = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
+                userInfo = Mongo.getList(&#34;user&#34;, {}, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
 
                 if table == &#34;site&#34;:
                     relatedUsers = [
@@ -542,9 +542,13 @@ class Users:
                     ]
                 else:
                     criteria = {f&#34;{table}Id&#34;: record._id, &#34;role&#34;: role}
-                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, **criteria)
+                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, criteria)
                     relatedUsers = sorted(
-                        (userInfo[r.user] for r in relatedUserList),
+                        (
+                            userInfo[r.user]
+                            for r in relatedUserList
+                            if r.user in userInfo
+                        ),
                         key=lambda x: x.nickname or &#34;&#34;,
                     )
                 users = tuple((u.user, u.nickname) for u in relatedUsers)
@@ -654,7 +658,7 @@ class Users:
         Mongo = self.Mongo
         User = acg.User
 
-        record = Mongo.getRecord(&#34;user&#34;, user=user)
+        record = Mongo.getRecord(&#34;user&#34;, dict(user=user))
 
         if not record:
             Messages.warning(msg=&#34;Unknown user&#34;, logmsg=f&#34;Unknown user {user}&#34;)
@@ -697,10 +701,10 @@ class Users:
 
         def fillNickname(record):
             if not record.get(&#34;nickname&#34;, None):
-                email = record.get(&#34;email&#34;, &#34;&#34;)
+                email = record.get(&#34;email&#34;, &#34;&#34;) or &#34;&#34;
                 record[&#34;nickname&#34;] = email.split(&#34;@&#34;, 1)[0] or &#34;unknown_name&#34;
 
-        record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
+        record = Mongo.getRecord(&#34;user&#34;, dict(user=user), warn=False)
         newUser = None
 
         if not record:
@@ -709,9 +713,10 @@ class Users:
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
             fillNickname(newUser)
+            newUser[&#34;role&#34;] = &#34;user&#34;
 
-            userId = Mongo.insertRecord(&#34;user&#34;, role=&#34;user&#34;, **newUser)
-            record = Mongo.getRecord(&#34;user&#34;, _id=userId)
+            userId = Mongo.insertRecord(&#34;user&#34;, newUser)
+            record = Mongo.getRecord(&#34;user&#34;, dict(_id=userId))
 
         User.clear()
 
@@ -740,7 +745,8 @@ class Users:
                     User[att] = new
 
             if changes:
-                Mongo.updateRecord(&#34;user&#34;, changes, user=User.user)
+                Mongo.updateRecord(&#34;user&#34;, dict(user=User.user), changes)
+
         return True</code></pre>
 </details>
 </section>
@@ -786,7 +792,7 @@ where it is visible and modifiable by the current request only.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/users.py#L24-L714" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/users.py#L24-L720" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Users:
     def __init__(self, Settings, Messages, Mongo):
@@ -1171,7 +1177,7 @@ where it is visible and modifiable by the current request only.</p>
             enabled = not userActive or isSpecialUser
 
             for record in sorted(
-                Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, isSpecial=True),
+                Mongo.getList(&#34;user&#34;, dict(isSpecial=True), sort=&#34;nickname&#34;),
                 key=lambda r: r.nickname or &#34;&#34;,
             ):
                 user = record.user
@@ -1271,7 +1277,7 @@ where it is visible and modifiable by the current request only.</p>
             users = None
 
             if allowed and roles is not None and roles.get(role, None) is not None:
-                userInfo = Mongo.getList(&#34;user&#34;, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
+                userInfo = Mongo.getList(&#34;user&#34;, {}, sort=&#34;nickname&#34;, asDict=&#34;user&#34;)
 
                 if table == &#34;site&#34;:
                     relatedUsers = [
@@ -1279,9 +1285,13 @@ where it is visible and modifiable by the current request only.</p>
                     ]
                 else:
                     criteria = {f&#34;{table}Id&#34;: record._id, &#34;role&#34;: role}
-                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, **criteria)
+                    relatedUserList = Mongo.getList(f&#34;{table}User&#34;, criteria)
                     relatedUsers = sorted(
-                        (userInfo[r.user] for r in relatedUserList),
+                        (
+                            userInfo[r.user]
+                            for r in relatedUserList
+                            if r.user in userInfo
+                        ),
                         key=lambda x: x.nickname or &#34;&#34;,
                     )
                 users = tuple((u.user, u.nickname) for u in relatedUsers)
@@ -1391,7 +1401,7 @@ where it is visible and modifiable by the current request only.</p>
         Mongo = self.Mongo
         User = acg.User
 
-        record = Mongo.getRecord(&#34;user&#34;, user=user)
+        record = Mongo.getRecord(&#34;user&#34;, dict(user=user))
 
         if not record:
             Messages.warning(msg=&#34;Unknown user&#34;, logmsg=f&#34;Unknown user {user}&#34;)
@@ -1434,10 +1444,10 @@ where it is visible and modifiable by the current request only.</p>
 
         def fillNickname(record):
             if not record.get(&#34;nickname&#34;, None):
-                email = record.get(&#34;email&#34;, &#34;&#34;)
+                email = record.get(&#34;email&#34;, &#34;&#34;) or &#34;&#34;
                 record[&#34;nickname&#34;] = email.split(&#34;@&#34;, 1)[0] or &#34;unknown_name&#34;
 
-        record = Mongo.getRecord(&#34;user&#34;, user=user, warn=False)
+        record = Mongo.getRecord(&#34;user&#34;, dict(user=user), warn=False)
         newUser = None
 
         if not record:
@@ -1446,9 +1456,10 @@ where it is visible and modifiable by the current request only.</p>
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
             fillNickname(newUser)
+            newUser[&#34;role&#34;] = &#34;user&#34;
 
-            userId = Mongo.insertRecord(&#34;user&#34;, role=&#34;user&#34;, **newUser)
-            record = Mongo.getRecord(&#34;user&#34;, _id=userId)
+            userId = Mongo.insertRecord(&#34;user&#34;, newUser)
+            record = Mongo.getRecord(&#34;user&#34;, dict(_id=userId))
 
         User.clear()
 
@@ -1477,7 +1488,8 @@ where it is visible and modifiable by the current request only.</p>
                     User[att] = new
 
             if changes:
-                Mongo.updateRecord(&#34;user&#34;, changes, user=User.user)
+                Mongo.updateRecord(&#34;user&#34;, dict(user=User.user), changes)
+
         return True</code></pre>
 </details>
 <h3>Subclasses</h3>

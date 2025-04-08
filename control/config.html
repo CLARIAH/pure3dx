@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/config.py#L1-L636" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/config.py#L1-L655" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
@@ -215,7 +215,7 @@ class Config:
         title = f&#34;visit {label1} of the code on GitHub&#34;
         gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
         href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
-        Settings.versionInfo = H.a(text, href, target=&#34;_blank&#34;, title=title)
+        Settings.versionInfo = H.a(text, href, target=H.blank, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -308,7 +308,12 @@ class Config:
         &#34;&#34;&#34;
 
     def checkData(self):
-        &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the project data on the file system.
+
+        We also make a separate place for the temporary directories.
+        Make sure the temp location is not inside the data location, so that when
+        the data volume is backed up, no temporary files will be backed up.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
         runMode = Settings.runMode
@@ -336,6 +341,19 @@ class Config:
 
         if self.migrate:
             return
+
+        tempDir = var(&#34;TEMP_DIR&#34;)
+
+        if tempDir is None:
+            Messages.error(logmsg=&#34;Environment variable `TEMP_DIR` not defined&#34;)
+            self.good = False
+            return
+
+        tempDir = tempDir.rstrip(&#34;/&#34;)
+        sep = &#34;/&#34; if tempDir else &#34;&#34;
+        runTempDir = f&#34;{tempDir}{sep}{runMode}&#34;
+        dirMake(runTempDir)
+        Settings.tempDir = runTempDir
 
         workingDir = f&#34;{workingParent}/{runMode}&#34;
         dirMake(workingDir)
@@ -467,7 +485,8 @@ class Config:
         yamlDir = Settings.yamlDir
 
         datamodelFile = &#34;datamodel.yml&#34;
-        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;)
+        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;, preferTuples=False)
+
         if datamodel is None:
             Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
             self.good = False
@@ -628,7 +647,7 @@ class Config:
                 &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
                 title=&#34;go to the issues on GitHub&#34;,
                 cls=&#34;large&#34;,
-                target=&#34;_blank&#34;,
+                target=H.blank,
             )
             banner = H.div(
                 [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
@@ -709,7 +728,7 @@ migration of data.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/config.py#L11-L636" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/config.py#L11-L655" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     def __init__(self, Messages, design=False, migrate=False):
@@ -888,7 +907,7 @@ migration of data.</dd>
         title = f&#34;visit {label1} of the code on GitHub&#34;
         gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
         href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
-        Settings.versionInfo = H.a(text, href, target=&#34;_blank&#34;, title=title)
+        Settings.versionInfo = H.a(text, href, target=H.blank, title=title)
 
     def checkSecret(self):
         &#34;&#34;&#34;Obtain a secret.
@@ -981,7 +1000,12 @@ migration of data.</dd>
         &#34;&#34;&#34;
 
     def checkData(self):
-        &#34;&#34;&#34;Get the location of the project data on the file system.&#34;&#34;&#34;
+        &#34;&#34;&#34;Get the location of the project data on the file system.
+
+        We also make a separate place for the temporary directories.
+        Make sure the temp location is not inside the data location, so that when
+        the data volume is backed up, no temporary files will be backed up.
+        &#34;&#34;&#34;
         Messages = self.Messages
         Settings = self.Settings
         runMode = Settings.runMode
@@ -1009,6 +1033,19 @@ migration of data.</dd>
 
         if self.migrate:
             return
+
+        tempDir = var(&#34;TEMP_DIR&#34;)
+
+        if tempDir is None:
+            Messages.error(logmsg=&#34;Environment variable `TEMP_DIR` not defined&#34;)
+            self.good = False
+            return
+
+        tempDir = tempDir.rstrip(&#34;/&#34;)
+        sep = &#34;/&#34; if tempDir else &#34;&#34;
+        runTempDir = f&#34;{tempDir}{sep}{runMode}&#34;
+        dirMake(runTempDir)
+        Settings.tempDir = runTempDir
 
         workingDir = f&#34;{workingParent}/{runMode}&#34;
         dirMake(workingDir)
@@ -1140,7 +1177,8 @@ migration of data.</dd>
         yamlDir = Settings.yamlDir
 
         datamodelFile = &#34;datamodel.yml&#34;
-        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;)
+        datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;, preferTuples=False)
+
         if datamodel is None:
             Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
             self.good = False
@@ -1301,7 +1339,7 @@ migration of data.</dd>
                 &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
                 title=&#34;go to the issues on GitHub&#34;,
                 cls=&#34;large&#34;,
-                target=&#34;_blank&#34;,
+                target=H.blank,
             )
             banner = H.div(
                 [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
@@ -1371,7 +1409,10 @@ in progress.</p>
 <span>def <span class="ident">checkData</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get the location of the project data on the file system.</p></div>
+<div class="desc"><p>Get the location of the project data on the file system.</p>
+<p>We also make a separate place for the temporary directories.
+Make sure the temp location is not inside the data location, so that when
+the data volume is backed up, no temporary files will be backed up.</p></div>
 </dd>
 <dt id="control.config.Config.checkDatamodel"><code class="name flex">
 <span>def <span class="ident">checkDatamodel</span></span>(<span>self)</span>

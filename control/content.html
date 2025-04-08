@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/content.py#L1-L2035" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/content.py#L1-L2134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import json
@@ -39,7 +39,7 @@ import yaml
 import magic
 
 from flask import jsonify
-from .generic import AttrDict, isonow
+from .generic import AttrDict, isonow, plainify
 from .files import (
     fileExists,
     fileRemove,
@@ -50,6 +50,9 @@ from .files import (
     extNm,
     readYaml,
     fSize,
+    dirNm,
+    initTree,
+    FDEL,
 )
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
@@ -124,7 +127,7 @@ class Content(Datamodel):
         if siteId is None:
             return &#34;&#34;
 
-        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;))
+        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;))
 
     def getEditions(self, project):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -154,7 +157,8 @@ class Content(Datamodel):
             return &#34;&#34;
 
         return Wrap.editionsMain(
-            project, Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;, projectId=projectId)
+            project,
+            Mongo.getList(&#34;edition&#34;, dict(projectId=projectId), sort=&#34;title&#34;),
         )
 
     def getScene(self, projectId, edition, version=None, action=None):
@@ -255,7 +259,7 @@ class Content(Datamodel):
         )
 
     def getAdmin(self):
-        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
+        &#34;&#34;&#34;Get the controls on relevant projects, editions and users.
 
         Admin users get the list of all users.
 
@@ -276,12 +280,23 @@ class Content(Datamodel):
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
+
+        (adminContent, adminToc) = Admin(self).wrap()
+
         return (
-            Admin(self).wrap(),
-            H.a(
-                &#34;Manual for admins&#34;,
-                &#34;https://github.com/CLARIAH/pure3dx/blob/main/docs/manual-admin.md&#34;,
-                target=&#34;_blank&#34;,
+            adminContent,
+            H.div(
+                [
+                    H.div(
+                        H.a(
+                            &#34;Manual for admins&#34;,
+                            &#34;https://github.com/CLARIAH/pure3dx&#34;
+                            &#34;/blob/main/docs/manual-admin.md&#34;,
+                            target=H.blank,
+                        )
+                    ),
+                    H.div(adminToc),
+                ],
             ),
         )
 
@@ -325,10 +340,10 @@ class Content(Datamodel):
             dateCreated=isonow(),
         )
         projectId = Mongo.insertRecord(
-            &#34;project&#34;, title=title, siteId=siteId, dc=dcMeta, isVisible=False
+            &#34;project&#34;, dict(title=title, siteId=siteId, dc=dcMeta, isVisible=False)
         )
         Mongo.insertRecord(
-            &#34;projectUser&#34;, projectId=projectId, user=user, role=&#34;organiser&#34;
+            &#34;projectUser&#34;, dict(projectId=projectId, user=user, role=&#34;organiser&#34;)
         )
         projectDir = f&#34;{workingDir}/project/{projectId}&#34;
         if dirExists(projectDir):
@@ -344,6 +359,9 @@ class Content(Datamodel):
     def deleteItem(self, table, record):
         &#34;&#34;&#34;Deletes an item, project or edition.
 
+        Deletion means: mark as deleted.
+        A record is marked as deleted if it has a field `markedDeleted: true` in it.
+
         Parameters
         ----------
         table: string
@@ -356,30 +374,42 @@ class Content(Datamodel):
         boolean
             Whether the deletion was successful.
         &#34;&#34;&#34;
-        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;DELETE (on behalf of {name}) {itemRep}: &#34;
+
         if recordId is None:
             Messages.warning(
                 msg=f&#34;Delete {table}: no such {table}&#34;,
-                logmsg=f&#34;Delete {table}: no {table} {recordId}&#34;,
+                logmsg=f&#34;{head}Not found&#34;,
             )
             return None
 
         permitted = Auth.authorise(table, record, action=&#34;delete&#34;)
+
         if not permitted:
+            Messages.error(
+                msg=f&#34;Delete {table}: no such {table}&#34;,
+                logmsg=f&#34;{head}Not permitted&#34;,
+            )
             return None
 
         details = self.getDetailRecords(table, record)
         nDetails = len(details)
+
         if nDetails:
+            plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
             Messages.warning(
-                msg=f&#34;Cannot delete {table} because it has {nDetails} detail records&#34;,
-                logmsg=f&#34;Delete {table} {recordId} prevented: {nDetails} details&#34;,
+                msg=f&#34;Cannot delete {table} because it has &#34;
+                f&#34;{nDetails} detail record{plural}&#34;,
+                logmsg=f&#34;{head}Prevented because of {nDetails} detail record{plural}&#34;,
             )
             return None
 
@@ -389,49 +419,95 @@ class Content(Datamodel):
 
         if links:
             for linkTable, linkCriteria in links.items():
-                (thisGood, count) = Mongo.deleteRecords(linkTable, **linkCriteria)
+                (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, name)
+
                 if not thisGood:
                     good = False
                     Messages.error(
                         msg=f&#34;Error during removing link records from {linkTable}&#34;,
                         logmsg=(
-                            &#34;Cannot delete records from &#34;
-                            f&#34;{linkTable} by {linkCriteria}&#34;
+                            &#34;{head}Cannot delete link records from &#34;
+                            f&#34;{linkTable} with {linkCriteria}&#34;
                         ),
                     )
                     break
 
+                plural = &#34;&#34; if count == 1 else &#34;s&#34;
                 Messages.info(
-                    msg=f&#34;Deleted {count} link records from {linkTable}&#34;,
-                    logmsg=f&#34;Deleted {count} link records from {linkTable}&#34;,
+                    logmsg=(
+                        f&#34;{head}Deleted {count} link record{plural} from {linkTable}&#34;
+                    )
                 )
 
         if not good:
             return False
 
-        good = Mongo.deleteRecord(table, _id=recordId)
+        good = self.deleteItemFiles(table, record, recordId, name)
 
-        if not good:
+        if good:
+            Messages.info(logmsg=f&#34;{head}deleted the {table} record&#34;)
+        else:
+            Messages.error(logmsg=f&#34;{head}could not delete this {table} record&#34;)
             return False
 
-        itemDirHead = workingDir
-        itemDirTail = f&#34;{table}/{recordId}&#34;
-        if table == &#34;edition&#34;:
-            projectId = record.projectId
-            itemDirHead += f&#34;/project/{projectId}&#34;
-        itemDir = f&#34;{itemDirHead}/{itemDirTail}&#34;
+        good = Mongo.deleteRecord(table, dict(_id=recordId), name)
 
-        if dirExists(itemDir):
-            dirRemove(itemDir)
+        if good:
             Messages.info(
-                msg=f&#34;The {table} directory is removed&#34;,
-                logmsg=f&#34;The {table} dir {itemDir} is removed&#34;,
+                msg=f&#34;Deleted {table}&#34;,
+                logmsg=f&#34;{head}Success&#34;,
             )
         else:
-            Messages.warning(
-                msg=f&#34;The {table} directory on file system did not exist&#34;,
-                logmsg=f&#34;The {table} dir {itemDir} did not exist&#34;,
+            Messages.error(
+                msg=f&#34;Failed to delete {table}&#34;,
+                logmsg=f&#34;{head}Failed&#34;,
             )
+
+        return good
+
+    def deleteItemFiles(self, table, record, recordId, name):
+        &#34;&#34;&#34;Deletes the files that correspond to a project or edition.
+
+        Deletion means: mark as deleted.
+        A directory is marked as deleted if it has a file `__deleted__.txt` in it.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: AttrDict
+            The item record in question.
+        recordId: AttrDict
+            The the id of the item record in question.
+        name: string
+            The user name of the user that triggered the delete action.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        if table == &#34;project&#34;:
+            itemDirTail = f&#34;{table}/{recordId}&#34;
+        elif table == &#34;edition&#34;:
+            projectId = record.projectId
+            itemDirTail = f&#34;/project/{projectId}/{table}/{recordId}&#34;
+
+        itemDir = f&#34;{workingDir}/{itemDirTail}&#34;
+
+        head = f&#34;DELETE DIRECTORY (on behalf of {name}) {itemDirTail}: &#34;
+
+        if dirExists(itemDir):
+            Messages.info(logmsg=f&#34;{head}by adding {FDEL}&#34;)
+
+            with open(f&#34;{itemDir}/{FDEL}&#34;, &#34;w&#34;) as fh:
+                fh.write(&#34;deleted\n&#34;)
+        else:
+            Messages.info(logmsg=f&#34;{head}no such directory&#34;)
 
         return True
 
@@ -498,13 +574,17 @@ class Content(Datamodel):
         )
         editionId = Mongo.insertRecord(
             &#34;edition&#34;,
-            title=title,
-            projectId=projectId,
-            dc=dcMeta,
-            settings=editionSettings,
-            isPublished=False,
+            dict(
+                title=title,
+                projectId=projectId,
+                dc=dcMeta,
+                settings=editionSettings,
+                isPublished=False,
+            ),
         )
-        Mongo.insertRecord(&#34;editionUser&#34;, editionId=editionId, user=user, role=&#34;editor&#34;)
+        Mongo.insertRecord(
+            &#34;editionUser&#34;, dict(editionId=editionId, user=user, role=&#34;editor&#34;)
+        )
 
         editionDir = f&#34;{workingDir}/project/{projectId}/edition/{editionId}&#34;
         if dirExists(editionDir):
@@ -537,7 +617,6 @@ class Content(Datamodel):
             The relevant table.
         record: string | ObjectId | AttrDict | void
             The relevant record.
-
         key: string
             an identifier for the meta data field.
 
@@ -556,19 +635,19 @@ class Content(Datamodel):
         fieldPaths = self.fieldPaths
 
         value = json.loads(requestData())
-        permitted = Auth.authorise(table, record, action=&#34;update&#34;)
+        F = self.makeField(key, table)
+        readonly = F.readonly
+        nameSpace = F.nameSpace
+        permitted = Auth.authorise(table, record, nameSpace=nameSpace, action=&#34;update&#34;)
 
         if not permitted:
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;update not allowed&#34;]])
-
-        F = self.makeField(key, table)
-
-        readonly = F.readonly
 
         if readonly:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;{key} is not updatable&#34;]])
 
         tp = F.tp
+        multiple = F.multiple
         fieldPath = fieldPaths[key]
 
         (recordId, record) = Mongo.get(table, record)
@@ -581,17 +660,19 @@ class Content(Datamodel):
 
         sValue = (
             value
-            if tp == &#34;text&#34;
-            else value if tp == &#34;keyword&#34; else readYaml(value, plain=True, ignore=True)
+            if tp == &#34;text&#34; or tp == &#34;string&#34; and not multiple
+            else (
+                value
+                if tp == &#34;keyword&#34;
+                else plainify(readYaml(value, plain=True, ignore=True))
+            )
         )
         update = {fieldPath: sValue}
-
-        self.debug(f&#34;{update=}&#34;)
 
         if key == &#34;title&#34;:
             update[key] = sValue
 
-        if Mongo.updateRecord(table, update, _id=recordId) is None:
+        if Mongo.updateRecord(table, dict(_id=recordId), update) is None:
             return dict(
                 stat=False,
                 messages=[[&#34;error&#34;, &#34;could not update the record in the database&#34;]],
@@ -604,9 +685,9 @@ class Content(Datamodel):
         dateModifiedPath = fieldPaths[&#34;dateModified&#34;]
 
         if not self.getValue(table, record, &#34;dateCreated&#34;, manner=&#34;logical&#34;):
-            Mongo.updateRecord(table, {dateCreatedPath: now}, _id=recordId)
+            Mongo.updateRecord(table, dict(_id=recordId), {dateCreatedPath: now})
 
-        Mongo.updateRecord(table, {dateModifiedPath: now}, _id=recordId)
+        Mongo.updateRecord(table, dict(_id=recordId), {dateModifiedPath: now})
 
         return dict(
             stat=True,
@@ -763,6 +844,7 @@ class Content(Datamodel):
             return None
 
         F = self.makeField(key, table)
+        nameSpace = F.nameSpace
 
         isBare = manner in {&#34;bare&#34;, &#34;barex&#34;}
         compact = manner == &#34;barex&#34;
@@ -771,7 +853,7 @@ class Content(Datamodel):
         if isBare or isLogical:
             return F.bare(record, compact=compact) if isBare else F.logical(record)
 
-        editable = Auth.authorise(table, record, action=&#34;update&#34;)
+        editable = Auth.authorise(table, record, nameSpace=nameSpace, action=&#34;update&#34;)
         return F.formatted(record, editable=editable, level=level)
 
     def getValues(self, table, record, fieldSpecs):
@@ -797,7 +879,9 @@ class Content(Datamodel):
         return H.content(
             self.getValue(table, record, key, level=level) or &#34;&#34;
             for (key, level) in (
-                fieldSpec.strip().split(&#34;@&#34;, 1) for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+                fieldSpec.strip().split(&#34;@&#34;, 1)
+                for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+                if fieldSpec
             )
         )
 
@@ -1478,9 +1562,10 @@ class Content(Datamodel):
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        dataDir = Settings.dataDir
+        tempDir = Settings.tempDir
         workingDir = Settings.workingDir
-        runMode = Settings.runMode
+        User = Auth.myDetails()
+        name = User.nickname
 
         dontCompress = set(Settings.dontCompress)
         limits = Settings.limits
@@ -1491,14 +1576,18 @@ class Content(Datamodel):
         sizeLimit = sizeUnits * sizeUnitSize
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;DOWNLOAD (on behalf of {name}) {itemRep}: &#34;
 
         if recordId is None:
+            Messages.error(logmsg=f&#34;{head}record does not exist&#34;)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, &#34;record does not exist&#34;]])
 
         permitted = Auth.authorise(table, record, action=&#34;read&#34;)
 
         if not permitted:
-            logmsg = f&#34;DOWNLOAD {table}/{recordId}: not permitted&#34;
+            logmsg = f&#34;{head}not permitted&#34;
             msg = f&#34;Download of {table}/{recordId} not permitted&#34;
             Messages.warning(msg=msg, logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -1534,7 +1623,7 @@ class Content(Datamodel):
         if totalSize &gt; sizeLimit:
             totalUnits = int(round(totalSize / sizeUnitSize))
             logmsg = (
-                f&#34;DOWNLOAD {table}/{recordId}: too big: &#34;
+                f&#34;{head}too big: &#34;
                 f&#34;{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}&#34;
             )
             msg = (
@@ -1544,15 +1633,12 @@ class Content(Datamodel):
             Messages.error(msg=msg, logmsg=logmsg)
             return redirectStatus(f&#34;/{ref}&#34;, False)
 
-        sep = &#34;/&#34; if dataDir else &#34;&#34;
-        tempBase = f&#34;{dataDir}{sep}temp/{runMode}&#34;
-        dirMake(tempBase)
-        dst = mkdtemp(dir=tempBase)
-        Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: CREATED TEMP DIR {dst}&#34;)
+        dst = mkdtemp(dir=tempDir)
+        Messages.info(logmsg=f&#34;{head}CREATE TEMP DIR {dst}&#34;)
 
         def deleteTmpDir():
             dirRemove(dst)
-            Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}&#34;)
+            Messages.info(logmsg=f&#34;{head}DELETE TEMP DIR {dst}&#34;)
 
         good = True
 
@@ -1572,7 +1658,9 @@ class Content(Datamodel):
                 yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
 
             if edition is None:
-                editions = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;, projectId=projectId)
+                editions = Mongo.getList(
+                    &#34;edition&#34;, dict(projectId=projectId), sort=&#34;title&#34;
+                )
 
                 for ed in editions:
                     edId = ed._id
@@ -1604,11 +1692,11 @@ class Content(Datamodel):
                 compress(&#34;&#34;)
 
             dirRemove(landing)
-            Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: zipped the data&#34;)
+            Messages.info(logmsg=f&#34;{head}zipped the data&#34;)
 
         except Exception as e:
             msg = f&#34;Could not zip the {table}/{recordId} data&#34;
-            logmsg = f&#34;DOWNLOAD {table}/{recordId}: could not zip the data&#34;
+            logmsg = f&#34;{head}could not zip the data&#34;
             Messages.error(msg=msg, logmsg=msg)
             Messages.error(logmsg=&#34;&#34;.join(format_exception(e)))
             deleteTmpDir()
@@ -1641,11 +1729,11 @@ class Content(Datamodel):
 
                 except Exception as e:
                     msg = &#34;Could not stream the {table}/{recordId} data&#34;
-                    logmsg = f&#34;DOWNLOAD {table}/{recordId}: could not stream the data&#34;
+                    logmsg = f&#34;{head}could not stream the data&#34;
                     Messages.error(msg=msg, logmsg=logmsg)
                     Messages.error(logmsg=&#34;&#34;.join(format_exception(e)))
 
-                Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: streaming done&#34;)
+                Messages.info(logmsg=f&#34;{head}streaming done&#34;)
                 deleteTmpDir()
 
             result = (stream(readFileChunks()), headers)
@@ -1697,12 +1785,19 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
         workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;UPLOAD (on behalf of {name}) {itemRep}: &#34;
+
         if recordId is None:
+            Messages.error(logmsg=f&#34;{head}record does not exist&#34;)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, &#34;record does not exist&#34;]])
 
         permitted = Auth.authorise(table, record, action=&#34;update&#34;)
@@ -1716,7 +1811,7 @@ class Content(Datamodel):
         fileFullPath = f&#34;{workingDir}/{filePath}&#34;
 
         if not permitted:
-            logmsg = f&#34;Upload not permitted: {key}: {fileFullPath}&#34;
+            logmsg = f&#34;{head}Upload not permitted: {key}: {fileFullPath}&#34;
             msg = f&#34;Upload not permitted: {fileName}&#34;
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -1730,18 +1825,21 @@ class Content(Datamodel):
             destDir = f&#34;{workingDir}/{path}&#34;
             (good, msgs) = self.processModelZip(fileContent, destDir)
             if good:
+                Messages.info(logmsg=f&#34;{head}Success&#34;)
                 return jsonify(
                     status=True,
                     msgs=msgs,
                     content=H.b(&#34;Please refresh the page&#34;, cls=&#34;good&#34;),
                 )
+            Messages.info(logmsg=f&#34;{head}Failure&#34;)
             return jsonify(status=False, msgs=msgs)
 
         try:
+            initTree(dirNm(fileFullPath), fresh=False)
             with open(fileFullPath, &#34;wb&#34;) as fh:
                 fh.write(fileContent)
-        except Exception:
-            logmsg = f&#34;Could not save uploaded file: {key}: {fileFullPath}&#34;
+        except Exception as e:
+            logmsg = f&#34;{head}Could not save uploaded file: {key}: {fileFullPath} because of {e}&#34;
             msg = f&#34;Uploaded file not saved: {fileName}&#34;
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -1749,6 +1847,7 @@ class Content(Datamodel):
         content = self.getUpload(
             record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
+        Messages.info(f&#34;{head}Success&#34;)
 
         return jsonify(status=True, msgs=[[&#34;good&#34;, &#34;Done&#34;]], content=content)
 
@@ -2101,7 +2200,7 @@ class that will compose a response out of it.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/content.py#L30-L2035" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/content.py#L33-L2134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Content(Datamodel):
     def __init__(self, Settings, Messages, Viewers, Mongo, Wrap):
@@ -2170,7 +2269,7 @@ class that will compose a response out of it.</p>
         if siteId is None:
             return &#34;&#34;
 
-        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;, sort=&#34;title&#34;))
+        return Wrap.projectsMain(site, Mongo.getList(&#34;project&#34;, {}, sort=&#34;title&#34;))
 
     def getEditions(self, project):
         &#34;&#34;&#34;Get the list of the editions of a project.
@@ -2200,7 +2299,8 @@ class that will compose a response out of it.</p>
             return &#34;&#34;
 
         return Wrap.editionsMain(
-            project, Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;, projectId=projectId)
+            project,
+            Mongo.getList(&#34;edition&#34;, dict(projectId=projectId), sort=&#34;title&#34;),
         )
 
     def getScene(self, projectId, edition, version=None, action=None):
@@ -2301,7 +2401,7 @@ class that will compose a response out of it.</p>
         )
 
     def getAdmin(self):
-        &#34;&#34;&#34;Get the list of relevant projects, editions and users.
+        &#34;&#34;&#34;Get the controls on relevant projects, editions and users.
 
         Admin users get the list of all users.
 
@@ -2322,12 +2422,23 @@ class that will compose a response out of it.</p>
         &#34;&#34;&#34;
         Settings = self.Settings
         H = Settings.H
+
+        (adminContent, adminToc) = Admin(self).wrap()
+
         return (
-            Admin(self).wrap(),
-            H.a(
-                &#34;Manual for admins&#34;,
-                &#34;https://github.com/CLARIAH/pure3dx/blob/main/docs/manual-admin.md&#34;,
-                target=&#34;_blank&#34;,
+            adminContent,
+            H.div(
+                [
+                    H.div(
+                        H.a(
+                            &#34;Manual for admins&#34;,
+                            &#34;https://github.com/CLARIAH/pure3dx&#34;
+                            &#34;/blob/main/docs/manual-admin.md&#34;,
+                            target=H.blank,
+                        )
+                    ),
+                    H.div(adminToc),
+                ],
             ),
         )
 
@@ -2371,10 +2482,10 @@ class that will compose a response out of it.</p>
             dateCreated=isonow(),
         )
         projectId = Mongo.insertRecord(
-            &#34;project&#34;, title=title, siteId=siteId, dc=dcMeta, isVisible=False
+            &#34;project&#34;, dict(title=title, siteId=siteId, dc=dcMeta, isVisible=False)
         )
         Mongo.insertRecord(
-            &#34;projectUser&#34;, projectId=projectId, user=user, role=&#34;organiser&#34;
+            &#34;projectUser&#34;, dict(projectId=projectId, user=user, role=&#34;organiser&#34;)
         )
         projectDir = f&#34;{workingDir}/project/{projectId}&#34;
         if dirExists(projectDir):
@@ -2390,6 +2501,9 @@ class that will compose a response out of it.</p>
     def deleteItem(self, table, record):
         &#34;&#34;&#34;Deletes an item, project or edition.
 
+        Deletion means: mark as deleted.
+        A record is marked as deleted if it has a field `markedDeleted: true` in it.
+
         Parameters
         ----------
         table: string
@@ -2402,30 +2516,42 @@ class that will compose a response out of it.</p>
         boolean
             Whether the deletion was successful.
         &#34;&#34;&#34;
-        Settings = self.Settings
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;DELETE (on behalf of {name}) {itemRep}: &#34;
+
         if recordId is None:
             Messages.warning(
                 msg=f&#34;Delete {table}: no such {table}&#34;,
-                logmsg=f&#34;Delete {table}: no {table} {recordId}&#34;,
+                logmsg=f&#34;{head}Not found&#34;,
             )
             return None
 
         permitted = Auth.authorise(table, record, action=&#34;delete&#34;)
+
         if not permitted:
+            Messages.error(
+                msg=f&#34;Delete {table}: no such {table}&#34;,
+                logmsg=f&#34;{head}Not permitted&#34;,
+            )
             return None
 
         details = self.getDetailRecords(table, record)
         nDetails = len(details)
+
         if nDetails:
+            plural = &#34;&#34; if nDetails == 1 else &#34;s&#34;
             Messages.warning(
-                msg=f&#34;Cannot delete {table} because it has {nDetails} detail records&#34;,
-                logmsg=f&#34;Delete {table} {recordId} prevented: {nDetails} details&#34;,
+                msg=f&#34;Cannot delete {table} because it has &#34;
+                f&#34;{nDetails} detail record{plural}&#34;,
+                logmsg=f&#34;{head}Prevented because of {nDetails} detail record{plural}&#34;,
             )
             return None
 
@@ -2435,49 +2561,95 @@ class that will compose a response out of it.</p>
 
         if links:
             for linkTable, linkCriteria in links.items():
-                (thisGood, count) = Mongo.deleteRecords(linkTable, **linkCriteria)
+                (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, name)
+
                 if not thisGood:
                     good = False
                     Messages.error(
                         msg=f&#34;Error during removing link records from {linkTable}&#34;,
                         logmsg=(
-                            &#34;Cannot delete records from &#34;
-                            f&#34;{linkTable} by {linkCriteria}&#34;
+                            &#34;{head}Cannot delete link records from &#34;
+                            f&#34;{linkTable} with {linkCriteria}&#34;
                         ),
                     )
                     break
 
+                plural = &#34;&#34; if count == 1 else &#34;s&#34;
                 Messages.info(
-                    msg=f&#34;Deleted {count} link records from {linkTable}&#34;,
-                    logmsg=f&#34;Deleted {count} link records from {linkTable}&#34;,
+                    logmsg=(
+                        f&#34;{head}Deleted {count} link record{plural} from {linkTable}&#34;
+                    )
                 )
 
         if not good:
             return False
 
-        good = Mongo.deleteRecord(table, _id=recordId)
+        good = self.deleteItemFiles(table, record, recordId, name)
 
-        if not good:
+        if good:
+            Messages.info(logmsg=f&#34;{head}deleted the {table} record&#34;)
+        else:
+            Messages.error(logmsg=f&#34;{head}could not delete this {table} record&#34;)
             return False
 
-        itemDirHead = workingDir
-        itemDirTail = f&#34;{table}/{recordId}&#34;
-        if table == &#34;edition&#34;:
-            projectId = record.projectId
-            itemDirHead += f&#34;/project/{projectId}&#34;
-        itemDir = f&#34;{itemDirHead}/{itemDirTail}&#34;
+        good = Mongo.deleteRecord(table, dict(_id=recordId), name)
 
-        if dirExists(itemDir):
-            dirRemove(itemDir)
+        if good:
             Messages.info(
-                msg=f&#34;The {table} directory is removed&#34;,
-                logmsg=f&#34;The {table} dir {itemDir} is removed&#34;,
+                msg=f&#34;Deleted {table}&#34;,
+                logmsg=f&#34;{head}Success&#34;,
             )
         else:
-            Messages.warning(
-                msg=f&#34;The {table} directory on file system did not exist&#34;,
-                logmsg=f&#34;The {table} dir {itemDir} did not exist&#34;,
+            Messages.error(
+                msg=f&#34;Failed to delete {table}&#34;,
+                logmsg=f&#34;{head}Failed&#34;,
             )
+
+        return good
+
+    def deleteItemFiles(self, table, record, recordId, name):
+        &#34;&#34;&#34;Deletes the files that correspond to a project or edition.
+
+        Deletion means: mark as deleted.
+        A directory is marked as deleted if it has a file `__deleted__.txt` in it.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: AttrDict
+            The item record in question.
+        recordId: AttrDict
+            The the id of the item record in question.
+        name: string
+            The user name of the user that triggered the delete action.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        &#34;&#34;&#34;
+        Messages = self.Messages
+        Settings = self.Settings
+        workingDir = Settings.workingDir
+
+        if table == &#34;project&#34;:
+            itemDirTail = f&#34;{table}/{recordId}&#34;
+        elif table == &#34;edition&#34;:
+            projectId = record.projectId
+            itemDirTail = f&#34;/project/{projectId}/{table}/{recordId}&#34;
+
+        itemDir = f&#34;{workingDir}/{itemDirTail}&#34;
+
+        head = f&#34;DELETE DIRECTORY (on behalf of {name}) {itemDirTail}: &#34;
+
+        if dirExists(itemDir):
+            Messages.info(logmsg=f&#34;{head}by adding {FDEL}&#34;)
+
+            with open(f&#34;{itemDir}/{FDEL}&#34;, &#34;w&#34;) as fh:
+                fh.write(&#34;deleted\n&#34;)
+        else:
+            Messages.info(logmsg=f&#34;{head}no such directory&#34;)
 
         return True
 
@@ -2544,13 +2716,17 @@ class that will compose a response out of it.</p>
         )
         editionId = Mongo.insertRecord(
             &#34;edition&#34;,
-            title=title,
-            projectId=projectId,
-            dc=dcMeta,
-            settings=editionSettings,
-            isPublished=False,
+            dict(
+                title=title,
+                projectId=projectId,
+                dc=dcMeta,
+                settings=editionSettings,
+                isPublished=False,
+            ),
         )
-        Mongo.insertRecord(&#34;editionUser&#34;, editionId=editionId, user=user, role=&#34;editor&#34;)
+        Mongo.insertRecord(
+            &#34;editionUser&#34;, dict(editionId=editionId, user=user, role=&#34;editor&#34;)
+        )
 
         editionDir = f&#34;{workingDir}/project/{projectId}/edition/{editionId}&#34;
         if dirExists(editionDir):
@@ -2583,7 +2759,6 @@ class that will compose a response out of it.</p>
             The relevant table.
         record: string | ObjectId | AttrDict | void
             The relevant record.
-
         key: string
             an identifier for the meta data field.
 
@@ -2602,19 +2777,19 @@ class that will compose a response out of it.</p>
         fieldPaths = self.fieldPaths
 
         value = json.loads(requestData())
-        permitted = Auth.authorise(table, record, action=&#34;update&#34;)
+        F = self.makeField(key, table)
+        readonly = F.readonly
+        nameSpace = F.nameSpace
+        permitted = Auth.authorise(table, record, nameSpace=nameSpace, action=&#34;update&#34;)
 
         if not permitted:
             return dict(stat=False, messages=[[&#34;error&#34;, &#34;update not allowed&#34;]])
-
-        F = self.makeField(key, table)
-
-        readonly = F.readonly
 
         if readonly:
             return dict(stat=False, messages=[[&#34;error&#34;, f&#34;{key} is not updatable&#34;]])
 
         tp = F.tp
+        multiple = F.multiple
         fieldPath = fieldPaths[key]
 
         (recordId, record) = Mongo.get(table, record)
@@ -2627,17 +2802,19 @@ class that will compose a response out of it.</p>
 
         sValue = (
             value
-            if tp == &#34;text&#34;
-            else value if tp == &#34;keyword&#34; else readYaml(value, plain=True, ignore=True)
+            if tp == &#34;text&#34; or tp == &#34;string&#34; and not multiple
+            else (
+                value
+                if tp == &#34;keyword&#34;
+                else plainify(readYaml(value, plain=True, ignore=True))
+            )
         )
         update = {fieldPath: sValue}
-
-        self.debug(f&#34;{update=}&#34;)
 
         if key == &#34;title&#34;:
             update[key] = sValue
 
-        if Mongo.updateRecord(table, update, _id=recordId) is None:
+        if Mongo.updateRecord(table, dict(_id=recordId), update) is None:
             return dict(
                 stat=False,
                 messages=[[&#34;error&#34;, &#34;could not update the record in the database&#34;]],
@@ -2650,9 +2827,9 @@ class that will compose a response out of it.</p>
         dateModifiedPath = fieldPaths[&#34;dateModified&#34;]
 
         if not self.getValue(table, record, &#34;dateCreated&#34;, manner=&#34;logical&#34;):
-            Mongo.updateRecord(table, {dateCreatedPath: now}, _id=recordId)
+            Mongo.updateRecord(table, dict(_id=recordId), {dateCreatedPath: now})
 
-        Mongo.updateRecord(table, {dateModifiedPath: now}, _id=recordId)
+        Mongo.updateRecord(table, dict(_id=recordId), {dateModifiedPath: now})
 
         return dict(
             stat=True,
@@ -2809,6 +2986,7 @@ class that will compose a response out of it.</p>
             return None
 
         F = self.makeField(key, table)
+        nameSpace = F.nameSpace
 
         isBare = manner in {&#34;bare&#34;, &#34;barex&#34;}
         compact = manner == &#34;barex&#34;
@@ -2817,7 +2995,7 @@ class that will compose a response out of it.</p>
         if isBare or isLogical:
             return F.bare(record, compact=compact) if isBare else F.logical(record)
 
-        editable = Auth.authorise(table, record, action=&#34;update&#34;)
+        editable = Auth.authorise(table, record, nameSpace=nameSpace, action=&#34;update&#34;)
         return F.formatted(record, editable=editable, level=level)
 
     def getValues(self, table, record, fieldSpecs):
@@ -2843,7 +3021,9 @@ class that will compose a response out of it.</p>
         return H.content(
             self.getValue(table, record, key, level=level) or &#34;&#34;
             for (key, level) in (
-                fieldSpec.strip().split(&#34;@&#34;, 1) for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+                fieldSpec.strip().split(&#34;@&#34;, 1)
+                for fieldSpec in fieldSpecs.split(&#34;+&#34;)
+                if fieldSpec
             )
         )
 
@@ -3524,9 +3704,10 @@ class that will compose a response out of it.</p>
         Messages = self.Messages
         Mongo = self.Mongo
         Auth = self.Auth
-        dataDir = Settings.dataDir
+        tempDir = Settings.tempDir
         workingDir = Settings.workingDir
-        runMode = Settings.runMode
+        User = Auth.myDetails()
+        name = User.nickname
 
         dontCompress = set(Settings.dontCompress)
         limits = Settings.limits
@@ -3537,14 +3718,18 @@ class that will compose a response out of it.</p>
         sizeLimit = sizeUnits * sizeUnitSize
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;DOWNLOAD (on behalf of {name}) {itemRep}: &#34;
 
         if recordId is None:
+            Messages.error(logmsg=f&#34;{head}record does not exist&#34;)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, &#34;record does not exist&#34;]])
 
         permitted = Auth.authorise(table, record, action=&#34;read&#34;)
 
         if not permitted:
-            logmsg = f&#34;DOWNLOAD {table}/{recordId}: not permitted&#34;
+            logmsg = f&#34;{head}not permitted&#34;
             msg = f&#34;Download of {table}/{recordId} not permitted&#34;
             Messages.warning(msg=msg, logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -3580,7 +3765,7 @@ class that will compose a response out of it.</p>
         if totalSize &gt; sizeLimit:
             totalUnits = int(round(totalSize / sizeUnitSize))
             logmsg = (
-                f&#34;DOWNLOAD {table}/{recordId}: too big: &#34;
+                f&#34;{head}too big: &#34;
                 f&#34;{totalUnits} {sizeUnit} is  more than {sizeUnits} {sizeUnit}&#34;
             )
             msg = (
@@ -3590,15 +3775,12 @@ class that will compose a response out of it.</p>
             Messages.error(msg=msg, logmsg=logmsg)
             return redirectStatus(f&#34;/{ref}&#34;, False)
 
-        sep = &#34;/&#34; if dataDir else &#34;&#34;
-        tempBase = f&#34;{dataDir}{sep}temp/{runMode}&#34;
-        dirMake(tempBase)
-        dst = mkdtemp(dir=tempBase)
-        Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: CREATED TEMP DIR {dst}&#34;)
+        dst = mkdtemp(dir=tempDir)
+        Messages.info(logmsg=f&#34;{head}CREATE TEMP DIR {dst}&#34;)
 
         def deleteTmpDir():
             dirRemove(dst)
-            Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: DELETED TEMP DIR {dst}&#34;)
+            Messages.info(logmsg=f&#34;{head}DELETE TEMP DIR {dst}&#34;)
 
         good = True
 
@@ -3618,7 +3800,9 @@ class that will compose a response out of it.</p>
                 yaml.dump(Mongo.consolidate(project), yh, allow_unicode=True)
 
             if edition is None:
-                editions = Mongo.getList(&#34;edition&#34;, sort=&#34;title&#34;, projectId=projectId)
+                editions = Mongo.getList(
+                    &#34;edition&#34;, dict(projectId=projectId), sort=&#34;title&#34;
+                )
 
                 for ed in editions:
                     edId = ed._id
@@ -3650,11 +3834,11 @@ class that will compose a response out of it.</p>
                 compress(&#34;&#34;)
 
             dirRemove(landing)
-            Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: zipped the data&#34;)
+            Messages.info(logmsg=f&#34;{head}zipped the data&#34;)
 
         except Exception as e:
             msg = f&#34;Could not zip the {table}/{recordId} data&#34;
-            logmsg = f&#34;DOWNLOAD {table}/{recordId}: could not zip the data&#34;
+            logmsg = f&#34;{head}could not zip the data&#34;
             Messages.error(msg=msg, logmsg=msg)
             Messages.error(logmsg=&#34;&#34;.join(format_exception(e)))
             deleteTmpDir()
@@ -3687,11 +3871,11 @@ class that will compose a response out of it.</p>
 
                 except Exception as e:
                     msg = &#34;Could not stream the {table}/{recordId} data&#34;
-                    logmsg = f&#34;DOWNLOAD {table}/{recordId}: could not stream the data&#34;
+                    logmsg = f&#34;{head}could not stream the data&#34;
                     Messages.error(msg=msg, logmsg=logmsg)
                     Messages.error(logmsg=&#34;&#34;.join(format_exception(e)))
 
-                Messages.info(logmsg=f&#34;DOWNLOAD {table}/{recordId}: streaming done&#34;)
+                Messages.info(logmsg=f&#34;{head}streaming done&#34;)
                 deleteTmpDir()
 
             result = (stream(readFileChunks()), headers)
@@ -3743,12 +3927,19 @@ class that will compose a response out of it.</p>
         Mongo = self.Mongo
         Auth = self.Auth
         workingDir = Settings.workingDir
+        User = Auth.myDetails()
+        name = User.nickname
 
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
 
         (recordId, record) = Mongo.get(table, record)
+        projectRep = f&#34;{record.projectId}/&#34; if table == &#34;edition&#34; else &#34;&#34;
+        itemRep = f&#34;{table} {projectRep}{recordId}&#34;
+        head = f&#34;UPLOAD (on behalf of {name}) {itemRep}: &#34;
+
         if recordId is None:
+            Messages.error(logmsg=f&#34;{head}record does not exist&#34;)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, &#34;record does not exist&#34;]])
 
         permitted = Auth.authorise(table, record, action=&#34;update&#34;)
@@ -3762,7 +3953,7 @@ class that will compose a response out of it.</p>
         fileFullPath = f&#34;{workingDir}/{filePath}&#34;
 
         if not permitted:
-            logmsg = f&#34;Upload not permitted: {key}: {fileFullPath}&#34;
+            logmsg = f&#34;{head}Upload not permitted: {key}: {fileFullPath}&#34;
             msg = f&#34;Upload not permitted: {fileName}&#34;
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -3776,18 +3967,21 @@ class that will compose a response out of it.</p>
             destDir = f&#34;{workingDir}/{path}&#34;
             (good, msgs) = self.processModelZip(fileContent, destDir)
             if good:
+                Messages.info(logmsg=f&#34;{head}Success&#34;)
                 return jsonify(
                     status=True,
                     msgs=msgs,
                     content=H.b(&#34;Please refresh the page&#34;, cls=&#34;good&#34;),
                 )
+            Messages.info(logmsg=f&#34;{head}Failure&#34;)
             return jsonify(status=False, msgs=msgs)
 
         try:
+            initTree(dirNm(fileFullPath), fresh=False)
             with open(fileFullPath, &#34;wb&#34;) as fh:
                 fh.write(fileContent)
-        except Exception:
-            logmsg = f&#34;Could not save uploaded file: {key}: {fileFullPath}&#34;
+        except Exception as e:
+            logmsg = f&#34;{head}Could not save uploaded file: {key}: {fileFullPath} because of {e}&#34;
             msg = f&#34;Uploaded file not saved: {fileName}&#34;
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[[&#34;warning&#34;, msg]])
@@ -3795,6 +3989,7 @@ class that will compose a response out of it.</p>
         content = self.getUpload(
             record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
+        Messages.info(f&#34;{head}Success&#34;)
 
         return jsonify(status=True, msgs=[[&#34;good&#34;, &#34;Done&#34;]], content=content)
 
@@ -4258,12 +4453,38 @@ A json response with the status of the save operation:</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Deletes an item, project or edition.</p>
+<p>Deletion means: mark as deleted.
+A record is marked as deleted if it has a field <code>markedDeleted: true</code> in it.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
 <dd>The kind of item: <code>project</code> or <code>edition</code>.</dd>
 <dt><strong><code>record</code></strong> :&ensp;<code>string | ObjectId | AttrDict</code></dt>
 <dd>The item in question.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>Whether the deletion was successful.</dd>
+</dl></div>
+</dd>
+<dt id="control.content.Content.deleteItemFiles"><code class="name flex">
+<span>def <span class="ident">deleteItemFiles</span></span>(<span>self, table, record, recordId, name)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes the files that correspond to a project or edition.</p>
+<p>Deletion means: mark as deleted.
+A directory is marked as deleted if it has a file <code>__deleted__.txt</code> in it.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>table</code></strong> :&ensp;<code>string</code></dt>
+<dd>The kind of item: <code>project</code> or <code>edition</code>.</dd>
+<dt><strong><code>record</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>The item record in question.</dd>
+<dt><strong><code>recordId</code></strong> :&ensp;<code>AttrDict</code></dt>
+<dd>The the id of the item record in question.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dd>The user name of the user that triggered the delete action.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -4341,7 +4562,7 @@ A publish status response.</p></div>
 <span>def <span class="ident">getAdmin</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get the list of relevant projects, editions and users.</p>
+<div class="desc"><p>Get the controls on relevant projects, editions and users.</p>
 <p>Admin users get the list of all users.</p>
 <p>Normal users get the list of users associated with</p>
 <ul>
@@ -4979,6 +5200,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.content.Content.createUser" href="#control.content.Content.createUser">createUser</a></code></li>
 <li><code><a title="control.content.Content.deleteFile" href="#control.content.Content.deleteFile">deleteFile</a></code></li>
 <li><code><a title="control.content.Content.deleteItem" href="#control.content.Content.deleteItem">deleteItem</a></code></li>
+<li><code><a title="control.content.Content.deleteItemFiles" href="#control.content.Content.deleteItemFiles">deleteItemFiles</a></code></li>
 <li><code><a title="control.content.Content.deleteUser" href="#control.content.Content.deleteUser">deleteUser</a></code></li>
 <li><code><a title="control.content.Content.download" href="#control.content.Content.download">download</a></code></li>
 <li><code><a title="control.content.Content.generate" href="#control.content.Content.generate">generate</a></code></li>

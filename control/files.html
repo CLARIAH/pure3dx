@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/files.py#L1-L756" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/files.py#L1-L757" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import yaml
@@ -36,7 +36,6 @@ from shutil import rmtree, copytree, copy
 
 from .generic import deepAttrDict
 
-
 THREE_EXT = {&#34;glb&#34;, &#34;gltf&#34;}
 THREE_EXT_PAT = &#34;|&#34;.join(THREE_EXT)
 
@@ -44,6 +43,8 @@ IMAGE_RE = re.compile(r&#34;&#34;&#34;^.*\.(png|jpg|jpeg)$&#34;&#34;&#34;, re.I)
 THREED_RE = re.compile(rf&#34;&#34;&#34;^.*\.({THREE_EXT_PAT})$&#34;&#34;&#34;, re.I)
 
 DS_STORE = &#34;.DS_Store&#34;
+
+FDEL = &#34;__deleted__.txt&#34;
 
 
 def str_presenter(dumper, data):

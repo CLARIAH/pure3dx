@@ -32,7 +32,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L1-L1358" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/html.py#L1-L1396" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;HTML generation made easy.
 
@@ -213,6 +213,7 @@ class HtmlElements:
     apos = &#34;&amp;apos;&#34;
     quot = &#34;&amp;quot;&#34;
     nbsp = NBSP
+    blank = &#34;_blank&#34;
 
     @classmethod
     def he(cls, val):
@@ -311,7 +312,7 @@ class HtmlElements:
         if value is None:
             return E
 
-        def _wrapValue(value, isOuter):
+        def wrapValueInner(value, isOuter):
             &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
             if isOuter:
                 elem = outerElem
@@ -329,12 +330,12 @@ class HtmlElements:
 
             return thisCls.elem(
                 elem,
-                [_wrapValue(val, False) for val in value],
+                [wrapValueInner(val, False) for val in value],
                 *args,
                 **atts,
             )
 
-        return _wrapValue(value, True)
+        return wrapValueInner(value, True)
 
     @classmethod
     def elem(thisClass, tag, *args, **kwargs):
@@ -377,6 +378,26 @@ class HtmlElements:
         &#34;&#34;&#34;
 
         return HtmlElement(&#34;a&#34;).wrap(material, href=href, **atts)
+
+    @staticmethod
+    def anchor(material, name, **atts):
+        &#34;&#34;&#34;A.
+
+        Anchor.
+
+        Parameters
+        ----------
+        material: string | iterable
+            Text of the link.
+        name: string
+            Name of the anchor
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;a&#34;).wrap(material, name=name, **atts)
 
     @staticmethod
     def b(material, **atts):
@@ -1178,6 +1199,23 @@ class HtmlElements:
         &#34;&#34;&#34;
 
         return HtmlElement(&#34;p&#34;).wrap(material, **atts)
+
+    @staticmethod
+    def pre(material, **atts):
+        &#34;&#34;&#34;PRE.
+
+        Pre element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;pre&#34;).wrap(material, **atts)
 
     @staticmethod
     def script(material, **atts):
@@ -1455,7 +1493,7 @@ We want to know whether a value is a string or an iterable of strings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L46-L157" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/html.py#L46-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElement:
     &#34;&#34;&#34;Wrapping of attributes and content into an HTML element.&#34;&#34;&#34;
@@ -1671,7 +1709,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/html.py#L160-L1309" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/html.py#L160-L1347" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class HtmlElements:
     &#34;&#34;&#34;Wrap specific HTML elements and patterns.
@@ -1693,6 +1731,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
     apos = &#34;&amp;apos;&#34;
     quot = &#34;&amp;quot;&#34;
     nbsp = NBSP
+    blank = &#34;_blank&#34;
 
     @classmethod
     def he(cls, val):
@@ -1791,7 +1830,7 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         if value is None:
             return E
 
-        def _wrapValue(value, isOuter):
+        def wrapValueInner(value, isOuter):
             &#34;&#34;&#34;Inner function to be called recursively.&#34;&#34;&#34;
             if isOuter:
                 elem = outerElem
@@ -1809,12 +1848,12 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 
             return thisCls.elem(
                 elem,
-                [_wrapValue(val, False) for val in value],
+                [wrapValueInner(val, False) for val in value],
                 *args,
                 **atts,
             )
 
-        return _wrapValue(value, True)
+        return wrapValueInner(value, True)
 
     @classmethod
     def elem(thisClass, tag, *args, **kwargs):
@@ -1857,6 +1896,26 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         &#34;&#34;&#34;
 
         return HtmlElement(&#34;a&#34;).wrap(material, href=href, **atts)
+
+    @staticmethod
+    def anchor(material, name, **atts):
+        &#34;&#34;&#34;A.
+
+        Anchor.
+
+        Parameters
+        ----------
+        material: string | iterable
+            Text of the link.
+        name: string
+            Name of the anchor
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;a&#34;).wrap(material, name=name, **atts)
 
     @staticmethod
     def b(material, **atts):
@@ -2660,6 +2719,23 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
         return HtmlElement(&#34;p&#34;).wrap(material, **atts)
 
     @staticmethod
+    def pre(material, **atts):
+        &#34;&#34;&#34;PRE.
+
+        Pre element.
+
+        Parameters
+        ----------
+        material: string | iterable
+
+        Returns
+        -------
+        string(html)
+        &#34;&#34;&#34;
+
+        return HtmlElement(&#34;pre&#34;).wrap(material, **atts)
+
+    @staticmethod
     def script(material, **atts):
         &#34;&#34;&#34;SCRIPT.
 
@@ -2834,6 +2910,10 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
+<dt id="control.html.HtmlElements.blank"><code class="name">var <span class="ident">blank</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
 <dt id="control.html.HtmlElements.gt"><code class="name">var <span class="ident">gt</span></code></dt>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
@@ -2865,6 +2945,25 @@ in the <code>**atts</code> parameter, which will not further be documented.</p>
 <dd>Text of the link.</dd>
 <dt><strong><code>href</code></strong> :&ensp;<code>url</code></dt>
 <dd>Destination of the link.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string(html)</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
+</dd>
+<dt id="control.html.HtmlElements.anchor"><code class="name flex">
+<span>def <span class="ident">anchor</span></span>(<span>material, name, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A.</p>
+<p>Anchor.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>material</code></strong> :&ensp;<code>string | iterable</code></dt>
+<dd>Text of the link.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dd>Name of the anchor</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -3282,6 +3381,23 @@ Otherwise, all pieces will be joined with a newline.</dd>
 <dd>
 <div class="desc"><p>P.</p>
 <p>Paragraph.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>material</code></strong> :&ensp;<code>string | iterable</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>string(html)</code></dt>
+<dd>&nbsp;</dd>
+</dl></div>
+</dd>
+<dt id="control.html.HtmlElements.pre"><code class="name flex">
+<span>def <span class="ident">pre</span></span>(<span>material, **atts)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>PRE.</p>
+<p>Pre element.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>material</code></strong> :&ensp;<code>string | iterable</code></dt>
@@ -3814,8 +3930,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.html.HtmlElements.a" href="#control.html.HtmlElements.a">a</a></code></li>
 <li><code><a title="control.html.HtmlElements.actionButton" href="#control.html.HtmlElements.actionButton">actionButton</a></code></li>
 <li><code><a title="control.html.HtmlElements.amp" href="#control.html.HtmlElements.amp">amp</a></code></li>
+<li><code><a title="control.html.HtmlElements.anchor" href="#control.html.HtmlElements.anchor">anchor</a></code></li>
 <li><code><a title="control.html.HtmlElements.apos" href="#control.html.HtmlElements.apos">apos</a></code></li>
 <li><code><a title="control.html.HtmlElements.b" href="#control.html.HtmlElements.b">b</a></code></li>
+<li><code><a title="control.html.HtmlElements.blank" href="#control.html.HtmlElements.blank">blank</a></code></li>
 <li><code><a title="control.html.HtmlElements.body" href="#control.html.HtmlElements.body">body</a></code></li>
 <li><code><a title="control.html.HtmlElements.br" href="#control.html.HtmlElements.br">br</a></code></li>
 <li><code><a title="control.html.HtmlElements.button" href="#control.html.HtmlElements.button">button</a></code></li>
@@ -3849,6 +3967,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.html.HtmlElements.ol" href="#control.html.HtmlElements.ol">ol</a></code></li>
 <li><code><a title="control.html.HtmlElements.option" href="#control.html.HtmlElements.option">option</a></code></li>
 <li><code><a title="control.html.HtmlElements.p" href="#control.html.HtmlElements.p">p</a></code></li>
+<li><code><a title="control.html.HtmlElements.pre" href="#control.html.HtmlElements.pre">pre</a></code></li>
 <li><code><a title="control.html.HtmlElements.quot" href="#control.html.HtmlElements.quot">quot</a></code></li>
 <li><code><a title="control.html.HtmlElements.script" href="#control.html.HtmlElements.script">script</a></code></li>
 <li><code><a title="control.html.HtmlElements.select" href="#control.html.HtmlElements.select">select</a></code></li>

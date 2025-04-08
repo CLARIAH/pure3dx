@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/auth.py#L1-L398" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/auth.py#L1-L426" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from itertools import chain
 from .generic import AttrDict
@@ -61,7 +61,7 @@ class Auth(Users):
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, record, action=None, insertTable=None):
+    def authorise(self, table, record, nameSpace=None, action=None, insertTable=None):
         &#34;&#34;&#34;Check whether an action is allowed on data.
 
         The &#34;create&#34; action is a bit special, because we do not have any record
@@ -100,6 +100,11 @@ class Auth(Users):
             The id of the record that is being accessed or the record itself;
             for `create` actions it is the master record to which a new record
             will be created as a detail.
+        nameSpace: string, optional None
+            Authorisation on fields may be nameSpace dependent (fields are organised
+            in nameSpace). When you do authorisation for field access, pass the
+            nameSpace here. If you do not pass a nameSpace, and the rules encountered
+            are nameSpace dependent, nameSpace `&#39;&#39;` is assumed.
         action: string, optional None
             The action for which permission is asked.
         insertTable: string
@@ -166,6 +171,7 @@ class Auth(Users):
         state = None
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return {} if action is None else False
 
@@ -216,24 +222,32 @@ class Auth(Users):
 
         allRelatedTables = (
             {
-                relatedTable: &#34;self&#34;
-                if relatedTable == insertTable
-                else &#34;detail&#34;
-                if detailMaster[relatedTable] == insertTable
-                else &#34;master&#34;
-                if detailMaster[insertTable] == relatedTable
-                else &#34;&#34;
+                relatedTable: (
+                    &#34;self&#34;
+                    if relatedTable == insertTable
+                    else (
+                        &#34;detail&#34;
+                        if detailMaster[relatedTable] == insertTable
+                        else (
+                            &#34;master&#34;
+                            if detailMaster[insertTable] == relatedTable
+                            else &#34;&#34;
+                        )
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
             if isCreate
             else {
-                relatedTable: &#34;self&#34;
-                if relatedTable == table
-                else &#34;detail&#34;
-                if detailMaster[relatedTable] == table
-                else &#34;master&#34;
-                if detailMaster[table] == relatedTable
-                else &#34;&#34;
+                relatedTable: (
+                    &#34;self&#34;
+                    if relatedTable == table
+                    else (
+                        &#34;detail&#34;
+                        if detailMaster[relatedTable] == table
+                        else &#34;master&#34; if detailMaster[table] == relatedTable else &#34;&#34;
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
         )
@@ -244,7 +258,7 @@ class Auth(Users):
 
         userRoles = {role}
 
-        for (relatedTable, kind) in allRelatedTables.items():
+        for relatedTable, kind in allRelatedTables.items():
             if kind == &#34;&#34;:
                 continue
 
@@ -258,9 +272,10 @@ class Auth(Users):
                 if isCreate:
                     continue
 
-                crit = {relatedIdField: recordId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: recordId},
+                    warn=False,
                 )
                 extraRole = crossRecord.role
 
@@ -281,9 +296,10 @@ class Auth(Users):
                 # of the relatedTable with the user table
                 # because we find a user role there
 
-                crit = {relatedIdField: masterId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: masterId},
+                    warn=False,
                 )
                 extraRole = crossRecord.role
 
@@ -300,16 +316,17 @@ class Auth(Users):
                 # look up all detail records in the detail table
 
                 idField = f&#34;{table}Id&#34;
-                crit = {idField: recordId}
-                detailRecords = Mongo.getList(relatedTable, **crit)
+                detailRecords = Mongo.getList(relatedTable, {idField: recordId})
                 detailIds = [detailRecord._id for detailRecord in detailRecords]
 
                 # we need the cross records between these detail records and
                 # the user table, and we read the extra roles from those
                 # records
 
-                crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
-                crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
+                crossRecords = Mongo.getList(
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: {&#34;$in&#34;: detailIds}},
+                )
 
                 for crossRecord in crossRecords:
                     extraRole = crossRecord.role
@@ -325,20 +342,31 @@ class Auth(Users):
         #    roles a user needs to have to perform that action
         #    The roles itself are given as a dict, keyed by the role
         #    and valued by a boolean or a set, depending on the action.
+        #    If it is a set (in fact, a list), it is a list of nameSpace,
+        #    and the nameSpace parameter that has been passed to this function
+        #    will be used.
 
         # We compute the allowed actions resulting in a dict keyed by the action
         # and valued by a boolean.
 
         allowedActions = {}
 
-        for (act, requiredRoles) in rules.items():
+        for act, requiredRoles in rules.items():
             if requiredRoles is None:
                 continue
 
             permission = False
 
             for presentRole in userRoles:
-                if requiredRoles.get(presentRole, False):
+                permValue = requiredRoles.get(presentRole, False)
+
+                if type(permValue) is not bool:
+                    if nameSpace is None:
+                        permValue = &#34;&#34; in permValue
+                    else:
+                        permValue = nameSpace in permValue
+
+                if permValue:
                     permission = True
                     break
 
@@ -393,7 +421,7 @@ class Auth(Users):
 
         user = User.user
         projectUser = Mongo.getRecord(
-            &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
+            &#34;projectUser&#34;, dict(user=user, projectId=projectId), warn=False
         )
         return projectUser.role == &#34;organiser&#34;
 
@@ -464,7 +492,7 @@ actions on content in question.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/0ad7de13a3f0e5d128c39a0697eba0ca6109b850/src/control/auth.py#L6-L398" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/auth.py#L6-L426" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Auth(Users):
     def __init__(self, Settings, Messages, Mongo, Content):
@@ -494,7 +522,7 @@ actions on content in question.</p>
         super().__init__(Settings, Messages, Mongo)
         self.Content = Content
 
-    def authorise(self, table, record, action=None, insertTable=None):
+    def authorise(self, table, record, nameSpace=None, action=None, insertTable=None):
         &#34;&#34;&#34;Check whether an action is allowed on data.
 
         The &#34;create&#34; action is a bit special, because we do not have any record
@@ -533,6 +561,11 @@ actions on content in question.</p>
             The id of the record that is being accessed or the record itself;
             for `create` actions it is the master record to which a new record
             will be created as a detail.
+        nameSpace: string, optional None
+            Authorisation on fields may be nameSpace dependent (fields are organised
+            in nameSpace). When you do authorisation for field access, pass the
+            nameSpace here. If you do not pass a nameSpace, and the rules encountered
+            are nameSpace dependent, nameSpace `&#39;&#39;` is assumed.
         action: string, optional None
             The action for which permission is asked.
         insertTable: string
@@ -599,6 +632,7 @@ actions on content in question.</p>
         state = None
 
         (recordId, record) = Mongo.get(table, record)
+
         if recordId is None:
             return {} if action is None else False
 
@@ -649,24 +683,32 @@ actions on content in question.</p>
 
         allRelatedTables = (
             {
-                relatedTable: &#34;self&#34;
-                if relatedTable == insertTable
-                else &#34;detail&#34;
-                if detailMaster[relatedTable] == insertTable
-                else &#34;master&#34;
-                if detailMaster[insertTable] == relatedTable
-                else &#34;&#34;
+                relatedTable: (
+                    &#34;self&#34;
+                    if relatedTable == insertTable
+                    else (
+                        &#34;detail&#34;
+                        if detailMaster[relatedTable] == insertTable
+                        else (
+                            &#34;master&#34;
+                            if detailMaster[insertTable] == relatedTable
+                            else &#34;&#34;
+                        )
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
             if isCreate
             else {
-                relatedTable: &#34;self&#34;
-                if relatedTable == table
-                else &#34;detail&#34;
-                if detailMaster[relatedTable] == table
-                else &#34;master&#34;
-                if detailMaster[table] == relatedTable
-                else &#34;&#34;
+                relatedTable: (
+                    &#34;self&#34;
+                    if relatedTable == table
+                    else (
+                        &#34;detail&#34;
+                        if detailMaster[relatedTable] == table
+                        else &#34;master&#34; if detailMaster[table] == relatedTable else &#34;&#34;
+                    )
+                )
                 for relatedTable in allAllowedRoles.values()
             }
         )
@@ -677,7 +719,7 @@ actions on content in question.</p>
 
         userRoles = {role}
 
-        for (relatedTable, kind) in allRelatedTables.items():
+        for relatedTable, kind in allRelatedTables.items():
             if kind == &#34;&#34;:
                 continue
 
@@ -691,9 +733,10 @@ actions on content in question.</p>
                 if isCreate:
                     continue
 
-                crit = {relatedIdField: recordId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: recordId},
+                    warn=False,
                 )
                 extraRole = crossRecord.role
 
@@ -714,9 +757,10 @@ actions on content in question.</p>
                 # of the relatedTable with the user table
                 # because we find a user role there
 
-                crit = {relatedIdField: masterId}
                 crossRecord = Mongo.getRecord(
-                    relatedCrossTable, user=user, warn=False, **crit
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: masterId},
+                    warn=False,
                 )
                 extraRole = crossRecord.role
 
@@ -733,16 +777,17 @@ actions on content in question.</p>
                 # look up all detail records in the detail table
 
                 idField = f&#34;{table}Id&#34;
-                crit = {idField: recordId}
-                detailRecords = Mongo.getList(relatedTable, **crit)
+                detailRecords = Mongo.getList(relatedTable, {idField: recordId})
                 detailIds = [detailRecord._id for detailRecord in detailRecords]
 
                 # we need the cross records between these detail records and
                 # the user table, and we read the extra roles from those
                 # records
 
-                crit = {relatedIdField: {&#34;$in&#34;: detailIds}}
-                crossRecords = Mongo.getList(relatedCrossTable, user=user, **crit)
+                crossRecords = Mongo.getList(
+                    relatedCrossTable,
+                    {&#34;user&#34;: user, relatedIdField: {&#34;$in&#34;: detailIds}},
+                )
 
                 for crossRecord in crossRecords:
                     extraRole = crossRecord.role
@@ -758,20 +803,31 @@ actions on content in question.</p>
         #    roles a user needs to have to perform that action
         #    The roles itself are given as a dict, keyed by the role
         #    and valued by a boolean or a set, depending on the action.
+        #    If it is a set (in fact, a list), it is a list of nameSpace,
+        #    and the nameSpace parameter that has been passed to this function
+        #    will be used.
 
         # We compute the allowed actions resulting in a dict keyed by the action
         # and valued by a boolean.
 
         allowedActions = {}
 
-        for (act, requiredRoles) in rules.items():
+        for act, requiredRoles in rules.items():
             if requiredRoles is None:
                 continue
 
             permission = False
 
             for presentRole in userRoles:
-                if requiredRoles.get(presentRole, False):
+                permValue = requiredRoles.get(presentRole, False)
+
+                if type(permValue) is not bool:
+                    if nameSpace is None:
+                        permValue = &#34;&#34; in permValue
+                    else:
+                        permValue = nameSpace in permValue
+
+                if permValue:
                     permission = True
                     break
 
@@ -826,7 +882,7 @@ actions on content in question.</p>
 
         user = User.user
         projectUser = Mongo.getRecord(
-            &#34;projectUser&#34;, user=user, projectId=projectId, warn=False
+            &#34;projectUser&#34;, dict(user=user, projectId=projectId), warn=False
         )
         return projectUser.role == &#34;organiser&#34;
 
@@ -867,7 +923,7 @@ actions on content in question.</p>
 <h3>Methods</h3>
 <dl>
 <dt id="control.auth.Auth.authorise"><code class="name flex">
-<span>def <span class="ident">authorise</span></span>(<span>self, table, record, action=None, insertTable=None)</span>
+<span>def <span class="ident">authorise</span></span>(<span>self, table, record, nameSpace=None, action=None, insertTable=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Check whether an action is allowed on data.</p>
@@ -899,6 +955,11 @@ of the table in which a record will be inserted.</dd>
 <dd>The id of the record that is being accessed or the record itself;
 for <code>create</code> actions it is the master record to which a new record
 will be created as a detail.</dd>
+<dt><strong><code>nameSpace</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>Authorisation on fields may be nameSpace dependent (fields are organised
+in nameSpace). When you do authorisation for field access, pass the
+nameSpace here. If you do not pass a nameSpace, and the rules encountered
+are nameSpace dependent, nameSpace <code>''</code> is assumed.</dd>
 <dt><strong><code>action</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
 <dd>The action for which permission is asked.</dd>
 <dt><strong><code>insertTable</code></strong> :&ensp;<code>string</code></dt>
