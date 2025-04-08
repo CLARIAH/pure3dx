@@ -1,4 +1,4 @@
-# Release 2025-04-07
+# Release 1.1.0 on 2025-04-07
 
 There were lots of conflicts between delete actions and other actions that accessed
 the same data during deletion. The disk with temporary files filled up. This
@@ -21,12 +21,12 @@ delete, download, and upload, so that future issues can be inspected more easily
 Now that the MyWork page for admin gets crammed with sections, we provide a table
 of contents on the right hand side of the page.
 
-# Release 2025-01-20
+# Fix 2025-01-20
 
 Somehow the assignment of roles to users with respect to an edition or project
 was broken. It has been fixed.
 
-# Release 2025-01-16
+# Release 1.1.0 2025-01-16
 
 There was a blocking issue (Internal Server Error) having to do with
 titles with a `:` in it: those were interpreted as a dictionary instead of a string.
