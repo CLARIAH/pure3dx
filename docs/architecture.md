@@ -93,3 +93,31 @@ The data that **P** and **A** accumulate on the production cluster is backed up
 daily, with a retention period of 30 days.
 
 There is no backup for the apps on the development cluster.
+
+## Deletion and sweeping
+
+When users delete projects/editions, the app as driven by the user interface,
+will never physically delete them, but mark them as deleted instead.
+This happens to all MongoDB records that are involved, and also to the corresponding
+directories on the file system.
+
+The application now schedules a so called *sweeper* function to permanently wipe 
+stuff that has been deleted, after a grace period. The grace period is set to 31 days.
+Up till 30 days, admins can restore deleted items.
+
+Note that when the time comes that stuff is going to be wiped, nobody in the
+app has been able to interact with that stuff since at least one day.
+
+The sweeper also clears temporary directories that hang around, with a grace
+period of 1 day.
+
+### Logging
+
+All sweep actions, and also all delete/restore and download/upload actions are written
+to the access log, with the nickname of the user that triggered the action, and the time
+on which that happened.
+
+The list of items that can be restored appears on the admin interface, and per item
+it is visible who deleted the item and when and how many days are left.
+
+

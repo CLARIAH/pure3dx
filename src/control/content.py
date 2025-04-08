@@ -250,12 +250,23 @@ class Content(Datamodel):
         """
         Settings = self.Settings
         H = Settings.H
+
+        (adminContent, adminToc) = Admin(self).wrap()
+
         return (
-            Admin(self).wrap(),
-            H.a(
-                "Manual for admins",
-                "https://github.com/CLARIAH/pure3dx/blob/main/docs/manual-admin.md",
-                target="_blank",
+            adminContent,
+            H.div(
+                [
+                    H.div(
+                        H.a(
+                            "Manual for admins",
+                            "https://github.com/CLARIAH/pure3dx"
+                            "/blob/main/docs/manual-admin.md",
+                            target=H.blank,
+                        )
+                    ),
+                    H.div(adminToc),
+                ],
             ),
         )
 
@@ -317,6 +328,9 @@ class Content(Datamodel):
 
     def deleteItem(self, table, record):
         """Deletes an item, project or edition.
+
+        Deletion means: mark as deleted.
+        A record is marked as deleted if it has a field `markedDeleted: true` in it.
 
         Parameters
         ----------
@@ -422,6 +436,27 @@ class Content(Datamodel):
         return good
 
     def deleteItemFiles(self, table, record, recordId, name):
+        """Deletes the files that correspond to a project or edition.
+
+        Deletion means: mark as deleted.
+        A directory is marked as deleted if it has a file `__deleted__.txt` in it.
+
+        Parameters
+        ----------
+        table: string
+            The kind of item: `project` or `edition`.
+        record: AttrDict
+            The item record in question.
+        recordId: AttrDict
+            The the id of the item record in question.
+        name: string
+            The user name of the user that triggered the delete action.
+
+        Returns
+        -------
+        boolean
+            Whether the deletion was successful.
+        """
         Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
@@ -552,7 +587,6 @@ class Content(Datamodel):
             The relevant table.
         record: string | ObjectId | AttrDict | void
             The relevant record.
-
         key: string
             an identifier for the meta data field.
 

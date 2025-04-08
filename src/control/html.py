@@ -177,6 +177,7 @@ class HtmlElements:
     apos = "&apos;"
     quot = "&quot;"
     nbsp = NBSP
+    blank = "_blank"
 
     @classmethod
     def he(cls, val):
@@ -275,7 +276,7 @@ class HtmlElements:
         if value is None:
             return E
 
-        def _wrapValue(value, isOuter):
+        def wrapValueInner(value, isOuter):
             """Inner function to be called recursively."""
             if isOuter:
                 elem = outerElem
@@ -293,12 +294,12 @@ class HtmlElements:
 
             return thisCls.elem(
                 elem,
-                [_wrapValue(val, False) for val in value],
+                [wrapValueInner(val, False) for val in value],
                 *args,
                 **atts,
             )
 
-        return _wrapValue(value, True)
+        return wrapValueInner(value, True)
 
     @classmethod
     def elem(thisClass, tag, *args, **kwargs):
@@ -341,6 +342,26 @@ class HtmlElements:
         """
 
         return HtmlElement("a").wrap(material, href=href, **atts)
+
+    @staticmethod
+    def anchor(material, name, **atts):
+        """A.
+
+        Anchor.
+
+        Parameters
+        ----------
+        material: string | iterable
+            Text of the link.
+        name: string
+            Name of the anchor
+
+        Returns
+        -------
+        string(html)
+        """
+
+        return HtmlElement("a").wrap(material, name=name, **atts)
 
     @staticmethod
     def b(material, **atts):

@@ -45,7 +45,7 @@ class Static:
         self.data = AttrDict()
         self.dbData = AttrDict()
 
-    def _sanitizeMeta(self, table, record):
+    def sanitizeMeta(self, table, record):
         """Checks for missing (sub)-fields in the Dublin Core.
 
         Any field that is missing will be supplied with a default value, most of the
@@ -558,7 +558,7 @@ class Static:
             Ftitle = Content.makeField("title", "site")
 
             info = dbData[kind]
-            self._sanitizeMeta("site", info)
+            self.sanitizeMeta("site", info)
             bp = info.boilerplate
             self.bp = bp
 
@@ -660,7 +660,7 @@ class Static:
             result = []
 
             for num, item in info.items():
-                self._sanitizeMeta("project", item)
+                self.sanitizeMeta("project", item)
 
                 r = AttrDict()
                 r.name = item.title
@@ -685,7 +685,7 @@ class Static:
 
             for pNum, eNums in info.items():
                 for eNum, item in eNums.items():
-                    self._sanitizeMeta("edition", item)
+                    self.sanitizeMeta("edition", item)
 
                     r = AttrDict()
                     r.projectNum = pNum
@@ -715,7 +715,7 @@ class Static:
                     continue
 
                 pItem = pInfo[pNum]
-                self._sanitizeMeta("project", pItem)
+                self.sanitizeMeta("project", pItem)
                 pId = pItem._id
                 pdc = pItem.dc
                 fileName = f"project/{pNum}/index.html"
@@ -739,7 +739,7 @@ class Static:
 
                 for eNum in sorted(thisEInfo):
                     eItem = thisEInfo[eNum]
-                    self._sanitizeMeta("edition", eItem)
+                    self.sanitizeMeta("edition", eItem)
                     edc = eItem.dc
 
                     er = AttrDict()
@@ -811,7 +811,7 @@ class Static:
                         continue
 
                     eItem = thisEInfo[eNum]
-                    self._sanitizeMeta("edition", eItem)
+                    self.sanitizeMeta("edition", eItem)
                     eId = eItem._id
                     edc = eItem.dc
 

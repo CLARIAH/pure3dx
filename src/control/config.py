@@ -185,7 +185,7 @@ class Config:
         title = f"visit {label1} of the code on GitHub"
         gitLocation = var("gitlocation").removesuffix(".git")
         href = f"{gitLocation}/tree/{long}" if long else gitLocation
-        Settings.versionInfo = H.a(text, href, target="_blank", title=title)
+        Settings.versionInfo = H.a(text, href, target=H.blank, title=title)
 
     def checkSecret(self):
         """Obtain a secret.
@@ -617,7 +617,7 @@ class Config:
                 "https://github.com/CLARIAH/pure3dx/issues",
                 title="go to the issues on GitHub",
                 cls="large",
-                target="_blank",
+                target=H.blank,
             )
             banner = H.div(
                 [content, issueLink, dataLink], id="statusbanner", cls=runMode

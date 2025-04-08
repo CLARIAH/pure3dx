@@ -143,6 +143,7 @@ You see the sections:
 *   Published projects
 *   All projects and editions
 *   Manage users
+*   Deleted items
 
 We'll discuss them one by one.
 
@@ -303,6 +304,17 @@ to `guest`, which gives the same rights as an unauthenticated user.
 
 Conversely, here you can make other users admin. If you are an owner yourself, you
 can make other users owner as well.
+
+#### `Deleted items`
+
+Here you see a list of projects that have been recently deleted, or that have editions
+that have been recently deleted. You see who has deleted them when, and there is
+an `undelete` button which shows how many days you have left before the item
+will permanently deleted. 
+
+Note that you cannot restore a deleted edition if its parent project is still deleted.
+You have to restore that parent project first. Restoring a project does not restore
+its deleted editions, you can choose to restore some or all  of its editions one by one.
 
 ### Edition pages
 

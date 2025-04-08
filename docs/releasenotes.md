@@ -1,6 +1,29 @@
+# Release 2025-04-07
+
+There were lots of conflicts between delete actions and other actions that accessed
+the same data during deletion. The disk with temporary files filled up. This
+called for a different
+[deletion strategy](https://github.com/CLARIAH/pure3dx/blob/main/docs/architecture.md#deletion-and-sweeping):
+instead of physically deleting stuff,
+we mark it as deleted. The other ingredient of this strategy is a sweeper: a process
+that periodically checks which items have been deleted more than 31 days ago, and
+then permanently deletes those items. Until that time, admins can restore them.
+
+There was also a misleading button on the edition page: *Delete scene*. Instead of
+deleting the scen file, it dseleted the whole edition.
+
+That has caused some editions to be lost, but we could retrieve them again from the
+backups. They have been restored.
+
+The system generates more complete logging information on critical actions such as
+delete, download, and upload, so that future issues can be inspected more easily.
+
+Now that the MyWork page for admin gets crammed with sections, we provide a table
+of contents on the right hand side of the page.
+
 # Release 2025-01-20
 
-Somehow the assignment of roles to users with repsect to an edition or project
+Somehow the assignment of roles to users with respect to an edition or project
 was broken. It has been fixed.
 
 # Release 2025-01-16

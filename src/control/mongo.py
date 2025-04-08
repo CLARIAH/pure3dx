@@ -78,19 +78,26 @@ class Mongo:
 
         !!! note "Deletion policy"
             When a user deletes records, they will not be deleted, but instead they
-            get `markedDeleted: true`. A cronjob will physically remove deleted
-            records after 31 days.
+            get `markedDeleted: true`. A periodic job (control.sweeper)
+            will physically remove deleted records after 31 days.
             Also, deleted records will be listed on the admin interface. Admins can
             restore them within 30 days.
 
-            Most methods that access the database know this policies. So if a
+            See also
+            [deletion strategy](https://github.com/CLARIAH/pure3dx/blob/main/docs/architecture.md#deletion-and-sweeping).
+
+            Most methods that access the database know this policy. So if a
             list of records satisfying some criteria is asked, no records that
             are marked for deletion are returned.
             In other words: such records are treated as if they do not exist.
 
+            Some of these methods have an optional parameter `deleted=False`.
+            When True, it restricts its operation on records that are marked
+            as deleted.
+
             Some methods do not implement this policy:
 
-            *   `_execute()`
+            *   `executeMongo()`
             *   `hardDelete...()`
             *   `mkBackup()`
             *   `restoreBackup()`
@@ -100,11 +107,11 @@ class Mongo:
 
             So the test whether a record `r` is marked for deletion is:
 
-            `r.get("markedDeleted", None)`
+            `r.get("markedDeleted", False)`
 
             And the mongo query expression to find unmarked records only is:
 
-            `{markedDeleted: null}`
+            `{markedDeleted: {$exists: false}}`
 
         Parameters
         ----------
@@ -290,7 +297,7 @@ class Mongo:
         Messages = self.Messages
 
         criteria[MDEL] = {"$exists": True} if deleted else None
-        (good, result) = self._execute(table, "find_one", criteria, {}, warn=False)
+        (good, result) = self.executeMongo(table, "find_one", criteria, {}, warn=False)
 
         if not good or result is None:
             if warn:
@@ -331,7 +338,7 @@ class Mongo:
         """
         criteria[MDEL] = {"$exists": True} if deleted else None
 
-        (good, result) = self._execute(table, "find", criteria, {})
+        (good, result) = self.executeMongo(table, "find", criteria, {})
 
         if not good:
             return []
@@ -371,7 +378,7 @@ class Mongo:
         boolean
             Whether the delete was successful
         """
-        (good, result) = self._execute(table, "delete_one", criteria)
+        (good, result) = self.executeMongo(table, "delete_one", criteria)
         return result.deleted_count > 0 if good else False
 
     def deleteRecord(self, table, criteria, by):
@@ -399,7 +406,9 @@ class Mongo:
         """
         criteria[MDEL] = None
         updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
-        (good, result) = self._execute(table, "update_one", criteria, {"$set": updates})
+        (good, result) = self.executeMongo(
+            table, "update_one", criteria, {"$set": updates}
+        )
         return good
 
     def undeleteRecord(self, table, criteria, by):
@@ -428,7 +437,7 @@ class Mongo:
         """
         criteria[MDEL] = {"$exists": True}
         updates = {"$unset": {MDEL: None}, "$set": {MRESDT: isonow(), MRESBY: by}}
-        (good, result) = self._execute(table, "update_one", criteria, updates)
+        (good, result) = self.executeMongo(table, "update_one", criteria, updates)
         return good
 
     def hardDeleteRecords(self, table, criteria, by):
@@ -449,7 +458,7 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         """
-        (good, result) = self._execute(table, "delete_many", criteria)
+        (good, result) = self.executeMongo(table, "delete_many", criteria)
         count = result.deleted_count if good else 0
         return (good, count)
 
@@ -475,7 +484,7 @@ class Mongo:
         """
         criteria[MDEL] = None
         updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
-        (good, result) = self._execute(
+        (good, result) = self.executeMongo(
             table, "update_many", criteria, {"$set": updates}
         )
         count = result.modified_count if good else 0
@@ -501,12 +510,14 @@ class Mongo:
         """
         criteria[MDEL] = {"$exists": True}
         updates = {"$unset": {MDEL: False}, "$set": {MRESDT: isonow(), MRESBY: by}}
-        (good, result) = self._execute(table, "update_many", criteria, updates)
+        (good, result) = self.executeMongo(table, "update_many", criteria, updates)
         count = result.modified_count if good else 0
         return (good, count)
 
     def updateRecord(self, table, criteria, updates):
         """Updates a single record from a table.
+
+        It does not work on records that have been marked as deleted.
 
         Parameters
         ----------
@@ -518,6 +529,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
+            If none satisfy them, nothing is done.
         updates: dict
             The fields that must be updated with the values they must get.
             If the value `None` is specified for a field, that field will be set to
@@ -529,7 +541,9 @@ class Mongo:
             Whether the update was successful
         """
         criteria[MDEL] = None
-        (good, result) = self._execute(table, "update_one", criteria, {"$set": updates})
+        (good, result) = self.executeMongo(
+            table, "update_one", criteria, {"$set": updates}
+        )
         return result.modified_count > 0 if good else False
 
     def insertRecord(self, table, fields):
@@ -548,10 +562,10 @@ class Mongo:
             The id of the newly inserted record, or None if the record could not be
             inserted.
         """
-        (good, result) = self._execute(table, "insert_one", dict(**fields))
+        (good, result) = self.executeMongo(table, "insert_one", dict(**fields))
         return result.inserted_id if good else None
 
-    def _execute(self, table, command, *args, warn=True, **kwargs):
+    def executeMongo(self, table, command, *args, warn=True, **kwargs):
         """Executes a MongoDb command and returns the result.
 
         Parameters
@@ -646,6 +660,8 @@ class Mongo:
         We do site-wide backups and project-specific backups.
 
         See also `control.backup.Backup.mkBackup`
+
+        This also backs up records that have been marked as deleted.
 
         This function backs up database data in
         [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
@@ -756,6 +772,8 @@ class Mongo:
         We do site-wide restores or project-specific restores.
 
         See also `control.backup.Backup.restoreBackup`
+
+        This also restores records that have been marked as deleted.
 
         This function restores database data given in
         [`bson`](https://www.mongodb.com/basics/bson).

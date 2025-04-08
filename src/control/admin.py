@@ -61,6 +61,12 @@ class Admin:
         ### keywords
 
         The lists of keywords in metadata fields
+
+        ### deleted items
+
+        Projects and directories that have been marked as deleted, and can still be
+        restored (after 30 days marked deleted items may no longer be restored and
+        they will be deleted after 1 day more).
         """
         self.Content = Content
 
@@ -126,8 +132,11 @@ class Admin:
 
         if not user:
             H = self.H
-            return H.p(
-                "Log in to view the projects and editions that you are working on."
+            return (
+                H.p(
+                    "Log in to view the projects and editions that you are working on."
+                ),
+                "",
             )
 
         projects = self.projects
@@ -145,38 +154,52 @@ class Admin:
 
         inPower = self.inPower
 
-        myDetails = self._wrapMyDetails()
+        (myDetails, tocMyDetails) = self.wrapMyDetails()
 
-        myProjects = self._wrapMyProjects(projectsAll)
+        (myProjects, tocMyProjects) = self.wrapMyProjects(projectsAll)
 
         if inPower:
-            pubControls = self._wrapPubControls()
-            allProjects = self._wrapAllProjects(projectsAll)
-            allKeywords = self._wrapKeywordControls()
-            allUsers = self._wrapUserControls()
-            allDeleted = self._wrapDeletedItems(delProjectsAll)
+            (pubControls, tocPub) = self.wrapPubControls()
+            (allProjects, tocProjects) = self.wrapAllProjects(projectsAll)
+            (allKeywords, tocKeywords) = self.wrapKeywordControls()
+            (allUsers, tocAllusers) = self.wrapUserControls()
+            (allDeleted, tocDeleted) = self.wrapDeletedItems(delProjectsAll)
         else:
-            pubControls = ""
-            allProjects = ""
-            allUsers = ""
-            allKeywords = ""
+            pubControls, tocPub = "", ""
+            allProjects, tocProjects = "", ""
+            allKeywords, tocKeywords = "", ""
+            allUsers, tocAllusers = "", ""
+            allDeleted, tocDeleted = "", ""
 
-        return H.div(
-            [
-                pubControls,
-                allKeywords,
-                allUsers,
-                myDetails,
-                myProjects,
-                allProjects,
-                allDeleted,
-            ],
-            cls="myadmin",
+        toc = (
+            tocPub,
+            tocKeywords,
+            tocAllusers,
+            tocMyDetails,
+            tocMyProjects,
+            tocProjects,
+            tocDeleted,
+        )
+
+        return (
+            H.div(
+                [
+                    pubControls,
+                    allKeywords,
+                    allUsers,
+                    myDetails,
+                    myProjects,
+                    allProjects,
+                    allDeleted,
+                ],
+                cls="myadmin",
+            ),
+            H.ul([H.li(x) for x in toc if x]),
         )
 
     # specialized WRAP functions
 
-    def _wrapMyDetails(self):
+    def wrapMyDetails(self):
         """Generate HTML for the details of the current user.
 
         Parameters
@@ -193,16 +216,27 @@ class Admin:
         siteRoles = self.siteRoles
         User = self.User
 
-        return H.div(
-            [
-                H.h(1, "My details"),
-                self._wrapUsers(siteRoles, theseUsers={User.user: (User, User.role)}),
-            ],
-            id="mydetails",
+        title = "My details"
+        name = "my-details"
+        tocEntry = H.a(title, f"#{name}")
+
+        return (
+            H.div(
+                [
+                    H.h(1, H.anchor(title, name)),
+                    self.wrapUsers(
+                        siteRoles, theseUsers={User.user: (User, User.role)}
+                    ),
+                ],
+                id="mydetails",
+            ),
+            tocEntry,
         )
 
-    def _wrapMyProjects(self, projectsAll):
+    def wrapMyProjects(self, projectsAll):
         """Generate HTML for the list of the projects of the current user.
+
+        Only projects and editions that are not marked as deleted show up.
 
         Parameters
         ----------
@@ -219,19 +253,23 @@ class Admin:
 
         projectsMy = [p for p in projectsAll if p._id in (myIds.project or set())]
 
+        title = "My projects and editions"
+        name = "my-projects"
+        tocEntry = H.a(title, f"#{name}")
+
         wrapped = [
-            H.h(1, "My projects and editions"),
+            H.h(1, H.anchor(title, name)),
             (
-                H.div([self._wrapProject(p) for p in projectsMy])
+                H.div([self.wrapProject(p) for p in projectsMy])
                 if len(projectsMy)
                 else H.div(
                     "You do not have a specific role w.r.t. projects and editions."
                 )
             ),
         ]
-        return H.div(wrapped, id="myprojects")
+        return (H.div(wrapped, id="myprojects"), tocEntry)
 
-    def _wrapPubControls(self):
+    def wrapPubControls(self):
         """Generate HTML for the published projects in admin view.
 
         Currently, it provides
@@ -250,8 +288,12 @@ class Admin:
         Content = self.Content
         (table, siteId, site) = Content.relevant()
 
+        title = "Published projects"
+        name = "pub-controls"
+        tocEntry = H.a(title, f"#{name}")
+
         wrapped = []
-        wrapped.append(H.h(1, "Published projects"))
+        wrapped.append(H.h(1, H.anchor(title, name)))
 
         wrapped.append(H.h(2, "Featured published projects"))
         wrapped.append(Content.getValue(table, site, "featured"))
@@ -289,9 +331,9 @@ class Admin:
             )
             + H.div("test", id="pubmessages"),
         )
-        return H.div(wrapped, id="pubcontrols")
+        return (H.div(wrapped, id="pubcontrols"), tocEntry)
 
-    def _wrapKeywordControls(self):
+    def wrapKeywordControls(self):
         """Generate HTML for the keyword management.
 
         The keywords sit in a table with name `keyword`.
@@ -362,12 +404,16 @@ class Admin:
             cls="skeywords",
         )
 
-        wrapped = []
-        wrapped.append(H.h(1, "Manage keywords"))
-        wrapped.append(H.div(keywordMaterial))
-        return H.div(wrapped, id="keywordcontrols")
+        title = "Manage keywords"
+        name = "manage-keywords"
+        tocEntry = H.a(title, f"#{name}")
 
-    def _wrapUserControls(self):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(H.div(keywordMaterial))
+        return (H.div(wrapped, id="keywordcontrols"), tocEntry)
+
+    def wrapUserControls(self):
         """Generate HTML for the user management.
 
         Returns
@@ -378,20 +424,24 @@ class Admin:
         H = self.H
         siteRoles = self.siteRoles
 
-        wrapped = []
-        wrapped.append(H.h(1, "Manage users"))
-        wrapped.append(
-            H.div(self._wrapUsers(siteRoles, workIndicator=True), cls="susers")
-        )
-        return H.div(wrapped, id="allusers")
+        title = "Manage users"
+        name = "manage-users"
+        tocEntry = H.a(title, f"#{name}")
 
-    def _wrapAllProjects(self, projectsAll):
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+        wrapped.append(
+            H.div(self.wrapUsers(siteRoles, workIndicator=True), cls="susers")
+        )
+        return (H.div(wrapped, id="allusers"), tocEntry)
+
+    def wrapAllProjects(self, projectsAll):
         """Generate HTML for the list of all projects.
 
         Parameters
         ----------
         projectsAll: list
-            The list of all projects
+            The list of all projects, in as far they have not been marked as deleted.
 
         Returns
         -------
@@ -400,31 +450,34 @@ class Admin:
         """
         H = self.H
 
+        title = "All projects and editions"
+        name = "all-projects"
+        tocEntry = H.a(title, f"#{name}")
+
         wrapped = []
-        wrapped.append(H.h(1, "All projects and editions"))
+        wrapped.append(H.h(1, H.anchor(title, name)))
         wrapped.append(
-            H.div([self._wrapProject(p, myOnly=False) for p in projectsAll])
+            H.div([self.wrapProject(p, myOnly=False) for p in projectsAll])
             if len(projectsAll)
             else H.div("There are no projects and no editions")
         )
-        return H.div(wrapped, id="allprojects")
+        return (H.div(wrapped, id="allprojects"), tocEntry)
 
-    def _wrapDeletedItems(self, delProjectsAll):
+    def wrapDeletedItems(self, delProjectsAll):
         """Generate HTML for the list of all deleted projects and editions.
 
-        All projects that have been (softly) deleted or contain editions that
-        have been (softly) deleted, are listed,
-        together with their (softly) deleted editions.
+        All projects that have been marked as deleted or contain editions that
+        have been marked as deleted, are listed,
+        together with their marked-deleted editions.
 
-        For each (softly) deleted item that still exists a control is added to
-        undelete it.
-
-        Only those items that have not been hardly deleted in the meantime.
+        For each marked-deleted item that is in the grace period of 30 days,
+        a control is added to restore it.
 
         Parameters
         ----------
-        projectsAll: list
-            The list of all projects
+        delProjectsAll: list
+            The list of all projects that are either marked deleted or have
+            editions that are marked deleted, all within the grace period of 30 days.
 
         Returns
         -------
@@ -433,10 +486,14 @@ class Admin:
         """
         H = self.H
 
-        wrapped = []
-        wrapped.append(H.h(1, "Deleted projects and editions"))
+        title = "Deleted projects and editions"
+        name = "deleted-items"
+        tocEntry = H.a(title, f"#{name}")
 
-        wrappedProjects = [self._wrapDelProject(p) for p in delProjectsAll]
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+
+        wrappedProjects = [self.wrapDelProject(p) for p in delProjectsAll]
 
         wrapped.append(
             H.div(wrappedProjects)
@@ -444,9 +501,9 @@ class Admin:
             else H.div("There are no deleted projects/editions")
         )
 
-        return H.div(wrapped, id="delprojects")
+        return (H.div(wrapped, id="delprojects"), tocEntry)
 
-    def _wrapProject(self, project, myOnly=True):
+    def wrapProject(self, project, myOnly=True):
         """Generate HTML for a project in admin view.
 
         Parameters
@@ -491,7 +548,7 @@ class Admin:
                         H.div(status, cls=f"pestatus {statusCls}"),
                         H.a(title, f"project/{project._id}", cls="ptitle"),
                         H.div(
-                            self._wrapUsers(
+                            self.wrapUsers(
                                 projectRoles, table="project", record=project
                             ),
                             cls="pusers",
@@ -503,7 +560,7 @@ class Admin:
                     (
                         "no editions"
                         if len(theseEditions) == 0
-                        else [self._wrapEdition(e) for e in theseEditions]
+                        else [self.wrapEdition(e) for e in theseEditions]
                     ),
                     cls="peditions",
                 ),
@@ -511,7 +568,7 @@ class Admin:
             cls="pentry",
         )
 
-    def _wrapEdition(self, edition):
+    def wrapEdition(self, edition):
         """Generate HTML for an edition in admin view.
 
         Parameters
@@ -540,14 +597,14 @@ class Admin:
                 H.div(status, cls=f"pestatus {statusCls}"),
                 H.a(title, f"edition/{edition._id}", cls="etitle"),
                 H.div(
-                    self._wrapUsers(editionRoles, table="edition", record=edition),
+                    self.wrapUsers(editionRoles, table="edition", record=edition),
                     cls="eusers",
                 ),
             ],
             cls="eentry",
         )
 
-    def _wrapDelProject(self, project):
+    def wrapDelProject(self, project):
         """Generate HTML for a deleted project in admin view.
 
         Parameters
@@ -574,7 +631,7 @@ class Admin:
             pStatus = H.span(f"on {pDeletedDt} by {pDeletedBy}", cls="pestatus warning")
             pId = project._id
             pControl = H.span(
-                f"undelete ({pRemainingDays} days left)",
+                f"undelete ({pRemainingDays:4.2f} days left)",
                 url=f"project/{pId}/undelete",
                 title=f"undelete project {pId}",
                 cls="button medium undelete",
@@ -594,14 +651,14 @@ class Admin:
             [
                 H.div(f"{pControl} {pTitle} {pStatus}", cls="phead"),
                 H.div(
-                    [self._wrapDelEdition(e, pDeleted) for e in editions],
+                    [self.wrapDelEdition(e, pDeleted) for e in editions],
                     cls="peditions",
                 ),
             ],
             cls="pentry",
         )
 
-    def _wrapDelEdition(self, edition, pDeleted):
+    def wrapDelEdition(self, edition, pDeleted):
         """Generate HTML for a deleted edition in admin view.
 
         Parameters
@@ -623,7 +680,7 @@ class Admin:
         eDeletedBy = edition.get(MDELBY, "unknown")
         eDeletedTm = edition.get(MDELDT, "2000-01-01T00:00:00Z")
         eDeletedDt = dateOnly(eDeletedTm)
-        eRemainingDays = int(round(amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)))
+        eRemainingDays = amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)
 
         eTitle = H.span(title, cls="etitle")
         eStatus = H.span(f"on {eDeletedDt} by {eDeletedBy}", cls="pestatus warning")
@@ -631,7 +688,7 @@ class Admin:
         disabled = "disabled" if pDeleted else ""
         eId = edition._id
         eControl = H.span(
-            f"undelete ({eRemainingDays} days left)",
+            f"undelete ({eRemainingDays:4.2f} days left)",
             url=f"edition/{eId}/undelete",
             title=f"undelete edition {eId}",
             cls=f"button medium {undelete} {disabled}",
@@ -642,7 +699,7 @@ class Admin:
             cls="eentry",
         )
 
-    def _wrapUsers(
+    def wrapUsers(
         self, itemRoles, workIndicator=False, table=None, record=None, theseUsers=None
     ):
         """Generate HTML for a list of users.
@@ -705,7 +762,7 @@ class Admin:
             ):
                 (editable, otherRoles) = self.authUser(u, table=table, record=record)
                 wrapped.append(
-                    self._wrapUser(
+                    self.wrapUser(
                         u,
                         uRecord,
                         role,
@@ -722,7 +779,7 @@ class Admin:
 
         if editable:
             wrapped.append(
-                self._wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
+                self.wrapLinkUser(otherRoles - {None}, itemRoles, table, recordId)
             )
 
         if record is None and not runProd and inPower and doingAllUsers:
@@ -745,7 +802,7 @@ class Admin:
 
         return "".join(wrapped)
 
-    def _wrapLinkUser(self, roles, itemRoles, table, recordId):
+    def wrapLinkUser(self, roles, itemRoles, table, recordId):
         """Generate HTML to add a user in a specified role.
 
         Parameters
@@ -793,7 +850,7 @@ class Admin:
             saveurl=f"/link/user/{table}/{recordId}",
         )
 
-    def _wrapUser(
+    def wrapUser(
         self,
         u,
         uRecord,
@@ -866,7 +923,7 @@ class Admin:
         return H.div(
             [
                 H.div(uRecord.nickname, cls="user"),
-                *self._wrapRole(
+                *self.wrapRole(
                     u, itemRoles, role, editable, otherRoles, table, recordId
                 ),
                 *indicator,
@@ -874,7 +931,7 @@ class Admin:
             cls="userroles",
         )
 
-    def _wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
+    def wrapRole(self, u, itemRoles, role, editable, otherRoles, table, recordId):
         """Generate HTML for a role.
 
         This may or may not be an editable widget, depending on whether there

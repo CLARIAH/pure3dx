@@ -317,10 +317,12 @@ class Pages:
         """
         Content = self.Content
         (table, recordId, record) = Content.relevant()
+
         if recordId is None:
             left = None
         else:
             (left, right) = Content.getAdmin()
+
         return self.page("admin", left=left, right=right)
 
     def createUser(self, user):

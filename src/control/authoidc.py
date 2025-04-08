@@ -2,7 +2,7 @@ from flask_oidc import OpenIDConnect
 import json
 
 
-def _json_loads(content):
+def json_loads(content):
     """Handles loading of json content as unicode strings.
     """
     if not isinstance(content, str):
@@ -24,7 +24,7 @@ class AuthOidc:
     def load_secrets(cls):
         """Reads secrets used in encryption and decryption.
         """
-        return _json_loads(open(cls.OIDC_CLIENT_SECRETS, 'r').read())
+        return json_loads(open(cls.OIDC_CLIENT_SECRETS, 'r').read())
 
     @classmethod
     def prepare(cls, app):

@@ -1,7 +1,22 @@
-"""Takes care of permanently deleting items that are marked as deleted.
+"""Periodically deletes stuff permanently that is marked as deleted.
 
 This module takes care that mongodb records and file system folders
 that are marked for deletion, are physically removed after 31 days.
+
+It also visits the temp directory and removes all subdirectories starting
+with `tmp` that are at least one one day old.
+
+The sweeper is a function that is scheduled to run at a configured interval.
+Each worker of the running website has the sweeper scheduled.
+
+But before each sweeper job executes, it checks the time of last execution.
+If that is less than a half interval ago, the sweeper job will return without
+doing anything.
+
+In this way there will be always sweeper jobs scheduled, and if there are multiple
+workers, they will not do superfluous work.
+Note that when workers are killed and started, it remains guaranteed that sweeping
+will be done.
 """
 
 import os
@@ -14,10 +29,50 @@ from .files import FDEL
 from .flask import runInfo
 
 ON = True
+"""Whether to invoke the sweeper or not.
+
+Sometimes, for debugging or testing, it is handy to not start the sweeping process.
+"""
+
 DRY = False
+"""Whether to perform the wipes on records and directories, or suppress the execution.
+
+If True, all wipes will be announced, but not performed.
+"""
+
 DRYREP = "(dry)" if DRY else ""
 
 SEC = 1 / 24 / 3600
+"""A second as fraction of a day.
+
+Some operations uses days as unit. This is the second with respect to the unit day.
+"""
+
+DELAY_UNDEL = None
+"""The grace period for restoring deleted items.
+
+Items that are marked as deleted less than this ago, can still be restored.
+"""
+
+DELAY_DEL = None
+"""The grace period for permanently deleting deleted items.
+
+Items that are marked as deleted less than this ago, will be permanently deleted
+by the next sweeping action.
+"""
+
+DELAY_TMP = None
+"""The grace period for deleting temp directories.
+
+Sometimes temporary directories are not wiped properly after they have been used.
+Those directories will be wiped after this period.
+"""
+
+INTERVAL = None
+"""The interval between invocations of the sweeper function.
+
+When workers schedule the sweeper job, they use this as the interval.
+"""
 
 if DRY:
     DELAY_UNDEL = 3600 * SEC
@@ -35,6 +90,11 @@ SWEEP_LEE = (
     if "days" in INTERVAL
     else SEC * INTERVAL["seconds"] if "seconds" in INTERVAL else 0.5
 )
+"""The threshold for suppressing a sweep action.
+
+If the latest sweep action occurred less than this ago,
+the current sweep action will be suppressed.
+"""
 
 
 class Sweeper:
@@ -48,6 +108,15 @@ class Sweeper:
         self.scheduler = scheduler
 
     def maySchedule(self):
+        """Whether a process is allowed to schedule the sweeper.
+
+        Scheduling is suppressed if `ON` is False.
+
+        Also, when Flask runs in debug mode, there are two processes working.
+        The second process is the one that gets restarted when errors occur or
+        code is updated. It is this process that may schedule sweepers, not the
+        first process.
+        """
         if not ON:
             return False
 
@@ -67,6 +136,8 @@ class Sweeper:
         return startIt
 
     def start(self):
+        """Schedules the sweeper job.
+        """
         if self.maySchedule():
             scheduler = self.scheduler
             sweeper = self.clean()
@@ -74,6 +145,18 @@ class Sweeper:
             scheduler.start()
 
     def clean(self):
+        """Provides the sweeper function.
+
+        This method is not the sweeper function itself, but it *returns*
+        the sweeper function, which has some variables from the rest of the
+        program bound in.
+
+        The sweeper function has three separate parts:
+
+        *   *sweepMongo* (for the database records)
+        *   *sweepDirectories* (for the project/edition directories)
+        *   *sweepTemp* (for the temporary directories)
+        """
         Messages = self.Messages
         Mongo = self.Mongo
         Messages = self.Messages
@@ -114,6 +197,8 @@ class Sweeper:
         return sweeper
 
     def sweepMongo(self):
+        """Permanently deletes records marked as deleted in all tables.
+        """
         Mongo = self.Mongo
         Messages = self.Messages
 
@@ -151,6 +236,15 @@ class Sweeper:
                     )
 
     def sweepDirectories(self):
+        """Wipes all project/edition directories that are marked as deleted.
+
+        Such directories are marked as deleted if they contain a file named
+        `__deleted__.txt`.
+
+        Note that it should not occur that projects are marked as deleted while
+        they contain editions that are not deleted. But in case this should happen,
+        the deletion of the project directory is prevented.
+        """
         Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
@@ -219,6 +313,11 @@ class Sweeper:
             Messages.info(logmsg=f"{head}: deleted {nE:>3} edition{plural}")
 
     def sweepTemp(self):
+        """Wipes all temporary directories of a certain age, typically 1 day.
+
+        These directories all resides at the toplevel of the temp dir, and their
+        names start with `tmp`.
+        """
         Messages = self.Messages
         Settings = self.Settings
         tempDir = Settings.tempDir
