@@ -112,7 +112,7 @@ op the published pages.
 
 ## History
 
-See [release notes](docs/releasenotes).
+See [release notes](docs/releasenotes.md).
 
 **Earlier**
 
