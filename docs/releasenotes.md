@@ -10,7 +10,7 @@ that periodically checks which items have been deleted more than 31 days ago, an
 then permanently deletes those items. Until that time, admins can restore them.
 
 There was also a misleading button on the edition page: *Delete scene*. Instead of
-deleting the scen file, it dseleted the whole edition.
+deleting the scen file, it deleted the whole edition.
 
 That has caused some editions to be lost, but we could retrieve them again from the
 backups. They have been restored.
@@ -67,6 +67,13 @@ were large.
     exceeds 1 GB are prevented, and the user will get a warning about that.
 
 1.  The maximum upload size is currently 500 MB.
+
+# Fix 2024-12-10
+
+Improvements in metadata handling and visual design.
+
+This involved quite a number of under-the-hood actions, which are reported in the
+[internal pure3d repo](https://code.huc.knaw.nl/pure3d/pure3d-config/-/blob/master/docs/report.md#2024-12-05-updated-visual-design-other-metadata-scheme).
 
 # Release 2024-11-18
 
@@ -133,3 +140,13 @@ Projects`, using the control on the MyWork page under `Published Project`.
 
 Then click the button `Regenerate Pages` under the featured pages to make the choice
 effective.
+
+# Fix 2024-05-19
+
+Moved location for temp files off the data volume to a new temp volume,
+which is excluded from backup.
+
+# Release 1.0.0 2024-05-16
+
+Pure3D went in production.
+
