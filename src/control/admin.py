@@ -5,7 +5,6 @@ from .flask import requestData
 from .generic import AttrDict, lessAgo, amountTogo, isonow, dateOnly
 from .helpers import normalize
 from .files import dirExists, fileExists, fileRemove, FDEL
-from .sweeper import DELAY_UNDEL
 
 from .mongo import MDEL, MDELDT, MDELBY
 
@@ -617,6 +616,9 @@ class Admin:
         string
             The HTML
         """
+        Settings = self.Settings
+        delayUndel = Settings.sweeper.delayUndel
+
         H = self.H
         title = project.title or H.i("no title")
         pDeleted = project.get(MDEL, False)
@@ -625,7 +627,7 @@ class Admin:
             pDeletedBy = project.get(MDELBY, "unknown")
             pDeletedTm = project.get(MDELDT, "2000-01-01T00:00:00Z")
             pDeletedDt = dateOnly(pDeletedTm)
-            pRemainingDays = amountTogo(DELAY_UNDEL, pDeletedTm, iso=True)
+            pRemainingDays = amountTogo(delayUndel, pDeletedTm, iso=True)
 
             pTitle = H.span(title, cls="ptitle")
             pStatus = H.span(f"on {pDeletedDt} by {pDeletedBy}", cls="pestatus warning")
@@ -675,12 +677,15 @@ class Admin:
         string
             The HTML
         """
+        Settings = self.Settings
+        delayUndel = Settings.sweeper.delayUndel
+
         H = self.H
         title = edition.title or H.i("no title")
         eDeletedBy = edition.get(MDELBY, "unknown")
         eDeletedTm = edition.get(MDELDT, "2000-01-01T00:00:00Z")
         eDeletedDt = dateOnly(eDeletedTm)
-        eRemainingDays = amountTogo(DELAY_UNDEL, eDeletedTm, iso=True)
+        eRemainingDays = amountTogo(delayUndel, eDeletedTm, iso=True)
 
         eTitle = H.span(title, cls="etitle")
         eStatus = H.span(f"on {eDeletedDt} by {eDeletedBy}", cls="pestatus warning")
@@ -1656,6 +1661,9 @@ class Admin:
         and editions.
         It also changes the possible user management actions in the future.
         """
+        Settings = self.Settings
+        delayUndel = Settings.sweeper.delayUndel
+
         Mongo = self.Mongo
         Auth = self.Auth
         Auth.identify()
@@ -1682,11 +1690,11 @@ class Admin:
         delEditionListAll = Mongo.getList("edition", {}, deleted=True, sort="title")
 
         delProjectList = [
-            r for r in delProjectListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+            r for r in delProjectListAll if lessAgo(delayUndel, r.get(MDELDT, None))
         ]
         delProjectSet = {r._id for r in delProjectList}
         delEditionList = [
-            r for r in delEditionListAll if lessAgo(DELAY_UNDEL, r.get(MDELDT, None))
+            r for r in delEditionListAll if lessAgo(delayUndel, r.get(MDELDT, None))
         ]
 
         users = AttrDict({x.user: x for x in userList})

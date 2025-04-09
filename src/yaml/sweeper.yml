@@ -1,0 +1,26 @@
+prod:
+  delayUndel:
+    amount: 30
+    unit: d
+  delayDel:
+    amount: 31
+    unit: d
+  delayTmp:
+    amount: 0.25
+    unit: d
+  interval:
+    amount: 3600
+    unit: s
+dev:
+  delayUndel:
+    amount: 3600
+    unit: s
+  delayDel:
+    amount: 55
+    unit: s
+  delayTmp:
+    amount: 35
+    unit: s
+  interval:
+    amount: 10
+    unit: s

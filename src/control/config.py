@@ -76,6 +76,7 @@ class Config:
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkSweeper,
             self.checkDesign,
         ):
             if self.good:
@@ -265,6 +266,7 @@ class Config:
             return
 
         debugMode = var("flaskdebug")
+
         if debugMode is None:
             Messages.error(logmsg="Environment variable `flaskdebug` not defined")
             self.good = False
@@ -600,9 +602,11 @@ class Config:
         modeBanner = (
             ""
             if runProd and not isWip
-            else "This site is Work in Progress"
-            if runProd
-            else f"This site runs in {ucFirst(runMode)} mode."
+            else (
+                "This site is Work in Progress"
+                if runProd
+                else f"This site runs in {ucFirst(runMode)} mode."
+            )
         )
         dataWarning = (
             "" if runProd else "\nData you enter can be erased without warning.\n"
@@ -624,6 +628,100 @@ class Config:
             )
 
         Settings.banner = banner
+        Settings.isWip = isWip
+
+    def checkSweeper(self):
+        """Sets sweeper parameters
+
+        Returns
+        -------
+        void
+            The parameters are stored in the `sweeper` member of the
+            `Settings` object.
+        """
+        if self.design or self.migrate:
+            return
+
+        Messages = self.Messages
+        Settings = self.Settings
+        isWip = Settings.isWip
+
+        yamlDir = Settings.yamlDir
+
+        sweeperFile = "sweeper.yml"
+        sweeperSettings = readYaml(
+            asFile=f"{yamlDir}/{sweeperFile}", preferTuples=False
+        )
+
+        if sweeperSettings is None:
+            Messages.error(logmsg=f"Cannot read {sweeperFile} in {yamlDir}")
+            self.good = False
+            return
+
+        sweeperSettings = sweeperSettings["dev" if isWip else "prod"]
+
+        sweeper = AttrDict()
+        Settings.sweeper = sweeper
+
+        sec = 1 / 24 / 3600
+
+        for k in ("delayUndel", "delayDel", "delayTmp", "interval"):
+            v = sweeperSettings[k]
+
+            if v is None:
+                Messages.error(
+                    logmsg=f"No sweeper setting {k} found in {sweeperFile} in {yamlDir}"
+                )
+                self.good = False
+                continue
+
+            amount = v.amount
+            unit = v.unit
+
+            if amount is None or unit is None:
+                Messages.error(
+                    logmsg=f"Sweeper setting {k} misses amount/unit in "
+                    f"{sweeperFile} in {yamlDir}"
+                )
+                self.good = False
+                continue
+
+            if unit not in {"s", "d"}:
+                Messages.error(
+                    logmsg=f"Sweeper setting {k}: unit must be s or d in "
+                    f"{sweeperFile} in {yamlDir}"
+                )
+                self.good = False
+                continue
+
+            amountWrong = False
+
+            try:
+                amount = float(amount)
+
+                if amount <= 0:
+                    amountWrong = True
+
+            except Exception:
+                amountWrong = True
+
+            if amountWrong:
+                Messages.error(
+                    logmsg=f"Sweeper setting {k}: amount must be positive number "
+                    f"{sweeperFile} in {yamlDir}"
+                )
+                self.good = False
+                continue
+
+            value = amount if unit == "d" else amount * sec
+
+            if k == "interval":
+                dictVal = {("days" if unit == "d" else "seconds"): amount}
+
+                sweeper[f"{k}Dict"] = dictVal
+                sweeper["lee"] = 0.4 * value
+
+            sweeper[k] = value
 
     def checkDesign(self):
         """Checks the design resources.

@@ -17,6 +17,46 @@ In this way there will be always sweeper jobs scheduled, and if there are multip
 workers, they will not do superfluous work.
 Note that when workers are killed and started, it remains guaranteed that sweeping
 will be done.
+
+The timing of the sweeper is configured in the sweeper.yml file in the yaml
+directory.
+
+All values must be specified as an amount of seconds or days, e.g.
+
+```
+  delayUndel:
+    amount: 30
+    unit: d
+```
+
+(`d` is day, `s` is second).
+
+There are separate settings for the development environment and production, so that
+in development you can see the actions happen much more quickly and frequently.
+
+Here are the timing keys:
+
+*   `delayUndel`
+    The grace period for restoring deleted items.
+
+    Items that are marked as deleted less than this ago, can still be restored.
+
+*   `delayDel`
+    The grace period for permanently deleting deleted items.
+
+    Items that are marked as deleted less than this ago, will be permanently deleted
+    by the next sweeping action.
+
+*   `delayTmp`
+    The grace period for deleting temp directories.
+
+    Sometimes temporary directories are not wiped properly after they have been used.
+    Those directories will be wiped after this period.
+
+*   `interval`
+    The interval between invocations of the sweeper function.
+
+    When workers schedule the sweeper job, they use this as the interval.
 """
 
 import os
@@ -41,60 +81,6 @@ If True, all wipes will be announced, but not performed.
 """
 
 DRYREP = "(dry)" if DRY else ""
-
-SEC = 1 / 24 / 3600
-"""A second as fraction of a day.
-
-Some operations uses days as unit. This is the second with respect to the unit day.
-"""
-
-DELAY_UNDEL = None
-"""The grace period for restoring deleted items.
-
-Items that are marked as deleted less than this ago, can still be restored.
-"""
-
-DELAY_DEL = None
-"""The grace period for permanently deleting deleted items.
-
-Items that are marked as deleted less than this ago, will be permanently deleted
-by the next sweeping action.
-"""
-
-DELAY_TMP = None
-"""The grace period for deleting temp directories.
-
-Sometimes temporary directories are not wiped properly after they have been used.
-Those directories will be wiped after this period.
-"""
-
-INTERVAL = None
-"""The interval between invocations of the sweeper function.
-
-When workers schedule the sweeper job, they use this as the interval.
-"""
-
-if DRY:
-    DELAY_UNDEL = 3600 * SEC
-    DELAY_DEL = 55 * SEC
-    DELAY_TMP = 35 * SEC
-    INTERVAL = dict(seconds=10)
-else:
-    DELAY_UNDEL = 30
-    DELAY_DEL = 31
-    DELAY_TMP = 1
-    INTERVAL = dict(days=1)
-
-SWEEP_LEE = (
-    0.4 * INTERVAL["days"]
-    if "days" in INTERVAL
-    else SEC * INTERVAL["seconds"] if "seconds" in INTERVAL else 0.5
-)
-"""The threshold for suppressing a sweep action.
-
-If the latest sweep action occurred less than this ago,
-the current sweep action will be suppressed.
-"""
 
 
 class Sweeper:
@@ -135,13 +121,36 @@ class Sweeper:
             Messages.info(logmsg=f"{head}deferred to debug instance")
         return startIt
 
+    def showConfig(self):
+        Messages = self.Messages
+        Settings = self.Settings
+        sweeperCfg = Settings.sweeper
+
+        head = f"SWEEPER{DRYREP} config: "
+        day = 24 * 3600
+        sec = 1 / day
+
+        for k in ("interval", "lee", "delayDel", "delayTmp"):
+            v = sweeperCfg[k]
+
+            if v < 3600 * sec:
+                v = int(round(v * day))
+                v = f"{v:>4}   s"
+            else:
+                v = f"  {v:>5.2f}d"
+
+            Messages.info(logmsg=f"{head}{k:<10} = {v}")
+
     def start(self):
         """Schedules the sweeper job.
         """
         if self.maySchedule():
+            self.showConfig()
+            Settings = self.Settings
+            interval = Settings.sweeper.intervalDict
             scheduler = self.scheduler
             sweeper = self.clean()
-            scheduler.add_job(sweeper, "interval", **INTERVAL)
+            scheduler.add_job(sweeper, "interval", **interval)
             scheduler.start()
 
     def clean(self):
@@ -162,6 +171,7 @@ class Sweeper:
         Messages = self.Messages
         Settings = self.Settings
         siteCrit = Settings.siteCrit
+        lee = Settings.sweeper.lee
 
         def mayExecute():
             if not ON:
@@ -173,7 +183,7 @@ class Sweeper:
 
             now = isonow()
 
-            if sstm is None or not lessAgo(SWEEP_LEE, sstm, iso=True):
+            if sstm is None or not lessAgo(lee, sstm, iso=True):
                 Mongo.updateRecord("site", siteCrit, dict(sweeperStartTm=now))
                 result = True
             else:
@@ -199,6 +209,9 @@ class Sweeper:
     def sweepMongo(self):
         """Permanently deletes records marked as deleted in all tables.
         """
+        Settings = self.Settings
+        delayDel = Settings.sweeper.delayDel
+
         Mongo = self.Mongo
         Messages = self.Messages
 
@@ -218,7 +231,7 @@ class Sweeper:
             recordIds = [
                 r._id
                 for r in Mongo.getList(table, {}, deleted=True)
-                if not lessAgo(DELAY_DEL, r.get(MDELDT, None))
+                if not lessAgo(delayDel, r.get(MDELDT, None))
             ]
 
             n = len(recordIds)
@@ -245,6 +258,9 @@ class Sweeper:
         they contain editions that are not deleted. But in case this should happen,
         the deletion of the project directory is prevented.
         """
+        Settings = self.Settings
+        delayDel = Settings.sweeper.delayDel
+
         Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
@@ -266,7 +282,7 @@ class Sweeper:
                 eDelFile = f"{editionDir}/{FDEL}"
 
                 if fileExists(eDelFile) and not lessAgo(
-                    DELAY_DEL, mTime(eDelFile), iso=False
+                    delayDel, mTime(eDelFile), iso=False
                 ):
                     nE += 1
 
@@ -284,7 +300,7 @@ class Sweeper:
             pDelFile = f"{projectDir}/{FDEL}"
 
             if fileExists(pDelFile) and not lessAgo(
-                DELAY_DEL, mTime(pDelFile), iso=False
+                delayDel, mTime(pDelFile), iso=False
             ):
                 if len(dirContents(editionsDir)[1]):
                     Messages.error(
@@ -318,6 +334,9 @@ class Sweeper:
         These directories all resides at the toplevel of the temp dir, and their
         names start with `tmp`.
         """
+        Settings = self.Settings
+        delayTmp = Settings.sweeper.delayTmp
+
         Messages = self.Messages
         Settings = self.Settings
         tempDir = Settings.tempDir
@@ -326,15 +345,18 @@ class Sweeper:
 
         nT = 0
 
+        tmpDirs = dirContents(tempDir)[1]
+        Messages.info(logmsg=f"Found {len(tmpDirs)} temp dirs")
+
         for tmp in dirContents(tempDir)[1]:
             tmpd = f"{tempDir}/{tmp}"
 
-            if tmp.startswith("tmp") and not lessAgo(DELAY_TMP, mTime(tmpd), iso=False):
+            if tmp.startswith("tmp") and not lessAgo(delayTmp, mTime(tmpd), iso=False):
                 nT += 1
+                Messages.info(logmsg=f"About to remove {tmpd}")
+                Messages.info(logmsg=f"{head}tempdir {tmp}")
 
-                if DRY:
-                    Messages.info(logmsg=f"{head}tempdir {tmp}")
-                else:
+                if not DRY:
                     try:
                         dirRemove(tmpd)
                     except Exception as e:
