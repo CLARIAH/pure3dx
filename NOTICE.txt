@@ -1,0 +1,10 @@
+Pure3D: 3D-edition authoring and publishing infrastructure.
+
+Copyright 2024 Maastricht University (https://www.maastrichtuniversity.nl)
+
+This product includes software developed at KNAW Humanities Cluster
+(https://di.huc.knaw.nl/home-en.html).
+
+In addition, it makes use of the Voyager software
+(https://github.com/Smithsonian/dpo-voyager)
+developed at the Smithsonian Institution.
