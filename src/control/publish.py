@@ -229,13 +229,13 @@ class Publish:
             thisGood = Precheck.checkEdition(site, project, edition._id, edition)
 
             if thisGood:
-                Messages.info("Edition validation OK")
+                Messages.info(msg="Edition validation OK")
             else:
-                Messages.info("Edition validation not OK")
+                Messages.info(msg="Edition validation not OK")
                 good = False
 
                 if force:
-                    Messages.info("Continuing nevertheless")
+                    Messages.info(msg="Continuing nevertheless")
                     good = True
 
             (pPubNum, ePubNum) = self.getPubNums(project, edition)

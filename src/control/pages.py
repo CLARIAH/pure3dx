@@ -351,7 +351,7 @@ class Pages:
                 msg=f"failed to create new user {user}",
             )
             for kind, msg in result.get("messages", []):
-                Messages.message(kind, msg)
+                Messages.message(kind, msg, msg)
 
         newUrl = "/admin"
         return redirectStatus(newUrl, good)
@@ -381,7 +381,7 @@ class Pages:
                 msg=f"failed to delete new user {user}",
             )
             for kind, msg in result.get("messages", []):
-                Messages.message(kind, msg)
+                Messages.message(kind, msg, msg)
 
         newUrl = "/admin"
         return redirectStatus(newUrl, good)
@@ -643,9 +643,7 @@ class Pages:
                         ),
                     )
                 else:
-                    Messages.good(
-                        msg=("Found the edition and project " f"in {authorLabel}"),
-                    )
+                    Messages.good(msg=f"Found the edition and project in {authorLabel}")
 
                 newUrl = f"/edition/{editionIdVerified}"
 
@@ -658,9 +656,7 @@ class Pages:
                 newUrl = homeUrl
 
             else:
-                Messages.good(
-                    msg=("Found the project " f"in {authorLabel}"),
-                )
+                Messages.good(msg="Found the project " f"in {authorLabel}")
                 newUrl = f"/project/{projectIdVerified}"
 
         return redirectStatus(newUrl, True)

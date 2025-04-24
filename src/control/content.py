@@ -1809,7 +1809,10 @@ class Content(Datamodel):
             with open(fileFullPath, "wb") as fh:
                 fh.write(fileContent)
         except Exception as e:
-            logmsg = f"{head}Could not save uploaded file: {key}: {fileFullPath} because of {e}"
+            logmsg = (
+                f"{head}Could not save uploaded file: "
+                f"{key}: {fileFullPath} because of {e}"
+            )
             msg = f"Uploaded file not saved: {fileName}"
             Messages.warning(logmsg=logmsg)
             return jsonify(status=False, msgs=[["warning", msg]])
@@ -1817,7 +1820,7 @@ class Content(Datamodel):
         content = self.getUpload(
             record, key, fileName=targetFileName, bust=fileName, wrapped=False
         )
-        Messages.info(f"{head}Success")
+        Messages.info(logmsg=f"{head}Success")
 
         return jsonify(status=True, msgs=[["good", "Done"]], content=content)
 

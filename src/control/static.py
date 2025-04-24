@@ -580,7 +580,7 @@ class Static:
 
             for p in featured:
                 if p not in projectsIndex:
-                    Messages.warning(f"featured project {p} does not exist")
+                    Messages.warning(msg=f"featured project {p} does not exist")
                     continue
 
                 projectsFeatured.append(projectsIndex[p])

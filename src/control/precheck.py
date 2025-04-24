@@ -257,15 +257,17 @@ class Precheck:
                     else:
                         if metaKey == "dateCreated":
                             Messages.error(
-                                f"{table} has no date created. "
+                                msg=f"{table} has no date created. "
                                 f"Just edit any {table} field to set it to today"
                             )
 
-                        Messages.error(f"This {table} has no metadata field {metaKey}")
+                        Messages.error(
+                            msg=f"This {table} has no metadata field {metaKey}"
+                        )
                         good = False
 
             if good:
-                Messages.good("All required metadata fields are present")
+                Messages.good(msg="All required metadata fields are present")
 
             return good
 
@@ -335,7 +337,7 @@ class Precheck:
 
                 if nUnref:
                     Messages.warning(
-                        f"Edition {project}/{edition}: {nUnref} unreferenced files "
+                        msg=f"Edition {project}/{edition}: {nUnref} unreferenced files "
                         "skipped from being published"
                     )
             else:
