@@ -1,3 +1,9 @@
+# Fix 2025-04-24
+
+There is a user without name!
+I supplied a name based on the email address, checked the code, tried to prevent
+it in the future, and added guards to prevent such users from modifying data.
+
 # Release 1.1.0 on 2025-04-07
 
 There were lots of conflicts between delete actions and other actions that accessed
