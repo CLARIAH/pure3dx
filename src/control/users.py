@@ -126,15 +126,15 @@ class Users:
 
         referrer = getReferrer()
         (isSpecialUser, user) = self.getUser(fromArg=True)
-        name = acg.User.nickname
+        uName = acg.User.nickname  # this is the current user if any
 
         if user and not isSpecialUser and not runProd:
             Messages.warning(
                 logmsg=(
                     "LOGIN attempt while an user is already logged in: "
-                    f"user {name} {user}"
+                    f"user {uName} {user}"
                 ),
-                msg=f"first log out as user {name}",
+                msg=f"first log out as user {uName}",
             )
             return redirectStatus(f"/{referrer}", False)
 
@@ -154,10 +154,10 @@ class Users:
         context.
 
         We use that information to lookup the user in the MongoDb users table.
-        If the user does not exists, we add a new user record, with this "sub" and
+        If the user does not exist, we add a new user record, with this "sub" and
         these attributes, and role `user`.
 
-        If the user does exists, we check whether we have to update his attributes.
+        If the user does exist, we check whether we have to update his attributes.
         If the attributes found in MongoDb differ from those supplied by the
         authentication service, we update the MongoDb values on the basis
         of the provider values.
@@ -181,7 +181,7 @@ class Users:
 
         if oidc.user_loggedin:
             user = oidc.user_getfield("sub")
-            name = oidc.user_getfield("nickname")
+            uName = oidc.user_getfield("nickname")
 
         if user is None or not self.__findUser(user, update=True):
             Messages.warning(
@@ -190,10 +190,10 @@ class Users:
             )
             return redirectStatus(f"/{referrer}", False)
 
-        name = acg.User.nickname
+        uName = acg.User.nickname
         Messages.plain(
-            logmsg=f"LOGIN successful: user {name} {user}",
-            msg=f"LOGIN successful: user {name}",
+            logmsg=f"LOGIN successful: user {uName} {user}",
+            msg=f"LOGIN successful: user {uName}",
         )
         return redirectStatus(f"/{referrer}", True)
 
@@ -212,7 +212,7 @@ class Users:
         oidc = self.oidc
         Settings = self.Settings
         Messages = self.Messages
-        name = acg.User.nickname
+        uName = acg.User.nickname
         runProd = Settings.runProd
 
         (isSpecialUser, user) = self.getUser()
@@ -233,8 +233,8 @@ class Users:
 
         acg.User.clear()
         Messages.plain(
-            logmsg=f"LOGOUT successful: user {name} {user}",
-            msg=f"{name} logged out",
+            logmsg=f"LOGOUT successful: user {uName} {user}",
+            msg=f"{uName} logged out",
         )
         return redirectStatus("/", True)
 
@@ -301,8 +301,9 @@ class Users:
         """
         User = self.myDetails()
         user = User.user
+        uName = User.nickname
 
-        if not user:
+        if not user or not uName:
             return (False, None)
 
         myRole = User.role
@@ -408,27 +409,27 @@ class Users:
                 key=lambda r: r.nickname or "",
             ):
                 user = record.user
-                name = record.nickname
+                uName = record.nickname
                 role = self.presentRole(record.role)
 
                 active = user == userActive
                 specialContent.append(
-                    wrap(None, name, role, f"/alogin?user={user}", active, enabled)
+                    wrap(None, uName, role, f"/alogin?user={user}", active, enabled)
                 )
 
         if userActive:
             # details of logged in user
 
             details = self.myDetails()
-            name = details.nickname
+            uName = details.nickname
             email = details.email
-            userRep = f"{name} - {email}" if email else name
+            userRep = f"{uName} - {email}" if email else uName
             role = self.presentRole(details.role)
             content.append(wrap("Logged in as", userRep, role, None, True, True))
 
             # logout button
             content.append(
-                wrap(None, "log out", f"log out {name}", "/alogout", False, True)
+                wrap(None, "log out", f"log out {uName}", "/alogout", False, True)
             )
 
         else:
@@ -581,10 +582,10 @@ class Users:
             return redirectStatus(f"/{referrer}", False)
 
         sessionSet("user", user)
-        name = acg.User.nickname
+        uName = acg.User.nickname
         Messages.plain(
-            logmsg=f"LOGIN successful: {runMode} user {name} {user}",
-            msg=f"LOGIN successful: {runMode} user {name}",
+            logmsg=f"LOGIN successful: {runMode} user {uName} {user}",
+            msg=f"LOGIN successful: {runMode} user {uName}",
         )
         return redirectStatus(f"/{referrer}", True)
 
@@ -672,7 +673,9 @@ class Users:
         def fillNickname(record):
             if not record.get("nickname", None):
                 email = record.get("email", "") or ""
-                record["nickname"] = email.split("@", 1)[0] or "unknown_name"
+                record["nickname"] = email.split("@", 1)[0] or record.get(
+                    "sub", "unknown_name"
+                )
 
         record = Mongo.getRecord("user", dict(user=user), warn=False)
         newUser = None
@@ -715,6 +718,6 @@ class Users:
                     User[att] = new
 
             if changes:
-                Mongo.updateRecord("user", dict(user=User.user), changes)
+                Mongo.updateRecord("user", dict(user=User.user), changes, "system")
 
         return True

@@ -1,6 +1,5 @@
 import re
 
-from .helpers import console
 from flask import (
     Flask,
     current_app,
@@ -47,7 +46,6 @@ def runInfo():
     """
     runMain = var("WERKZEUG_RUN_MAIN")
     return runMain
-
 
 
 def appMake(*args, **kwargs):

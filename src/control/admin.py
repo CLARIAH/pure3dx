@@ -624,7 +624,7 @@ class Admin:
         pDeleted = project.get(MDEL, False)
 
         if pDeleted:
-            pDeletedBy = project.get(MDELBY, "unknown")
+            pDeletedBy = project.get(MDELBY, None) or "unknown"
             pDeletedTm = project.get(MDELDT, "2000-01-01T00:00:00Z")
             pDeletedDt = dateOnly(pDeletedTm)
             pRemainingDays = amountTogo(delayUndel, pDeletedTm, iso=True)
@@ -682,7 +682,7 @@ class Admin:
 
         H = self.H
         title = edition.title or H.i("no title")
-        eDeletedBy = edition.get(MDELBY, "unknown")
+        eDeletedBy = edition.get(MDELBY, None) or "unknown"
         eDeletedTm = edition.get(MDELDT, "2000-01-01T00:00:00Z")
         eDeletedDt = dateOnly(eDeletedTm)
         eRemainingDays = amountTogo(delayUndel, eDeletedTm, iso=True)
@@ -1059,6 +1059,7 @@ class Admin:
         Content = self.Content
         Mongo = self.Mongo
         inPower = self.inPower
+        uName = self.uName
 
         if inPower:
             (table, siteId, site) = Content.relevant()
@@ -1068,6 +1069,7 @@ class Admin:
                     "site",
                     dict(_id=site._id),
                     dict(processing=False, lastPublished=isonow()),
+                    uName,
                 )
             status = True
             messages = []
@@ -1168,7 +1170,7 @@ class Admin:
             )
 
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
 
         keywords = Content.getKeywords()
         specs = json.loads(requestData())
@@ -1198,7 +1200,7 @@ class Admin:
                 messages=[["error", f"keyword '{name}':'{value}' is used {occs} x"]],
             )
 
-        good = Mongo.deleteRecord("keyword", dict(name=name, value=value), name)
+        good = Mongo.deleteRecord("keyword", dict(name=name, value=value), uName)
         messages = [] if good else [["warning", "no keyword has been deleted"]]
 
         self.update()
@@ -1235,7 +1237,6 @@ class Admin:
             * `messages`: list of messages for the user,
             * `updated`: new content for the user managment div.
         """
-        Auth = self.Auth
         Mongo = self.Mongo
         siteRoles = self.siteRoles
         projectRoles = self.projectRoles
@@ -1256,11 +1257,10 @@ class Admin:
 
         msg = ""
 
-        User = Auth.myDetails()
-        name = User.nickname
+        uName = self.uName
 
         if table is None:
-            result = Mongo.updateRecord("user", dict(user=u), dict(role=newRole))
+            result = Mongo.updateRecord("user", dict(user=u), dict(role=newRole), uName)
         else:
             (recordId, record) = Mongo.get(table, recordId)
 
@@ -1272,13 +1272,13 @@ class Admin:
             criteria = {"user": u, f"{table}Id": recordId}
 
             if newRole is None:
-                result = Mongo.deleteRecord(f"{table}User", criteria, name)
+                result = Mongo.deleteRecord(f"{table}User", criteria, uName)
 
                 if not result:
                     msg = f"could not unlink this user from the {table}"
             else:
                 result = Mongo.updateRecord(
-                    f"{table}User", criteria, dict(role=newRole)
+                    f"{table}User", criteria, dict(role=newRole), uName
                 )
                 if not result:
                     msg = (
@@ -1323,9 +1323,11 @@ class Admin:
             * `updated`: new content for the user managment div.
         """
         Mongo = self.Mongo
+        uName = self.uName
         siteRoles = self.siteRoles
         projectRoles = self.projectRoles
         editionRoles = self.editionRoles
+
         itemRoles = (
             siteRoles
             if table is None
@@ -1351,7 +1353,9 @@ class Admin:
         msg = ""
 
         if crossRecord:
-            result = Mongo.updateRecord(f"{table}User", criteria, dict(role=newRole))
+            result = Mongo.updateRecord(
+                f"{table}User", criteria, dict(role=newRole), uName
+            )
 
             if not result:
                 msg = (
@@ -1409,13 +1413,13 @@ class Admin:
                 messages.append(("error", "name should not be empty"))
 
             else:
-                name = USERNAME_RE.sub("_", user.lower().replace(" ", "."))
-                if name != user:
-                    messages.append(("warning", f"user {user} to be saved as {name}"))
+                uName = USERNAME_RE.sub("_", user.lower().replace(" ", "."))
+                if uName != user:
+                    messages.append(("warning", f"user {user} to be saved as {uName}"))
 
-                userLong = f"{name:0>16}"
+                userLong = f"{uName:0>16}"
                 userInfo = dict(
-                    nickname=name,
+                    nickname=uName,
                     user=userLong,
                     role="user",
                     isSpecial=True,
@@ -1425,7 +1429,7 @@ class Admin:
                 if not userId:
                     status = False
                     messages.append(
-                        ("error", f"could not add {name} to the user table")
+                        ("error", f"could not add {uName} to the user table")
                     )
         else:
             status = False
@@ -1467,7 +1471,7 @@ class Admin:
         runProd = Settings.runProd
         inPower = self.inPower
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
 
         status = True
         messages = []
@@ -1477,7 +1481,9 @@ class Admin:
                 status = False
                 messages.append(("error", "name should not be empty"))
             else:
-                good = Mongo.deleteRecord("user", dict(isSpecial=True, user=user), name)
+                good = Mongo.deleteRecord(
+                    "user", dict(isSpecial=True, user=user), uName
+                )
 
                 if not good:
                     status = False
@@ -1518,14 +1524,14 @@ class Admin:
         Content = self.Content
         inPower = self.inPower
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
 
         messages = []
 
         (recordId, record) = Mongo.get(table, record, deleted=True)
         projectRep = f"{record.projectId}/" if table == "edition" else ""
         itemRep = f"{table} {projectRep}{recordId}"
-        head = f"RESTORE (on behalf of {name}) {itemRep}: "
+        head = f"RESTORE (on behalf of {uName}) {itemRep}: "
 
         if inPower:
             if recordId is None:
@@ -1548,7 +1554,7 @@ class Admin:
                     )
                     return dict(stat=False, messages=messages)
 
-            if Mongo.undeleteRecord(table, dict(_id=recordId), name):
+            if Mongo.undeleteRecord(table, dict(_id=recordId), uName):
                 Messages.info(logmsg=f"{head}restored the {table} record")
             else:
                 Messages.error(logmsg=f"{head}restore of {table} record failed")
@@ -1561,7 +1567,7 @@ class Admin:
             if links:
                 for linkTable, linkCriteria in links.items():
                     (thisStatus, count) = Mongo.undeleteRecords(
-                        linkTable, linkCriteria, name
+                        linkTable, linkCriteria, uName
                     )
 
                     if not thisStatus:
@@ -1590,7 +1596,7 @@ class Admin:
                 return dict(stat=False, messages=messages)
 
             (status, theseMessages) = self.undeleteItemFiles(
-                table, record, recordId, name
+                table, record, recordId, uName
             )
             messages.extend(theseMessages)
 
@@ -1609,7 +1615,7 @@ class Admin:
             messages.append(("error", f"restoring a {table} needs admin privileges"))
             return dict(stat=False, messages=messages)
 
-    def undeleteItemFiles(self, table, record, recordId, name):
+    def undeleteItemFiles(self, table, record, recordId, uName):
         Messages = self.Messages
         Settings = self.Settings
         workingDir = Settings.workingDir
@@ -1627,7 +1633,7 @@ class Admin:
         messages = []
         status = True
 
-        head = f"RESTORE DIRECTORY (on behalf of {name}) {itemDirTail}: "
+        head = f"RESTORE DIRECTORY (on behalf of {uName}) {itemDirTail}: "
 
         if dirExists(itemDir):
             markFile = f"{itemDir}/{FDEL}"
@@ -1669,9 +1675,11 @@ class Admin:
         Auth.identify()
         User = Auth.myDetails()
         user = User.user
+        uName = User.nickname
 
         self.User = User
         self.user = user
+        self.uName = uName
 
         (self.inPower, self.myRole) = Auth.inPower()
 
@@ -1890,8 +1898,9 @@ class Admin:
             user is allowed to remove the role of the target user.
         """
         myRole = self.myRole
+        uName = self.uName
 
-        if myRole in {None, "guest"}:
+        if not uName or myRole in {None, "guest"}:
             return False, frozenset()
 
         user = self.user

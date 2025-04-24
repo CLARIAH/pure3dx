@@ -909,10 +909,10 @@ class Pages:
         if not permitted:
             User = Auth.myDetails()
             user = User.user
-            name = User.nickname
+            uName = User.nickname
 
             Messages.info(
-                logmsg=f"WEBDav unauthorised by user {name} ({user})"
+                logmsg=f"WEBDav unauthorised by user {uName} ({user})"
                 f" on edition {editionId} path {path}"
             )
         return permitted

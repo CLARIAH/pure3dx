@@ -53,7 +53,7 @@ authRules:
       admin: true
       user: true
       guest: true
-      null: true
+      null: false
     update:
       root: true
       admin: true
@@ -87,7 +87,7 @@ authRules:
         admin: true
         user: true
         guest: true
-        null: true
+        null: false
       false:
         root: true
         admin: true
@@ -139,7 +139,7 @@ authRules:
         admin: true
         user: true
         guest: true
-        null: true
+        null: false
       false:
         root: true
         admin: true

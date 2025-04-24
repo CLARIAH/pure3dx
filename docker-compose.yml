@@ -1,10 +1,7 @@
-volumes:
-  mongodb-volume:
-    external: false
-
 services:
   pure3d_author:
-    image: pure3d_author:latest-loc
+    # image: pure3d_author:latest
+    image: registry.huc.knaw.nl/pure3d/pure3d_author
     # restart: unless-stopped
     container_name: pure3d_author
     hostname: pure3d_author
@@ -56,7 +53,7 @@ services:
     hostname: "${mongohost}"
     container_name: mongodb
     volumes:
-      - "mongodb-volume:/data/db"
+      - "./data/mongodb:/data/db"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${mongouser}
       MONGO_INITDB_ROOT_PASSWORD: ${mongopassword}

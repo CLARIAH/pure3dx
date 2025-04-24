@@ -113,7 +113,7 @@ def inContainer():
 
 def connect(Settings):
     inside = inContainer()
-    host = Settings.mongoHost if inside else None
+    host = Settings.mongoHost if inside else "localhost"
     port = Settings.mongoPort if inside else Settings.mongoPortOuter
 
     try:

@@ -286,6 +286,8 @@ class Mongo:
             Search only in the records that are marked for deletion
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
+            If False, do not warn.
+            If 0, only warn to the log file, not to the user.
 
         Returns
         -------
@@ -305,6 +307,11 @@ class Mongo:
                     msg=f"Could not find that {table}",
                     logmsg=f"No record in {table} with {criteria}",
                 )
+            else:
+                if type(warn) is int:
+                    Messages.warning(
+                        logmsg=f"No record in {table} with {criteria}",
+                    )
             result = {}
         return deepAttrDict(result)
 
@@ -357,7 +364,7 @@ class Mongo:
             else {r._id: r for r in result} if asDict else result
         )
 
-    def hardDeleteRecord(self, table, criteria, by):
+    def hardDeleteRecord(self, table, criteria, uName):
         """Deletes a single record from a table.
 
         Parameters
@@ -370,7 +377,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -378,10 +385,13 @@ class Mongo:
         boolean
             Whether the delete was successful
         """
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, "delete_one", criteria)
         return result.deleted_count > 0 if good else False
 
-    def deleteRecord(self, table, criteria, by):
+    def deleteRecord(self, table, criteria, uName):
         """Deletes a single record from a table.
 
         If the record has already been deleted, nothing is done.
@@ -396,7 +406,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -404,14 +414,17 @@ class Mongo:
         boolean
             Whether the delete was successful
         """
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, "update_one", criteria, {"$set": updates}
         )
         return good
 
-    def undeleteRecord(self, table, criteria, by):
+    def undeleteRecord(self, table, criteria, uName):
         """Marks a single record from a table as undeleted.
 
         If the record was not marked as deleted, this method does silently nothing
@@ -427,7 +440,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -435,12 +448,15 @@ class Mongo:
         boolean
             Whether the undelete was successful
         """
+        if not uName:
+            return False
+
         criteria[MDEL] = {"$exists": True}
-        updates = {"$unset": {MDEL: None}, "$set": {MRESDT: isonow(), MRESBY: by}}
+        updates = {"$unset": {MDEL: None}, "$set": {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, "update_one", criteria, updates)
         return good
 
-    def hardDeleteRecords(self, table, criteria, by):
+    def hardDeleteRecords(self, table, criteria, uName):
         """Delete multiple records from a table.
 
         Parameters
@@ -449,7 +465,7 @@ class Mongo:
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -458,11 +474,14 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         """
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, "delete_many", criteria)
         count = result.deleted_count if good else 0
         return (good, count)
 
-    def deleteRecords(self, table, criteria, by):
+    def deleteRecords(self, table, criteria, uName):
         """Delete multiple records from a table.
 
         Records that have already been deleted are not affected.
@@ -473,7 +492,7 @@ class Mongo:
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -482,15 +501,18 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         """
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, "update_many", criteria, {"$set": updates}
         )
         count = result.modified_count if good else 0
         return (good, count)
 
-    def undeleteRecords(self, table, criteria, by):
+    def undeleteRecords(self, table, criteria, uName):
         """Marks multiple records from a table as undeleted.
 
         Parameters
@@ -499,7 +521,7 @@ class Mongo:
             The name of the table from which we want to undelete records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -508,13 +530,16 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been undeleted
         """
+        if not uName:
+            return False
+
         criteria[MDEL] = {"$exists": True}
-        updates = {"$unset": {MDEL: False}, "$set": {MRESDT: isonow(), MRESBY: by}}
+        updates = {"$unset": {MDEL: False}, "$set": {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, "update_many", criteria, updates)
         count = result.modified_count if good else 0
         return (good, count)
 
-    def updateRecord(self, table, criteria, updates):
+    def updateRecord(self, table, criteria, updates, uName):
         """Updates a single record from a table.
 
         It does not work on records that have been marked as deleted.
@@ -534,12 +559,17 @@ class Mongo:
             The fields that must be updated with the values they must get.
             If the value `None` is specified for a field, that field will be set to
             null.
+        uName: string
+            The name of the user who issued the command
 
         Returns
         -------
         boolean
             Whether the update was successful
         """
+        if not uName:
+            return False
+
         criteria[MDEL] = None
         (good, result) = self.executeMongo(
             table, "update_one", criteria, {"$set": updates}
@@ -881,7 +911,9 @@ class Mongo:
 
                     Messages.info(msg=f"Restoring {table} record ...")
                     if db[table] is not None and clean:
-                        thisGood = self.hardDeleteRecord(table, dict(_id=projectId))
+                        thisGood = self.hardDeleteRecord(
+                            table, dict(_id=projectId), "backuprestore"
+                        )
                     if thisGood:
                         db[table].insert_one(record)
                     else:

@@ -142,8 +142,7 @@ class Sweeper:
             Messages.info(logmsg=f"{head}{k:<10} = {v}")
 
     def start(self):
-        """Schedules the sweeper job.
-        """
+        """Schedules the sweeper job."""
         if self.maySchedule():
             self.showConfig()
             Settings = self.Settings
@@ -177,14 +176,16 @@ class Sweeper:
             if not ON:
                 return False
 
-            site = Mongo.getRecord("site", siteCrit)
+            site = Mongo.getRecord("site", siteCrit, warn=0)
             sstm = site.sweeperStartTm or None
             head = f"SWEEPER{DRYREP} by worker {os.getpid()}: "
 
             now = isonow()
 
             if sstm is None or not lessAgo(lee, sstm, iso=True):
-                Mongo.updateRecord("site", siteCrit, dict(sweeperStartTm=now))
+                Mongo.updateRecord(
+                    "site", siteCrit, dict(sweeperStartTm=now), "sweeper"
+                )
                 result = True
             else:
                 Messages.info(
@@ -207,8 +208,7 @@ class Sweeper:
         return sweeper
 
     def sweepMongo(self):
-        """Permanently deletes records marked as deleted in all tables.
-        """
+        """Permanently deletes records marked as deleted in all tables."""
         Settings = self.Settings
         delayDel = Settings.sweeper.delayDel
 

@@ -300,13 +300,13 @@ class Content(Datamodel):
 
         User = Auth.myDetails()
         user = User.user
-        name = User.nickname
+        uName = User.nickname
 
         title = "Project without title"
 
         dcMeta = dict(
             title=title,
-            creator=name,
+            creator=uName,
             dateCreated=isonow(),
         )
         projectId = Mongo.insertRecord(
@@ -348,12 +348,19 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
+
+        if not uName:
+            Messages.error(
+                msg=f"Delete {table}: not permitted by an unidentified user",
+                logmsg=f"Delete {table}: Not permitted by an unidentified user",
+            )
+            return None
 
         (recordId, record) = Mongo.get(table, record)
         projectRep = f"{record.projectId}/" if table == "edition" else ""
         itemRep = f"{table} {projectRep}{recordId}"
-        head = f"DELETE (on behalf of {name}) {itemRep}: "
+        head = f"DELETE (on behalf of {uName}) {itemRep}: "
 
         if recordId is None:
             Messages.warning(
@@ -389,7 +396,7 @@ class Content(Datamodel):
 
         if links:
             for linkTable, linkCriteria in links.items():
-                (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, name)
+                (thisGood, count) = Mongo.deleteRecords(linkTable, linkCriteria, uName)
 
                 if not thisGood:
                     good = False
@@ -412,7 +419,7 @@ class Content(Datamodel):
         if not good:
             return False
 
-        good = self.deleteItemFiles(table, record, recordId, name)
+        good = self.deleteItemFiles(table, record, recordId, uName)
 
         if good:
             Messages.info(logmsg=f"{head}deleted the {table} record")
@@ -420,7 +427,7 @@ class Content(Datamodel):
             Messages.error(logmsg=f"{head}could not delete this {table} record")
             return False
 
-        good = Mongo.deleteRecord(table, dict(_id=recordId), name)
+        good = Mongo.deleteRecord(table, dict(_id=recordId), uName)
 
         if good:
             Messages.info(
@@ -435,7 +442,7 @@ class Content(Datamodel):
 
         return good
 
-    def deleteItemFiles(self, table, record, recordId, name):
+    def deleteItemFiles(self, table, record, recordId, uName):
         """Deletes the files that correspond to a project or edition.
 
         Deletion means: mark as deleted.
@@ -449,7 +456,7 @@ class Content(Datamodel):
             The item record in question.
         recordId: AttrDict
             The the id of the item record in question.
-        name: string
+        uName: string
             The user name of the user that triggered the delete action.
 
         Returns
@@ -457,7 +464,18 @@ class Content(Datamodel):
         boolean
             Whether the deletion was successful.
         """
+        Auth = self.Auth
+        User = Auth.myDetails()
+        uName = User.nickname
         Messages = self.Messages
+
+        if not uName:
+            Messages.error(
+                msg=f"Delete {table} files: not permitted by an unidentified user",
+                logmsg=f"Delete {table} files: Not permitted by an unidentified user",
+            )
+            return None
+
         Settings = self.Settings
         workingDir = Settings.workingDir
 
@@ -469,7 +487,7 @@ class Content(Datamodel):
 
         itemDir = f"{workingDir}/{itemDirTail}"
 
-        head = f"DELETE DIRECTORY (on behalf of {name}) {itemDirTail}: "
+        head = f"DELETE DIRECTORY (on behalf of {uName}) {itemDirTail}: "
 
         if dirExists(itemDir):
             Messages.info(logmsg=f"{head}by adding {FDEL}")
@@ -533,13 +551,13 @@ class Content(Datamodel):
 
         User = Auth.myDetails()
         user = User.user
-        name = User.nickname
+        uName = User.nickname
 
         title = "Edition without title"
 
         dcMeta = dict(
             title=title,
-            creator=name,
+            creator=uName,
             dateCreated=isonow(),
         )
         editionId = Mongo.insertRecord(
@@ -616,6 +634,15 @@ class Content(Datamodel):
         if readonly:
             return dict(stat=False, messages=[["error", f"{key} is not updatable"]])
 
+        User = Auth.myDetails()
+        uName = User.nickname
+
+        if not uName:
+            return dict(
+                stat=False,
+                messages=[["error", "update not allowed by an unidentified user"]],
+            )
+
         tp = F.tp
         multiple = F.multiple
         fieldPath = fieldPaths[key]
@@ -642,7 +669,7 @@ class Content(Datamodel):
         if key == "title":
             update[key] = sValue
 
-        if Mongo.updateRecord(table, dict(_id=recordId), update) is None:
+        if Mongo.updateRecord(table, dict(_id=recordId), update, uName) is None:
             return dict(
                 stat=False,
                 messages=[["error", "could not update the record in the database"]],
@@ -655,9 +682,9 @@ class Content(Datamodel):
         dateModifiedPath = fieldPaths["dateModified"]
 
         if not self.getValue(table, record, "dateCreated", manner="logical"):
-            Mongo.updateRecord(table, dict(_id=recordId), {dateCreatedPath: now})
+            Mongo.updateRecord(table, dict(_id=recordId), {dateCreatedPath: now}, uName)
 
-        Mongo.updateRecord(table, dict(_id=recordId), {dateModifiedPath: now})
+        Mongo.updateRecord(table, dict(_id=recordId), {dateModifiedPath: now}, uName)
 
         return dict(
             stat=True,
@@ -907,7 +934,7 @@ class Content(Datamodel):
         actions = Auth.authorise(table, record)
 
         if "read" not in actions:
-            return None
+            return ""
 
         F = self.makeUpload(key, fileName=fileName)
 
@@ -1285,11 +1312,13 @@ class Content(Datamodel):
         Mongo = self.Mongo
 
         (projectId, project) = Mongo.get("project", project)
+
         if not project:
             return ""
 
         projectUrl = f"/project/{projectId}"
         text = self.getValue("project", project, "title", manner="bare")
+
         if not text:
             text = H.i("no title")
 
@@ -1366,6 +1395,9 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
+        User = Auth.myDetails()
+        uName = User.nickname
+
         (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
@@ -1375,7 +1407,7 @@ class Content(Datamodel):
 
         permitted = Auth.authorise("edition", record, action="publish")
 
-        if not permitted:
+        if not permitted or not uName:
             logmsg = f"Publish not permitted: edition: {recordId}"
             msg = "Publishing of edition not permitted"
             Messages.warning(msg=msg, logmsg=logmsg)
@@ -1385,7 +1417,7 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.updateEdition(site, project, edition, "add", force=force)
+        return Publish.updateEdition(site, project, edition, "add", uName, force=force)
 
     def republish(self, record, force):
         """Re-ublish an edition.
@@ -1407,6 +1439,9 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
+        User = Auth.myDetails()
+        uName = User.nickname
+
         (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
@@ -1427,7 +1462,7 @@ class Content(Datamodel):
         )
 
         return Publish.updateEdition(
-            site, project, edition, "add", force=force, again=True
+            site, project, edition, "add", uName, force=force, again=True
         )
 
     def unpublish(self, record):
@@ -1448,6 +1483,9 @@ class Content(Datamodel):
         Auth = self.Auth
         Publish = self.Publish
 
+        User = Auth.myDetails()
+        uName = User.nickname
+
         (recordId, record) = Mongo.get("edition", record)
         if recordId is None:
             Messages.error(
@@ -1467,7 +1505,7 @@ class Content(Datamodel):
             "edition", record
         )
 
-        return Publish.updateEdition(site, project, edition, "remove")
+        return Publish.updateEdition(site, project, edition, "remove", uName)
 
     def generate(self):
         """Regenerate the HTML for the published site.
@@ -1535,7 +1573,7 @@ class Content(Datamodel):
         tempDir = Settings.tempDir
         workingDir = Settings.workingDir
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
 
         dontCompress = set(Settings.dontCompress)
         limits = Settings.limits
@@ -1548,7 +1586,7 @@ class Content(Datamodel):
         (recordId, record) = Mongo.get(table, record)
         projectRep = f"{record.projectId}/" if table == "edition" else ""
         itemRep = f"{table} {projectRep}{recordId}"
-        head = f"DOWNLOAD (on behalf of {name}) {itemRep}: "
+        head = f"DOWNLOAD (on behalf of {uName}) {itemRep}: "
 
         if recordId is None:
             Messages.error(logmsg=f"{head}record does not exist")
@@ -1756,7 +1794,7 @@ class Content(Datamodel):
         Auth = self.Auth
         workingDir = Settings.workingDir
         User = Auth.myDetails()
-        name = User.nickname
+        uName = User.nickname
 
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
@@ -1764,7 +1802,7 @@ class Content(Datamodel):
         (recordId, record) = Mongo.get(table, record)
         projectRep = f"{record.projectId}/" if table == "edition" else ""
         itemRep = f"{table} {projectRep}{recordId}"
-        head = f"UPLOAD (on behalf of {name}) {itemRep}: "
+        head = f"UPLOAD (on behalf of {uName}) {itemRep}: "
 
         if recordId is None:
             Messages.error(logmsg=f"{head}record does not exist")
@@ -2096,6 +2134,16 @@ class Content(Datamodel):
         Mongo = self.Mongo
         Auth = self.Auth
         workingDir = Settings.workingDir
+
+        User = Auth.myDetails()
+        uName = User.nickname
+
+        if not uName:
+            Messages.error(
+                msg="Delete file: not permitted by an unidentified user",
+                logmsg="Delete file: Not permitted by an unidentified user",
+            )
+            return None
 
         uploadConfig = self.getUploadConfig(key)
         table = uploadConfig.table
