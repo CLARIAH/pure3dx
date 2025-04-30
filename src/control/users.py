@@ -14,7 +14,6 @@ PROVIDER_ATTS = {
     x: x
     for x in """
     sub
-    eppn
     email
     nickname
 """.strip().split()
