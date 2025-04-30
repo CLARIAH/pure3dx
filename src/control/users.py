@@ -14,6 +14,7 @@ PROVIDER_ATTS = {
     x: x
     for x in """
     sub
+    eppn
     email
     nickname
 """.strip().split()
@@ -705,6 +706,9 @@ class Users:
                 att: oidc.user_getfield(oidcAtt)
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
+            # self.debug(f"{givenUser=}")
+            # self.debug(f"{sessionGet('oidc_auth_profile')=}")
+
             fillNickname(givenUser)
 
             changes = {}

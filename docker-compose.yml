@@ -1,10 +1,10 @@
 services:
   pure3d_author:
-    # image: pure3d_author:latest
     image: registry.huc.knaw.nl/pure3d/pure3d_author
-    # restart: unless-stopped
     container_name: pure3d_author
     hostname: pure3d_author
+    depends_on:
+      - mongodb
     environment:
       TEMP_DIR: ${TEMP_DIR}
       DATA_DIR: ${DATA_DIR}
@@ -29,8 +29,6 @@ services:
     entrypoint:
       - /bin/bash
       - src/start.sh
-    depends_on:
-      - mongodb
     volumes:
       - "./:/app"
     ports:
