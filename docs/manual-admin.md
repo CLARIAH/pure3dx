@@ -213,6 +213,9 @@ You can regenerate the HTML pages for the **P** app. When is this needed?
     of the authoring app; these fields will be transported to the published pages when
     you regenerate.
 
+*   If you have added a new version of the Voyager. This will only show up in published
+    editions after regenerating the HTML.
+
 Also, the systems manager has to do it when the **P** app gets a new layout.
 Then the HTML for everything in the **P** app has to be regenerated.
 
