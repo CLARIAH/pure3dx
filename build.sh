@@ -14,11 +14,11 @@ fi
 
 sleep 3
 
-echo "If login fails, go to registry.huc.knaw.nl and log in and then run this script again"
-docker login registry.huc.knaw.nl
+# echo "If login fails, go to registry.diginfra.net and log in and then run this script again"
+docker login registry.diginfra.net
 
-docker tag pure3d_author:${dockertag} registry.huc.knaw.nl/pure3d/pure3d_author:${dockertag}
-docker tag pure3d_author:${dockertag} registry.huc.knaw.nl/pure3d/pure3d_author:latest
-docker images | grep registry.huc.knaw.nl/pure3d/pure3d_author:${dockertag}
-docker push registry.huc.knaw.nl/pure3d/pure3d_author:${dockertag}
-docker push registry.huc.knaw.nl/pure3d/pure3d_author:latest
+docker tag pure3d_author:${dockertag} registry.diginfra.net/pure3d/pure3d_author:${dockertag}
+docker tag pure3d_author:${dockertag} registry.diginfra.net/pure3d/pure3d_author:latest
+docker images | grep registry.diginfra.net/pure3d/pure3d_author:${dockertag}
+docker push registry.diginfra.net/pure3d/pure3d_author:${dockertag}
+docker push registry.diginfra.net/pure3d/pure3d_author:latest

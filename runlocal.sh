@@ -118,6 +118,13 @@ function appmongo {
     fi
 }
 
+function appbuildexportdb {
+    # build the app locally, using local github clone as is
+    # if you pass "push" as argument, the docker images will be pushed to the
+    # registry
+    ./build-exportdb.sh "$@"
+}
+
 function appbuildlocal {
     # build the app locally, using local github clone as is
     # if you pass "push" as argument, the docker images will be pushed to the
