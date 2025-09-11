@@ -22,5 +22,5 @@ dev:
     amount: 35
     unit: s
   interval:
-    amount: 10
+    amount: 300
     unit: s

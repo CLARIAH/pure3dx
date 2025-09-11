@@ -145,6 +145,7 @@ def appFactory():
     else:
         origApp = appFactoryMain(objects)
         app = appFactoryMaster()
+        objects.Messages.addApp(app)
 
         app.wsgi_app = dispatchWebdav(origApp, "/webdav/", getWebdavApp(objects))
 

@@ -3,6 +3,12 @@ from .flask import flashMsg
 
 
 class Messages:
+    labelMap = dict(
+        special="info",
+        good="info",
+        plain="info",
+    )
+
     def __init__(self, Settings, onFlask=True):
         """Sending messages to the user and the server log.
 
@@ -45,6 +51,19 @@ class Messages:
     def setFlask(self):
         """Enables messaging to the web interface."""
         self.onFlask = True
+
+    def addApp(self, app):
+        """Adds a reference to the flask app object.
+
+        We have to be able to use the logger of the Flask app,
+        so we store a reference to the app object.
+
+        Parameters
+        ----------
+        app: object
+            The Flask app object
+        """
+        self.app = app
 
     def debugAdd(self, dest):
         """Adds a quick debug method to a destination object.
@@ -124,6 +143,20 @@ class Messages:
         """
         self.message("plain", msg, logmsg)
 
+    def loggerMessage(self, logTp, logmsg):
+        app = getattr(self, "app", None)
+
+        if app is None:
+            return
+
+        logger = self.app.logger
+        method = getattr(logger, logTp, None)
+
+        if method is None:
+            return
+
+        method(logmsg)
+
     def message(self, tp, msg, logmsg):
         """Workhorse to issue a message in a variety of ways.
 
@@ -172,15 +205,19 @@ class Messages:
         """
         Settings = self.Settings
         onFlask = self.onFlask
+        labelMap = self.labelMap
 
         stream = sys.stderr if tp in {"debug", "error", "warning"} else sys.stdout
         label = "" if tp == "plain" else f"{tp.upper()}: "
+        logTp = labelMap.get(tp, tp)
 
         if not onFlask:
             if msg is not None and logmsg is None:
                 stream.write(f"{label}{msg}\n")
             if logmsg is not None:
                 stream.write(f"{label}{logmsg}\n")
+                self.loggerMessage(logTp, logmsg)
+
             stream.flush()
         else:
             debugMode = Settings.debugMode
@@ -195,6 +232,7 @@ class Messages:
                 flashMsg(f"{label}{m}", cls)
             if logmsg is not None:
                 stream.write(f"{label}{logmsg}\n")
+                self.loggerMessage(logTp, logmsg)
                 stream.flush()
 
     def client(self, tp, message, replace=False):

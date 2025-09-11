@@ -9,7 +9,7 @@ Run local app $app
 
 USAGE
 
-runlocal [host|up|down|peek|peekpub|mongo|buildlocal|build|dev] args
+app [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
 "
 
 cd $approot

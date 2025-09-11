@@ -80,14 +80,6 @@ This manual is based on Rancher Desktop.
 For the purposes of this app, both are nearly equivalent, and we do not use any
 k8s functionality of these apps.
 
-The `.runlocal.sh` script has a command `host` which will start rancher desktop.
-
-The smart-k8s suite has this command for you within easy reach:
-
-``` sh
-runlocal host
-```
-
 You'll see that Rancher desktop starts, its GUI will pop up, and it will take a while
 before it is ready.
 
@@ -128,7 +120,7 @@ have to copy the source code to the right volume.
 Let's build:
 
 ``` sh
-runlocal buildlocal
+app buildlocal
 ```
 
 #### Provision the volumes
@@ -142,12 +134,12 @@ is within reach.
 
 #### Run Pure3d
 
-We can now run Pure3d via Docker compose (`runlocal up prod`). When the app
+We can now run Pure3d via Docker compose (`app up prod`). When the app
 starts up, the script `src/start.sh` will be executed
 
 #### Log in
 
-If you did `runlocal up prod` you have to log in via CLARIAH authentication.
+If you did `app up prod` you have to log in via CLARIAH authentication.
 
 If you used an other mode instead op `prod`, e.g. `test`, `custom`, `pilot`, there
 will be a row of buttons by means of which you can log in as a specific user
@@ -171,9 +163,9 @@ you can make yourself `owner` or `admin`.
 
 If this option is unavailable, you can resort to the following procedure
 
-1. keep `runlocal up prod` running in its terminal window;
+1. keep `app up prod` running in its terminal window;
 1. open a new terminal window and given the commands `k` and `kset pure3d author`
-1. now say: `runlocal mongo prod` to enter a mongo shell on the production database;
+1. now say: `app mongo prod` to enter a mongo shell on the production database;
    after the prompt, give the command: `db.user.find()` to get a list of users;
    identify a user by its `user` property. Say you want to adapt the role of user
    `de826af76e3b67294982b016741da04901fae967`. Then give the command

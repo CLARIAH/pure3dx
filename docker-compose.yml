@@ -6,6 +6,7 @@ services:
     depends_on:
       - mongodb
     environment:
+      LOG_DIR: ${LOG_DIR}
       TEMP_DIR: ${TEMP_DIR}
       DATA_DIR: ${DATA_DIR}
       PUB_DIR: ${PUB_DIR}
