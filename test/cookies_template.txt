@@ -1,3 +1,0 @@
-# Netscape HTTP Cookie File
-# https://curl.se/docs/http-cookies.html
-author.pure3d.eu	FALSE	/	TRUE	0	session	value

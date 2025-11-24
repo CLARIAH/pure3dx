@@ -90,8 +90,8 @@ def prepare(design=False, migrate=False, trivial=False):
     if migrate:
         return AttrDict(Settings=Settings, Messages=Messages)
 
-    Viewers = ViewersCls(Settings, Messages)
     Mongo = MongoCls(Settings, Messages)
+    Viewers = ViewersCls(Settings, Messages, Mongo)
     Sweeper = SweeperCls(Settings, Messages, Mongo)
     Wrap = WrapCls(Settings, Messages, Viewers)
     Content = ContentCls(Settings, Messages, Viewers, Mongo, Wrap)

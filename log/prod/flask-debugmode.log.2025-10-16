@@ -1,0 +1,8 @@
+[2025-10-16 10:24:32,312] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.18.0.4:8000
+[2025-10-16 10:24:32,313] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2025-10-16 10:24:32,314] INFO in _internal:  * Restarting with stat
+[2025-10-16 10:24:33,402] WARNING in _internal:  * Debugger is active!
+[2025-10-16 10:24:33,403] WARNING in _internal:  * Debugger PIN disabled. DEBUGGER UNSECURED!

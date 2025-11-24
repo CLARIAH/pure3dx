@@ -1,10 +1,12 @@
+import collections
+import requests
 from textwrap import dedent
 
 from .generic import AttrDict, attResolve
 
 
 class Viewers:
-    def __init__(self, Settings, Messages):
+    def __init__(self, Settings, Messages, Mongo):
         """Knowledge of the installed 3D viewers.
 
         This class knows which (versions of) viewers are installed,
@@ -21,8 +23,10 @@ class Viewers:
             Singleton instance of `control.messages.Messages`.
         """
         self.Settings = Settings
+        self.Mongo = Mongo
         self.Messages = Messages
         Messages.debugAdd(self)
+
         self.viewers = Settings.viewers
         self.viewerActions = Settings.viewerActions
         self.viewerDefault = Settings.viewerDefault
@@ -98,6 +102,173 @@ class Viewers:
         sceneFile = authorTool.sceneFile
 
         return (viewer, sceneFile)
+
+    def getUsedVersions(self, viewer):
+        """Produces a list of used versions of a viewer.
+
+        These versions have been used to create existing editions.
+        These versions may no longer exists in the system (which is undesirable).
+
+        Parameters
+        ----------
+        viewer: string
+            The viewer for which we want to retrieve the versions
+
+        Returns
+        -------
+        dict
+            Keyed by version and valued by the number of editions that have
+            used this version while they were being created.
+        """
+        Mongo = self.Mongo
+        viewers = self.viewers
+        viewerDefault = self.viewerDefault
+
+        if viewer not in viewers:
+            return ()
+
+        usedVersions = collections.Counter()
+
+        for edition in Mongo.getList("edition", {}):
+            editionSettings = edition.settings or AttrDict()
+            authorTool = editionSettings.authorTool or AttrDict()
+            thisViewer = authorTool.name or viewerDefault
+
+            if thisViewer != viewer:
+                continue
+
+            version = authorTool.version
+            usedVersions[version] += 1
+
+        return usedVersions
+
+    def getInstalledVersions(self, viewer):
+        """Produces a list of installed versions of a viewer.
+
+        Parameters
+        ----------
+        viewer: string
+            The viewer for which we want to retrieve the versions
+
+        Returns
+        -------
+        set
+        """
+        viewers = self.viewers
+        viewerInfo = viewers[viewer]
+        return set(viewerInfo.versions)
+
+    def getReleasedVoyagerVersions(self):
+        """Get all installable versions of the Voyager viewer.
+
+        We fetch a list of tags from the github repo of the Voyager,
+        together with the urls to their zip balls.
+
+        If the fetching fails, the result may not be complete and a warning
+        is issued.
+
+        Returns
+        -------
+        dict
+            Keyed by version and valued by the url to the zip file that
+            contains that version.
+        """
+        Messages = self.Messages
+        BACKEND = "https://api.github.com/repos/{org}/{repo}/tags"
+        ORG = "Smithsonian"
+        REPO = "dpo-voyager"
+        HEADERS = dict(Accept="application/vnd.github+json")
+        fetchUrl = BACKEND.format(org=ORG, repo=REPO)
+
+        def getTags(org, repo):
+            url = fetchUrl
+
+            results = []
+            good = True
+
+            while True:
+                response = requests.get(url, headers=HEADERS)
+
+                if not response.ok:
+                    good = False
+                    break
+
+                results.extend(response.json())
+
+                links = response.links
+                nxt = links.get("next", None)
+
+                if not nxt:
+                    break
+
+                nxtUrl = nxt.get("url", None)
+
+                if not nxtUrl:
+                    break
+
+                url = nxtUrl
+
+            return (good, results)
+
+        good = True
+
+        try:
+            good, rawResults = getTags(ORG, REPO)
+        except Exception:
+            Messages.warning(
+                msg="Could not fetch (all) Voyager versions",
+                logmsg="Failed to retrieve (all) Voyager tags from {fetchUrl}",
+            )
+            good = False
+
+        if not good:
+            return {}
+
+        results = {}
+
+        for r in rawResults:
+            results[r["name"].lstrip("v")] = r["zipball_url"]
+
+        return results
+
+    def getVoyagerVersionTable(self):
+        """Produces a sorted table of Voyager versions with information per version.
+
+        The fields of information are:
+
+        *   is the version released, and if so, what is the zip url
+        *   is the version installed
+        *   is the version used and if so, by how many editions
+
+        Returns
+        -------
+        list
+        """
+        Settings = self.Settings
+        versionKey = Settings.versionKey
+
+        usedVersions = self.getUsedVersions("voyager")
+        usedVersionSet = set(usedVersions)
+        installedVersionSet = self.getInstalledVersions("voyager")
+        releasedVersions = self.getReleasedVoyagerVersions()
+        releasedVersionSet = set(releasedVersions)
+
+        allVersions = reversed(
+            sorted(
+                usedVersionSet | installedVersionSet | releasedVersionSet,
+                key=versionKey,
+            )
+        )
+
+        rows = []
+
+        for version in allVersions:
+            zipUrl = releasedVersions.get(version, None)
+            isInstalled = version in installedVersionSet
+            nEditions = usedVersions.get(version, 0)
+            rows.append((version, zipUrl, isInstalled, nEditions))
+
+        return rows
 
     def getFrame(
         self, edition, actions, viewer, versionActive, actionActive, sceneExists
@@ -380,9 +551,14 @@ class Viewers:
                             tp="image/png",
                         ),
                         H.link("stylesheet", f"{viewerStaticRoot}/fonts/fonts.css"),
-                        H.link(
-                            "stylesheet", f"{viewerStaticRoot}/css/{fileBase}.{ext}.css"
-                        ) if action == "update" else "",
+                        (
+                            H.link(
+                                "stylesheet",
+                                f"{viewerStaticRoot}/css/{fileBase}.{ext}.css",
+                            )
+                            if action == "update"
+                            else ""
+                        ),
                         H.script(
                             "",
                             defer=True,

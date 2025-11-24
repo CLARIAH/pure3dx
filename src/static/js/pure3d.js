@@ -95,6 +95,53 @@ const fetchData = (url, task, destElem, data) => {
   }
 }
 
+const vvRefreshWidget = () => {
+  const vvRefresh = $("#vvrefresh")
+  const vvMessages = $("#vvmessages")
+  const vvTable = $("#vvtable")
+  const vvStatusLabel = "check voyager versions"
+  const vvRefreshUrl = "/vvrefresh"
+
+  const reportVV = messages => {
+    for (const message of messages) {
+      const [tp, msg] = message
+      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      vvMessages.append(html)
+    }
+    vvMessages.show()
+  }
+  const reportError = task => (jqXHR, stat) => {
+    vvTable.html("Failed to load Voyager versions")
+    reportVV([["error", `cannot ${task}: ${stat}`]])
+  }
+  const processVV = response => {
+    const { status, messages, html } = response
+
+    if (status) {
+      vvTable.html(html)
+    } else {
+      vvTable.html("Failed to load Voyager versions")
+      reportVV(messages)
+    }
+  }
+  const getVV = () => {
+    $.ajax({
+      type: "GET",
+      url: vvRefreshUrl,
+      processData: false,
+      contentType: true,
+      success: processVV,
+      error: reportError(vvStatusLabel),
+    })
+  }
+
+  vvRefresh.off("click").click(() => {
+    vvMessages.html("")
+    getVV()
+  })
+  getVV()
+}
+
 const pubStatusWidget = () => {
   const pubCheck = $("#pubcheck")
   const pubStatus = $("#pubstatus")
@@ -978,6 +1025,7 @@ const processMyWork = name => {
 $(() => {
   uploadControls()
   kwmanageWidgets()
+  vvRefreshWidget()
   pubStatusWidget()
   editWidgets()
   processMyWork()

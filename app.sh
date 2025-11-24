@@ -9,7 +9,7 @@ Run local app $app
 
 USAGE
 
-app [up|down|peek|peekpub|mongo|buildlocal|build|dev] args
+app [up|down|peek|peekpub|mongo|buildlocal|build|browse] args
 "
 
 cd $approot
@@ -139,13 +139,20 @@ function appbuild {
     ./build.sh "$@"
 }
 
-function appdev {
-    # build the app on the dev machine, i.e.
-    # on the dev machine: clone the repo,
-    # and, unless "restart-only" is passed, build the docker image
-    # and restart the app
-    ./start.sh "$@"
+function appbrowse {
+    source .env
+    if [[ "$1" == "" ]]; then
+        echo open http://localhost:$flaskport
+        open http://localhost:$flaskport
+    elif [[ "$1" == "code" ]]; then
+        echo "open https://github.com/CLARIAH/pure3dx"
+        open https://github.com/CLARIAH/pure3dx
+    else
+        echo "Unknown parameter $1"
+        echo "Omit it or choose code"
+    fi
 }
+
 
 command="$1"
 

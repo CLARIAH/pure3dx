@@ -138,45 +138,37 @@ on what you see if you are an admin or owner.
 
 You see the sections:
 
+*   Voyager versions
+*   Published projects
+*   Manage keywords
+*   Manage users
 *   My details
 *   My projects and editions
-*   Published projects
 *   All projects and editions
-*   Manage users
-*   Deleted items
+*   Deleted projects and editions
 
 We'll discuss them one by one.
 
-#### `My details`
+#### `Voyager versions`
 
-<img src="images/mydetails.png" width="750">
+Here is a list of existing Voyager releases in the
+[Voyager github repo](https://github.com/Smithsonian/dpo-voyager).
 
-Here you see who you are, according to the system, and in particular, what role
-you have. You can change your role, provided you are an admin or owner:
-you can demote yourself. You cannot promote yourself, unless there are no owners
-or admins in the system. Then you can make yourself owner or admin.
-In this way, you can make somebody owner or admin of a new system without asking
-the system manager to do so.
+For each release it is indicated whether it has been installed in Pure3D,
+and if so, how many editions have been created with it.
 
-Note that once you demote yourself, you cannot promote yourself again, in general.
-You'll have to ask somebody with a more powerful role to promote you.
-If nobody has a more powerful role, then you can promote yourself.
+There are controls to
 
-#### `My projects and editions`
+*   delete a voyager version, only if that version is installed and no editions
+    have been created with it;
+*   install a voyager version, only if it is not yet installed.
 
-Users have two kind of roles:
+And there is a control to refresh the list of Voyager versions.
 
-*   *general* roles such as `owner`, `admin`, `user`, `guest`;
-*   *special* roles such as `organiser`, `editor`, `reviewer`; users have these roles
-    with respect to particular projects and editions;
-
-<img src="images/myprojecteditions.png" width="750">
-
-Under this tab, the projects/editions are listed for which you have a *special* role.
-
-Here you can add other people in specific roles to your projects and editions,
-depending on your own role. Organizers can add editors to editions,
-organizers and editors can add reviewers to editions.
+If you have added or deleted a Voyager version, this will not have an immediate
+effect on the editions that have already been published. But whenever you regenerate
+the pages for the published project (see next section), the changes in voyager versions
+will be visible on those pages as well.
 
 #### `Published projects`
 
@@ -235,6 +227,37 @@ If this is the case, an admin can press the `check` button to verify the publish
 processing state, and if that state reads `publishing`, the user can press the 
 `terminate` button to change the state back to `not publishing`, after which users
 can again publish their editions.
+
+#### `My details`
+
+<img src="images/mydetails.png" width="750">
+
+Here you see who you are, according to the system, and in particular, what role
+you have. You can change your role, provided you are an admin or owner:
+you can demote yourself. You cannot promote yourself, unless there are no owners
+or admins in the system. Then you can make yourself owner or admin.
+In this way, you can make somebody owner or admin of a new system without asking
+the system manager to do so.
+
+Note that once you demote yourself, you cannot promote yourself again, in general.
+You'll have to ask somebody with a more powerful role to promote you.
+If nobody has a more powerful role, then you can promote yourself.
+
+#### `My projects and editions`
+
+Users have two kind of roles:
+
+*   *general* roles such as `owner`, `admin`, `user`, `guest`;
+*   *special* roles such as `organiser`, `editor`, `reviewer`; users have these roles
+    with respect to particular projects and editions;
+
+<img src="images/myprojecteditions.png" width="750">
+
+Under this tab, the projects/editions are listed for which you have a *special* role.
+
+Here you can add other people in specific roles to your projects and editions,
+depending on your own role. Organizers can add editors to editions,
+organizers and editors can add reviewers to editions.
 
 #### `All projects and editions`
 

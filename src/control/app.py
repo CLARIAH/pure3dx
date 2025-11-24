@@ -182,6 +182,14 @@ def appFactory(objects):
         """
         return Admin(Content).pubStatus()
 
+    @app.route("/vvrefresh")
+    def vvRefresh():
+        """Refreshes the list of voyager versions.
+
+        Only for administrators.
+        """
+        return Admin(Content).vvRefresh()
+
     @app.route("/pubterminate")
     def pubTerminate():
         """Terminates (hanging) publication processes.

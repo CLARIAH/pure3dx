@@ -989,6 +989,116 @@ class Content(Datamodel):
             )
         )
 
+    def getVoyagerVersions(self):
+        """Display a table of voyager versions.
+
+        We display all versions that are available on the voyager repo,
+        together with information whether the versions are installed on Pure3d and
+        used in the creation of editions.
+        There are also buttons to install/uninstall versions.
+        Versions that have been used for creating editions that are still in the system
+        cannot be uninstalled.
+        """
+        Viewers = self.Viewers
+        Settings = self.Settings
+        H = Settings.H
+
+        rowsIn = Viewers.getVoyagerVersionTable()
+
+        plainCellCls = dict(cls="vwc")
+        headers = (
+            (
+                (
+                    ("version", plainCellCls),
+                    ("# editions", plainCellCls),
+                    ("installed", plainCellCls),
+                    ("action", plainCellCls),
+                ),
+                {},
+            ),
+        )
+        rows = []
+        installable = False
+        removable = False
+
+        for version, zipUrl, isInstalled, nEditions in rowsIn:
+            if zipUrl:
+                if isInstalled:
+                    if nEditions:
+                        title = "installed, reinstallable, used, may not be uninstalled"
+                        cls = "frozen"
+                    else:
+                        title = "installed, reinstallable, not used, may be uninstalled"
+                        cls = "unused"
+                        removable = True
+                else:
+                    if nEditions:
+                        title = "not installed, used, should be installed"
+                        cls = "missing"
+                        installable = True
+                    else:
+                        title = "not installed, not used, installable"
+                        cls = "notpresent"
+                        installable = True
+            else:
+                if isInstalled:
+                    if nEditions:
+                        title = (
+                            "installed, not reinstallable, used, may not be uninstalled"
+                        )
+                        cls = "frozen"
+                    else:
+                        title = (
+                            "installed, not used, maybe uninstalled "
+                            "but is not reinstallable"
+                        )
+                        cls = "unused"
+                        removable = True
+                else:
+                    if nEditions:
+                        title = "not installed, not installable, used"
+                        cls = "gone"
+                    else:
+                        title = "not installed, not installable, not used"
+                        cls = "notpresent"
+
+            cellCls = dict(cls=f"vwc {cls}")
+            cellAtts = dict(title=title, **cellCls)
+
+            if installable or removable:
+                act = "+" if installable else "-"
+                aRep = "install" if installable else "uninstall"
+                aCls = f"button large {aRep}"
+
+                button = H.span(
+                    act,
+                    title=f"{aRep} voyager {version}",
+                    cls=f"{aCls}",
+                    version="version",
+                    tp=aRep,
+                )
+            else:
+                button = ""
+                aCls = plainCellCls
+
+            rows.append(
+                (
+                    (
+                        (version, cellAtts),
+                        (f"{nEditions}", cellCls),
+                        (f"{'yes' if isInstalled else 'no'}", cellCls),
+                        (f"{button}", plainCellCls),
+                    ),
+                    {},
+                )
+            )
+
+        html = H.table(headers, rows)
+        messages = []
+        status = True
+
+        return status, messages, html
+
     def getPublishInfo(self, table, record):
         """Display the number under which a project/edition is published.
 

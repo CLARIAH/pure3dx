@@ -158,12 +158,14 @@ class Admin:
         (myProjects, tocMyProjects) = self.wrapMyProjects(projectsAll)
 
         if inPower:
+            (voyagerControls, tocVoyager) = self.wrapVoyagerControls()
             (pubControls, tocPub) = self.wrapPubControls()
             (allProjects, tocProjects) = self.wrapAllProjects(projectsAll)
             (allKeywords, tocKeywords) = self.wrapKeywordControls()
             (allUsers, tocAllusers) = self.wrapUserControls()
             (allDeleted, tocDeleted) = self.wrapDeletedItems(delProjectsAll)
         else:
+            voyagerControls, tocVoyager = "", ""
             pubControls, tocPub = "", ""
             allProjects, tocProjects = "", ""
             allKeywords, tocKeywords = "", ""
@@ -171,6 +173,7 @@ class Admin:
             allDeleted, tocDeleted = "", ""
 
         toc = (
+            tocVoyager,
             tocPub,
             tocKeywords,
             tocAllusers,
@@ -183,6 +186,7 @@ class Admin:
         return (
             H.div(
                 [
+                    voyagerControls,
                     pubControls,
                     allKeywords,
                     allUsers,
@@ -209,7 +213,7 @@ class Admin:
         Returns
         -------
         string
-            The html
+            The html for the section and a TOC entry
         """
         H = self.H
         siteRoles = self.siteRoles
@@ -244,8 +248,8 @@ class Admin:
 
         Returns
         -------
-        string
-            The html
+        string, string
+            The html for the section and a TOC entry
         """
         H = self.H
         myIds = self.myIds
@@ -268,6 +272,45 @@ class Admin:
         ]
         return (H.div(wrapped, id="myprojects"), tocEntry)
 
+    def wrapVoyagerControls(self):
+        """Generate HTML for the widget to update the voayger software.
+
+        Returns
+        -------
+        string
+            The html for the section and a TOC entry
+        """
+        H = self.H
+
+        Content = self.Content
+        (table, siteId, site) = Content.relevant()
+
+        title = "Voyager versions"
+        name = "voyager-versions"
+        tocEntry = H.a(title, f"#{name}")
+
+        wrapped = []
+        wrapped.append(H.h(1, H.anchor(title, name)))
+
+        wrapped.append(H.div("", id="vvtable"))
+
+        wrapped.append(H.h(2, "Refresh Voyager versions"))
+        wrapped.append(
+            H.p(
+                [
+                    H.a(
+                        "Refresh",
+                        "#",
+                        id="vvrefresh",
+                        title="Refresh the list of voyager versions",
+                        cls="button large",
+                    ),
+                ]
+            )
+            + H.div("", id="vvmessages"),
+        )
+        return (H.div(wrapped, id="voyagercontrols"), tocEntry)
+
     def wrapPubControls(self):
         """Generate HTML for the published projects in admin view.
 
@@ -280,7 +323,7 @@ class Admin:
         Returns
         -------
         string
-            The HTML
+            The html for the section and a TOC entry
         """
         H = self.H
 
@@ -344,7 +387,7 @@ class Admin:
         Returns
         -------
         string
-            The html
+            The html for the section and a TOC entry
         """
         H = self.H
         Content = self.Content
@@ -418,7 +461,7 @@ class Admin:
         Returns
         -------
         string
-            The html
+            The html for the section and a TOC entry
         """
         H = self.H
         siteRoles = self.siteRoles
@@ -445,7 +488,7 @@ class Admin:
         Returns
         -------
         string
-            The html
+            The html for the section and a TOC entry
         """
         H = self.H
 
@@ -481,7 +524,7 @@ class Admin:
         Returns
         -------
         string
-            The html
+            The html for the section and a TOC entry
         """
         H = self.H
 
@@ -1080,6 +1123,30 @@ class Admin:
         return dict(status=status, messages=messages)
 
     # retrieval and action functions -- KEYWORD
+
+    def vvRefresh(self):
+        """Refreshes the list of voyager versions.
+
+        Only allowed for admins and roots.
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the refreshing succeeded;
+            with key `messages`: the messages if the refreshing did not succeed;
+            with key `html`: the html of the table with versions.
+        """
+        Content = self.Content
+        inPower = self.inPower
+
+        if inPower:
+            status, messages, html = Content.getVoyagerVersions()
+        else:
+            status = False
+            messages = ["error", "You are not allowed to retrieve this value"]
+            html = ""
+
+        return dict(status=status, messages=messages, html=html)
 
     def saveKeyword(self):
         """Saves a keyword.

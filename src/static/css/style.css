@@ -110,6 +110,31 @@ td.vwc.activec, th.vwc.activec {
 tr.activer {
   border: 0.01rem solid #bbbb00;
 }
+.vwc.frozen {
+  background-color: cyan;
+}
+.vwc.unused {
+  background-color: yellow;
+}
+.vwc.missing {
+  background-color: orange;
+}
+.vwc.gone {
+  background-color: red;
+}
+.vwc.notpresent {
+  background-color: inherit;
+}
+.button.install {
+  font-size: large ! important;
+  font-weight: bold ! important;
+  color: green ! important;
+}
+.button.uninstall {
+  font-size: large ! important;
+  font-weight: bold ! important;
+  color: red ! important;
+}
 
 .scenerow {
   display: flex;
@@ -295,7 +320,7 @@ span.fileupload.iconedition img {
   display: inline;
 }
 
-#mydetails,#myprojects,#pubcontrols,#keywordcontrols,#allprojects,#allusers {
+#mydetails,#myprojects,#pubcontrols,#voyagercontrols,#keywordcontrols,#allprojects,#allusers {
   margin-top: 1rem;
   margin-bottom: 1rem;
   padding-top: 1rem;
