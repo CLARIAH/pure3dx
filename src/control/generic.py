@@ -106,7 +106,11 @@ def amountTogo(days, refDate, iso=True):
 
 
 def splitComp(c):
-    return [m for m in VERSION_COMP_RE.findall(c) if m[0] or m[1]]
+    return [
+        tuple(int(x) if x.isdigit() else x for x in m)
+        for m in VERSION_COMP_RE.findall(c)
+        if m[0] or m[1]
+    ]
 
 
 def makeComps(v):

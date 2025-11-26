@@ -1,0 +1,778 @@
+[2025-11-24 09:28:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:33:32 UTC)" (scheduled at 2025-11-24 09:28:32.149142+00:00)
+[2025-11-24 09:28:32 +0000] [10] [INFO] SWEEPER-MONGO:   1 project record to be wiped
+[2025-11-24 09:28:32 +0000] [9] [INFO] SWEEPER-MONGO:   1 project record to be wiped
+[2025-11-24 09:28:32 +0000] [10] [INFO] SWEEPER-MONGO:   1 projectUser record to be wiped
+[2025-11-24 09:28:32 +0000] [9] [INFO] SWEEPER-MONGO:   1 projectUser record to be wiped
+[2025-11-24 09:28:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:28:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 09:28:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:28:32Z
+[2025-11-24 09:28:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T09:28:32Z
+[2025-11-24 09:28:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:33:32 UTC)" executed successfully
+[2025-11-24 09:28:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:33:32 UTC)" executed successfully
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/favicons/manifest.json?v=PYYw2o4bvx HTTP/1.1" 404 207 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/favicons/manifest.json?v=PYYw2o4bvx HTTP/1.1" 404 207 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/modernizr.custom.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/calendar.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/modernizr.custom.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/modernizr.custom.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/calendar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/calendar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/reset.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/web2py.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/reset.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/reset.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/web2py.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/web2py.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/web2py.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/web2py_bootstrap.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/web2py.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/web2py.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/web2py_bootstrap.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/web2py_bootstrap.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/jquery.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/calendar.js
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/calendar.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/calendar.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/bootstrap-responsive.min.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/bootstrap.min.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/bootstrap-responsive.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/bootstrap-responsive.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/bootstrap.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/bootstrap.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/jquery-ui.structure.min.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/fancytree/skin-lion/ui.fancytree.min.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.structure.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.structure.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/fancytree/skin-lion/ui.fancytree.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/fancytree/skin-lion/ui.fancytree.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/jquery-ui.min.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/fonts.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/css/hebrew/features.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/fonts.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/features.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/features.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/fonts.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/css/hebrew/tabbeddisplay.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/textformatting.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/words.css
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/tabbeddisplay.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/tabbeddisplay.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/textformatting.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/textformatting.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/css/hebrew/queries.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/words.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/words.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/queries.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/queries.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/chart.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/notesdisplay.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/chart.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/chart.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/css/hebrew/generic.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/notesdisplay.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/generic.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/generic.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/notesdisplay.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/navbar.css
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/js/web2py_bootstrap.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/material.css
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/web2py_bootstrap.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/web2py_bootstrap.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/navbar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/navbar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/material.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/js/bootstrap.min.js
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/material.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/bootstrap.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/bootstrap.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/hebrew/sidebar.css
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/jquery-ui.theme.min.css
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/sidebar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/hebrew/sidebar.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/js/jquery.storageapi.min.js
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.storageapi.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.theme.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.storageapi.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/jquery-ui.theme.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/js/markdown.min.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/css/font-awesome.min.css
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/markdown.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/markdown.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/jquery.cookie.js
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/font-awesome.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/css/font-awesome.min.css HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/images/etcbc-round-small.png
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.cookie.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery.cookie.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/etcbc-round-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/etcbc-round-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/jquery-ui.min.js
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/images/CLARIN-NL-small.png
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/images/shebanq_logo_small.png
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/CLARIN-NL-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/CLARIN-NL-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery-ui.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/jquery-ui.min.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/shebanq_logo_small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/images/etcbc.png
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/shebanq_logo_small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/etcbc.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/etcbc.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/js/history.js/scripts/bundled/html4+html5/native.history.js
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/fonts/fontawesome-webfont.woff2
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/history.js/scripts/bundled/html4%2Bhtml5/native.history.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/js/history.js/scripts/bundled/html4%2Bhtml5/native.history.js HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [WARNING] Not found: /shebanq/static/images/huc-small.png
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/huc-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/huc-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/fonts/fontawesome-webfont.woff2?v=4.5.0 HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/fonts/fontawesome-webfont.woff2?v=4.5.0 HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/images/clariah.png
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/images/i.creativecommons.org_l_by-nc_4.0_88x31.png
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/clariah.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/clariah.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/i.creativecommons.org_l_by-nc_4.0_88x31.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/i.creativecommons.org_l_by-nc_4.0_88x31.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/images/dans.png
+[2025-11-24 09:28:43 +0000] [9] [WARNING] Not found: /shebanq/static/images/tf-small.png
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/dans.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/dans.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/tf-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /shebanq/static/images/tf-small.png HTTP/1.1" 303 189 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:43 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:43 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:44 +0000] [9] [WARNING] Not found: /apple-touch-icon-precomposed.png
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /apple-touch-icon-precomposed.png HTTP/1.1" 303 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [10] [ERROR] Accessing /app/data/working/prod/favicon.ico: not allowed. 
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /apple-touch-icon-precomposed.png HTTP/1.1" 303 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /favicon.ico HTTP/1.1" 304 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:44 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /favicon.ico HTTP/1.1" 304 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [9] [WARNING] Not found: /apple-touch-icon.png
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /apple-touch-icon.png HTTP/1.1" 303 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET /apple-touch-icon.png HTTP/1.1" 303 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:28:44 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:28:44 +0000] "GET / HTTP/1.1" 200 2520 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari"
+[2025-11-24 09:29:00 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /alogin HTTP/1.1" 302 229 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:00 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /alogin HTTP/1.1" 302 229 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:00 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /afterlogin/referrer/ HTTP/1.1" 302 323 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:00 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /afterlogin/referrer/ HTTP/1.1" 302 323 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:00 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /login?next=http%3A%2F%2Flocalhost%3A8000%2Fafterlogin%2Freferrer%2F HTTP/1.1" 302 749 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:00 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:00 +0000] "GET /login?next=http%3A%2F%2Flocalhost%3A8000%2Fafterlogin%2Freferrer%2F HTTP/1.1" 302 749 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:07 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:07 +0000] "GET /oidc_callback?code=c45a67d5ebe649208766d7654f012252&state=xOCa9VD26Bx6wtciuGm9HR3DgFIokF HTTP/1.1" 302 365 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:07 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:07 +0000] "GET /oidc_callback?code=c45a67d5ebe649208766d7654f012252&state=xOCa9VD26Bx6wtciuGm9HR3DgFIokF HTTP/1.1" 302 365 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /authorize?code=c45a67d5ebe649208766d7654f012252&state=xOCa9VD26Bx6wtciuGm9HR3DgFIokF HTTP/1.1" 302 271 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /authorize?code=c45a67d5ebe649208766d7654f012252&state=xOCa9VD26Bx6wtciuGm9HR3DgFIokF HTTP/1.1" 302 271 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] LOGIN successful: user Dirk Roorda de826af76e3b67294982b016741da04901fae967
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /afterlogin/referrer/ HTTP/1.1" 302 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /afterlogin/referrer/ HTTP/1.1" 302 189 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET / HTTP/1.1" 200 26924 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET / HTTP/1.1" 200 26924 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:08 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /admin HTTP/1.1" 200 45400 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /admin HTTP/1.1" 200 45400 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/vars.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/vars.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/common.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/common.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/page.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/page.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/components.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/components.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/js/pure3d.js HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/style.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/css/style.css HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/js/pure3d.js HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/js/jquery.js HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /data/icon.png HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/js/jquery.js HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /data/icon.png HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:29:15 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:09:29:15 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 304 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 09:33:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:38:32 UTC)" (scheduled at 2025-11-24 09:33:32.149142+00:00)
+[2025-11-24 09:33:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:38:32 UTC)" (scheduled at 2025-11-24 09:33:32.150480+00:00)
+[2025-11-24 09:33:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:33:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 09:33:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:33:32Z
+[2025-11-24 09:33:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T09:33:32Z
+[2025-11-24 09:33:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:38:32 UTC)" executed successfully
+[2025-11-24 09:33:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:38:32 UTC)" executed successfully
+[2025-11-24 09:38:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:43:32 UTC)" (scheduled at 2025-11-24 09:38:32.149142+00:00)
+[2025-11-24 09:38:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:43:32 UTC)" (scheduled at 2025-11-24 09:38:32.150480+00:00)
+[2025-11-24 09:38:32 +0000] [9] [INFO] SWEEPER by worker 9: skipped sweeping at 2025-11-24T09:38:32Z because too close to last sweep at 2025-11-24T09:38:32Z
+[2025-11-24 09:38:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:43:32 UTC)" executed successfully
+[2025-11-24 09:38:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:38:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:38:32Z
+[2025-11-24 09:38:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:43:32 UTC)" executed successfully
+[2025-11-24 09:43:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:48:32 UTC)" (scheduled at 2025-11-24 09:43:32.149142+00:00)
+[2025-11-24 09:43:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:48:32 UTC)" (scheduled at 2025-11-24 09:43:32.150480+00:00)
+[2025-11-24 09:43:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 09:43:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:43:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T09:43:32Z
+[2025-11-24 09:43:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:43:32Z
+[2025-11-24 09:43:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:48:32 UTC)" executed successfully
+[2025-11-24 09:43:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:48:32 UTC)" executed successfully
+[2025-11-24 09:48:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:53:32 UTC)" (scheduled at 2025-11-24 09:48:32.149142+00:00)
+[2025-11-24 09:48:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:53:32 UTC)" (scheduled at 2025-11-24 09:48:32.150480+00:00)
+[2025-11-24 09:48:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:48:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 09:48:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:48:32Z
+[2025-11-24 09:48:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:53:32 UTC)" executed successfully
+[2025-11-24 09:48:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T09:48:32Z
+[2025-11-24 09:48:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:53:32 UTC)" executed successfully
+[2025-11-24 09:53:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:58:32 UTC)" (scheduled at 2025-11-24 09:53:32.149142+00:00)
+[2025-11-24 09:53:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:58:32 UTC)" (scheduled at 2025-11-24 09:53:32.150480+00:00)
+[2025-11-24 09:53:32 +0000] [9] [INFO] SWEEPER by worker 9: skipped sweeping at 2025-11-24T09:53:32Z because too close to last sweep at 2025-11-24T09:53:32Z
+[2025-11-24 09:53:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:58:32 UTC)" executed successfully
+[2025-11-24 09:53:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:53:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:53:32Z
+[2025-11-24 09:53:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 09:58:32 UTC)" executed successfully
+[2025-11-24 09:58:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:03:32 UTC)" (scheduled at 2025-11-24 09:58:32.149142+00:00)
+[2025-11-24 09:58:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:03:32 UTC)" (scheduled at 2025-11-24 09:58:32.150480+00:00)
+[2025-11-24 09:58:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 09:58:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 09:58:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T09:58:32Z
+[2025-11-24 09:58:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T09:58:32Z
+[2025-11-24 09:58:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:03:32 UTC)" executed successfully
+[2025-11-24 09:58:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:03:32 UTC)" executed successfully
+[2025-11-24 10:03:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:08:32 UTC)" (scheduled at 2025-11-24 10:03:32.149142+00:00)
+[2025-11-24 10:03:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:08:32 UTC)" (scheduled at 2025-11-24 10:03:32.150480+00:00)
+[2025-11-24 10:03:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:03:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:03:32Z
+[2025-11-24 10:03:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:08:32 UTC)" executed successfully
+[2025-11-24 10:03:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:03:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:03:32Z
+[2025-11-24 10:03:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:08:32 UTC)" executed successfully
+[2025-11-24 10:08:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:13:32 UTC)" (scheduled at 2025-11-24 10:08:32.149142+00:00)
+[2025-11-24 10:08:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:13:32 UTC)" (scheduled at 2025-11-24 10:08:32.150480+00:00)
+[2025-11-24 10:08:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:08:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:08:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:08:32Z
+[2025-11-24 10:08:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:13:32 UTC)" executed successfully
+[2025-11-24 10:08:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:08:32Z
+[2025-11-24 10:08:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:13:32 UTC)" executed successfully
+[2025-11-24 10:13:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:18:32 UTC)" (scheduled at 2025-11-24 10:13:32.149142+00:00)
+[2025-11-24 10:13:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:18:32 UTC)" (scheduled at 2025-11-24 10:13:32.150480+00:00)
+[2025-11-24 10:13:32 +0000] [9] [INFO] SWEEPER by worker 9: skipped sweeping at 2025-11-24T10:13:32Z because too close to last sweep at 2025-11-24T10:13:32Z
+[2025-11-24 10:13:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:18:32 UTC)" executed successfully
+[2025-11-24 10:13:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:13:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:13:32Z
+[2025-11-24 10:13:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:18:32 UTC)" executed successfully
+[2025-11-24 10:18:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:23:32 UTC)" (scheduled at 2025-11-24 10:18:32.149142+00:00)
+[2025-11-24 10:18:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:23:32 UTC)" (scheduled at 2025-11-24 10:18:32.150480+00:00)
+[2025-11-24 10:18:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:18:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:18:32Z
+[2025-11-24 10:18:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:18:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:23:32 UTC)" executed successfully
+[2025-11-24 10:18:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:18:32Z
+[2025-11-24 10:18:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:23:32 UTC)" executed successfully
+[2025-11-24 10:23:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:28:32 UTC)" (scheduled at 2025-11-24 10:23:32.149142+00:00)
+[2025-11-24 10:23:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:28:32 UTC)" (scheduled at 2025-11-24 10:23:32.150480+00:00)
+[2025-11-24 10:23:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:23:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:23:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:23:32Z
+[2025-11-24 10:23:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:28:32 UTC)" executed successfully
+[2025-11-24 10:23:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:23:32Z
+[2025-11-24 10:23:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:28:32 UTC)" executed successfully
+[2025-11-24 10:28:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:33:32 UTC)" (scheduled at 2025-11-24 10:28:32.149142+00:00)
+[2025-11-24 10:28:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:33:32 UTC)" (scheduled at 2025-11-24 10:28:32.150480+00:00)
+[2025-11-24 10:28:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:28:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:28:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:28:32Z
+[2025-11-24 10:28:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:28:32Z
+[2025-11-24 10:28:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:33:32 UTC)" executed successfully
+[2025-11-24 10:28:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:33:32 UTC)" executed successfully
+[2025-11-24 10:33:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:38:32 UTC)" (scheduled at 2025-11-24 10:33:32.150480+00:00)
+[2025-11-24 10:33:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:38:32 UTC)" (scheduled at 2025-11-24 10:33:32.149142+00:00)
+[2025-11-24 10:33:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:33:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:33:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:33:32Z
+[2025-11-24 10:33:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:38:32 UTC)" executed successfully
+[2025-11-24 10:33:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:33:32Z
+[2025-11-24 10:33:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:38:32 UTC)" executed successfully
+[2025-11-24 10:38:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:43:32 UTC)" (scheduled at 2025-11-24 10:38:32.149142+00:00)
+[2025-11-24 10:38:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:43:32 UTC)" (scheduled at 2025-11-24 10:38:32.150480+00:00)
+[2025-11-24 10:38:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:38:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:38:32Z
+[2025-11-24 10:38:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:43:32 UTC)" executed successfully
+[2025-11-24 10:38:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:38:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:38:32Z
+[2025-11-24 10:38:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:43:32 UTC)" executed successfully
+[2025-11-24 10:43:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:48:32 UTC)" (scheduled at 2025-11-24 10:43:32.149142+00:00)
+[2025-11-24 10:43:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:48:32 UTC)" (scheduled at 2025-11-24 10:43:32.150480+00:00)
+[2025-11-24 10:43:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:43:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:43:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:43:32Z
+[2025-11-24 10:43:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:48:32 UTC)" executed successfully
+[2025-11-24 10:43:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:43:32Z
+[2025-11-24 10:43:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:48:32 UTC)" executed successfully
+[2025-11-24 10:48:32 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:53:32 UTC)" (scheduled at 2025-11-24 10:48:32.149142+00:00)
+[2025-11-24 10:48:32 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:53:32 UTC)" (scheduled at 2025-11-24 10:48:32.150480+00:00)
+[2025-11-24 10:48:32 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:48:32 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:48:32 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:48:32Z
+[2025-11-24 10:48:32 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:53:32 UTC)" executed successfully
+[2025-11-24 10:48:32 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:48:32Z
+[2025-11-24 10:48:32 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:53:32 UTC)" executed successfully
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:03 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:03 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:52:04 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:52:04 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:56:57 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:56:57 UTC)" (scheduled at 2025-11-24 10:56:57.230656+00:00)
+[2025-11-24 10:56:57 +0000] [9] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 10:56:57 UTC)" (scheduled at 2025-11-24 10:56:57.234588+00:00)
+[2025-11-24 10:56:57 +0000] [9] [INFO] Found 0 temp dirs
+[2025-11-24 10:56:57 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-24 10:56:57 +0000] [9] [INFO] SWEEPER: sweep completed at 2025-11-24T10:56:57Z
+[2025-11-24 10:56:57 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-24T10:56:57Z
+[2025-11-24 10:56:57 +0000] [9] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 11:01:57 UTC)" executed successfully
+[2025-11-24 10:56:57 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-24 11:01:57 UTC)" executed successfully
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:57:22 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:57:22 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:57:22 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:57:22 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:58:29 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:58:29 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:58:29 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:58:29 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /admin HTTP/1.1" 200 45740 "http://localhost:8000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:59:08 +0000] [10] [ERROR] Error handling request /vvrefresh
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 281, in handle
+    keepalive = self.handle_request(req, conn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/gunicorn/workers/gthread.py", line 333, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/webdavapp.py", line 97, in wsgi_function
+    return theApp(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/app.py", line 191, in vvRefresh
+    return Admin(Content).vvRefresh()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/control/admin.py", line 1143, in vvRefresh
+    status, messages, html = Content.getVoyagerversions()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Content' object has no attribute 'getVoyagerversions'
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /vvrefresh HTTP/1.1" 500 0 "-" "-"
+[2025-11-24 10:59:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [9] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-24 10:59:08 +0000] [10] [INFO] 192.168.65.1 - - [24/Nov/2025:10:59:08 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:11 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:11 +0000] "POST /save/project/64eca653b1520537c7ac5b05/title HTTP/1.1" 200 191 "http://localhost:8000/project/64eca653b1520537c7ac5b05" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:11 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:11 +0000] "POST /save/project/64eca653b1520537c7ac5b05/title HTTP/1.1" 200 191 "http://localhost:8000/project/64eca653b1520537c7ac5b05" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:36 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:36 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] Fetching from Github succeeded; there are 101 versions
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:03:51 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:03:51 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:16 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:16 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:16 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:16 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:54 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:54 +0000] "GET /static/media/Website_Footer.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:55 +0000] [10] [INFO] Fetching from Github succeeded; there are 101 versions
+[2025-11-25 14:05:55 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:55 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:05:55 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:05:55 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:07:42 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:12:42 UTC)" (scheduled at 2025-11-25 14:07:42.538158+00:00)
+[2025-11-25 14:07:42 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-25 14:07:42 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-25T14:07:42Z
+[2025-11-25 14:07:42 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:12:42 UTC)" executed successfully
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /admin HTTP/1.1" 200 45775 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /admin HTTP/1.1" 200 45775 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:35 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:35 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:38 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:38 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:09:38 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:09:38 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:10:20 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:10:20 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:10:20 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:10:20 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:12:42 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:17:42 UTC)" (scheduled at 2025-11-25 14:12:42.538158+00:00)
+[2025-11-25 14:12:42 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-25 14:12:42 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-25T14:12:42Z
+[2025-11-25 14:12:42 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:17:42 UTC)" executed successfully
+[2025-11-25 14:17:42 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:22:42 UTC)" (scheduled at 2025-11-25 14:17:42.538158+00:00)
+[2025-11-25 14:17:42 +0000] [10] [INFO] SWEEPER by worker 10: skipped sweeping at 2025-11-25T14:17:42Z because too close to last sweep at 2025-11-25T14:17:42Z
+[2025-11-25 14:17:42 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:22:42 UTC)" executed successfully
+[2025-11-25 14:18:30 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:30 +0000] "GET /admin HTTP/1.1" 200 46579 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:30 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:30 +0000] "GET /admin HTTP/1.1" 200 46579 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:31 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:31 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:31 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:31 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:31 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:31 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:31 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:31 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:32 +0000] [10] [INFO] Fetching from Github succeeded; there are 101 versions
+[2025-11-25 14:18:32 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:32 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:32 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:32 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:38 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:38 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:38 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:38 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /admin HTTP/1.1" 200 45997 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /admin HTTP/1.1" 200 45997 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/style.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/js/jquery.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:18:46 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:18:46 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:22:42 +0000] [10] [INFO] Running job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:27:42 UTC)" (scheduled at 2025-11-25 14:22:42.538158+00:00)
+[2025-11-25 14:22:42 +0000] [10] [INFO] Found 0 temp dirs
+[2025-11-25 14:22:42 +0000] [10] [INFO] SWEEPER: sweep completed at 2025-11-25T14:22:42Z
+[2025-11-25 14:22:42 +0000] [10] [INFO] Job "Sweeper.clean.<locals>.sweeper (trigger: interval[0:05:00], next run at: 2025-11-25 14:27:42 UTC)" executed successfully
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/common.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/page.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /static/css/components.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:48 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:48 +0000] "GET /data/icon.png HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:49 +0000] [10] [INFO] Fetching from Github succeeded; there are 101 versions
+[2025-11-25 14:23:49 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:49 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:49 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:49 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:52 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:52 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:52 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:52 +0000] "POST /vvinstall/0.9.0/ HTTP/1.1" 200 106 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /admin HTTP/1.1" 200 45997 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /admin HTTP/1.1" 200 45997 "http://localhost:8000/home" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /static/css/vars.css HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /static/js/pure3d.js HTTP/1.1" 200 0 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] Fetching from Github succeeded; there are 101 versions
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"
+[2025-11-25 14:23:57 +0000] [10] [INFO] 192.168.65.1 - - [25/Nov/2025:14:23:57 +0000] "GET /vvrefresh HTTP/1.1" 200 42005 "http://localhost:8000/admin" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15"

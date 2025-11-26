@@ -182,14 +182,6 @@ def appFactory(objects):
         """
         return Admin(Content).pubStatus()
 
-    @app.route("/vvrefresh")
-    def vvRefresh():
-        """Refreshes the list of voyager versions.
-
-        Only for administrators.
-        """
-        return Admin(Content).vvRefresh()
-
     @app.route("/pubterminate")
     def pubTerminate():
         """Terminates (hanging) publication processes.
@@ -197,6 +189,22 @@ def appFactory(objects):
         Only for administrators.
         """
         return Admin(Content).pubTerminate()
+
+    @app.route("/vvrefresh", methods=["GET", "POST"])
+    def vvRefresh():
+        """Refreshes the list of voyager versions.
+
+        Only for administrators.
+        """
+        return Content.vvRefresh()
+
+    @app.route("/vvinstall/<string:version>/", methods=["GET", "POST"])
+    def vvInstall(version):
+        return Content.vvInstall(version)
+
+    @app.route("/vvuninstall/<string:version>/", methods=["GET", "POST"])
+    def vvUninstall(version):
+        return Content.vvUninstall(version)
 
     @app.route("/user/create/<string:user>")
     def createUser(user):

@@ -151,11 +151,31 @@ We'll discuss them one by one.
 
 #### `Voyager versions`
 
-Here is a list of existing Voyager releases in the
+<img src="images/vv.png" width="600">
+
+Here you can see a list of existing Voyager releases in the
 [Voyager github repo](https://github.com/Smithsonian/dpo-voyager).
+You can then add/remove these versions to/from the Pure3D system.
 
 For each release it is indicated whether it has been installed in Pure3D,
 and if so, how many editions have been created with it.
+
+The colors help you to focus on the categories of versions, and you can also
+hpver over a version to see the status of a version with respect to Pure3D.
+
+Versions that are not highlighted with a color have not been installed in Pure3D
+and have not been used to create an edition.
+
+Versions in the cyan color have been installed and used by Pure3D, they cannot be 
+removed.
+
+Yellow versions have been installed, but not yet used.
+
+Orange versions have been used, but are no longer present in Pure3D, they can
+be re-installed.
+
+Red versions have been used, but are no longer present in Pure3D, and also
+no longer in the Voyager repo, so they cannot be re-installed.
 
 There are controls to
 
@@ -167,8 +187,9 @@ And there is a control to refresh the list of Voyager versions.
 
 If you have added or deleted a Voyager version, this will not have an immediate
 effect on the editions that have already been published. But whenever you regenerate
-the pages for the published project (see next section), the changes in voyager versions
-will be visible on those pages as well.
+the pages for the published project
+(see section [Published projects](#published-projects),
+the changes in voyager versions will be visible on those pages as well.
 
 #### `Published projects`
 

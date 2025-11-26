@@ -3,6 +3,7 @@ import requests
 from textwrap import dedent
 
 from .generic import AttrDict, attResolve
+from .files import listDirs
 
 
 class Viewers:
@@ -39,6 +40,31 @@ class Viewers:
         """
         self.Auth = Auth
 
+    def getVersions(self, viewer):
+        """Reads the available versions of a viewer from the file system.
+
+        Keep in mind that the set of installed versions of a viewer may change
+        due to user actions.  When there are multiple web workers active, they
+        will have different instantiations of the viewer class. So whenever
+        you need the set of versions, invoke this method to get it freshly.
+
+        Parameters
+        ----------
+        viewer: string
+            The viewer for which we want to retrieve the versions
+
+        Returns
+        -------
+        tuple
+            The ordered list of versions, most recent first.
+        """
+        Settings = self.Settings
+        versionKey = Settings.versionKey
+        dataDir = Settings.dataDir
+        viewerDir = f"{dataDir}/viewers"
+        viewerPath = f"{viewerDir}/{viewer}"
+        return list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
+
     def check(self, viewer, version):
         """Checks whether a viewer version exists.
 
@@ -68,11 +94,12 @@ class Viewers:
         if viewer not in viewers:
             return None
 
-        viewerInfo = viewers[viewer]
-        versions = viewerInfo.versions
-        defaultVersion = viewerInfo.defaultVersion
+        versions = self.getVersions(viewer)
+        defaultVersion = versions[0] if len(versions) else ""
+
         if version not in versions:
             version = defaultVersion
+
         return version
 
     def getViewInfo(self, edition):
@@ -142,59 +169,92 @@ class Viewers:
 
         return usedVersions
 
-    def getInstalledVersions(self, viewer):
-        """Produces a list of installed versions of a viewer.
-
-        Parameters
-        ----------
-        viewer: string
-            The viewer for which we want to retrieve the versions
-
-        Returns
-        -------
-        set
-        """
-        viewers = self.viewers
-        viewerInfo = viewers[viewer]
-        return set(viewerInfo.versions)
-
-    def getReleasedVoyagerVersions(self):
+    def getReleasedVoyagerVersions(self, contactGithub):
         """Get all installable versions of the Voyager viewer.
 
-        We fetch a list of tags from the github repo of the Voyager,
+        We fetch a list of releases from the github repo of the Voyager,
         together with the urls to their zip balls.
+
+        The fetching is done using the GitHub API. That has a rate limit of 60 requests
+        an hour. In order to overcome that, we store the results in MongoDB.
+
+        Whenever we bump into the rate limit, we fish the data from MongoDb instead.
 
         If the fetching fails, the result may not be complete and a warning
         is issued.
 
+        Parameters
+        ----------
+        contactGithub: boolean
+            If True, the list of installable voyager versions will be retrieved
+            from Github.
+            Otherwise, a cached version will be retrieved from MongoDB, if such a
+            version exists, otherwise Github will be contacted.
+
         Returns
         -------
-        dict
-            Keyed by version and valued by the url to the zip file that
+        list, dict
+            The list are the messages issued.
+            The dict is keyed by version and valued by the url to the zip file that
             contains that version.
         """
+        Mongo = self.Mongo
         Messages = self.Messages
-        BACKEND = "https://api.github.com/repos/{org}/{repo}/tags"
+
+        messages = []
+
+        if not contactGithub:
+            results = Mongo.getRecord("voyager", {}).releases or {}
+            nResults = len(results)
+
+            if nResults:
+                messages.append(
+                    (
+                        "info",
+                        f"Fetching from cache succeeded; giving {nResults} versions",
+                    )
+                )
+                return (messages, results)
+
+            messages.append(
+                (
+                    "info",
+                    "No versions in cache, will contact Github",
+                )
+            )
+
+        BACKEND = "https://api.github.com/repos/{org}/{repo}/releases"
         ORG = "Smithsonian"
         REPO = "dpo-voyager"
         HEADERS = dict(Accept="application/vnd.github+json")
         fetchUrl = BACKEND.format(org=ORG, repo=REPO)
 
-        def getTags(org, repo):
-            url = fetchUrl
+        url = fetchUrl
 
-            results = []
-            good = True
+        rawResults = []
+        good = True
+        eMsg = ""
+        exceeded = False
 
+        try:
             while True:
                 response = requests.get(url, headers=HEADERS)
 
                 if not response.ok:
+                    try:
+                        msg = response.json().get("message", "")
+                    except Exception:
+                        msg = ""
+
+                    if "rate limit exceeded" in msg:
+                        exceeded = True
+                        break
+
                     good = False
                     break
 
-                results.extend(response.json())
-
+                theseResults = response.json()
+                rawResults.extend(theseResults)
                 links = response.links
                 nxt = links.get("next", None)
 
@@ -207,31 +267,91 @@ class Viewers:
                     break
 
                 url = nxtUrl
-
-            return (good, results)
-
-        good = True
-
-        try:
-            good, rawResults = getTags(ORG, REPO)
-        except Exception:
-            Messages.warning(
-                msg="Could not fetch (all) Voyager versions",
-                logmsg="Failed to retrieve (all) Voyager tags from {fetchUrl}",
-            )
+        except Exception as e:
             good = False
+            eMsg = str(e)
 
-        if not good:
-            return {}
+        if exceeded or not good:
+            results = Mongo.getRecord("voyager", {}).releases or {}
+            nResults = len(results)
+            statusRep = "ok" if good else f"XX ({eMsg})"
+            cause = "temporarily blocked" if exceeded else "failed"
 
-        results = {}
+            if nResults == 0:
+                messages.append(
+                    (
+                        "error",
+                        f"Fetching from GitHub {cause}; no previously stored versions",
+                    )
+                )
+                Messages.error(
+                    logmsg=(
+                        f"Fetching from Github: status={statusRep}; "
+                        f"rate limit exceeded={exceeded}; "
+                        "no previously stored versions"
+                    ),
+                )
+            else:
+                messages.append(
+                    (
+                        "warning",
+                        f"Fetching from GitHub {cause}; "
+                        f"will use {nResults} previously stored versions",
+                    )
+                )
+                Messages.warning(
+                    logmsg=(
+                        f"Fetching from Github: status={statusRep}; "
+                        f"rate limit exceeded={exceeded}; "
+                        f"there are {nResults} previously stored versions"
+                    ),
+                )
+        else:
+            results = {}
 
-        for r in rawResults:
-            results[r["name"].lstrip("v")] = r["zipball_url"]
+            for r in rawResults:
+                assets = r.get("assets", None)
 
-        return results
+                if assets is None:
+                    continue
 
-    def getVoyagerVersionTable(self):
+                found = False
+                assetUrl = None
+
+                for asset in assets:
+                    name = asset["name"]
+                    tp = asset["content_type"]
+
+                    if "zip" not in tp or "zip" not in name or "voyager" not in name:
+                        continue
+
+                    found = True
+                    assetUrl = asset["browser_download_url"]
+                    break
+
+                if not found:
+                    continue
+
+                results[r["tag_name"].lstrip("v")] = assetUrl
+
+            nResults = len(results)
+            messages.append(
+                (
+                    "good",
+                    f"Fetching from GitHub succeeded; giving {nResults} versions",
+                )
+            )
+            Messages.good(
+                logmsg=(
+                    f"Fetching from Github succeeded; there are {nResults} versions"
+                ),
+            )
+            Mongo.clearTable("voyager")
+            Mongo.insertRecord("voyager", dict(releases=results))
+
+        return (messages, results)
+
+    def getVoyagerVersionTable(self, contactGithub):
         """Produces a sorted table of Voyager versions with information per version.
 
         The fields of information are:
@@ -239,6 +359,14 @@ class Viewers:
         *   is the version released, and if so, what is the zip url
         *   is the version installed
         *   is the version used and if so, by how many editions
+
+        Parameters
+        ----------
+        contactGithub: boolean
+            If True, the list of installable voyager versions will be retrieved
+            from Github.
+            Otherwise, a cached version will be retrieved from MongoDB, if such a
+            version exists, otherwise Github will be contacted.
 
         Returns
         -------
@@ -249,8 +377,8 @@ class Viewers:
 
         usedVersions = self.getUsedVersions("voyager")
         usedVersionSet = set(usedVersions)
-        installedVersionSet = self.getInstalledVersions("voyager")
-        releasedVersions = self.getReleasedVoyagerVersions()
+        installedVersionSet = set(self.getVersions("voyager"))
+        messages, releasedVersions = self.getReleasedVoyagerVersions(contactGithub)
         releasedVersionSet = set(releasedVersions)
 
         allVersions = reversed(
@@ -268,7 +396,7 @@ class Viewers:
             nEditions = usedVersions.get(version, 0)
             rows.append((version, zipUrl, isInstalled, nEditions))
 
-        return rows
+        return (messages, rows)
 
     def getFrame(
         self, edition, actions, viewer, versionActive, actionActive, sceneExists
@@ -332,7 +460,18 @@ class Viewers:
             """
             openAtt = vw == viewer
 
-            versions = viewers[vw].versions
+            versions = self.getVersions(vw)
+
+            if len(versions) == 0:
+                return H.table(
+                    [
+                        ("No versions", {}),
+                        {},
+                    ],
+                    [],
+                    cls="vwv",
+                )
+
             if len(versions) == 1:
                 version = versions[0]
                 return H.table(

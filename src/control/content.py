@@ -24,6 +24,7 @@ from .files import (
     initTree,
     FDEL,
 )
+from .helpers import downloadZip
 from .datamodel import Datamodel
 from .flask import requestData, getReferrer, redirectStatus, stream
 from .admin import Admin
@@ -516,6 +517,7 @@ class Content(Datamodel):
         Messages = self.Messages
         Auth = self.Auth
         Settings = self.Settings
+        Viewers = self.Viewers
         workingDir = Settings.workingDir
 
         def fillin(template, values):
@@ -533,7 +535,16 @@ class Content(Datamodel):
         editionSettingsTemplate = Settings.editionSettingsTemplate
         viewerDefault = Settings.viewerDefault
         viewerInfo = Settings.viewers[viewerDefault] or AttrDict()
-        versionDefault = viewerInfo.defaultVersion
+        versions = Viewers.getVersions(viewerDefault)
+
+        if len(versions) == 0:
+            Messages.error(
+                msg=f"Viewer {viewerDefault} is not installed",
+                logmsg=f"Viewer {viewerDefault} has no installed versions",
+            )
+            return None
+
+        versionDefault = versions[0] if len(versions) else ""
         sceneFile = viewerInfo.sceneFile
 
         values = dict(viewer=viewerDefault, version=versionDefault, scene=sceneFile)
@@ -989,7 +1000,7 @@ class Content(Datamodel):
             )
         )
 
-    def getVoyagerVersions(self):
+    def getVoyagerVersions(self, contactGithub):
         """Display a table of voyager versions.
 
         We display all versions that are available on the voyager repo,
@@ -998,12 +1009,20 @@ class Content(Datamodel):
         There are also buttons to install/uninstall versions.
         Versions that have been used for creating editions that are still in the system
         cannot be uninstalled.
+
+        Parameters
+        ----------
+        contactGithub: boolean
+            If True, the list of installable voyager versions will be retrieved
+            from Github.
+            Otherwise, a cached version will be retrieved from MongoDB, if such a
+            version exists, otherwise Github will be contacted.
         """
         Viewers = self.Viewers
         Settings = self.Settings
         H = Settings.H
 
-        rowsIn = Viewers.getVoyagerVersionTable()
+        messages, rowsIn = Viewers.getVoyagerVersionTable(contactGithub)
 
         plainCellCls = dict(cls="vwc")
         headers = (
@@ -1018,10 +1037,11 @@ class Content(Datamodel):
             ),
         )
         rows = []
-        installable = False
-        removable = False
 
         for version, zipUrl, isInstalled, nEditions in rowsIn:
+            installable = False
+            removable = False
+
             if zipUrl:
                 if isInstalled:
                     if nEditions:
@@ -1074,8 +1094,10 @@ class Content(Datamodel):
                     act,
                     title=f"{aRep} voyager {version}",
                     cls=f"{aCls}",
-                    version="version",
+                    version=version,
                     tp=aRep,
+                    btype="vvbutton",
+                    zipurl=zipUrl,
                 )
             else:
                 button = ""
@@ -1094,10 +1116,143 @@ class Content(Datamodel):
             )
 
         html = H.table(headers, rows)
-        messages = []
         status = True
 
         return status, messages, html
+
+    # retrieval and action functions -- VOYAGER VERSION
+
+    def vvRefresh(self):
+        """Refreshes the list of voyager versions.
+
+        Only allowed for admins and roots.
+
+        Returns
+        -------
+        dict
+            With key `status`: whether the refreshing succeeded;
+            with key `messages`: the messages if the refreshing did not succeed;
+            with key `html`: the html of the table with versions.
+        """
+        Auth = self.Auth
+        permitted = Auth.inPower()[0]
+
+        if permitted:
+            contactGithub = json.loads(requestData())
+            status, messages, html = self.getVoyagerVersions(contactGithub)
+        else:
+            status = False
+            messages = ["error", "You are not allowed to retrieve voyager versions"]
+            html = ""
+
+        return dict(status=status, messages=messages, html=html)
+
+    def vvInstall(self, version):
+        """Install a voyager version.
+
+        The url from which the version can be installed is in the
+        request data.
+
+        Parameters
+        ----------
+        version: string
+            The voyager version to install (without a leading `v`).
+
+        """
+        Auth = self.Auth
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False,
+                messages=[["error", "installing a voyager version is not allowed"]],
+            )
+
+        Settings = self.Settings
+        dataDir = Settings.dataDir
+        viewerDir = f"{dataDir}/viewers"
+        viewerPath = f"{viewerDir}/voyager"
+        versionPath = f"{viewerPath}/{version}"
+
+        zipUrl = json.loads(requestData())
+
+        messages = []
+
+        if fileExists(versionPath):
+            fileRemove(versionPath)
+
+        if dirExists(versionPath):
+            messages.append(("warning", f"version {version} is already installed"))
+            return (False, messages)
+
+        messages.append(
+            ("info", f"Installing voyager version {version} from zipUrl={zipUrl}")
+        )
+        (status, theseMessages) = downloadZip(zipUrl, versionPath, up="dist/")
+        messages.extend(theseMessages)
+
+        if status:
+            messages.append(("good", f"Installed voyager version {version}"))
+        else:
+            messages.append(("error", f"Failed to install voyager version {version}"))
+
+        return dict(status=status, messages=messages)
+
+    def vvUninstall(self, version):
+        """Uninstall a voyager version.
+
+        Parameters
+        ----------
+        version: string
+            The voyager version to uninstall (without a leading `v`).
+
+        """
+        Auth = self.Auth
+        permitted = Auth.inPower()[0]
+
+        if not permitted:
+            return dict(
+                stat=False,
+                messages=[["error", "uninstalling a voyager version is not allowed"]],
+            )
+
+        Viewers = self.Viewers
+
+        usedVersions = Viewers.getUsedVersions("voyager")
+        nEditions = usedVersions[version]
+
+        if nEditions:
+            return (
+                False,
+                (
+                    (
+                        "warning",
+                        f"version {version} not deleted "
+                        f"because it is used by {nEditions} editions",
+                    )
+                ),
+            )
+
+        Settings = self.Settings
+        dataDir = Settings.dataDir
+        viewerDir = f"{dataDir}/viewers"
+        viewerPath = f"{viewerDir}/voyager"
+        versionPath = f"{viewerPath}/{version}"
+
+        if fileExists(versionPath):
+            fileRemove(versionPath)
+
+        messages = []
+
+        if dirExists(versionPath):
+            dirRemove(versionPath)
+            messages.append(("good", f"Uninstalled voyager version {version}"))
+            status = True
+        else:
+            messages.append(("warning", f"version {version} is not installed"))
+            status = False
+
+        return dict(status=status, messages=messages)
 
     def getPublishInfo(self, table, record):
         """Display the number under which a project/edition is published.

@@ -1,8 +1,12 @@
 import sys
 import re
 from subprocess import run as run_cmd, CalledProcessError
+from zipfile import ZipFile
+from io import BytesIO
 
-from .files import unexpanduser as ux
+import requests
+
+from .files import unexpanduser as ux, dirMake, dirRemove
 
 
 def ucFirst(x):
@@ -98,6 +102,74 @@ def run(cmdline, workDir=None):
     return (good, stdOut, stdErr)
 
 
+def downloadZip(zipUrl, dest, up=None):
+    """Downloads a zip file from an url and extracts its contents to a destination.
+
+    Parameters
+    ----------
+    zipUrl: string
+        The url that points to the zip file
+    fileName: string
+        The name of the file to save the zip file into
+    dest: string
+        The directory on the file system where the zipfile must be extracted
+    up: string, optional None
+        Prefix to remove from all paths in the zip file
+    """
+
+    good = True
+    messages = []
+
+    try:
+        response = requests.get(zipUrl)
+    except Exception as e:
+        good = False
+        msg = str(e)
+
+    if not response.ok:
+        good = False
+        msg = "not a valid response"
+
+    if not good:
+        messages.append(("error", f"Could not download {zipUrl}: {msg}"))
+        return (good, messages)
+
+    try:
+        try:
+            dirMake(dest)
+        except Exception as e:
+            good = False
+            messages.append(
+                ("error", f"Could not create destination directory {dest}: {e}")
+            )
+            return (good, messages)
+
+        with ZipFile(BytesIO(response.content)) as zf:
+            if up is None:
+                zf.extractall(path=dest)
+            else:
+                for zInfo in zf.infolist():
+                    fn = zInfo.filename
+
+                    if fn.removesuffix("/") == up.removesuffix("/"):
+                        continue
+
+                    zInfo.filename = fn.removeprefix(up)
+                    zf.extract(zInfo, path=dest)
+
+    except Exception as e:
+        good = False
+        msg = str(e)
+        dirRemove(dest)
+
+    if not good:
+        messages.append(("error", f"Could not extract {zipUrl}: {msg}"))
+        return (good, messages)
+
+    messages.append(("good", "Download and extraction successful"))
+    return (good, messages)
+
+
 def htmlEsc(val):
     """Escape certain HTML characters by HTML entities.
 
@@ -150,11 +222,11 @@ def hEmpty(x):
     return (
         "<i>no value</i>"
         if x is None
-        else """<code>0</code>"""
-        if x == 0
-        else """<code>''</code>"""
-        if x == ""
-        else f"""<code>{str(x)}</code>"""
+        else (
+            """<code>0</code>"""
+            if x == 0
+            else """<code>''</code>""" if x == "" else f"""<code>{str(x)}</code>"""
+        )
     )
 
 
@@ -187,11 +259,15 @@ def hScalar0(x, tight=True, issues={}, isIssueKey=False):
         (
             f"{{<b>{k}</b>: {vRep}}}"
             if tpv is dict
-            else f"""[<span class="{cls}">{vRep}</span>]"""
-            if tpv is list
-            else f"""(<span class="{cls}">{vRep}</span>)"""
-            if tpv is tuple
-            else f"""{{<span class="{cls}">{vRep}</span>}}"""
+            else (
+                f"""[<span class="{cls}">{vRep}</span>]"""
+                if tpv is list
+                else (
+                    f"""(<span class="{cls}">{vRep}</span>)"""
+                    if tpv is tuple
+                    else f"""{{<span class="{cls}">{vRep}</span>}}"""
+                )
+            )
         )
         if simple
         else (
@@ -239,9 +315,11 @@ def hList(x, outer=False, tight=True, issues={}, isIssueKey=False):
                         titleStr = (
                             titles["EN"]
                             if "EN" in titles
-                            else ""
-                            if len(titles) == 0
-                            else titles[sorted(titles.keys())[0]]
+                            else (
+                                ""
+                                if len(titles) == 0
+                                else titles[sorted(titles.keys())[0]]
+                            )
                         )
                         if titleStr == "":
                             titleStr = "??"
@@ -314,11 +392,18 @@ def hData(x, tight=True, issues={}, isIssueKey=False):
         return (
             (True, hEmpty(x), "")
             if len(x) == 0
-            else hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
-            if len(x) == 1 and tpv is not dict
-            else (False, *hDict(x, tight=tight, issues=issues))
-            if tpv is dict
-            else (False, *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey))
+            else (
+                hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
+                if len(x) == 1 and tpv is not dict
+                else (
+                    (False, *hDict(x, tight=tight, issues=issues))
+                    if tpv is dict
+                    else (
+                        False,
+                        *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey),
+                    )
+                )
+            )
         )
     return hScalar(x, issues=issues, isIssueKey=isIssueKey)
 

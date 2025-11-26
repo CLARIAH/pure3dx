@@ -226,7 +226,7 @@ class Mongo:
                         logmsg=f"Cannot create table: `{table}`: {e}",
                     )
             else:
-                (good, count) = self.deleteRecordsHard(table, {}, "system")
+                (good, count) = self.hardDeleteRecords(table, {}, "system")
                 if good:
                     plural = "" if count == 1 else "s"
                     Messages.plain(
@@ -304,7 +304,7 @@ class Mongo:
         if not good or result is None:
             if warn:
                 Messages.warning(
-                    msg=f"Could not find that {table}",
+                    msg=f"Could not find table {table}",
                     logmsg=f"No record in {table} with {criteria}",
                 )
             else:

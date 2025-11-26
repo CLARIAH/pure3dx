@@ -551,25 +551,6 @@ class Config:
                     )
                 )
                 continue
-            viewerConfig = viewerSettings.viewers[viewerName]
-            viewerPath = f"{viewerDir}/{viewerName}"
-
-            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
-
-            if len(versions) == 0:
-                self.good = False
-                Messages.error(
-                    logmsg=(
-                        f"Skipping viewer {viewerName} "
-                        f"because there are no versions of it on the system"
-                    )
-                )
-                continue
-
-            defaultVersion = versions[0]
-
-            viewerConfig.versions = versions
-            viewerConfig.defaultVersion = defaultVersion
 
         Settings.viewers = viewerSettings.viewers
         Settings.viewerActions = viewerSettings.actions

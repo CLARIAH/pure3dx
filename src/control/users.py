@@ -705,8 +705,6 @@ class Users:
                 att: oidc.user_getfield(oidcAtt)
                 for (oidcAtt, att) in PROVIDER_ATTS.items()
             }
-            # self.debug(f"{givenUser=}")
-            # self.debug(f"{sessionGet('oidc_auth_profile')=}")
 
             fillNickname(givenUser)
 

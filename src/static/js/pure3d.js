@@ -95,23 +95,36 @@ const fetchData = (url, task, destElem, data) => {
   }
 }
 
-const vvRefreshWidget = () => {
+const vvManageWidget = () => {
   const vvRefresh = $("#vvrefresh")
   const vvMessages = $("#vvmessages")
+  const vvDismiss = $("#vvdismiss")
   const vvTable = $("#vvtable")
   const vvStatusLabel = "check voyager versions"
   const vvRefreshUrl = "/vvrefresh"
+  const vvDetails = $("#voyagercontrols")
+
+  const clearVV = () => {
+    vvMessages.html("")
+    vvDismiss.hide()
+  }
 
   const reportVV = messages => {
     for (const message of messages) {
       const [tp, msg] = message
-      const html = `<span class="msgitem ${tp}">${msg}</span>`
+      const html = `<span class="msgitem ${tp}">${msg}</span><br>`
       vvMessages.append(html)
     }
     vvMessages.show()
+    if (messages.length) {
+      vvDismiss.show()
+    }
   }
   const reportError = task => (jqXHR, stat) => {
     vvTable.html("Failed to load Voyager versions")
+    reportVV([["error", `cannot ${task}: ${stat}`]])
+  }
+  const reportErrorAction = task => (jqXHR, stat) => {
     reportVV([["error", `cannot ${task}: ${stat}`]])
   }
   const processVV = response => {
@@ -119,27 +132,67 @@ const vvRefreshWidget = () => {
 
     if (status) {
       vvTable.html(html)
+      activateButtons()
     } else {
       vvTable.html("Failed to load Voyager versions")
-      reportVV(messages)
     }
+    reportVV(messages)
   }
-  const getVV = () => {
+  const processVVaction = response => {
+    const { status, messages } = response
+
+    reportVV(messages)
+    getVV(false)
+  }
+  const getVV = contactGithub => {
     $.ajax({
-      type: "GET",
+      type: "POST",
+      headers: { "Content-Type": "application/json" },
       url: vvRefreshUrl,
+      data: JSON.stringify(contactGithub),
       processData: false,
       contentType: true,
       success: processVV,
       error: reportError(vvStatusLabel),
     })
   }
+  const activateButtons = () => {
+    const vvButtons = $(`span[btype="vvbutton"]`)
+
+    vvButtons.off("click").click(e => {
+      const elem = $(e.target)
+      const actionType = elem.attr("type")
+      const version = elem.attr("version")
+      const actionUrl = `/vv${actionType}/${version}/`
+      const zipUrl = elem.attr("zipurl")
+
+      clearVV()
+
+      $.ajax({
+        type: "POST",
+        headers: { "Content-Type": "application/json" },
+        url: actionUrl,
+        data: JSON.stringify(zipUrl),
+        processData: false,
+        contentType: true,
+        success: processVVaction,
+        error: reportErrorAction(`${actionType} voyager version ${version}`)
+      })
+    })
+  }
 
   vvRefresh.off("click").click(() => {
-    vvMessages.html("")
-    getVV()
+    vvDetails.prop("open", true)
+    clearVV()
+    getVV(true)
   })
-  getVV()
+  vvDismiss.off("click").click(() => {
+    clearVV()
+    vvMessages.html("")
+  })
+
+  clearVV()
+  getVV(false)
 }
 
 const pubStatusWidget = () => {
@@ -1025,7 +1078,7 @@ const processMyWork = name => {
 $(() => {
   uploadControls()
   kwmanageWidgets()
-  vvRefreshWidget()
+  vvManageWidget()
   pubStatusWidget()
   editWidgets()
   processMyWork()

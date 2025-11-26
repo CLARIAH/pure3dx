@@ -30,6 +30,7 @@ class Static:
         """All about generating static pages."""
         self.Settings = Settings
         self.Content = Content
+        self.Viewers = Viewers
         self.Tailwind = Tailwind
         self.Handlebars = Handlebars
         self.Messages = Messages
@@ -516,6 +517,7 @@ class Static:
         H = Settings.H
         Messages = self.Messages
         Content = self.Content
+        Viewers = self.Viewers
         Precheck = self.Precheck
         authorUrl = Settings.authorUrl
         backPrefix = Settings.backPrefix
@@ -537,7 +539,7 @@ class Static:
             result = []
 
             for viewer, viewerConfig in Settings.viewers.items():
-                versions = viewerConfig.versions
+                versions = Viewers.getVersions(viewer)
                 element = viewerConfig.modes.read.element
                 isDefault = viewer == defaultViewer
 

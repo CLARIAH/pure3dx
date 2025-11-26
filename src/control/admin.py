@@ -289,13 +289,8 @@ class Admin:
         name = "voyager-versions"
         tocEntry = H.a(title, f"#{name}")
 
-        wrapped = []
-        wrapped.append(H.h(1, H.anchor(title, name)))
-
-        wrapped.append(H.div("", id="vvtable"))
-
-        wrapped.append(H.h(2, "Refresh Voyager versions"))
-        wrapped.append(
+        sectionTitle = H.h(1, H.anchor(title, name))
+        summary = (
             H.p(
                 [
                     H.a(
@@ -307,9 +302,18 @@ class Admin:
                     ),
                 ]
             )
-            + H.div("", id="vvmessages"),
+            + H.div("", id="vvmessages")
+            + H.button("❎", "button", title="dismiss messages", id="vvdismiss")
         )
-        return (H.div(wrapped, id="voyagercontrols"), tocEntry)
+        body = H.div("", id="vvtable")
+
+        return (
+            sectionTitle
+            + H.details(
+                summary, body, "voyagerversions", id="voyagercontrols", open=True
+            ),
+            tocEntry,
+        )
 
     def wrapPubControls(self):
         """Generate HTML for the published projects in admin view.
@@ -1123,30 +1127,6 @@ class Admin:
         return dict(status=status, messages=messages)
 
     # retrieval and action functions -- KEYWORD
-
-    def vvRefresh(self):
-        """Refreshes the list of voyager versions.
-
-        Only allowed for admins and roots.
-
-        Returns
-        -------
-        dict
-            With key `status`: whether the refreshing succeeded;
-            with key `messages`: the messages if the refreshing did not succeed;
-            with key `html`: the html of the table with versions.
-        """
-        Content = self.Content
-        inPower = self.inPower
-
-        if inPower:
-            status, messages, html = Content.getVoyagerVersions()
-        else:
-            status = False
-            messages = ["error", "You are not allowed to retrieve this value"]
-            html = ""
-
-        return dict(status=status, messages=messages, html=html)
 
     def saveKeyword(self):
         """Saves a keyword.
