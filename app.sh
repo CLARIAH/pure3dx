@@ -9,7 +9,21 @@ Run local app $app
 
 USAGE
 
-app [up|down|peek|peekpub|mongo|buildlocal|build|browse] args
+app [up|down|browse|sh|shpub|mongo|build|buildlocal|buildexportdb] args
+
+Commands
+
+up              - start pure3d (press Ctrl-C twice to stop)
+down            - stop pure3d (mostly not needed)
+browse          - go to local pure3d website
+browse prod     - go to production pure3d website
+browse code     - go to github repo of the source code
+mongo           - open mongosh (on the host) to operate on the pure3d databases
+sh              - open a shell in the author container
+shpub           - open a shell in the publishing container
+build           - build the pure3d docker image (for production) and push it to the registry
+buildlocal      - build the pure3d docker image (for developers)
+buildexportdb   - build docker image for exporting the pure3d databases (on a crontab)
 "
 
 cd $approot
@@ -75,13 +89,13 @@ function appdown {
     docker compose down
 }
 
-function apppeek {
-    # shell into the running app locally
+function appsh {
+    # shell into the running authoring app locally
     docker exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" -it ${app}_author /bin/bash -l
 }
 
-function apppeekpub {
-    # shell into the running app locally
+function appshpub {
+    # shell into the running publishing app locally
     docker exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" -it ${app}_pub /bin/bash -l
 }
 
@@ -144,6 +158,9 @@ function appbrowse {
     if [[ "$1" == "" ]]; then
         echo open http://localhost:$flaskport
         open http://localhost:$flaskport
+    elif [[ "$1" == "prod" ]]; then
+        echo "open https://author.pure3d.eu"
+        open https://author.pure3d.eu
     elif [[ "$1" == "code" ]]; then
         echo "open https://github.com/CLARIAH/pure3dx"
         open https://github.com/CLARIAH/pure3dx
