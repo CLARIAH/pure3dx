@@ -161,7 +161,7 @@ For each release it is indicated whether it has been installed in Pure3D,
 and if so, how many editions have been created with it.
 
 The colors help you to focus on the categories of versions, and you can also
-hpver over a version to see the status of a version with respect to Pure3D.
+hover over a version to see the status of a version with respect to Pure3D.
 
 Versions that are not highlighted with a color have not been installed in Pure3D
 and have not been used to create an edition.
@@ -187,8 +187,8 @@ And there is a control to refresh the list of Voyager versions.
 
 If you have added or deleted a Voyager version, this will not have an immediate
 effect on the editions that have already been published. But whenever you regenerate
-the pages for the published project
-(see section [Published projects](#published-projects),
+the pages for the published project,
+see section [Published projects](#published-projects),
 the changes in voyager versions will be visible on those pages as well.
 
 #### `Published projects`
