@@ -1,6 +1,6 @@
 services:
   pure3d_author:
-    image: registry.diginfra.net/pure3d/pure3d_author
+    image: pure3d_author:${dockertag}-loc
     container_name: pure3d_author
     hostname: pure3d_author
     depends_on:
@@ -36,7 +36,7 @@ services:
       - "${flaskport}:${flaskport}"
 
   pure3d_pub:
-    image: nginx:latest 
+    image: nginx:trixie 
     container_name: pure3d_pub
     hostname: pure3d_pub
     environment:
@@ -48,7 +48,7 @@ services:
       - "${nginxport}:80"
 
   mongodb:
-    image: mongo:5.0.6
+    image: mongo:8-noble
     hostname: "${mongohost}"
     container_name: mongodb
     volumes:

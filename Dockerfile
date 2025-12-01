@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.14
 
 RUN apt update && apt install -y \
     libmagic1 \
@@ -7,6 +7,6 @@ RUN apt update && apt install -y \
     less \
     git
 
-WORKDIR ./app
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r ./requirements.txt

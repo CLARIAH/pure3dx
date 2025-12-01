@@ -11,8 +11,3 @@ else
   echo "docker image building failed!"
   exit 1
 fi
-
-sleep 3
-
-docker login
-docker tag pure3d_author:${dockertag}-loc pure3d_author:latest-loc

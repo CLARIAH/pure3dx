@@ -9,7 +9,7 @@ Run local app $app
 
 USAGE
 
-app [up|down|browse|sh|shpub|mongo|build|buildlocal|buildexportdb] args
+app command args
 
 Commands
 
@@ -21,9 +21,11 @@ browse code     - go to github repo of the source code
 mongo           - open mongosh (on the host) to operate on the pure3d databases
 sh              - open a shell in the author container
 shpub           - open a shell in the publishing container
-build           - build the pure3d docker image (for production) and push it to the registry
+build           - build the pure3d docker image (for production)
 buildlocal      - build the pure3d docker image (for developers)
-buildexportdb   - build docker image for exporting the pure3d databases (on a crontab)
+buildexportdb   - build the docker image for exporting the pure3d databases (on a crontab)
+push            - push the pure3d docker (production) image to the registry
+pushexportdb    - push the docker image for exporting the pure3d databases to the registry
 "
 
 cd $approot
@@ -31,7 +33,8 @@ cd $approot
 source .env
 
 function apphost {
-    rdctl start --application.start-in-background --virtual-machine.memory-in-gb 6
+    # rdctl start --application.start-in-background --virtual-machine.memory-in-gb 6
+    docker desktop start
 }
 
 function appup {
@@ -133,24 +136,28 @@ function appmongo {
 }
 
 function appbuildexportdb {
-    # build the app locally, using local github clone as is
-    # if you pass "push" as argument, the docker images will be pushed to the
-    # registry
+    # build the exportdb image
     ./build-exportdb.sh "$@"
 }
 
 function appbuildlocal {
-    # build the app locally, using local github clone as is
-    # if you pass "push" as argument, the docker images will be pushed to the
-    # registry
+    # build the main image for local usage
     ./build-local.sh "$@"
 }
 
 function appbuild {
-    # build the app for kubernetes, using local github clone as is
-    # if you pass "push" as argument, the docker images will be pushed to the
-    # registry
+    # build the main image for k8s
     ./build.sh "$@"
+}
+
+function apppushexportdb {
+    # push the exportdb image
+    ./push-exportdb.sh "$@"
+}
+
+function apppush {
+    # push the main image for kubernetes
+    ./push.sh "$@"
 }
 
 function appbrowse {
