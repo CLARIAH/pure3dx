@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.11.1" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>control.messages API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,13 +26,19 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/messages.py#L1-L216" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L1-L254" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 from .flask import flashMsg
 
 
 class Messages:
+    labelMap = dict(
+        special=&#34;info&#34;,
+        good=&#34;info&#34;,
+        plain=&#34;info&#34;,
+    )
+
     def __init__(self, Settings, onFlask=True):
         &#34;&#34;&#34;Sending messages to the user and the server log.
 
@@ -75,6 +81,19 @@ class Messages:
     def setFlask(self):
         &#34;&#34;&#34;Enables messaging to the web interface.&#34;&#34;&#34;
         self.onFlask = True
+
+    def addApp(self, app):
+        &#34;&#34;&#34;Adds a reference to the flask app object.
+
+        We have to be able to use the logger of the Flask app,
+        so we store a reference to the app object.
+
+        Parameters
+        ----------
+        app: object
+            The Flask app object
+        &#34;&#34;&#34;
+        self.app = app
 
     def debugAdd(self, dest):
         &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -154,6 +173,20 @@ class Messages:
         &#34;&#34;&#34;
         self.message(&#34;plain&#34;, msg, logmsg)
 
+    def loggerMessage(self, logTp, logmsg):
+        app = getattr(self, &#34;app&#34;, None)
+
+        if app is None:
+            return
+
+        logger = self.app.logger
+        method = getattr(logger, logTp, None)
+
+        if method is None:
+            return
+
+        method(logmsg)
+
     def message(self, tp, msg, logmsg):
         &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
 
@@ -202,15 +235,19 @@ class Messages:
         &#34;&#34;&#34;
         Settings = self.Settings
         onFlask = self.onFlask
+        labelMap = self.labelMap
 
         stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
         label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
+        logTp = labelMap.get(tp, tp)
 
         if not onFlask:
             if msg is not None and logmsg is None:
                 stream.write(f&#34;{label}{msg}\n&#34;)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
+                self.loggerMessage(logTp, logmsg)
+
             stream.flush()
         else:
             debugMode = Settings.debugMode
@@ -225,6 +262,7 @@ class Messages:
                 flashMsg(f&#34;{label}{m}&#34;, cls)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
+                self.loggerMessage(logTp, logmsg)
                 stream.flush()
 
     def client(self, tp, message, replace=False):
@@ -286,9 +324,15 @@ web user (not much) and what you send to the log (the gory details).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/messages.py#L5-L216" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L5-L254" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Messages:
+    labelMap = dict(
+        special=&#34;info&#34;,
+        good=&#34;info&#34;,
+        plain=&#34;info&#34;,
+    )
+
     def __init__(self, Settings, onFlask=True):
         &#34;&#34;&#34;Sending messages to the user and the server log.
 
@@ -331,6 +375,19 @@ web user (not much) and what you send to the log (the gory details).</p>
     def setFlask(self):
         &#34;&#34;&#34;Enables messaging to the web interface.&#34;&#34;&#34;
         self.onFlask = True
+
+    def addApp(self, app):
+        &#34;&#34;&#34;Adds a reference to the flask app object.
+
+        We have to be able to use the logger of the Flask app,
+        so we store a reference to the app object.
+
+        Parameters
+        ----------
+        app: object
+            The Flask app object
+        &#34;&#34;&#34;
+        self.app = app
 
     def debugAdd(self, dest):
         &#34;&#34;&#34;Adds a quick debug method to a destination object.
@@ -410,6 +467,20 @@ web user (not much) and what you send to the log (the gory details).</p>
         &#34;&#34;&#34;
         self.message(&#34;plain&#34;, msg, logmsg)
 
+    def loggerMessage(self, logTp, logmsg):
+        app = getattr(self, &#34;app&#34;, None)
+
+        if app is None:
+            return
+
+        logger = self.app.logger
+        method = getattr(logger, logTp, None)
+
+        if method is None:
+            return
+
+        method(logmsg)
+
     def message(self, tp, msg, logmsg):
         &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
 
@@ -458,15 +529,19 @@ web user (not much) and what you send to the log (the gory details).</p>
         &#34;&#34;&#34;
         Settings = self.Settings
         onFlask = self.onFlask
+        labelMap = self.labelMap
 
         stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
         label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
+        logTp = labelMap.get(tp, tp)
 
         if not onFlask:
             if msg is not None and logmsg is None:
                 stream.write(f&#34;{label}{msg}\n&#34;)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
+                self.loggerMessage(logTp, logmsg)
+
             stream.flush()
         else:
             debugMode = Settings.debugMode
@@ -481,6 +556,7 @@ web user (not much) and what you send to the log (the gory details).</p>
                 flashMsg(f&#34;{label}{m}&#34;, cls)
             if logmsg is not None:
                 stream.write(f&#34;{label}{logmsg}\n&#34;)
+                self.loggerMessage(logTp, logmsg)
                 stream.flush()
 
     def client(self, tp, message, replace=False):
@@ -501,6 +577,13 @@ web user (not much) and what you send to the log (the gory details).</p>
         replace = &#34;true&#34; if replace else &#34;false&#34;
         return dict(onclick=f&#34;addMsg(&#39;{tp}&#39;, &#39;{message}&#39;, {replace});&#34;)</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="control.messages.Messages.labelMap"><code class="name">var <span class="ident">labelMap</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="control.messages.Messages.onFlask"><code class="name">var <span class="ident">onFlask</span></code></dt>
@@ -514,6 +597,37 @@ before the flask app is started.</p></div>
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="control.messages.Messages.addApp"><code class="name flex">
+<span>def <span class="ident">addApp</span></span>(<span>self, app)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds a reference to the flask app object.</p>
+<p>We have to be able to use the logger of the Flask app,
+so we store a reference to the app object.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>app</code></strong> :&ensp;<code>object</code></dt>
+<dd>The Flask app object</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L55-L66" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def addApp(self, app):
+    &#34;&#34;&#34;Adds a reference to the flask app object.
+
+    We have to be able to use the logger of the Flask app,
+    so we store a reference to the app object.
+
+    Parameters
+    ----------
+    app: object
+        The Flask app object
+    &#34;&#34;&#34;
+    self.app = app</code></pre>
+</details>
+</dd>
 <dt id="control.messages.Messages.client"><code class="name flex">
 <span>def <span class="ident">client</span></span>(<span>self, tp, message, replace=False)</span>
 </code></dt>
@@ -531,6 +645,29 @@ before the flask app is started.</p></div>
 <dt><code>dict</code></dt>
 <dd>an onclick attribute that can be added to a link element.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L238-L254" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def client(self, tp, message, replace=False):
+    &#34;&#34;&#34;Adds javascript code whose execution displays a message.
+
+    Parameters
+    ----------
+    tp, msg: string, string
+        As in `message()`
+    replace: boolean, optional False
+        If True, clears all previous messages.
+
+    Returns
+    -------
+    dict
+        an onclick attribute that can be added to a link element.
+    &#34;&#34;&#34;
+    replace = &#34;true&#34; if replace else &#34;false&#34;
+    return dict(onclick=f&#34;addMsg(&#39;{tp}&#39;, &#39;{message}&#39;, {replace});&#34;)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.debug"><code class="name flex">
 <span>def <span class="ident">debug</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -538,6 +675,18 @@ before the flask app is started.</p></div>
 <dd>
 <div class="desc"><p>Issue a debug message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L97-L102" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def debug(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue a debug message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;debug&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.debugAdd"><code class="name flex">
 <span>def <span class="ident">debugAdd</span></span>(<span>self, dest)</span>
@@ -554,6 +703,40 @@ before the flask app is started.</p></div>
 to Messages, you issue the statement</p>
 <pre><code>Messages.addDebug(self)
 </code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L68-L95" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def debugAdd(self, dest):
+    &#34;&#34;&#34;Adds a quick debug method to a destination object.
+
+    The result of this method is that instead of saying
+
+    ```
+    self.Messages.debug (logmsg=&#34;blabla&#34;)
+    ```
+
+    you can say
+
+    ```
+    self.debug (&#34;blabla&#34;)
+    ```
+
+    It is recommended that in each object where you store a handle
+    to Messages, you issue the statement
+
+    ```
+    Messages.addDebug(self)
+    ```
+    &#34;&#34;&#34;
+
+    def dbg(m):
+        &#34;&#34;&#34;Inner function to be set as method to the class.&#34;&#34;&#34;
+        self.debug(logmsg=m)
+
+    setattr(dest, &#34;debug&#34;, dbg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.error"><code class="name flex">
 <span>def <span class="ident">error</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -561,6 +744,18 @@ to Messages, you issue the statement</p>
 <dd>
 <div class="desc"><p>Issue an error message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L104-L109" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def error(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue an error message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;error&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.good"><code class="name flex">
 <span>def <span class="ident">good</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -568,6 +763,18 @@ to Messages, you issue the statement</p>
 <dd>
 <div class="desc"><p>Issue a success message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L118-L123" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def good(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue a success message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;good&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.info"><code class="name flex">
 <span>def <span class="ident">info</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -575,6 +782,43 @@ to Messages, you issue the statement</p>
 <dd>
 <div class="desc"><p>Issue a informational message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L125-L130" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def info(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue a informational message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;info&#34;, msg, logmsg)</code></pre>
+</details>
+</dd>
+<dt id="control.messages.Messages.loggerMessage"><code class="name flex">
+<span>def <span class="ident">loggerMessage</span></span>(<span>self, logTp, logmsg)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L146-L158" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def loggerMessage(self, logTp, logmsg):
+    app = getattr(self, &#34;app&#34;, None)
+
+    if app is None:
+        return
+
+    logger = self.app.logger
+    method = getattr(logger, logTp, None)
+
+    if method is None:
+        return
+
+    method(logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.message"><code class="name flex">
 <span>def <span class="ident">message</span></span>(<span>self, tp, msg, logmsg)</span>
@@ -628,6 +872,89 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <dt><strong><code>logmsg</code></strong> :&ensp;<code>string | void</code></dt>
 <dd>If not None, it is the contents of a log message.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L160-L236" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def message(self, tp, msg, logmsg):
+    &#34;&#34;&#34;Workhorse to issue a message in a variety of ways.
+
+    It can issue log messages and screen messages.
+
+    Messages passed in `msg` go to the web interface, the ones
+    passed in `logmsg` go to the log.
+
+    If there is not yet a web interface, `msg` messages are suppressed if there
+    is also a `logmsg`, otherwise they will be directed to the log as well.
+
+    Parameters
+    ----------
+    tp: string
+        The severity of the message.
+        There is a fixed number of types:
+
+        * `debug`
+          Messages are prepended with `DEBUG: `.
+          Log messages go to stderr.
+          Messages will only show up on the web page
+          if the app runs in debug mode.
+
+        * `plain`
+          Messages are not prepended with anything.
+          Log messages go to standard output.
+
+        * `info`
+          Messages are prepended with `INFO: `.
+          Log messages go to standard output.
+
+        * `warning`
+          Messages are prepended with `WARNING: `.
+          Log messages go to standard error.
+
+        * `error`
+          Messages are prepended with `ERROR: `.
+          Log messages go to standard error.
+
+    msg: string | void
+        If not None, it is the contents of a screen message.
+        This happens by the built-in `flash` method of Flask.
+    logmsg: string | void
+        If not None, it is the contents of a log message.
+
+    &#34;&#34;&#34;
+    Settings = self.Settings
+    onFlask = self.onFlask
+    labelMap = self.labelMap
+
+    stream = sys.stderr if tp in {&#34;debug&#34;, &#34;error&#34;, &#34;warning&#34;} else sys.stdout
+    label = &#34;&#34; if tp == &#34;plain&#34; else f&#34;{tp.upper()}: &#34;
+    logTp = labelMap.get(tp, tp)
+
+    if not onFlask:
+        if msg is not None and logmsg is None:
+            stream.write(f&#34;{label}{msg}\n&#34;)
+        if logmsg is not None:
+            stream.write(f&#34;{label}{logmsg}\n&#34;)
+            self.loggerMessage(logTp, logmsg)
+
+        stream.flush()
+    else:
+        debugMode = Settings.debugMode
+        H = Settings.H
+
+        if tp == &#34;debug&#34; and not debugMode:
+            return
+
+        if msg is not None:
+            cls = &#34;info&#34; if tp == &#34;plain&#34; else tp
+            m = H.he(msg)
+            flashMsg(f&#34;{label}{m}&#34;, cls)
+        if logmsg is not None:
+            stream.write(f&#34;{label}{logmsg}\n&#34;)
+            self.loggerMessage(logTp, logmsg)
+            stream.flush()</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.plain"><code class="name flex">
 <span>def <span class="ident">plain</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -635,12 +962,33 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <dd>
 <div class="desc"><p>Issue a informational message, without bells and whistles.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L139-L144" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plain(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue a informational message, without bells and whistles.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;plain&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.setFlask"><code class="name flex">
 <span>def <span class="ident">setFlask</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enables messaging to the web interface.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L51-L53" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def setFlask(self):
+    &#34;&#34;&#34;Enables messaging to the web interface.&#34;&#34;&#34;
+    self.onFlask = True</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.special"><code class="name flex">
 <span>def <span class="ident">special</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -648,6 +996,18 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <dd>
 <div class="desc"><p>Issue an emphasised informational message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L132-L137" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def special(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue an emphasised informational message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;special&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 <dt id="control.messages.Messages.warning"><code class="name flex">
 <span>def <span class="ident">warning</span></span>(<span>self, msg=None, logmsg=None)</span>
@@ -655,6 +1015,18 @@ This happens by the built-in <code>flash</code> method of Flask.</dd>
 <dd>
 <div class="desc"><p>Issue a warning message.</p>
 <p>See <code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">Messages.message()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/messages.py#L111-L116" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def warning(self, msg=None, logmsg=None):
+    &#34;&#34;&#34;Issue a warning message.
+
+    See `Messages.message()`
+    &#34;&#34;&#34;
+    self.message(&#34;warning&#34;, msg, logmsg)</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -725,12 +1097,15 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="control.messages.Messages" href="#control.messages.Messages">Messages</a></code></h4>
 <ul class="two-column">
+<li><code><a title="control.messages.Messages.addApp" href="#control.messages.Messages.addApp">addApp</a></code></li>
 <li><code><a title="control.messages.Messages.client" href="#control.messages.Messages.client">client</a></code></li>
 <li><code><a title="control.messages.Messages.debug" href="#control.messages.Messages.debug">debug</a></code></li>
 <li><code><a title="control.messages.Messages.debugAdd" href="#control.messages.Messages.debugAdd">debugAdd</a></code></li>
 <li><code><a title="control.messages.Messages.error" href="#control.messages.Messages.error">error</a></code></li>
 <li><code><a title="control.messages.Messages.good" href="#control.messages.Messages.good">good</a></code></li>
 <li><code><a title="control.messages.Messages.info" href="#control.messages.Messages.info">info</a></code></li>
+<li><code><a title="control.messages.Messages.labelMap" href="#control.messages.Messages.labelMap">labelMap</a></code></li>
+<li><code><a title="control.messages.Messages.loggerMessage" href="#control.messages.Messages.loggerMessage">loggerMessage</a></code></li>
 <li><code><a title="control.messages.Messages.message" href="#control.messages.Messages.message">message</a></code></li>
 <li><code><a title="control.messages.Messages.onFlask" href="#control.messages.Messages.onFlask">onFlask</a></code></li>
 <li><code><a title="control.messages.Messages.plain" href="#control.messages.Messages.plain">plain</a></code></li>
@@ -746,7 +1121,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

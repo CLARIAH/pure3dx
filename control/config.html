@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.11.1" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>control.config API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/config.py#L1-L655" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L1-L734" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from textwrap import dedent
 from subprocess import check_output
@@ -106,6 +106,7 @@ class Config:
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkSweeper,
             self.checkDesign,
         ):
             if self.good:
@@ -295,6 +296,7 @@ class Config:
             return
 
         debugMode = var(&#34;flaskdebug&#34;)
+
         if debugMode is None:
             Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
             self.good = False
@@ -579,25 +581,6 @@ class Config:
                     )
                 )
                 continue
-            viewerConfig = viewerSettings.viewers[viewerName]
-            viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-
-            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
-
-            if len(versions) == 0:
-                self.good = False
-                Messages.error(
-                    logmsg=(
-                        f&#34;Skipping viewer {viewerName} &#34;
-                        f&#34;because there are no versions of it on the system&#34;
-                    )
-                )
-                continue
-
-            defaultVersion = versions[0]
-
-            viewerConfig.versions = versions
-            viewerConfig.defaultVersion = defaultVersion
 
         Settings.viewers = viewerSettings.viewers
         Settings.viewerActions = viewerSettings.actions
@@ -630,9 +613,11 @@ class Config:
         modeBanner = (
             &#34;&#34;
             if runProd and not isWip
-            else &#34;This site is Work in Progress&#34;
-            if runProd
-            else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+            else (
+                &#34;This site is Work in Progress&#34;
+                if runProd
+                else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+            )
         )
         dataWarning = (
             &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
@@ -654,6 +639,100 @@ class Config:
             )
 
         Settings.banner = banner
+        Settings.isWip = isWip
+
+    def checkSweeper(self):
+        &#34;&#34;&#34;Sets sweeper parameters
+
+        Returns
+        -------
+        void
+            The parameters are stored in the `sweeper` member of the
+            `Settings` object.
+        &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
+        Messages = self.Messages
+        Settings = self.Settings
+        isWip = Settings.isWip
+
+        yamlDir = Settings.yamlDir
+
+        sweeperFile = &#34;sweeper.yml&#34;
+        sweeperSettings = readYaml(
+            asFile=f&#34;{yamlDir}/{sweeperFile}&#34;, preferTuples=False
+        )
+
+        if sweeperSettings is None:
+            Messages.error(logmsg=f&#34;Cannot read {sweeperFile} in {yamlDir}&#34;)
+            self.good = False
+            return
+
+        sweeperSettings = sweeperSettings[&#34;dev&#34; if isWip else &#34;prod&#34;]
+
+        sweeper = AttrDict()
+        Settings.sweeper = sweeper
+
+        sec = 1 / 24 / 3600
+
+        for k in (&#34;delayUndel&#34;, &#34;delayDel&#34;, &#34;delayTmp&#34;, &#34;interval&#34;):
+            v = sweeperSettings[k]
+
+            if v is None:
+                Messages.error(
+                    logmsg=f&#34;No sweeper setting {k} found in {sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            amount = v.amount
+            unit = v.unit
+
+            if amount is None or unit is None:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k} misses amount/unit in &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            if unit not in {&#34;s&#34;, &#34;d&#34;}:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k}: unit must be s or d in &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            amountWrong = False
+
+            try:
+                amount = float(amount)
+
+                if amount &lt;= 0:
+                    amountWrong = True
+
+            except Exception:
+                amountWrong = True
+
+            if amountWrong:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k}: amount must be positive number &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            value = amount if unit == &#34;d&#34; else amount * sec
+
+            if k == &#34;interval&#34;:
+                dictVal = {(&#34;days&#34; if unit == &#34;d&#34; else &#34;seconds&#34;): amount}
+
+                sweeper[f&#34;{k}Dict&#34;] = dictVal
+                sweeper[&#34;lee&#34;] = 0.4 * value
+
+            sweeper[k] = value
 
     def checkDesign(self):
         &#34;&#34;&#34;Checks the design resources.
@@ -728,7 +807,7 @@ migration of data.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/config.py#L11-L655" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L11-L734" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     def __init__(self, Messages, design=False, migrate=False):
@@ -798,6 +877,7 @@ migration of data.</dd>
             self.checkAuth,
             self.checkViewers,
             self.checkBanner,
+            self.checkSweeper,
             self.checkDesign,
         ):
             if self.good:
@@ -987,6 +1067,7 @@ migration of data.</dd>
             return
 
         debugMode = var(&#34;flaskdebug&#34;)
+
         if debugMode is None:
             Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
             self.good = False
@@ -1271,25 +1352,6 @@ migration of data.</dd>
                     )
                 )
                 continue
-            viewerConfig = viewerSettings.viewers[viewerName]
-            viewerPath = f&#34;{viewerDir}/{viewerName}&#34;
-
-            versions = list(reversed(sorted(listDirs(viewerPath), key=versionKey)))
-
-            if len(versions) == 0:
-                self.good = False
-                Messages.error(
-                    logmsg=(
-                        f&#34;Skipping viewer {viewerName} &#34;
-                        f&#34;because there are no versions of it on the system&#34;
-                    )
-                )
-                continue
-
-            defaultVersion = versions[0]
-
-            viewerConfig.versions = versions
-            viewerConfig.defaultVersion = defaultVersion
 
         Settings.viewers = viewerSettings.viewers
         Settings.viewerActions = viewerSettings.actions
@@ -1322,9 +1384,11 @@ migration of data.</dd>
         modeBanner = (
             &#34;&#34;
             if runProd and not isWip
-            else &#34;This site is Work in Progress&#34;
-            if runProd
-            else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+            else (
+                &#34;This site is Work in Progress&#34;
+                if runProd
+                else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+            )
         )
         dataWarning = (
             &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
@@ -1346,6 +1410,100 @@ migration of data.</dd>
             )
 
         Settings.banner = banner
+        Settings.isWip = isWip
+
+    def checkSweeper(self):
+        &#34;&#34;&#34;Sets sweeper parameters
+
+        Returns
+        -------
+        void
+            The parameters are stored in the `sweeper` member of the
+            `Settings` object.
+        &#34;&#34;&#34;
+        if self.design or self.migrate:
+            return
+
+        Messages = self.Messages
+        Settings = self.Settings
+        isWip = Settings.isWip
+
+        yamlDir = Settings.yamlDir
+
+        sweeperFile = &#34;sweeper.yml&#34;
+        sweeperSettings = readYaml(
+            asFile=f&#34;{yamlDir}/{sweeperFile}&#34;, preferTuples=False
+        )
+
+        if sweeperSettings is None:
+            Messages.error(logmsg=f&#34;Cannot read {sweeperFile} in {yamlDir}&#34;)
+            self.good = False
+            return
+
+        sweeperSettings = sweeperSettings[&#34;dev&#34; if isWip else &#34;prod&#34;]
+
+        sweeper = AttrDict()
+        Settings.sweeper = sweeper
+
+        sec = 1 / 24 / 3600
+
+        for k in (&#34;delayUndel&#34;, &#34;delayDel&#34;, &#34;delayTmp&#34;, &#34;interval&#34;):
+            v = sweeperSettings[k]
+
+            if v is None:
+                Messages.error(
+                    logmsg=f&#34;No sweeper setting {k} found in {sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            amount = v.amount
+            unit = v.unit
+
+            if amount is None or unit is None:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k} misses amount/unit in &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            if unit not in {&#34;s&#34;, &#34;d&#34;}:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k}: unit must be s or d in &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            amountWrong = False
+
+            try:
+                amount = float(amount)
+
+                if amount &lt;= 0:
+                    amountWrong = True
+
+            except Exception:
+                amountWrong = True
+
+            if amountWrong:
+                Messages.error(
+                    logmsg=f&#34;Sweeper setting {k}: amount must be positive number &#34;
+                    f&#34;{sweeperFile} in {yamlDir}&#34;
+                )
+                self.good = False
+                continue
+
+            value = amount if unit == &#34;d&#34; else amount * sec
+
+            if k == &#34;interval&#34;:
+                dictVal = {(&#34;days&#34; if unit == &#34;d&#34; else &#34;seconds&#34;): amount}
+
+                sweeper[f&#34;{k}Dict&#34;] = dictVal
+                sweeper[&#34;lee&#34;] = 0.4 * value
+
+            sweeper[k] = value
 
     def checkDesign(self):
         &#34;&#34;&#34;Checks the design resources.
@@ -1390,6 +1548,41 @@ migration of data.</dd>
 </code></dt>
 <dd>
 <div class="desc"><p>Read the yaml file with the authorisation rules.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L480-L508" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkAuth(self):
+    &#34;&#34;&#34;Read the yaml file with the authorisation rules.&#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Messages = self.Messages
+    Settings = self.Settings
+
+    yamlDir = Settings.yamlDir
+
+    authFile = &#34;authorise.yml&#34;
+    authData = readYaml(asFile=f&#34;{yamlDir}/{authFile}&#34;)
+    if authData is None:
+        Messages.error(logmsg=f&#34;Cannot read {authFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    Settings.auth = authData
+
+    tableFromRole = AttrDict()
+
+    for table, roles in authData.roles.items():
+        for role in roles:
+            tableFromRole[role] = table
+
+    Settings.auth.tableFromRole = tableFromRole
+
+    rank = {role: i for (i, role) in enumerate(authData.rolesOrder)}
+    Settings.auth.roleRank = lambda role: rank[role]</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkBanner"><code class="name flex">
 <span>def <span class="ident">checkBanner</span></span>(<span>self)</span>
@@ -1404,6 +1597,66 @@ in progress.</p>
 <dd>The banner is stored in the <code>banner</code> member of the
 <code>Settings</code> object.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L559-L612" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkBanner(self):
+    &#34;&#34;&#34;Sets a banner for all pages.
+
+    This banner may include warnings that the site is still work
+    in progress.
+
+    Returns
+    -------
+    void
+        The banner is stored in the `banner` member of the
+        `Settings` object.
+    &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Settings = self.Settings
+    H = Settings.H
+    wip = var(&#34;devstatus&#34;)
+    isWip = wip == &#34;wip&#34;
+    runMode = Settings.runMode
+    runProd = Settings.runProd
+
+    banner = &#34;&#34;
+
+    modeBanner = (
+        &#34;&#34;
+        if runProd and not isWip
+        else (
+            &#34;This site is Work in Progress&#34;
+            if runProd
+            else f&#34;This site runs in {ucFirst(runMode)} mode.&#34;
+        )
+    )
+    dataWarning = (
+        &#34;&#34; if runProd else &#34;\nData you enter can be erased without warning.\n&#34;
+    )
+
+    if modeBanner or dataWarning:
+        content = H.span(f&#34;&#34;&#34;{modeBanner}{dataWarning}&#34;&#34;&#34;)
+        dataLink = &#34;&#34; if runProd else (&#34;«backups»&#34; + H.br())
+
+        issueLink = H.a(
+            &#34;issues&#34;,
+            &#34;https://github.com/CLARIAH/pure3dx/issues&#34;,
+            title=&#34;go to the issues on GitHub&#34;,
+            cls=&#34;large&#34;,
+            target=H.blank,
+        )
+        banner = H.div(
+            [content, issueLink, dataLink], id=&#34;statusbanner&#34;, cls=runMode
+        )
+
+    Settings.banner = banner
+    Settings.isWip = isWip</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkData"><code class="name flex">
 <span>def <span class="ident">checkData</span></span>(<span>self)</span>
@@ -1413,6 +1666,102 @@ in progress.</p>
 <p>We also make a separate place for the temporary directories.
 Make sure the temp location is not inside the data location, so that when
 the data volume is backed up, no temporary files will be backed up.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L282-L371" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkData(self):
+    &#34;&#34;&#34;Get the location of the project data on the file system.
+
+    We also make a separate place for the temporary directories.
+    Make sure the temp location is not inside the data location, so that when
+    the data volume is backed up, no temporary files will be backed up.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+    runMode = Settings.runMode
+
+    dataDir = var(&#34;DATA_DIR&#34;)
+
+    if dataDir is None:
+        Messages.error(logmsg=&#34;Environment variable `DATA_DIR` not defined&#34;)
+        self.good = False
+        return
+
+    dataDir = dataDir.rstrip(&#34;/&#34;)
+
+    if not dirExists(dataDir):
+        Messages.error(logmsg=f&#34;Working data directory does not exist: {dataDir}&#34;)
+        self.good = False
+        return
+
+    Settings.dataDir = dataDir
+
+    sep = &#34;/&#34; if dataDir else &#34;&#34;
+    workingParent = f&#34;{dataDir}{sep}working&#34;
+    dirMake(workingParent)
+    Settings.workingParent = workingParent
+
+    if self.migrate:
+        return
+
+    tempDir = var(&#34;TEMP_DIR&#34;)
+
+    if tempDir is None:
+        Messages.error(logmsg=&#34;Environment variable `TEMP_DIR` not defined&#34;)
+        self.good = False
+        return
+
+    tempDir = tempDir.rstrip(&#34;/&#34;)
+    sep = &#34;/&#34; if tempDir else &#34;&#34;
+    runTempDir = f&#34;{tempDir}{sep}{runMode}&#34;
+    dirMake(runTempDir)
+    Settings.tempDir = runTempDir
+
+    workingDir = f&#34;{workingParent}/{runMode}&#34;
+    dirMake(workingDir)
+    Settings.workingDir = workingDir
+
+    pubDir = var(&#34;PUB_DIR&#34;)
+
+    if pubDir is None:
+        Messages.error(logmsg=&#34;Environment variable `PUB_DIR` not defined&#34;)
+        self.good = False
+        return
+
+    if not dirExists(pubDir):
+        Messages.error(logmsg=f&#34;Pub directory does not exist: {pubDir}&#34;)
+        self.good = False
+        return
+
+    pubDir = pubDir.rstrip(&#34;/&#34;)
+
+    sep = &#34;/&#34; if pubDir else &#34;&#34;
+    pubModeDir = f&#34;{pubDir}{sep}{runMode}&#34;
+
+    dirMake(pubModeDir)
+    Settings.pubDir = pubDir
+    Settings.pubModeDir = pubModeDir
+
+    pubUrl = var(&#34;PUB_URL&#34;)
+
+    if pubUrl is None:
+        Messages.error(logmsg=&#34;Environment variable `PUB_URL` not defined&#34;)
+        self.good = False
+        return
+
+    Settings.pubUrl = pubUrl
+
+    authorUrl = var(&#34;AUTHOR_URL&#34;)
+
+    if authorUrl is None:
+        Messages.error(logmsg=&#34;Environment variable `AUTHOR_URL` not defined&#34;)
+        self.good = False
+        return
+
+    Settings.authorUrl = authorUrl</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkDatamodel"><code class="name flex">
 <span>def <span class="ident">checkDatamodel</span></span>(<span>self)</span>
@@ -1439,6 +1788,70 @@ down in a record in order to find the value of that field.</p>
 <p>The property <code>tp</code> is the data type of the field, default <code>string</code>.</p>
 <p>The property <code>caption</code> is a label that may accompany a field value
 on the interface.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L421-L478" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkDatamodel(self):
+    &#34;&#34;&#34;Read the yaml file with table and field settings.
+
+    It contains model `master` that contains the master tables
+    with the information which tables are details of it.
+
+    It also contains ``link` that contains the link tables
+    with the information which tables are being linked.
+
+    Both elements are needed when we delete records.
+
+    If a user deletes a master record, its detail records become invalid.
+    So either we must enforce that the user deletes the details first,
+    or the system must delete those records automatically.
+
+    When a user deletes a record that is linked to another record by means
+    of a coupling record, the coupling record must be deleted automatically.
+
+    Fields are bits of data that are stored in parts of records
+    in MongoDb tables.
+
+    Fields have several properties which we summarize under a key.
+    So if we know the key of a field, we have access to all of its
+    properties.
+
+    The properties `nameSpace` and `fieldPath` determine how to drill
+    down in a record in order to find the value of that field.
+
+    The property `tp` is the data type of the field, default `string`.
+
+    The property `caption` is a label that may accompany a field value
+    on the interface.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+
+    yamlDir = Settings.yamlDir
+
+    datamodelFile = &#34;datamodel.yml&#34;
+    datamodel = readYaml(asFile=f&#34;{yamlDir}/{datamodelFile}&#34;, preferTuples=False)
+
+    if datamodel is None:
+        Messages.error(logmsg=f&#34;Cannot read {datamodelFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    masterDetail = AttrDict()
+    for detail, master in datamodel.detailMaster.items():
+        masterDetail[master] = detail
+    datamodel.masterDetail = masterDetail
+
+    mainLink = AttrDict()
+    for link, mains in datamodel.linkMain.items():
+        for main in mains:
+            mainLink.setdefault(main, []).append(link)
+    datamodel.mainLink = mainLink
+
+    Settings.datamodel = datamodel</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkDesign"><code class="name flex">
 <span>def <span class="ident">checkDesign</span></span>(<span>self)</span>
@@ -1450,6 +1863,40 @@ on the interface.</p></div>
 <dt><code>void</code></dt>
 <dd>Some values are stored in the <code>Settings</code> object.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L707-L734" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkDesign(self):
+    &#34;&#34;&#34;Checks the design resources.
+
+    Returns
+    -------
+    void
+        Some values are stored in the `Settings` object.
+    &#34;&#34;&#34;
+    if self.migrate:
+        return
+
+    Settings = self.Settings
+
+    srcDir = Settings.srcDir
+    designDir = f&#34;{srcDir}/design&#34;
+
+    Settings.partialsIn = f&#34;{designDir}/components&#34;
+    Settings.templateDir = f&#34;{designDir}/templates&#34;
+    Settings.textDir = f&#34;{designDir}/texts&#34;
+    Settings.imageDir = f&#34;{designDir}/images&#34;
+    Settings.jsDir = f&#34;{designDir}/js&#34;
+    Settings.cssIn = f&#34;{designDir}/css/input.css&#34;
+
+    pubModeDir = Settings.pubModeDir
+    Settings.cssOut = f&#34;{pubModeDir}/css/style.css&#34;
+
+    dataDir = Settings.dataDir
+    Settings.binDir = f&#34;{dataDir}/bin&#34;</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkEnv"><code class="name flex">
 <span>def <span class="ident">checkEnv</span></span>(<span>self)</span>
@@ -1458,12 +1905,112 @@ on the interface.</p></div>
 <div class="desc"><p>Collect the relevant information.</p>
 <p>If essential information is missing, processing stops.
 This is done by setting the <code>good</code> member of Config to False.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L59-L83" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkEnv(self):
+    &#34;&#34;&#34;Collect the relevant information.
+
+    If essential information is missing, processing stops.
+    This is done by setting the `good` member of Config to False.
+    &#34;&#34;&#34;
+
+    for method in (
+        self.checkRepo,
+        self.checkWebdav,
+        self.checkVersion,
+        self.checkSecret,
+        self.checkSettings,
+        self.checkModes,
+        self.checkData,
+        self.checkMongo,
+        self.checkDatamodel,
+        self.checkAuth,
+        self.checkViewers,
+        self.checkBanner,
+        self.checkSweeper,
+        self.checkDesign,
+    ):
+        if self.good:
+            method()</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkModes"><code class="name flex">
 <span>def <span class="ident">checkModes</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determine whether flask is running in test/pilot/custom/prod mode.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L218-L280" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkModes(self):
+    &#34;&#34;&#34;Determine whether flask is running in test/pilot/custom/prod mode.&#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+    runModes = Settings.runModes
+    runModeSet = set(runModes)
+
+    if self.migrate:
+        Settings.runMode = &#34;&#34;
+        return
+
+    runMode = var(&#34;runmode&#34;)
+
+    if runMode is None:
+        Messages.error(logmsg=&#34;Environment variable `runmode` not defined&#34;)
+        self.good = False
+        return
+
+    if runMode not in runModeSet:
+        Messages.error(
+            logmsg=&#34;Environment variable `runmode` not in [{&#39;, &#39;.join(runModes)}]&#34;
+        )
+        self.good = False
+        return
+
+    Settings.runMode = runMode
+    Settings.runProd = runMode == runModes[0]
+    &#34;&#34;&#34;In which mode the app runs.
+
+    Values are:
+
+    *   `test`:
+        The app works with the example data.
+        There is a row of test users on the interface,
+        and that you can log in as one of these users with a single click,
+        without any kind of authentication.
+    *   `pilot`:
+        The app works with the pilot data.
+        There is a row of pilot users on the interface,
+        and that you can log in as one of these users with a single click,
+        without any kind of authentication.
+    *   `custom`
+        The app works with custom data.
+        Initially, there is only one admin user, you can log in with a single click.
+    *   All other run modes count as production mode, `prod`.
+    &#34;&#34;&#34;
+
+    if self.design:
+        return
+
+    debugMode = var(&#34;flaskdebug&#34;)
+
+    if debugMode is None:
+        Messages.error(logmsg=&#34;Environment variable `flaskdebug` not defined&#34;)
+        self.good = False
+        return
+
+    Settings.debugMode = debugMode == &#34;v&#34;
+    &#34;&#34;&#34;With debug mode enabled.
+
+    This means that the unminified, development versions of the javascript libraries
+    of the 3D viewers are loaded, instead of the production versions.
+    &#34;&#34;&#34;</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkMongo"><code class="name flex">
 <span>def <span class="ident">checkMongo</span></span>(<span>self)</span>
@@ -1472,12 +2019,86 @@ This is done by setting the <code>good</code> member of Config to False.</p></di
 <div class="desc"><p>Obtain the connection details for MongDB.</p>
 <p>It is not checked whether connection with MongoDb actually works
 with these credentials.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L373-L403" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkMongo(self):
+    &#34;&#34;&#34;Obtain the connection details for MongDB.
+
+    It is not checked whether connection with MongoDb actually works
+    with these credentials.
+    &#34;&#34;&#34;
+    if self.design:
+        return
+
+    Messages = self.Messages
+    Settings = self.Settings
+
+    mongoHost = var(&#34;mongohost&#34;)
+    mongoPort = var(&#34;mongoport&#34;)
+    mongoPortOuter = var(&#34;mongoportouter&#34;)
+    mongoUser = var(&#34;mongouser&#34;)
+    mongoPassword = var(&#34;mongopassword&#34;)
+
+    if mongoUser is None:
+        Messages.error(logmsg=&#34;Environment variable `mongouser` not defined&#34;)
+        self.good = False
+
+    if mongoPassword is None:
+        Messages.error(logmsg=&#34;Environment variable `mongopassword` not defined&#34;)
+        self.good = False
+
+    Settings.mongoHost = mongoHost
+    Settings.mongoPort = int(mongoPort)
+    Settings.mongoPortOuter = int(mongoPortOuter)
+    Settings.mongoUser = mongoUser
+    Settings.mongoPassword = mongoPassword</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkRepo"><code class="name flex">
 <span>def <span class="ident">checkRepo</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get the location of the pure3dx repository on the file system.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L85-L115" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkRepo(self):
+    &#34;&#34;&#34;Get the location of the pure3dx repository on the file system.&#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+
+    repoDir = var(&#34;repodir&#34;)
+
+    if repoDir is None:
+        Messages.error(
+            logmsg=dedent(
+                &#34;&#34;&#34;
+                Environment variable `repodir` not defined
+                Don&#39;t know where I must be running
+                &#34;&#34;&#34;
+            )
+        )
+        self.good = False
+        return
+
+    if not dirExists(repoDir):
+        Messages.error(
+            logmsg=f&#34;Cannot run because repo dir does not exist: {repoDir}&#34;
+        )
+        self.good = False
+        return
+
+    Settings.repoDir = repoDir
+    srcDir = f&#34;{repoDir}/src&#34;
+    Settings.srcDir = srcDir
+    yamlDir = f&#34;{srcDir}/yaml&#34;
+    Settings.yamlDir = yamlDir</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkSecret"><code class="name flex">
 <span>def <span class="ident">checkSecret</span></span>(<span>self)</span>
@@ -1486,12 +2107,175 @@ with these credentials.</p></div>
 <div class="desc"><p>Obtain a secret.</p>
 <p>This is secret information used for encrypting sessions.
 It resides somewhere on the file system, outside the pure3d repository.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L191-L216" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkSecret(self):
+    &#34;&#34;&#34;Obtain a secret.
+
+    This is secret information used for encrypting sessions.
+    It resides somewhere on the file system, outside the pure3d repository.
+    &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Messages = self.Messages
+    Settings = self.Settings
+
+    CLIENT_SECRET_FILE = &#34;/app/secret/secfile&#34;
+    secret = readPath(CLIENT_SECRET_FILE)
+
+    if not secret:
+        Messages.error(
+            logmsg=(
+                &#34;No secret given for flask: &#34;
+                f&#34;file {CLIENT_SECRET_FILE} does not exist&#34;
+            )
+        )
+        self.good = False
+        return
+
+    Settings.secret_key = secret</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkSettings"><code class="name flex">
 <span>def <span class="ident">checkSettings</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Read the yaml file with application settings.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L405-L419" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkSettings(self):
+    &#34;&#34;&#34;Read the yaml file with application settings.&#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+    yamlDir = Settings.yamlDir
+
+    settingsFile = &#34;settings.yml&#34;
+    settings = readYaml(asFile=f&#34;{yamlDir}/{settingsFile}&#34;)
+    if settings is None:
+        Messages.error(logmsg=f&#34;Cannot read {settingsFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    for k, v in settings.items():
+        Settings[k] = v</code></pre>
+</details>
+</dd>
+<dt id="control.config.Config.checkSweeper"><code class="name flex">
+<span>def <span class="ident">checkSweeper</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets sweeper parameters</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>void</code></dt>
+<dd>The parameters are stored in the <code>sweeper</code> member of the
+<code>Settings</code> object.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L614-L705" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkSweeper(self):
+    &#34;&#34;&#34;Sets sweeper parameters
+
+    Returns
+    -------
+    void
+        The parameters are stored in the `sweeper` member of the
+        `Settings` object.
+    &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Messages = self.Messages
+    Settings = self.Settings
+    isWip = Settings.isWip
+
+    yamlDir = Settings.yamlDir
+
+    sweeperFile = &#34;sweeper.yml&#34;
+    sweeperSettings = readYaml(
+        asFile=f&#34;{yamlDir}/{sweeperFile}&#34;, preferTuples=False
+    )
+
+    if sweeperSettings is None:
+        Messages.error(logmsg=f&#34;Cannot read {sweeperFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    sweeperSettings = sweeperSettings[&#34;dev&#34; if isWip else &#34;prod&#34;]
+
+    sweeper = AttrDict()
+    Settings.sweeper = sweeper
+
+    sec = 1 / 24 / 3600
+
+    for k in (&#34;delayUndel&#34;, &#34;delayDel&#34;, &#34;delayTmp&#34;, &#34;interval&#34;):
+        v = sweeperSettings[k]
+
+        if v is None:
+            Messages.error(
+                logmsg=f&#34;No sweeper setting {k} found in {sweeperFile} in {yamlDir}&#34;
+            )
+            self.good = False
+            continue
+
+        amount = v.amount
+        unit = v.unit
+
+        if amount is None or unit is None:
+            Messages.error(
+                logmsg=f&#34;Sweeper setting {k} misses amount/unit in &#34;
+                f&#34;{sweeperFile} in {yamlDir}&#34;
+            )
+            self.good = False
+            continue
+
+        if unit not in {&#34;s&#34;, &#34;d&#34;}:
+            Messages.error(
+                logmsg=f&#34;Sweeper setting {k}: unit must be s or d in &#34;
+                f&#34;{sweeperFile} in {yamlDir}&#34;
+            )
+            self.good = False
+            continue
+
+        amountWrong = False
+
+        try:
+            amount = float(amount)
+
+            if amount &lt;= 0:
+                amountWrong = True
+
+        except Exception:
+            amountWrong = True
+
+        if amountWrong:
+            Messages.error(
+                logmsg=f&#34;Sweeper setting {k}: amount must be positive number &#34;
+                f&#34;{sweeperFile} in {yamlDir}&#34;
+            )
+            self.good = False
+            continue
+
+        value = amount if unit == &#34;d&#34; else amount * sec
+
+        if k == &#34;interval&#34;:
+            dictVal = {(&#34;days&#34; if unit == &#34;d&#34; else &#34;seconds&#34;): amount}
+
+            sweeper[f&#34;{k}Dict&#34;] = dictVal
+            sweeper[&#34;lee&#34;] = 0.4 * value
+
+        sweeper[k] = value</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkVersion"><code class="name flex">
 <span>def <span class="ident">checkVersion</span></span>(<span>self)</span>
@@ -1500,12 +2284,130 @@ It resides somewhere on the file system, outside the pure3d repository.</p></div
 <div class="desc"><p>Get the current version of the pure3d app.</p>
 <p>We represent the version as the short hash of the current commit
 of the git repo that the running code is in.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L132-L189" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkVersion(self):
+    &#34;&#34;&#34;Get the current version of the pure3d app.
+
+    We represent the version as the short hash of the current commit
+    of the git repo that the running code is in.
+    &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Settings = self.Settings
+    H = Settings.H
+    repoDir = Settings.repoDir
+    versionFile = f&#34;{repoDir}/VERSION.txt&#34;
+
+    try:
+        actual = True
+        (long, short) = tuple(
+            check_output([&#34;git&#34;, &#34;rev-parse&#34;, *args, &#34;HEAD&#34;], cwd=repoDir)
+            .decode(&#34;ascii&#34;)
+            .strip()
+            for args in ([], [&#34;--short&#34;])
+        )
+        with open(versionFile, &#34;w&#34;) as fh:
+            fh.write(f&#34;{long}\t{short}\n&#34;)
+    except Exception as e:
+        print(e.stderr)
+        print(f&#34;Could not get version from git, reading it from file {versionFile}&#34;)
+        actual = False
+        if not fileExists(versionFile):
+            known = False
+            (long, short) = (&#34;&#34;, &#34;&#34;)
+        else:
+            known = True
+            with open(versionFile) as fh:
+                try:
+                    (long, short) = fh.read().strip().split(&#34;\t&#34;)
+                except Exception:
+                    known = False
+                    (long, short) = (&#34;&#34;, &#34;&#34;)
+
+    Settings = self.Settings
+    repoDir = Settings.repoDir
+
+    if actual:
+        label1 = &#34;this version&#34;
+        text = f&#34;this version is {short}&#34;
+    else:
+        if known:
+            label1 = &#34;previous version&#34;
+            text = f&#34;previous version was {short}&#34;
+        else:
+            label1 = &#34;latest version&#34;
+            text = &#34;unknown version, go to latest version&#34;
+
+    title = f&#34;visit {label1} of the code on GitHub&#34;
+    gitLocation = var(&#34;gitlocation&#34;).removesuffix(&#34;.git&#34;)
+    href = f&#34;{gitLocation}/tree/{long}&#34; if long else gitLocation
+    Settings.versionInfo = H.a(text, href, target=H.blank, title=title)</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkViewers"><code class="name flex">
 <span>def <span class="ident">checkViewers</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Make an inventory of the supported 3D viewers.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L510-L557" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkViewers(self):
+    &#34;&#34;&#34;Make an inventory of the supported 3D viewers.&#34;&#34;&#34;
+    if self.migrate:
+        return
+
+    Messages = self.Messages
+    Settings = self.Settings
+
+    yamlDir = Settings.yamlDir
+    dataDir = Settings.dataDir
+
+    viewerDir = f&#34;{dataDir}/viewers&#34;
+
+    Settings.viewerDir = viewerDir
+    Settings.viewerUrlBase = &#34;/data/viewers&#34;
+
+    versionKey = getVersionKeyFunc()
+    Settings.versionKey = versionKey
+
+    viewersFile = &#34;viewers.yml&#34;
+    viewerSettingsFile = f&#34;{yamlDir}/{viewersFile}&#34;
+    viewerSettings = readYaml(asFile=viewerSettingsFile)
+
+    if viewerSettings is None:
+        Messages.error(logmsg=f&#34;Cannot read {viewersFile} in {yamlDir}&#34;)
+        self.good = False
+        return
+
+    if not dirExists(viewerDir):
+        Messages.error(logmsg=f&#34;No viewer software directory: {viewerDir}&#34;)
+        self.good = False
+        return
+
+    viewerNames = listDirs(viewerDir)
+
+    for viewerName in viewerNames:
+        if viewerName not in viewerSettings.viewers:
+            Messages.warning(
+                logmsg=(
+                    f&#34;Skipping viewer {viewerName} &#34;
+                    f&#34;because it is not defined in {viewersFile}&#34;
+                )
+            )
+            continue
+
+    Settings.viewers = viewerSettings.viewers
+    Settings.viewerActions = viewerSettings.actions
+    Settings.viewerDefault = viewerSettings.default</code></pre>
+</details>
 </dd>
 <dt id="control.config.Config.checkWebdav"><code class="name flex">
 <span>def <span class="ident">checkWebdav</span></span>(<span>self)</span>
@@ -1514,6 +2416,26 @@ of the git repo that the running code is in.</p></div>
 <div class="desc"><p>Read the WEBDav methods from the webdav.yaml file.</p>
 <p>The methods are associated with the <code>read</code> or <code>update</code> keyword,
 depending on whether they are <code>GET</code> like or <code>PUT</code> like.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/config.py#L117-L130" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def checkWebdav(self):
+    &#34;&#34;&#34;Read the WEBDav methods from the webdav.yaml file.
+
+    The methods are associated with the `read` or `update` keyword,
+    depending on whether they are `GET` like or `PUT` like.
+    &#34;&#34;&#34;
+    if self.design or self.migrate:
+        return
+
+    Settings = self.Settings
+    yamlDir = Settings.yamlDir
+    webdavFile = &#34;webdav.yml&#34;
+    webdavInfo = readYaml(asFile=f&#34;{yamlDir}/{webdavFile}&#34;)
+    Settings.webdavMethods = webdavInfo.methods</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -1596,6 +2518,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="control.config.Config.checkRepo" href="#control.config.Config.checkRepo">checkRepo</a></code></li>
 <li><code><a title="control.config.Config.checkSecret" href="#control.config.Config.checkSecret">checkSecret</a></code></li>
 <li><code><a title="control.config.Config.checkSettings" href="#control.config.Config.checkSettings">checkSettings</a></code></li>
+<li><code><a title="control.config.Config.checkSweeper" href="#control.config.Config.checkSweeper">checkSweeper</a></code></li>
 <li><code><a title="control.config.Config.checkVersion" href="#control.config.Config.checkVersion">checkVersion</a></code></li>
 <li><code><a title="control.config.Config.checkViewers" href="#control.config.Config.checkViewers">checkViewers</a></code></li>
 <li><code><a title="control.config.Config.checkWebdav" href="#control.config.Config.checkWebdav">checkWebdav</a></code></li>
@@ -1608,7 +2531,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

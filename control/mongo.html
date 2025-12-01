@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.11.1" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>control.mongo API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,7 +26,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/mongo.py#L1-L921" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L1-L953" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 
@@ -256,7 +256,7 @@ class Mongo:
                         logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
                     )
             else:
-                (good, count) = self.deleteRecordsHard(table, {}, &#34;system&#34;)
+                (good, count) = self.hardDeleteRecords(table, {}, &#34;system&#34;)
                 if good:
                     plural = &#34;&#34; if count == 1 else &#34;s&#34;
                     Messages.plain(
@@ -316,6 +316,8 @@ class Mongo:
             Search only in the records that are marked for deletion
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
+            If False, do not warn.
+            If 0, only warn to the log file, not to the user.
 
         Returns
         -------
@@ -332,9 +334,14 @@ class Mongo:
         if not good or result is None:
             if warn:
                 Messages.warning(
-                    msg=f&#34;Could not find that {table}&#34;,
+                    msg=f&#34;Could not find table {table}&#34;,
                     logmsg=f&#34;No record in {table} with {criteria}&#34;,
                 )
+            else:
+                if type(warn) is int:
+                    Messages.warning(
+                        logmsg=f&#34;No record in {table} with {criteria}&#34;,
+                    )
             result = {}
         return deepAttrDict(result)
 
@@ -387,7 +394,7 @@ class Mongo:
             else {r._id: r for r in result} if asDict else result
         )
 
-    def hardDeleteRecord(self, table, criteria, by):
+    def hardDeleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Deletes a single record from a table.
 
         Parameters
@@ -400,7 +407,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -408,10 +415,13 @@ class Mongo:
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, &#34;delete_one&#34;, criteria)
         return result.deleted_count &gt; 0 if good else False
 
-    def deleteRecord(self, table, criteria, by):
+    def deleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Deletes a single record from a table.
 
         If the record has already been deleted, nothing is done.
@@ -426,7 +436,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -434,14 +444,17 @@ class Mongo:
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
         )
         return good
 
-    def undeleteRecord(self, table, criteria, by):
+    def undeleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Marks a single record from a table as undeleted.
 
         If the record was not marked as deleted, this method does silently nothing
@@ -457,7 +470,7 @@ class Mongo:
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -465,12 +478,15 @@ class Mongo:
         boolean
             Whether the undelete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = {&#34;$exists&#34;: True}
-        updates = {&#34;$unset&#34;: {MDEL: None}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: by}}
+        updates = {&#34;$unset&#34;: {MDEL: None}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, &#34;update_one&#34;, criteria, updates)
         return good
 
-    def hardDeleteRecords(self, table, criteria, by):
+    def hardDeleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Delete multiple records from a table.
 
         Parameters
@@ -479,7 +495,7 @@ class Mongo:
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -488,11 +504,14 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, &#34;delete_many&#34;, criteria)
         count = result.deleted_count if good else 0
         return (good, count)
 
-    def deleteRecords(self, table, criteria, by):
+    def deleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Delete multiple records from a table.
 
         Records that have already been deleted are not affected.
@@ -503,7 +522,7 @@ class Mongo:
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -512,15 +531,18 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been deleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, &#34;update_many&#34;, criteria, {&#34;$set&#34;: updates}
         )
         count = result.modified_count if good else 0
         return (good, count)
 
-    def undeleteRecords(self, table, criteria, by):
+    def undeleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Marks multiple records from a table as undeleted.
 
         Parameters
@@ -529,7 +551,7 @@ class Mongo:
             The name of the table from which we want to undelete records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -538,13 +560,16 @@ class Mongo:
             Whether the command completed successfully and
             how many records have been undeleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = {&#34;$exists&#34;: True}
-        updates = {&#34;$unset&#34;: {MDEL: False}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: by}}
+        updates = {&#34;$unset&#34;: {MDEL: False}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, &#34;update_many&#34;, criteria, updates)
         count = result.modified_count if good else 0
         return (good, count)
 
-    def updateRecord(self, table, criteria, updates):
+    def updateRecord(self, table, criteria, updates, uName):
         &#34;&#34;&#34;Updates a single record from a table.
 
         It does not work on records that have been marked as deleted.
@@ -564,12 +589,17 @@ class Mongo:
             The fields that must be updated with the values they must get.
             If the value `None` is specified for a field, that field will be set to
             null.
+        uName: string
+            The name of the user who issued the command
 
         Returns
         -------
         boolean
             Whether the update was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
         (good, result) = self.executeMongo(
             table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
@@ -911,7 +941,9 @@ class Mongo:
 
                     Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
                     if db[table] is not None and clean:
-                        thisGood = self.hardDeleteRecord(table, dict(_id=projectId))
+                        thisGood = self.hardDeleteRecord(
+                            table, dict(_id=projectId), &#34;backuprestore&#34;
+                        )
                     if thisGood:
                         db[table].insert_one(record)
                     else:
@@ -1020,7 +1052,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/mongo.py#L17-L921" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L17-L953" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mongo:
     @staticmethod
@@ -1234,7 +1266,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
                         logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
                     )
             else:
-                (good, count) = self.deleteRecordsHard(table, {}, &#34;system&#34;)
+                (good, count) = self.hardDeleteRecords(table, {}, &#34;system&#34;)
                 if good:
                     plural = &#34;&#34; if count == 1 else &#34;s&#34;
                     Messages.plain(
@@ -1294,6 +1326,8 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             Search only in the records that are marked for deletion
         warn: boolean, optional True
             If True, warn if there is no record satisfying the criteria.
+            If False, do not warn.
+            If 0, only warn to the log file, not to the user.
 
         Returns
         -------
@@ -1310,9 +1344,14 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
         if not good or result is None:
             if warn:
                 Messages.warning(
-                    msg=f&#34;Could not find that {table}&#34;,
+                    msg=f&#34;Could not find table {table}&#34;,
                     logmsg=f&#34;No record in {table} with {criteria}&#34;,
                 )
+            else:
+                if type(warn) is int:
+                    Messages.warning(
+                        logmsg=f&#34;No record in {table} with {criteria}&#34;,
+                    )
             result = {}
         return deepAttrDict(result)
 
@@ -1365,7 +1404,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             else {r._id: r for r in result} if asDict else result
         )
 
-    def hardDeleteRecord(self, table, criteria, by):
+    def hardDeleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Deletes a single record from a table.
 
         Parameters
@@ -1378,7 +1417,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1386,10 +1425,13 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, &#34;delete_one&#34;, criteria)
         return result.deleted_count &gt; 0 if good else False
 
-    def deleteRecord(self, table, criteria, by):
+    def deleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Deletes a single record from a table.
 
         If the record has already been deleted, nothing is done.
@@ -1404,7 +1446,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1412,14 +1454,17 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
         boolean
             Whether the delete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
         )
         return good
 
-    def undeleteRecord(self, table, criteria, by):
+    def undeleteRecord(self, table, criteria, uName):
         &#34;&#34;&#34;Marks a single record from a table as undeleted.
 
         If the record was not marked as deleted, this method does silently nothing
@@ -1435,7 +1480,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             that satisfies them.
             But if there are more, a single one is chosen,
             by the mechanics of the built-in MongoDb command `updateOne`.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1443,12 +1488,15 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
         boolean
             Whether the undelete was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = {&#34;$exists&#34;: True}
-        updates = {&#34;$unset&#34;: {MDEL: None}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: by}}
+        updates = {&#34;$unset&#34;: {MDEL: None}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, &#34;update_one&#34;, criteria, updates)
         return good
 
-    def hardDeleteRecords(self, table, criteria, by):
+    def hardDeleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Delete multiple records from a table.
 
         Parameters
@@ -1457,7 +1505,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1466,11 +1514,14 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             Whether the command completed successfully and
             how many records have been deleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         (good, result) = self.executeMongo(table, &#34;delete_many&#34;, criteria)
         count = result.deleted_count if good else 0
         return (good, count)
 
-    def deleteRecords(self, table, criteria, by):
+    def deleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Delete multiple records from a table.
 
         Records that have already been deleted are not affected.
@@ -1481,7 +1532,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             The name of the table from which we want to delete a records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1490,15 +1541,18 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             Whether the command completed successfully and
             how many records have been deleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
-        updates = {MDEL: True, MDELDT: isonow(), MDELBY: by}
+        updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
         (good, result) = self.executeMongo(
             table, &#34;update_many&#34;, criteria, {&#34;$set&#34;: updates}
         )
         count = result.modified_count if good else 0
         return (good, count)
 
-    def undeleteRecords(self, table, criteria, by):
+    def undeleteRecords(self, table, criteria, uName):
         &#34;&#34;&#34;Marks multiple records from a table as undeleted.
 
         Parameters
@@ -1507,7 +1561,7 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             The name of the table from which we want to undelete records.
         criteria: dict
             A set of criteria to narrow down the selection.
-        by: string
+        uName: string
             The name of the user who issued the command
 
         Returns
@@ -1516,13 +1570,16 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             Whether the command completed successfully and
             how many records have been undeleted
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = {&#34;$exists&#34;: True}
-        updates = {&#34;$unset&#34;: {MDEL: False}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: by}}
+        updates = {&#34;$unset&#34;: {MDEL: False}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
         (good, result) = self.executeMongo(table, &#34;update_many&#34;, criteria, updates)
         count = result.modified_count if good else 0
         return (good, count)
 
-    def updateRecord(self, table, criteria, updates):
+    def updateRecord(self, table, criteria, updates, uName):
         &#34;&#34;&#34;Updates a single record from a table.
 
         It does not work on records that have been marked as deleted.
@@ -1542,12 +1599,17 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
             The fields that must be updated with the values they must get.
             If the value `None` is specified for a field, that field will be set to
             null.
+        uName: string
+            The name of the user who issued the command
 
         Returns
         -------
         boolean
             Whether the update was successful
         &#34;&#34;&#34;
+        if not uName:
+            return False
+
         criteria[MDEL] = None
         (good, result) = self.executeMongo(
             table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
@@ -1889,7 +1951,9 @@ Unmarking is done by removing the key <code>markedDeleted</code> from a record.<
 
                     Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
                     if db[table] is not None and clean:
-                        thisGood = self.hardDeleteRecord(table, dict(_id=projectId))
+                        thisGood = self.hardDeleteRecord(
+                            table, dict(_id=projectId), &#34;backuprestore&#34;
+                        )
                     if thisGood:
                         db[table].insert_one(record)
                     else:
@@ -1945,6 +2009,38 @@ The value to cast, normally a string representation of a BSON ObjectId.</p>
 <dd>The corresponding BSON ObjectId if the input is a valid representation of
 such an id, otherwise <code>None</code>.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L18-L43" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def cast(value):
+    &#34;&#34;&#34;Try to cast the value as an ObjectId.
+    Paramaters
+    ----------
+    value:string
+        The value to cast, normally a string representation of a BSON ObjectId.
+
+    Returns
+    -------
+    ObjectId | void
+        The corresponding BSON ObjectId if the input is a valid representation of
+        such an id, otherwise `None`.
+    &#34;&#34;&#34;
+
+    if value is None:
+        return None
+
+    if isinstance(value, ObjectId):
+        return value
+
+    try:
+        oValue = ObjectId(value)
+    except Exception:
+        oValue = None
+    return oValue</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.isId"><code class="name flex">
 <span>def <span class="ident">isId</span></span>(<span>value)</span>
@@ -1962,6 +2058,27 @@ such an id, otherwise <code>None</code>.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the value is an objectId</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L45-L59" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def isId(value):
+    &#34;&#34;&#34;Test whether a value is an ObjectId
+
+    Parameters
+    ----------
+    value: any
+    The value to test
+
+    Returns
+    -------
+    boolean
+        Whether the value is an objectId
+    &#34;&#34;&#34;
+    return isinstance(value, ObjectId)</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -1981,6 +2098,60 @@ If no such table exists, it will be created.</dd>
 If False, the table will be cleared, i.e. all its records
 get deleted, but the table remains.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L188-L235" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def clearTable(self, table, delete=False):
+    &#34;&#34;&#34;Make sure that a table exists and that it is empty.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table.
+        If no such table exists, it will be created.
+    delete: boolean, optional False
+        If True, and the table existed before, it will be deleted.
+        If False, the table will be cleared, i.e. all its records
+        get deleted, but the table remains.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+
+    self.connect()
+    db = self.db
+
+    if delete:
+        if db[table] is not None:
+            try:
+                db.drop_collection(table)
+                Messages.plain(
+                    msg=f&#34;dropped table `{table}`&#34;,
+                    logmsg=f&#34;dropped table `{table}`&#34;,
+                )
+            except Exception as e:
+                Messages.error(
+                    msg=&#34;Database action&#34;,
+                    logmsg=f&#34;Cannot delete table: `{table}`: {e}&#34;,
+                )
+    else:
+        if db[table] is None:
+            try:
+                db.create_collection(table)
+            except Exception as e:
+                Messages.error(
+                    msg=&#34;Database action&#34;,
+                    logmsg=f&#34;Cannot create table: `{table}`: {e}&#34;,
+                )
+        else:
+            (good, count) = self.hardDeleteRecords(table, {}, &#34;system&#34;)
+            if good:
+                plural = &#34;&#34; if count == 1 else &#34;s&#34;
+                Messages.plain(
+                    msg=f&#34;cleared table `{table} of {count} record{plural}`&#34;,
+                    logmsg=f&#34;cleared table `{table} of {count} record{plural}`&#34;,
+                )</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.connect"><code class="name flex">
 <span>def <span class="ident">connect</span></span>(<span>self)</span>
@@ -1991,6 +2162,44 @@ get deleted, but the table remains.</dd>
 <p>After a successful connection attempt, the connection handle
 is stored in the <code>client</code> and <code>db</code> members of the Mongo object.</p>
 <p>When a connection handle exists, this method does nothing.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L132-L163" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def connect(self):
+    &#34;&#34;&#34;Make connection with MongoDb if there is no connection yet.
+
+    The connection details come from `control.config.Config.Settings`.
+
+    After a successful connection attempt, the connection handle
+    is stored in the `client` and `db` members of the Mongo object.
+
+    When a connection handle exists, this method does nothing.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    Settings = self.Settings
+    client = self.client
+    db = self.db
+    database = self.database
+
+    if db is None:
+        try:
+            client = MongoClient(
+                Settings.mongoHost,
+                Settings.mongoPort,
+                username=Settings.mongoUser,
+                password=Settings.mongoPassword,
+            )
+            db = client[database]
+        except Exception as e:
+            Messages.error(
+                msg=&#34;Could not connect to the database&#34;,
+                logmsg=f&#34;Mongo connection: `{e}`&#34;,
+            )
+        self.client = client
+        self.db = db</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.consolidate"><code class="name flex">
 <span>def <span class="ident">consolidate</span></span>(<span>self, record)</span>
@@ -2010,9 +2219,47 @@ and will be replaced by the value of the <code>title</code> field of the found r
 <dt><code>dict</code></dt>
 <dd>All AttrDict values will be recursively transformed in ordinary dict values.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L654-L685" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def consolidate(self, record):
+    &#34;&#34;&#34;Resolves all links in a record to title values of linked records.
+
+    The `_id` field of the record will be removed.
+    Values of fields with names like `xxxId` will be looked up in table `xxx`,
+    and will be replaced by the value of the `title` field of the found record.
+
+    Parameters
+    ----------
+    record: dict or AttrDict
+        The record data to consolidate.
+
+    Returns
+    -------
+    dict
+        All AttrDict values will be recursively transformed in ordinary dict values.
+    &#34;&#34;&#34;
+    newRecord = AttrDict()
+
+    for k, v in record.items():
+        if k == &#34;_id&#34;:
+            continue
+        if k.endswith(&#34;Id&#34;):
+            table = k.removesuffix(&#34;Id&#34;)
+            linkedRecord = self.getRecord(table, dict(_id=v), warn=False)
+            v = linkedRecord.title
+            if v is not None:
+                newRecord[table] = v
+        else:
+            newRecord[k] = v
+
+    return newRecord.deepdict()</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.deleteRecord"><code class="name flex">
-<span>def <span class="ident">deleteRecord</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">deleteRecord</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deletes a single record from a table.</p>
@@ -2027,7 +2274,7 @@ Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2035,9 +2282,47 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the delete was successful</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L394-L425" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteRecord(self, table, criteria, uName):
+    &#34;&#34;&#34;Deletes a single record from a table.
+
+    If the record has already been deleted, nothing is done.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to delete a single record.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+        Usually they will be such that there will be just one record
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `updateOne`.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean
+        Whether the delete was successful
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    criteria[MDEL] = None
+    updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
+    (good, result) = self.executeMongo(
+        table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
+    )
+    return good</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.deleteRecords"><code class="name flex">
-<span>def <span class="ident">deleteRecords</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">deleteRecords</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Delete multiple records from a table.</p>
@@ -2048,7 +2333,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>The name of the table from which we want to delete a records.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the selection.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2057,12 +2342,63 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>Whether the command completed successfully and
 how many records have been deleted</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L484-L513" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def deleteRecords(self, table, criteria, uName):
+    &#34;&#34;&#34;Delete multiple records from a table.
+
+    Records that have already been deleted are not affected.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to delete a records.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean, integer
+        Whether the command completed successfully and
+        how many records have been deleted
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    criteria[MDEL] = None
+    updates = {MDEL: True, MDELDT: isonow(), MDELBY: uName}
+    (good, result) = self.executeMongo(
+        table, &#34;update_many&#34;, criteria, {&#34;$set&#34;: updates}
+    )
+    count = result.modified_count if good else 0
+    return (good, count)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.disconnect"><code class="name flex">
 <span>def <span class="ident">disconnect</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Disconnect from the MongoDB.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L165-L173" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def disconnect(self):
+    &#34;&#34;&#34;Disconnect from the MongoDB.&#34;&#34;&#34;
+    client = self.client
+
+    if client:
+        client.close()
+
+    self.client = None
+    self.db = None</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.executeMongo"><code class="name flex">
 <span>def <span class="ident">executeMongo</span></span>(<span>self, table, command, *args, warn=True, **kwargs)</span>
@@ -2095,6 +2431,67 @@ If the command fails, an error message is issued and
 <code>any=None</code> is returned.</p>
 </dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L598-L652" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def executeMongo(self, table, command, *args, warn=True, **kwargs):
+    &#34;&#34;&#34;Executes a MongoDb command and returns the result.
+
+    Parameters
+    ----------
+    table: string
+        The table on which to perform the command.
+    command: string
+        The built-in MongoDb command.
+        Note that the Python interface requires you to write camelCase commands
+        with underscores.
+        So the Mongo command `findOne` should be passed as `find_one`.
+    args: list
+        Any number of additional arguments that the command requires.
+    warn: boolean, optional True
+        If True, warn if there is an error.
+    kwargs: list
+        Any number of additional keyword arguments that the command requires.
+
+    Returns
+    -------
+    boolean, any
+        The `boolean` is whether an error occurred.
+
+        The `any` is whatever the MongoDb command returns.
+        If the command fails, an error message is issued and
+        `any=None` is returned.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+
+    self.connect()
+    db = self.db
+
+    method = getattr(db[table], command, None)
+    result = None
+    good = True
+
+    if method is None:
+        if warn:
+            Messages.error(
+                msg=&#34;Database action&#34;, logmsg=f&#34;Unknown Mongo command: `{method}`&#34;
+            )
+        good = False
+    try:
+        result = method(*args, **kwargs)
+    except Exception as e:
+        if warn:
+            Messages.error(
+                msg=&#34;Database action&#34;,
+                logmsg=f&#34;Executing Mongo command db.{table}.{command}: {e}&#34;,
+            )
+        good = False
+        result = None
+
+    return (good, result)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.get"><code class="name flex">
 <span>def <span class="ident">get</span></span>(<span>self, table, record, deleted=False)</span>
@@ -2123,6 +2520,46 @@ which will then be cast to an ObjectId.</p>
 <p>If <code>record</code> is None, both members of the tuple are None</p>
 </dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L237-L270" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get(self, table, record, deleted=False):
+    &#34;&#34;&#34;Get the record and recordId if only one of them is specified.
+
+    If the record is specified by id, the id maybe an ObjectId or a string,
+    which will then be cast to an ObjectId.
+
+    Parameters
+    ----------
+    table: string
+        The table in which the record can be found
+    record: string | ObjectID | AttrDict | void
+        Either the id of the record, or the record itself.
+    deleted: boolean, optional False
+        Search only in the records that are marked for deletion
+
+    Returns
+    -------
+    tuple
+        * ObjectId: the id of the record
+        * AttrDict: the record itself
+
+        If `record` is None, both members of the tuple are None
+    &#34;&#34;&#34;
+
+    if record is None:
+        return (None, None)
+
+    if type(record) is str:
+        record = self.getRecord(table, dict(_id=self.cast(record)), deleted=deleted)
+    elif self.isId(record):
+        record = self.getRecord(table, dict(_id=record), deleted=deleted)
+
+    recordId = record._id
+    return (recordId, record)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.getList"><code class="name flex">
 <span>def <span class="ident">getList</span></span>(<span>self, table, criteria, deleted=False, sort=None, asDict=False)</span>
@@ -2154,6 +2591,60 @@ asDict is True, else keyed by the field in dictated by asDict.</dd>
 <dd>The list of records found, empty if no records are found.
 Each record is cast to an AttrDict.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L318-L365" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getList(self, table, criteria, deleted=False, sort=None, asDict=False):
+    &#34;&#34;&#34;Get a list of records from a table.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to retrieve records.
+    criteria: dict
+        A set of criteria to narrow down the search.
+    deleted: boolean, optional False
+        Search only in the records that are marked for deletion
+    sort: string | function, optional None
+        Sort key. If `None`, the results will not be sorted.
+        If a string, it is the name of a field by which the results
+        will be sorted in ascending order.
+        If a function, the function should take a record as input and return a
+        value. The records will be sorted by this value.
+    asDict: boolean or string, optional False
+        If False, returns a list of records as result. If True or a string, returns
+        the same records, but now as dict, keyed by the `_id` field if
+        asDict is True, else keyed by the field in dictated by asDict.
+
+    Returns
+    -------
+    list of AttrDict
+        The list of records found, empty if no records are found.
+        Each record is cast to an AttrDict.
+    &#34;&#34;&#34;
+    criteria[MDEL] = {&#34;$exists&#34;: True} if deleted else None
+
+    (good, result) = self.executeMongo(table, &#34;find&#34;, criteria, {})
+
+    if not good:
+        return []
+
+    unsorted = [deepAttrDict(record) for record in result]
+
+    if sort is None:
+        result = unsorted
+    else:
+        sortFunc = (lambda r: r[sort] or &#34;&#34;) if type(sort) is str else sort
+        result = sorted(unsorted, key=sortFunc)
+
+    return (
+        {r[asDict]: r for r in result}
+        if type(asDict) is str
+        else {r._id: r for r in result} if asDict else result
+    )</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.getRecord"><code class="name flex">
 <span>def <span class="ident">getRecord</span></span>(<span>self, table, criteria, deleted=False, warn=True)</span>
@@ -2173,7 +2664,9 @@ by the mechanics of the built-in MongoDb command <code>findOne</code>.</dd>
 <dt><strong><code>deleted</code></strong> :&ensp;<code>boolean</code>, optional <code>False</code></dt>
 <dd>Search only in the records that are marked for deletion</dd>
 <dt><strong><code>warn</code></strong> :&ensp;<code>boolean</code>, optional <code>True</code></dt>
-<dd>If True, warn if there is no record satisfying the criteria.</dd>
+<dd>If True, warn if there is no record satisfying the criteria.
+If False, do not warn.
+If 0, only warn to the log file, not to the user.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2182,9 +2675,60 @@ by the mechanics of the built-in MongoDb command <code>findOne</code>.</dd>
 or an empty AttrDict if no record
 satisfies the criteria.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L272-L316" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def getRecord(self, table, criteria, deleted=False, warn=True):
+    &#34;&#34;&#34;Get a single record from a table.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to retrieve a single record.
+    criteria: dict
+        A set of criteria to narrow down the search.
+        Usually they will be such that there will be just one record
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `findOne`.
+    deleted: boolean, optional False
+        Search only in the records that are marked for deletion
+    warn: boolean, optional True
+        If True, warn if there is no record satisfying the criteria.
+        If False, do not warn.
+        If 0, only warn to the log file, not to the user.
+
+    Returns
+    -------
+    AttrDict
+        The single record found,
+        or an empty AttrDict if no record
+        satisfies the criteria.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+
+    criteria[MDEL] = {&#34;$exists&#34;: True} if deleted else None
+    (good, result) = self.executeMongo(table, &#34;find_one&#34;, criteria, {}, warn=False)
+
+    if not good or result is None:
+        if warn:
+            Messages.warning(
+                msg=f&#34;Could not find table {table}&#34;,
+                logmsg=f&#34;No record in {table} with {criteria}&#34;,
+            )
+        else:
+            if type(warn) is int:
+                Messages.warning(
+                    logmsg=f&#34;No record in {table} with {criteria}&#34;,
+                )
+        result = {}
+    return deepAttrDict(result)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.hardDeleteRecord"><code class="name flex">
-<span>def <span class="ident">hardDeleteRecord</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">hardDeleteRecord</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deletes a single record from a table.</p>
@@ -2198,7 +2742,7 @@ Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2206,9 +2750,41 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the delete was successful</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L367-L392" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hardDeleteRecord(self, table, criteria, uName):
+    &#34;&#34;&#34;Deletes a single record from a table.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to delete a single record.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+        Usually they will be such that there will be just one record
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `updateOne`.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean
+        Whether the delete was successful
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    (good, result) = self.executeMongo(table, &#34;delete_one&#34;, criteria)
+    return result.deleted_count &gt; 0 if good else False</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.hardDeleteRecords"><code class="name flex">
-<span>def <span class="ident">hardDeleteRecords</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">hardDeleteRecords</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Delete multiple records from a table.</p>
@@ -2218,7 +2794,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>The name of the table from which we want to delete a records.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the selection.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2227,6 +2803,36 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>Whether the command completed successfully and
 how many records have been deleted</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L459-L482" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hardDeleteRecords(self, table, criteria, uName):
+    &#34;&#34;&#34;Delete multiple records from a table.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to delete a records.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean, integer
+        Whether the command completed successfully and
+        how many records have been deleted
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    (good, result) = self.executeMongo(table, &#34;delete_many&#34;, criteria)
+    count = result.deleted_count if good else 0
+    return (good, count)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.insertRecord"><code class="name flex">
 <span>def <span class="ident">insertRecord</span></span>(<span>self, table, fields)</span>
@@ -2246,6 +2852,30 @@ how many records have been deleted</dd>
 <dd>The id of the newly inserted record, or None if the record could not be
 inserted.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L579-L596" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def insertRecord(self, table, fields):
+    &#34;&#34;&#34;Inserts a new record in a table.
+
+    Parameters
+    ----------
+    table: string
+        The table in which the record will be inserted.
+    fields: dict
+        The field names and their contents to populate the new record with.
+
+    Returns
+    -------
+    ObjectId
+        The id of the newly inserted record, or None if the record could not be
+        inserted.
+    &#34;&#34;&#34;
+    (good, result) = self.executeMongo(table, &#34;insert_one&#34;, dict(**fields))
+    return result.inserted_id if good else None</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.mkBackup"><code class="name flex">
 <span>def <span class="ident">mkBackup</span></span>(<span>self, dstBase, project=None, asJson=False)</span>
@@ -2277,6 +2907,74 @@ the backups are stored.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the operation was successful.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L687-L748" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def mkBackup(self, dstBase, project=None, asJson=False):
+    &#34;&#34;&#34;Backs up data as record files in table folders.
+
+    We do site-wide backups and project-specific backups.
+
+    See also `control.backup.Backup.mkBackup`
+
+    This also backs up records that have been marked as deleted.
+
+    This function backs up database data in
+    [`bson`](https://www.mongodb.com/basics/bson) and/or `json` format.
+
+    Inspired by this
+    [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+    Parameters
+    ----------
+    dstBase: string
+        Destination folder.
+        This folder will get subfolders `bson` and/or `json` in which
+        the backups are stored.
+    project: string, optional None
+        If given, only backs up the given project.
+    asJson: boolean, optional False
+        Whether to create a backup in `json` format
+    asBson: boolean, optional True
+        Whether to create a backup in `bson` format
+
+    Returns
+    -------
+    boolean
+        Whether the operation was successful.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    self.connect()
+    db = self.db
+    tables = db.list_collection_names()
+
+    dstb = f&#34;{dstBase}/bson&#34;
+    dirMake(dstb)
+    dstj = None
+    jOpts = {}
+
+    if asJson:
+        dstj = f&#34;{dstBase}/json&#34;
+        dirMake(dstj)
+        jOpts = dict(ensure_ascii=False, indent=2, sort_keys=True)
+
+    if project is None:
+        for table in tables:
+            records = db[table].find()
+            n = self.writeRecords(table, records, dstb, dstj=dstj, jOpts=jOpts)
+            plural = &#34;&#34; if n == 1 else &#34;&#34;
+            Messages.info(msg=f&#34;table {table} {n} record{plural}&#34;)
+        return True
+
+    (projectId, project) = self.get(&#34;project&#34;, project)
+    records = db.project.find(dict(_id=projectId))
+    n = self.writeRecords(&#34;project&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+    records = db.edition.find(dict(projectId=projectId))
+    n = self.writeRecords(&#34;edition&#34;, records, dstb, dstj=dstj, jOpts=jOpts)
+    return True</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.restoreBackup"><code class="name flex">
 <span>def <span class="ident">restoreBackup</span></span>(<span>self, src, project=None, clean=True)</span>
@@ -2308,6 +3006,167 @@ project/edition records will be cleaned.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the operation was successful.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L799-L953" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def restoreBackup(self, src, project=None, clean=True):
+    &#34;&#34;&#34;Restores the database from record files in table folders.
+
+    We do site-wide restores or project-specific restores.
+
+    See also `control.backup.Backup.restoreBackup`
+
+    This also restores records that have been marked as deleted.
+
+    This function restores database data given in
+    [`bson`](https://www.mongodb.com/basics/bson).
+
+    Inspired by this
+    [gist](https://gist.github.com/Lh4cKg/939ce683e2876b314a205b3f8c6e8e9d).
+
+    Parameters
+    ----------
+    src: string
+        Source folder.
+    project: string, optional None
+        If given, only restores the given project.
+    clean: boolean, optional True
+        Whether to delete records from a table before
+        restoring records to it.
+        If `clean=True` then, in case of site-wide restores, all records
+        will be cleaned. In case of project restores, only the relevant
+        project/edition records will be cleaned.
+
+    Returns
+    -------
+    boolean
+        Whether the operation was successful.
+    &#34;&#34;&#34;
+    Messages = self.Messages
+    self.connect()
+    db = self.db
+
+    if not dirExists(src):
+        Messages.warning(
+            msg=&#34;Source directory not found&#34;,
+            logmsg=f&#34;Source directory {src} not found&#34;,
+        )
+        return False
+
+    good = True
+
+    if project is None:
+        with os.scandir(src) as dh:
+            for entry in dh:
+                name = entry.name
+                if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                    continue
+
+                table = name.rsplit(&#34;.&#34;, 1)[0]
+
+                with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                    records = decode_all(f.read())
+
+                n = len(records)
+                plural = &#34;&#34; if n == 1 else &#34;s&#34;
+                Messages.info(msg=f&#34;table {table} {n} record{plural}&#34;)
+                if db[table] is not None and clean:
+                    (thisGood, count) = self.hardDeleteRecords(
+                        table, {}, &#34;backuprestore&#34;
+                    )
+                    if not thisGood:
+                        good = False
+
+                db[table].insert_many(records)
+        return good
+
+    (projectId, project) = self.get(&#34;project&#34;, project)
+
+    with os.scandir(src) as dh:
+        for entry in dh:
+            name = entry.name
+            if not (entry.is_file() and name.endswith(&#34;.bson&#34;)):
+                continue
+
+            table = name.rsplit(&#34;.&#34;, 1)[0]
+
+            if table not in {&#34;project&#34;, &#34;edition&#34;}:
+                continue
+
+            with open(f&#34;{src}/{name}&#34;, &#34;rb&#34;) as f:
+                records = decode_all(f.read())
+
+            thisGood = True
+
+            if table == &#34;project&#34;:
+                records = [r for r in records if r._id == projectId]
+                nRecords = len(records)
+
+                if nRecords == 0:
+                    Messages.warning(
+                        msg=f&#34;No {table} records found! Restore skipped.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;No {table} records found! Skipped.&#34;
+                        ),
+                    )
+                    continue
+                elif nRecords &gt; 1:
+                    Messages.warning(
+                        msg=f&#34;Multiple {table} records found. Will restore first.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;Multiple ({nRecords}) {table} records found.&#34;
+                        ),
+                    )
+
+                record = records[0]
+
+                Messages.info(msg=f&#34;Restoring {table} record ...&#34;)
+                if db[table] is not None and clean:
+                    thisGood = self.hardDeleteRecord(
+                        table, dict(_id=projectId), &#34;backuprestore&#34;
+                    )
+                if thisGood:
+                    db[table].insert_one(record)
+                else:
+                    good = False
+
+            elif table == &#34;edition&#34;:
+                records = [r for r in records if r.projectId == projectId]
+                nRecords = len(records)
+                if nRecords == 0:
+                    Messages.info(
+                        msg=f&#34;No {table} records found.&#34;,
+                        logmsg=(
+                            f&#34;Project restore {projectId}: &#34;
+                            f&#34;No {table} records found.&#34;
+                        ),
+                    )
+                    continue
+
+                Messages.info(msg=f&#34;Restoring {table} records ...&#34;)
+
+                if db[table] is not None and clean:
+                    (thisGood, count) = self.hardDeleteRecords(
+                        table, dict(projectId=projectId), &#34;backuprestore&#34;
+                    )
+                if thisGood:
+                    db[table].insert_many(records)
+                else:
+                    good = False
+            else:
+                Messages.warning(
+                    msg=f&#34;Skipping {name} as it is not legal in a project backup&#34;,
+                    logmsg=(
+                        f&#34;Skipping {name} as it is not legal in a project backup&#34;
+                    ),
+                )
+
+    return good</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.tables"><code class="name flex">
 <span>def <span class="ident">tables</span></span>(<span>self)</span>
@@ -2319,9 +3178,27 @@ project/edition records will be cleaned.</dd>
 <dt><code>list</code></dt>
 <dd>The names of the tables.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L175-L186" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def tables(self):
+    &#34;&#34;&#34;List the existent tables in the database.
+
+    Returns
+    -------
+    list
+        The names of the tables.
+    &#34;&#34;&#34;
+    self.connect()
+    db = self.db
+
+    return list(db.list_collection_names())</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.undeleteRecord"><code class="name flex">
-<span>def <span class="ident">undeleteRecord</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">undeleteRecord</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Marks a single record from a table as undeleted.</p>
@@ -2337,7 +3214,7 @@ Usually they will be such that there will be just one record
 that satisfies them.
 But if there are more, a single one is chosen,
 by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2345,9 +3222,46 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dt><code>boolean</code></dt>
 <dd>Whether the undelete was successful</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L427-L457" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def undeleteRecord(self, table, criteria, uName):
+    &#34;&#34;&#34;Marks a single record from a table as undeleted.
+
+    If the record was not marked as deleted, this method does silently nothing
+    and returns True.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to undelete a single record.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+        Usually they will be such that there will be just one record
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `updateOne`.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean
+        Whether the undelete was successful
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    criteria[MDEL] = {&#34;$exists&#34;: True}
+    updates = {&#34;$unset&#34;: {MDEL: None}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
+    (good, result) = self.executeMongo(table, &#34;update_one&#34;, criteria, updates)
+    return good</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.undeleteRecords"><code class="name flex">
-<span>def <span class="ident">undeleteRecords</span></span>(<span>self, table, criteria, by)</span>
+<span>def <span class="ident">undeleteRecords</span></span>(<span>self, table, criteria, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Marks multiple records from a table as undeleted.</p>
@@ -2357,7 +3271,7 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>The name of the table from which we want to undelete records.</dd>
 <dt><strong><code>criteria</code></strong> :&ensp;<code>dict</code></dt>
 <dd>A set of criteria to narrow down the selection.</dd>
-<dt><strong><code>by</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
 <dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2366,9 +3280,41 @@ by the mechanics of the built-in MongoDb command <code>updateOne</code>.</dd>
 <dd>Whether the command completed successfully and
 how many records have been undeleted</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L515-L540" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def undeleteRecords(self, table, criteria, uName):
+    &#34;&#34;&#34;Marks multiple records from a table as undeleted.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table from which we want to undelete records.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean, integer
+        Whether the command completed successfully and
+        how many records have been undeleted
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    criteria[MDEL] = {&#34;$exists&#34;: True}
+    updates = {&#34;$unset&#34;: {MDEL: False}, &#34;$set&#34;: {MRESDT: isonow(), MRESBY: uName}}
+    (good, result) = self.executeMongo(table, &#34;update_many&#34;, criteria, updates)
+    count = result.modified_count if good else 0
+    return (good, count)</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.updateRecord"><code class="name flex">
-<span>def <span class="ident">updateRecord</span></span>(<span>self, table, criteria, updates)</span>
+<span>def <span class="ident">updateRecord</span></span>(<span>self, table, criteria, updates, uName)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Updates a single record from a table.</p>
@@ -2388,12 +3334,56 @@ If none satisfy them, nothing is done.</dd>
 <dd>The fields that must be updated with the values they must get.
 If the value <code>None</code> is specified for a field, that field will be set to
 null.</dd>
+<dt><strong><code>uName</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the user who issued the command</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>boolean</code></dt>
 <dd>Whether the update was successful</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L542-L577" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def updateRecord(self, table, criteria, updates, uName):
+    &#34;&#34;&#34;Updates a single record from a table.
+
+    It does not work on records that have been marked as deleted.
+
+    Parameters
+    ----------
+    table: string
+        The name of the table in which we want to update a single record.
+    criteria: dict
+        A set of criteria to narrow down the selection.
+        Usually they will be such that there will be just one record
+        that satisfies them.
+        But if there are more, a single one is chosen,
+        by the mechanics of the built-in MongoDb command `updateOne`.
+        If none satisfy them, nothing is done.
+    updates: dict
+        The fields that must be updated with the values they must get.
+        If the value `None` is specified for a field, that field will be set to
+        null.
+    uName: string
+        The name of the user who issued the command
+
+    Returns
+    -------
+    boolean
+        Whether the update was successful
+    &#34;&#34;&#34;
+    if not uName:
+        return False
+
+    criteria[MDEL] = None
+    (good, result) = self.executeMongo(
+        table, &#34;update_one&#34;, criteria, {&#34;$set&#34;: updates}
+    )
+    return result.modified_count &gt; 0 if good else False</code></pre>
+</details>
 </dd>
 <dt id="control.mongo.Mongo.writeRecords"><code class="name flex">
 <span>def <span class="ident">writeRecords</span></span>(<span>self, table, records, dstb, dstj=None, jOpts={})</span>
@@ -2423,6 +3413,60 @@ If <code>None</code>, no json file will be written.</dd>
 <dt><code>integer</code></dt>
 <dd>The number of records written</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/mongo.py#L750-L797" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def writeRecords(self, table, records, dstb, dstj=None, jOpts={}):
+    &#34;&#34;&#34;Writes records to bson and possibly json file.
+
+    If the destination file already exists, it will be wiped.
+
+    Parameters
+    ----------
+    table: string
+        Table that contains the record. Will be used as file name
+        for the record to be written to.
+    record: dict
+        The record as it is retrieved from MongoDb
+    dstb: string
+        Destination folder for the bson file.
+    dstj: string, optional None
+        Destination folder for the json file.
+        If `None`, no json file will be written.
+    jOpts: dict, optional {}
+        Format options for writing the json file.
+    first
+
+    Returns
+    -------
+    integer
+        The number of records written
+    &#34;&#34;&#34;
+    asJson = dstj is not None
+
+    n = 0
+    with open(f&#34;{dstb}/{table}.bson&#34;, &#34;wb&#34;) as bh:
+        if asJson:
+            jh = open(f&#34;{dstj}/{table}.json&#34;, &#34;w&#34;)
+            jh.write(&#34;[\n&#34;)
+
+        sep = &#34;&#34;
+        for record in records:
+            bh.write(BSON.encode(record))
+            n += 1
+            if asJson:
+                jh.write(sep)
+                jh.write(dumpjs(record, **jOpts))
+            sep = &#34;,\n&#34;
+
+        if asJson:
+            jh.write(&#34;\n]\n&#34;)
+            jh.close()
+
+    return n</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -2524,7 +3568,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

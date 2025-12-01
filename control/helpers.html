@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.11.1" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>control.helpers API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,13 +26,17 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/helpers.py#L1-L381" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L1-L466" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 import re
 from subprocess import run as run_cmd, CalledProcessError
+from zipfile import ZipFile
+from io import BytesIO
 
-from .files import unexpanduser as ux
+import requests
+
+from .files import unexpanduser as ux, dirMake, dirRemove
 
 
 def ucFirst(x):
@@ -128,6 +132,74 @@ def run(cmdline, workDir=None):
     return (good, stdOut, stdErr)
 
 
+def downloadZip(zipUrl, dest, up=None):
+    &#34;&#34;&#34;Downloads a zip file from an url and extracts its contents to a destination.
+
+    Parameters
+    ----------
+    zipUrl: string
+        The url that points to the zip file
+    fileName: string
+        The name of the file to save the zip file into
+    dest: string
+        The directory on the file system where the zipfile must be extracted
+    up: string, optional None
+        Prefix to remove from all paths in the zip file
+    &#34;&#34;&#34;
+
+    good = True
+    messages = []
+
+    try:
+        response = requests.get(zipUrl)
+    except Exception as e:
+        good = False
+        msg = str(e)
+
+    if not response.ok:
+        good = False
+        msg = &#34;not a valid response&#34;
+
+    if not good:
+        messages.append((&#34;error&#34;, f&#34;Could not download {zipUrl}: {msg}&#34;))
+        return (good, messages)
+
+    try:
+        try:
+            dirMake(dest)
+        except Exception as e:
+            good = False
+            messages.append(
+                (&#34;error&#34;, f&#34;Could not create destination directory {dest}: {e}&#34;)
+            )
+            return (good, messages)
+
+        with ZipFile(BytesIO(response.content)) as zf:
+            if up is None:
+                zf.extractall(path=dest)
+            else:
+                for zInfo in zf.infolist():
+                    fn = zInfo.filename
+
+                    if fn.removesuffix(&#34;/&#34;) == up.removesuffix(&#34;/&#34;):
+                        continue
+
+                    zInfo.filename = fn.removeprefix(up)
+                    zf.extract(zInfo, path=dest)
+
+    except Exception as e:
+        good = False
+        msg = str(e)
+        dirRemove(dest)
+
+    if not good:
+        messages.append((&#34;error&#34;, f&#34;Could not extract {zipUrl}: {msg}&#34;))
+        return (good, messages)
+
+    messages.append((&#34;good&#34;, &#34;Download and extraction successful&#34;))
+    return (good, messages)
+
+
 def htmlEsc(val):
     &#34;&#34;&#34;Escape certain HTML characters by HTML entities.
 
@@ -180,11 +252,11 @@ def hEmpty(x):
     return (
         &#34;&lt;i&gt;no value&lt;/i&gt;&#34;
         if x is None
-        else &#34;&#34;&#34;&lt;code&gt;0&lt;/code&gt;&#34;&#34;&#34;
-        if x == 0
-        else &#34;&#34;&#34;&lt;code&gt;&#39;&#39;&lt;/code&gt;&#34;&#34;&#34;
-        if x == &#34;&#34;
-        else f&#34;&#34;&#34;&lt;code&gt;{str(x)}&lt;/code&gt;&#34;&#34;&#34;
+        else (
+            &#34;&#34;&#34;&lt;code&gt;0&lt;/code&gt;&#34;&#34;&#34;
+            if x == 0
+            else &#34;&#34;&#34;&lt;code&gt;&#39;&#39;&lt;/code&gt;&#34;&#34;&#34; if x == &#34;&#34; else f&#34;&#34;&#34;&lt;code&gt;{str(x)}&lt;/code&gt;&#34;&#34;&#34;
+        )
     )
 
 
@@ -217,11 +289,15 @@ def hScalar0(x, tight=True, issues={}, isIssueKey=False):
         (
             f&#34;{{&lt;b&gt;{k}&lt;/b&gt;: {vRep}}}&#34;
             if tpv is dict
-            else f&#34;&#34;&#34;[&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;]&#34;&#34;&#34;
-            if tpv is list
-            else f&#34;&#34;&#34;(&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;)&#34;&#34;&#34;
-            if tpv is tuple
-            else f&#34;&#34;&#34;{{&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;}}&#34;&#34;&#34;
+            else (
+                f&#34;&#34;&#34;[&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;]&#34;&#34;&#34;
+                if tpv is list
+                else (
+                    f&#34;&#34;&#34;(&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;)&#34;&#34;&#34;
+                    if tpv is tuple
+                    else f&#34;&#34;&#34;{{&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;}}&#34;&#34;&#34;
+                )
+            )
         )
         if simple
         else (
@@ -269,9 +345,11 @@ def hList(x, outer=False, tight=True, issues={}, isIssueKey=False):
                         titleStr = (
                             titles[&#34;EN&#34;]
                             if &#34;EN&#34; in titles
-                            else &#34;&#34;
-                            if len(titles) == 0
-                            else titles[sorted(titles.keys())[0]]
+                            else (
+                                &#34;&#34;
+                                if len(titles) == 0
+                                else titles[sorted(titles.keys())[0]]
+                            )
                         )
                         if titleStr == &#34;&#34;:
                             titleStr = &#34;??&#34;
@@ -344,11 +422,18 @@ def hData(x, tight=True, issues={}, isIssueKey=False):
         return (
             (True, hEmpty(x), &#34;&#34;)
             if len(x) == 0
-            else hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
-            if len(x) == 1 and tpv is not dict
-            else (False, *hDict(x, tight=tight, issues=issues))
-            if tpv is dict
-            else (False, *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey))
+            else (
+                hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
+                if len(x) == 1 and tpv is not dict
+                else (
+                    (False, *hDict(x, tight=tight, issues=issues))
+                    if tpv is dict
+                    else (
+                        False,
+                        *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey),
+                    )
+                )
+            )
         )
     return hScalar(x, issues=issues, isIssueKey=isIssueKey)
 
@@ -423,48 +508,407 @@ def normalize(text):
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L60-L68" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def console(*msg, error=False, newline=True):
+    msg = &#34; &#34;.join(m if type(m) is str else repr(m) for m in msg)
+    msg = &#34;&#34; if not msg else ux(msg)
+    msg = msg[1:] if msg.startswith(&#34;\n&#34;) else msg
+    msg = msg[0:-1] if msg.endswith(&#34;\n&#34;) else msg
+    target = sys.stderr if error else sys.stdout
+    nl = &#34;\n&#34; if newline else &#34;&#34;
+    target.write(f&#34;{msg}{nl}&#34;)
+    target.flush()</code></pre>
+</details>
+</dd>
+<dt id="control.helpers.downloadZip"><code class="name flex">
+<span>def <span class="ident">downloadZip</span></span>(<span>zipUrl, dest, up=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Downloads a zip file from an url and extracts its contents to a destination.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>zipUrl</code></strong> :&ensp;<code>string</code></dt>
+<dd>The url that points to the zip file</dd>
+<dt><strong><code>fileName</code></strong> :&ensp;<code>string</code></dt>
+<dd>The name of the file to save the zip file into</dd>
+<dt><strong><code>dest</code></strong> :&ensp;<code>string</code></dt>
+<dd>The directory on the file system where the zipfile must be extracted</dd>
+<dt><strong><code>up</code></strong> :&ensp;<code>string</code>, optional <code>None</code></dt>
+<dd>Prefix to remove from all paths in the zip file</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L105-L170" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def downloadZip(zipUrl, dest, up=None):
+    &#34;&#34;&#34;Downloads a zip file from an url and extracts its contents to a destination.
+
+    Parameters
+    ----------
+    zipUrl: string
+        The url that points to the zip file
+    fileName: string
+        The name of the file to save the zip file into
+    dest: string
+        The directory on the file system where the zipfile must be extracted
+    up: string, optional None
+        Prefix to remove from all paths in the zip file
+    &#34;&#34;&#34;
+
+    good = True
+    messages = []
+
+    try:
+        response = requests.get(zipUrl)
+    except Exception as e:
+        good = False
+        msg = str(e)
+
+    if not response.ok:
+        good = False
+        msg = &#34;not a valid response&#34;
+
+    if not good:
+        messages.append((&#34;error&#34;, f&#34;Could not download {zipUrl}: {msg}&#34;))
+        return (good, messages)
+
+    try:
+        try:
+            dirMake(dest)
+        except Exception as e:
+            good = False
+            messages.append(
+                (&#34;error&#34;, f&#34;Could not create destination directory {dest}: {e}&#34;)
+            )
+            return (good, messages)
+
+        with ZipFile(BytesIO(response.content)) as zf:
+            if up is None:
+                zf.extractall(path=dest)
+            else:
+                for zInfo in zf.infolist():
+                    fn = zInfo.filename
+
+                    if fn.removesuffix(&#34;/&#34;) == up.removesuffix(&#34;/&#34;):
+                        continue
+
+                    zInfo.filename = fn.removeprefix(up)
+                    zf.extract(zInfo, path=dest)
+
+    except Exception as e:
+        good = False
+        msg = str(e)
+        dirRemove(dest)
+
+    if not good:
+        messages.append((&#34;error&#34;, f&#34;Could not extract {zipUrl}: {msg}&#34;))
+        return (good, messages)
+
+    messages.append((&#34;good&#34;, &#34;Download and extraction successful&#34;))
+    return (good, messages)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.genViewerSelector"><code class="name flex">
 <span>def <span class="ident">genViewerSelector</span></span>(<span>allViewers, chosenViewer, chosenVersion, origViewer, origVersion, fileBase)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L23-L57" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def genViewerSelector(
+    allViewers,
+    chosenViewer,
+    chosenVersion,
+    origViewer,
+    origVersion,
+    fileBase,
+):
+    html = []
+
+    for viewer, vwDefault, versions in allViewers:
+        viewerRep = f&#34;&lt;b&gt;{viewer}&lt;/b&gt;&#34; if vwDefault else viewer
+        viewerRep = f&#34;&lt;i&gt;{viewerRep}&lt;/i&gt;&#34; if viewer == origViewer else viewerRep
+        html.append(f&#34;&#34;&#34;&lt;details&gt;&lt;summary&gt;{viewerRep} versions&lt;/summary&gt;&#34;&#34;&#34;)
+
+        for version, vvDefault in versions:
+            versionRep = f&#34;&lt;b&gt;{version}&lt;/b&gt;&#34; if vwDefault and vvDefault else version
+            versionRep = (
+                f&#34;&lt;i&gt;{versionRep}&lt;/i&gt;&#34;
+                if viewer == origViewer and version == origVersion
+                else versionRep
+            )
+            entry = (
+                f&#34;&#34;&#34;&lt;span&gt;{versionRep}&lt;/span&gt;&#34;&#34;&#34;
+                if viewer == chosenViewer and version == chosenVersion
+                else (
+                    f&#34;&#34;&#34;&lt;a href=&#34;/{fileBase}-{viewer}-{version}.html&#34;&gt;&#34;&#34;&#34;
+                    f&#34;&#34;&#34;{versionRep}&lt;/a&gt;&#34;&#34;&#34;
+                )
+            )
+            html.append(f&#34;&lt;div&gt;{entry}&lt;/div&gt;&#34;)
+
+        html.append(&#34;&lt;/details&gt;&#34;)
+
+    return &#34;\n&#34;.join(html)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hData"><code class="name flex">
 <span>def <span class="ident">hData</span></span>(<span>x, tight=True, issues={}, isIssueKey=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L382-L408" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hData(x, tight=True, issues={}, isIssueKey=False):
+    if not x:
+        return (True, hEmpty(x), &#34;&#34;)
+
+    tpv = type(x)
+
+    if tpv is str or tpv is float or tpv is int or tpv is bool:
+        return hScalar(x, issues=issues, isIssueKey=isIssueKey)
+
+    if tpv is list or tpv is tuple or tpv is set or tpv is dict:
+        return (
+            (True, hEmpty(x), &#34;&#34;)
+            if len(x) == 0
+            else (
+                hScalar0(x, tight=tight, issues=issues, isIssueKey=isIssueKey)
+                if len(x) == 1 and tpv is not dict
+                else (
+                    (False, *hDict(x, tight=tight, issues=issues))
+                    if tpv is dict
+                    else (
+                        False,
+                        *hList(x, tight=tight, issues=issues, isIssueKey=isIssueKey),
+                    )
+                )
+            )
+        )
+    return hScalar(x, issues=issues, isIssueKey=isIssueKey)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hDict"><code class="name flex">
 <span>def <span class="ident">hDict</span></span>(<span>x, outer=False, tight=True, issues={})</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L345-L379" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hDict(x, outer=False, tight=True, issues={}):
+    html = []
+
+    elem = f&#34;{&#39;o&#39; if outer else &#39;u&#39;}l&#34;
+    html.append(f&#34;&lt;{elem}&gt;&#34;)
+
+    outerCls = &#34;&#34;
+
+    for k, v in sorted(x.items(), key=lambda y: str(y)):
+        (simple, vRep, cls) = hData(
+            v, tight=tight, issues=issues, isIssueKey=k in ISSUE_KEYS
+        )
+        if (
+            outerCls == &#34;&#34;
+            and cls == &#34;warning&#34;
+            or outerCls != &#34;error&#34;
+            and cls == &#34;error&#34;
+        ):
+            outerCls = cls
+
+        if simple:
+            html.append(f&#34;&#34;&#34;&lt;li&gt;&lt;b class=&#34;{cls}&#34;&gt;{k}&lt;/b&gt;: {vRep}&lt;/li&gt;&#34;&#34;&#34;)
+        else:
+            html.append(
+                (
+                    f&#34;&#34;&#34;&lt;li&gt;&lt;details&gt;&lt;summary&gt;&lt;b class=&#34;{cls}&#34;&gt;{k}&lt;/b&gt;:&lt;/summary&gt;&#34;&#34;&#34;
+                    f&#34;&#34;&#34;{vRep}&lt;/details&gt;&lt;/li&gt;&#34;&#34;&#34;
+                )
+                if tight
+                else f&#34;&#34;&#34;&lt;li&gt;&lt;b class=&#34;{cls}&#34;&gt;{k}&lt;/b&gt;: {vRep}&lt;/li&gt;&#34;&#34;&#34;
+            )
+
+    html.append(f&#34;&lt;/{elem}&gt;&#34;)
+
+    return (&#34;&#34;.join(html), outerCls)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hEmpty"><code class="name flex">
 <span>def <span class="ident">hEmpty</span></span>(<span>x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L221-L230" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hEmpty(x):
+    return (
+        &#34;&lt;i&gt;no value&lt;/i&gt;&#34;
+        if x is None
+        else (
+            &#34;&#34;&#34;&lt;code&gt;0&lt;/code&gt;&#34;&#34;&#34;
+            if x == 0
+            else &#34;&#34;&#34;&lt;code&gt;&#39;&#39;&lt;/code&gt;&#34;&#34;&#34; if x == &#34;&#34; else f&#34;&#34;&#34;&lt;code&gt;{str(x)}&lt;/code&gt;&#34;&#34;&#34;
+        )
+    )</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hList"><code class="name flex">
 <span>def <span class="ident">hList</span></span>(<span>x, outer=False, tight=True, issues={}, isIssueKey=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L285-L342" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hList(x, outer=False, tight=True, issues={}, isIssueKey=False):
+    elem = f&#34;{&#39;o&#39; if outer else &#39;u&#39;}l&#34;
+    html = []
+    html.append(f&#34;&lt;{elem}&gt;&#34;)
+
+    outerCls = &#34;&#34;
+
+    for i, v in enumerate(x):
+        (simple, vRep, cls) = hData(v, issues=issues, isIssueKey=isIssueKey)
+
+        if (
+            outerCls == &#34;&#34;
+            and cls == &#34;warning&#34;
+            or outerCls != &#34;error&#34;
+            and cls == &#34;error&#34;
+        ):
+            outerCls = cls
+
+        if simple:
+            html.append(f&#34;&#34;&#34;&lt;li&gt;{vRep}&lt;/li&gt;&#34;&#34;&#34;)
+        else:
+            if type(v) is dict:
+                idStr = f&#34;&#34;&#34;(#{v[&#34;id&#34;]})&#34;&#34;&#34; if &#34;id&#34; in v else &#34;&#34;
+                nameStr = f&#34;&#34;&#34;({v[&#34;name&#34;]})&#34;&#34;&#34; if &#34;name&#34; in v else &#34;&#34;
+                titleStr = &#34;&#34;
+
+                if &#34;titles&#34; in v:
+                    titles = v[&#34;titles&#34;]
+
+                    if type(titles) is dict:
+                        titleStr = (
+                            titles[&#34;EN&#34;]
+                            if &#34;EN&#34; in titles
+                            else (
+                                &#34;&#34;
+                                if len(titles) == 0
+                                else titles[sorted(titles.keys())[0]]
+                            )
+                        )
+                        if titleStr == &#34;&#34;:
+                            titleStr = &#34;??&#34;
+
+                head = &#34; &#34;.join(x for x in (idStr, nameStr, titleStr) if x != &#34;&#34;)
+            else:
+                head = f&#34;{i + 1}&#34;
+
+            html.append(
+                (
+                    f&#34;&#34;&#34;&lt;li&gt;&lt;details&gt;&lt;summary class=&#34;{cls}&#34;&gt;{head}:&lt;/summary&gt;&#34;&#34;&#34;
+                    f&#34;&#34;&#34;{vRep}&lt;/details&gt;&lt;/li&gt;&#34;&#34;&#34;
+                )
+                if tight
+                else f&#34;&#34;&#34;&lt;li class=&#34;{cls}&#34;&gt;{head}: {vRep}&lt;/li&gt;&#34;&#34;&#34;
+            )
+
+    html.append(f&#34;&lt;/{elem}&gt;&#34;)
+
+    return (&#34;&#34;.join(html), outerCls)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hScalar"><code class="name flex">
 <span>def <span class="ident">hScalar</span></span>(<span>x, issues={}, isIssueKey=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L233-L241" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hScalar(x, issues={}, isIssueKey=False):
+    if type(x) is str:
+        x = htmlEsc(x)
+        if &#34;\n&#34; in x:
+            x = x.replace(&#34;\n&#34;, &#34;&lt;br&gt;&#34;)
+
+    cls = issues[x] if isIssueKey and x in issues else &#34;&#34;
+    xRep = f&#34;&#34;&#34;&lt;code class=&#34;{cls}&#34;&gt;{x}&lt;/code&gt;&#34;&#34;&#34;
+    return (len(x) &lt; 60 if type(x) is str else True, xRep, cls)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.hScalar0"><code class="name flex">
 <span>def <span class="ident">hScalar0</span></span>(<span>x, tight=True, issues={}, isIssueKey=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L244-L282" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def hScalar0(x, tight=True, issues={}, isIssueKey=False):
+    tpv = type(x)
+
+    if tpv is dict:
+        (k, v) = list(x.items())[0]
+        label = f&#34;&lt;b&gt;{k}&lt;/b&gt;&#34;
+        cls = &#34;&#34;
+    else:
+        v = list(x)[0]
+        label = &#34;&#34;
+        cls = issues[v] if isIssueKey and v in issues else &#34;&#34;
+
+    (simple, vRep, clsDeep) = hData(v, issues=issues, isIssueKey=False)
+
+    html = (
+        (
+            f&#34;{{&lt;b&gt;{k}&lt;/b&gt;: {vRep}}}&#34;
+            if tpv is dict
+            else (
+                f&#34;&#34;&#34;[&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;]&#34;&#34;&#34;
+                if tpv is list
+                else (
+                    f&#34;&#34;&#34;(&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;)&#34;&#34;&#34;
+                    if tpv is tuple
+                    else f&#34;&#34;&#34;{{&lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;}}&#34;&#34;&#34;
+                )
+            )
+        )
+        if simple
+        else (
+            f&#34;&#34;&#34;&lt;li&gt;&lt;details open&gt;
+                &lt;summary&gt;{label}:&lt;/summary&gt;
+                &lt;span class=&#34;{cls}&#34;&gt;{vRep}&lt;/span&gt;
+                &lt;/details&gt;&lt;/li&gt;&#34;&#34;&#34;
+            if tight
+            else f&#34;&#34;&#34;&lt;li&gt;{label}: {vRep}&lt;/li&gt;&#34;&#34;&#34;
+        )
+    )
+    return (simple, html, cls)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.htmlEsc"><code class="name flex">
 <span>def <span class="ident">htmlEsc</span></span>(<span>val)</span>
@@ -478,6 +922,34 @@ in cases where you need them literally.</p>
 <dt><strong><code>val</code></strong> :&ensp;<code>string</code></dt>
 <dd>The input value</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L173-L194" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def htmlEsc(val):
+    &#34;&#34;&#34;Escape certain HTML characters by HTML entities.
+
+    To prevent them to be interpreted as HTML
+    in cases where you need them literally.
+
+    Parameters
+    ----------
+    val: string
+        The input value
+    &#34;&#34;&#34;
+
+    return (
+        &#34;&#34;
+        if val is None
+        else str(val)
+        .replace(&#34;&amp;&#34;, &#34;&amp;amp;&#34;)
+        .replace(&#34;&lt;&#34;, &#34;&amp;lt;&#34;)
+        .replace(&#34;&gt;&#34;, &#34;&amp;gt;&#34;)
+        .replace(&#39;&#34;&#39;, &#34;&amp;quot;&#34;)
+        .replace(&#34;&#39;&#34;, &#34;&amp;apos;&#34;)
+    )</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.htmlUnEsc"><code class="name flex">
 <span>def <span class="ident">htmlUnEsc</span></span>(<span>val)</span>
@@ -489,6 +961,31 @@ in cases where you need them literally.</p>
 <dt><strong><code>val</code></strong> :&ensp;<code>string</code></dt>
 <dd>The input value</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L197-L215" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def htmlUnEsc(val):
+    &#34;&#34;&#34;Unescape certain HTML entities by their character values.
+
+    Parameters
+    ----------
+    val: string
+        The input value
+    &#34;&#34;&#34;
+
+    return (
+        &#34;&#34;
+        if val is None
+        else str(val)
+        .replace(&#34;&amp;lt;&#34;, &#34;&lt;&#34;)
+        .replace(&#34;&amp;gt;&#34;, &#34;&gt;&#34;)
+        .replace(&#34;&amp;quot;&#34;, &#39;&#34;&#39;)
+        .replace(&#34;&amp;apos;&#34;, &#34;&#39;&#34;)
+        .replace(&#34;&amp;amp;&#34;, &#34;&amp;&#34;)
+    )</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.normalize"><code class="name flex">
 <span>def <span class="ident">normalize</span></span>(<span>text)</span>
@@ -505,12 +1002,40 @@ in cases where you need them literally.</p>
 <dt><code>string</code></dt>
 <dd>The lower-cased, whitespace normalized version of the input.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L453-L466" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def normalize(text):
+    &#34;&#34;&#34;Produce a normalized version of a string.
+
+    Parameters
+    ----------
+    text: string
+        The input text
+
+    Returns
+    -------
+    string
+        The lower-cased, whitespace normalized version of the input.
+    &#34;&#34;&#34;
+    return WHITE_RE.sub(&#34; &#34;, text.strip()).lower()</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.prettify"><code class="name flex">
 <span>def <span class="ident">prettify</span></span>(<span>x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L19-L20" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def prettify(x):
+    return &#34; &#34;.join(ucFirst(w) for w in x.split(&#34;_&#34;))</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.run"><code class="name flex">
 <span>def <span class="ident">run</span></span>(<span>cmdline, workDir=None)</span>
@@ -528,6 +1053,44 @@ standard error and standard output.</p>
 <dd>The working directory where the command should be executed.
 If <code>None</code> the current directory is used.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L71-L102" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def run(cmdline, workDir=None):
+    &#34;&#34;&#34;Runs a shell command and returns all relevant info.
+
+    The function runs a command-line in a shell, and returns
+    whether the command was successful, and also what the output was, separately for
+    standard error and standard output.
+
+    Parameters
+    ----------
+    cmdline: string
+        The command-line to execute.
+    workDir: string, optional None
+        The working directory where the command should be executed.
+        If `None` the current directory is used.
+    &#34;&#34;&#34;
+    try:
+        result = run_cmd(
+            cmdline,
+            shell=True,
+            cwd=workDir,
+            check=True,
+            capture_output=True,
+        )
+        stdOut = result.stdout.decode(&#34;utf8&#34;).strip()
+        stdErr = result.stderr.decode(&#34;utf8&#34;).strip()
+        good = True
+    except CalledProcessError as e:
+        stdOut = e.stdout.decode(&#34;utf8&#34;).strip()
+        stdErr = e.stderr.decode(&#34;utf8&#34;).strip()
+        good = False
+
+    return (good, stdOut, stdErr)</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.showDict"><code class="name flex">
 <span>def <span class="ident">showDict</span></span>(<span>title, data, *keys, tight=True, issues={})</span>
@@ -547,12 +1110,66 @@ will be displayed. If no keys are passed, all keys will be displayed.</dd>
 <dt><code>displayed HTML</code></dt>
 <dd>An expandable list of the key-value pair for the requested keys.</dd>
 </dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L411-L447" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def showDict(title, data, *keys, tight=True, issues={}):
+    &#34;&#34;&#34;Shows selected keys of a dictionary in a pretty way.
+
+    Parameters
+    ----------
+    keys: iterable of string
+        For each key passed to this function, the information for that key
+        will be displayed. If no keys are passed, all keys will be displayed.
+
+    tight: boolean, optional True
+        Whether to use the details element to compactify the representation.
+
+    Returns
+    -------
+    displayed HTML
+        An expandable list of the key-value pair for the requested keys.
+    &#34;&#34;&#34;
+
+    keys = set(keys)
+
+    (html, cls) = hDict(
+        {k: v for (k, v) in data.items() if not keys or k in keys},
+        outer=True,
+        tight=tight,
+        issues=issues,
+    )
+    openRep = &#34;open&#34; if keys else &#34;&#34;
+    html = (
+        (
+            f&#34;&#34;&#34;&lt;details {openRep}&gt;&lt;summary class=&#34;{cls}&#34;&gt;{title}&lt;/summary&gt;&#34;&#34;&#34;
+            f&#34;&#34;&#34;{html}&lt;/details&gt;&#34;&#34;&#34;
+        )
+        if tight
+        else f&#34;&#34;&#34;&lt;div class=&#34;{cls}&#34;&gt;{title}&lt;/div&gt;&lt;div&gt;{html}&lt;/div&gt;&#34;&#34;&#34;
+    )
+
+    return html</code></pre>
+</details>
 </dd>
 <dt id="control.helpers.ucFirst"><code class="name flex">
 <span>def <span class="ident">ucFirst</span></span>(<span>x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/helpers.py#L12-L16" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def ucFirst(x):
+    if not x:
+        return &#34;&#34;
+
+    return x[0].upper() + x[1:]</code></pre>
+</details>
 </dd>
 </dl>
 </section>
@@ -621,6 +1238,7 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="control.helpers.console" href="#control.helpers.console">console</a></code></li>
+<li><code><a title="control.helpers.downloadZip" href="#control.helpers.downloadZip">downloadZip</a></code></li>
 <li><code><a title="control.helpers.genViewerSelector" href="#control.helpers.genViewerSelector">genViewerSelector</a></code></li>
 <li><code><a title="control.helpers.hData" href="#control.helpers.hData">hData</a></code></li>
 <li><code><a title="control.helpers.hDict" href="#control.helpers.hDict">hDict</a></code></li>
@@ -642,7 +1260,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

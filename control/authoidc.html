@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.11.1" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>control.authoidc API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -26,17 +26,16 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/authoidc.py#L1-L59" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/authoidc.py#L1-L58" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">from flask_oidc import OpenIDConnect
 import json
 
 
 def json_loads(content):
-    &#34;&#34;&#34;Handles loading of json content as unicode strings.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Handles loading of json content as unicode strings.&#34;&#34;&#34;
     if not isinstance(content, str):
-        content = content.decode(&#39;utf-8&#39;)
+        content = content.decode(&#34;utf-8&#34;)
     return json.loads(content)
 
 
@@ -48,28 +47,28 @@ class AuthOidc:
     For that we use the Python module
     [flask-oidc](https://github.com/puiterwijk/flask-oidc).
     &#34;&#34;&#34;
+
     OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
     def load_secrets(cls):
-        &#34;&#34;&#34;Reads secrets used in encryption and decryption.
-        &#34;&#34;&#34;
-        return json_loads(open(cls.OIDC_CLIENT_SECRETS, &#39;r&#39;).read())
+        &#34;&#34;&#34;Reads secrets used in encryption and decryption.&#34;&#34;&#34;
+        return json_loads(open(cls.OIDC_CLIENT_SECRETS, &#34;r&#34;).read())
 
     @classmethod
     def prepare(cls, app):
-        &#34;&#34;&#34;Injects the OIDC module into the main app.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Injects the OIDC module into the main app.&#34;&#34;&#34;
         authconf = {
             # &#39;SECRET_KEY&#39;: app.secret_key,
-            &#39;TESTING&#39;: True,
-            &#39;DEBUG&#39;: True,
-            &#39;OIDC_CLIENT_SECRETS&#39;: cls.OIDC_CLIENT_SECRETS,
+            &#34;TESTING&#34;: True,
+            &#34;DEBUG&#34;: True,
+            &#34;OIDC_CLIENT_SECRETS&#34;: cls.OIDC_CLIENT_SECRETS,
             # &#39;OIDC_USER_INFO_ENABLED&#39;: True,
-            &#39;OIDC_ID_TOKEN_COOKIE_SECURE&#39;: False,
+            &#34;OIDC_ID_TOKEN_COOKIE_SECURE&#34;: False,
             # &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
             # &#39;OIDC_OPENID_REALM&#39;: &#39;auth realm&#39;,
             # &#39;OVERWRITE_REDIRECT_URI&#39;: OpenIDConnect.client_secrets.get(&#34;redirect_uris&#34;),
+            &#34;CLAIMS&#34;: {&#34;userinfo&#34;: {&#34;nickname&#34;: None, &#34;eppn&#34;: None}},
         }
         secrets = cls.load_secrets()
         client_secrets = list(secrets.values())[0]
@@ -101,6 +100,17 @@ class AuthOidc:
 </code></dt>
 <dd>
 <div class="desc"><p>Handles loading of json content as unicode strings.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/authoidc.py#L5-L9" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def json_loads(content):
+    &#34;&#34;&#34;Handles loading of json content as unicode strings.&#34;&#34;&#34;
+    if not isinstance(content, str):
+        content = content.decode(&#34;utf-8&#34;)
+    return json.loads(content)</code></pre>
+</details>
 </dd>
 </dl>
 </section>
@@ -118,7 +128,7 @@ class AuthOidc:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/CLARIAH/pure3dx/blob/99a827eec565f9f7bf0633f62d3c060d35dd93dc/src/control/authoidc.py#L13-L59" class="git-link">Browse git</a>
+<a href="https://github.com/CLARIAH/pure3dx/blob/e78f0a8c18833b7fd3bd3547c86cde0df3ec9203/src/control/authoidc.py#L12-L58" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AuthOidc:
     &#34;&#34;&#34;Invoke the OIDC authentication.
@@ -128,28 +138,28 @@ class AuthOidc:
     For that we use the Python module
     [flask-oidc](https://github.com/puiterwijk/flask-oidc).
     &#34;&#34;&#34;
+
     OIDC_CLIENT_SECRETS = &#34;/app/secret/client_secrets.json&#34;
 
     @classmethod
     def load_secrets(cls):
-        &#34;&#34;&#34;Reads secrets used in encryption and decryption.
-        &#34;&#34;&#34;
-        return json_loads(open(cls.OIDC_CLIENT_SECRETS, &#39;r&#39;).read())
+        &#34;&#34;&#34;Reads secrets used in encryption and decryption.&#34;&#34;&#34;
+        return json_loads(open(cls.OIDC_CLIENT_SECRETS, &#34;r&#34;).read())
 
     @classmethod
     def prepare(cls, app):
-        &#34;&#34;&#34;Injects the OIDC module into the main app.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Injects the OIDC module into the main app.&#34;&#34;&#34;
         authconf = {
             # &#39;SECRET_KEY&#39;: app.secret_key,
-            &#39;TESTING&#39;: True,
-            &#39;DEBUG&#39;: True,
-            &#39;OIDC_CLIENT_SECRETS&#39;: cls.OIDC_CLIENT_SECRETS,
+            &#34;TESTING&#34;: True,
+            &#34;DEBUG&#34;: True,
+            &#34;OIDC_CLIENT_SECRETS&#34;: cls.OIDC_CLIENT_SECRETS,
             # &#39;OIDC_USER_INFO_ENABLED&#39;: True,
-            &#39;OIDC_ID_TOKEN_COOKIE_SECURE&#39;: False,
+            &#34;OIDC_ID_TOKEN_COOKIE_SECURE&#34;: False,
             # &#39;OIDC_REQUIRE_VERIFIED_EMAIL&#39;: False,
             # &#39;OIDC_OPENID_REALM&#39;: &#39;auth realm&#39;,
             # &#39;OVERWRITE_REDIRECT_URI&#39;: OpenIDConnect.client_secrets.get(&#34;redirect_uris&#34;),
+            &#34;CLAIMS&#34;: {&#34;userinfo&#34;: {&#34;nickname&#34;: None, &#34;eppn&#34;: None}},
         }
         secrets = cls.load_secrets()
         client_secrets = list(secrets.values())[0]
@@ -275,7 +285,7 @@ setTimeout(() => input.focus(), 100);
 </main>
 <footer id="footer">
 <a href="https://pure.knaw.nl/portal/en/persons/dirk-roorda">Dirk Roorda</a>
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>
